@@ -1,0 +1,25 @@
+# Normalise text line endings in the repo; check out native on each platform.
+* text=auto
+
+# MATLAB sources are text
+*.m      text
+*.md     text
+*.txt    text
+*.yaml   text
+*.yml    text
+*.xml    text
+*.json   text
+
+# Binaries — never touch these
+*.jar     binary
+*.mexw64  binary
+*.mexa64  binary
+*.mexmaci64 binary
+*.mat     binary
+*.npy     binary
+*.tif     binary
+*.tiff    binary
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.pdf     binary

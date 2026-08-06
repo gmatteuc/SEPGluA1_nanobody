@@ -1,0 +1,78 @@
+# =============================================================
+#  sep_histology — code-only repository
+#  Data NEVER enters this repo. Raw data is read-only on
+#  S:\ElboustaniLab\#SHARE\Data ; derived data lives in
+#  D:\sep_histology\data (outside this tree).
+# =============================================================
+
+# ---- OS / editor junk ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- MATLAB autosaves & temp ----
+*.asv
+*.m~
+*.autosave
+slprj/
+codegen/
+
+# ---- Raw acquisition ----
+*.czi
+*.lif
+*.nd2
+
+# ---- Volumes, cohort arrays, caches ----
+*.mat
+*.tif
+*.tiff
+*.nii
+*.nii.gz
+*.npy
+*.h5
+*.hdf5
+
+# ---- Figures & videos (regenerate from code) ----
+*.fig
+*.mp4
+*.avi
+*.png
+*.PNG
+*.jpg
+*.jpeg
+*.pdf
+*.svg
+
+# ---- Result tables ----
+*.csv
+
+# ---- Accidental local data dirs ----
+data/
+output/
+comparisons/
+
+# =============================================================
+#  Exceptions: vendored third-party deps ship legitimate
+#  resources (colormaps, example volumes, mex binaries) that
+#  the pipeline needs at runtime. Re-include their whole trees.
+# =============================================================
+!LightSuite-main/**
+!matlab_elastix-master/**
+!yamlmatlab/**
+!BioformatsImage/**
+
+# ---- Re-apply junk rules inside the vendored trees ----
+**/*.asv
+**/*.m~
+**/.DS_Store
+
+# =============================================================
+#  Duplicate vendored copy: byte-identical to its parent and
+#  referenced by nothing. Excluded because genpath() puts BOTH
+#  copies on the MATLAB path, shadowing transformix.m et al.
+#  Safe to delete from disk.
+# =============================================================
+matlab_elastix-master/matlab_elastix-master/
+
+# ---- Claude Code local settings (machine-specific) ----
+.claude/settings.local.json

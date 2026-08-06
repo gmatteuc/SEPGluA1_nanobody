@@ -1,0 +1,13 @@
+https://github.com/dimokaramanlis/LightSuite
+
+LightSuite calls Elastix from the command line, so its executables must be globally accessible.
+
+Download the version 5.1.0 executables and unzip the archive to a permanent location on your computer (e.g., C:\elastix or /opt/elastix).
+
+Add Elastix to the system PATH: This is the most critical step. You must add the directory containing the elastix and transformix executables to your system's PATH environment variable.
+
+Windows: Search for "Edit the system environment variables," click "Environment Variables," and add a new System variable named elastix with the path to your bin directory (e.g., C:\elastix).
+Linux/macOS: Add export PATH="/path/to/your/elastix/bin:$PATH" to your shell configuration file.
+Verification: To confirm that Elastix is installed correctly, open a new terminal or command prompt and type elastix --version. You should see the version information printed to the screen. If you get a "command not found" error, the PATH is not set correctly.
+
+Allen Atlas
