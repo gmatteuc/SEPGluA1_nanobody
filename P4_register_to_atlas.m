@@ -6,8 +6,13 @@ clc
 
 %% User-defined parameters
 
-mice = {'MG691_Gria1', 'MG692_Gria1', 'MG693_Gria1', 'MG736_Gria1', 'MG737_Gria1', 'CGF027_Gria1', 'CGF028_Gria1', 'CGF033_Gria1', 'CGF034_Gria1', 'CGF035_Gria1','MG705_Gria1', 'MG706_Gria1', 'MG709_Gria1', 'MG716_Gria1', 'MG718_Gria1', 'MG725_Gria1', 'MG727_Gria1'};
-mousetypes = {'rws','rws','rws','rws','rws','naive','naive','naive','naive','naive','behavior','behavior','behavior','behavior','behavior','behavior','behavior'};
+% Cohort selection (mice come from the shared registry get_cohort.m).
+% Set mice_to_process to {} to process every mouse in groups_to_process.
+groups_to_process = {'young'};                  % 'rws' | 'naive' | 'behavior' | 'young'
+mice_to_process   = {'MG903_SepGluA_P20'};      % {} = all mice in groups_to_process
+
+% Reference atlas
+atlas_key = 'ccf';
 
 % Choose correction type
 correction_type = 'slicewise';
@@ -17,7 +22,8 @@ use_equalized_nano = 1;
 
 %% Add paths
 
-allenDir = 'D:\sep_histology\data\atlas';
+atlas = get_atlas(atlas_key);
+allenDir = atlas.dir;
 lightsuiteDir = 'D:\sep_histology\code\LightSuite-main';
 yamlDir = 'D:\sep_histology\code\yamlmatlab';
 elastixDir = 'D:\sep_histology\code\matlab_elastix-master';
@@ -26,15 +32,25 @@ addpath(genpath(lightsuiteDir))
 addpath(genpath(yamlDir))
 addpath(genpath(elastixDir))
 
+%% Resolve cohort
+
+get_cohort('verify');
+if isempty(mice_to_process)
+    cohort = get_cohort('groups', groups_to_process);
+else
+    cohort = get_cohort('names', mice_to_process);
+end
+fprintf('P4: %d mouse/mice selected.\n', numel(cohort));
+
 %% Loop over mice
 
-for mouse_idx = 6:numel(mice) %[11,12,13,15,17]% [6,9,10,14,16]%1:numel(mice)
+for mouse_idx = 1:numel(cohort)
 
     %% Fetch data and bridge preprocessing results to the original Lightsuite registartion pipeline
 
     % Get current mouse name and type
-    mouse_name = mice{mouse_idx};
-    mouse_type = mousetypes{mouse_idx};
+    mouse_name = cohort(mouse_idx).name;
+    mouse_type = cohort(mouse_idx).group;
 
     % Get dirs
     base_dir = ['D:\sep_histology\data\', mouse_type, '\'];

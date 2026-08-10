@@ -6,19 +6,16 @@ clc
 
 %% 1. User-defined parameters
 
-% Set mouse list
-mice = {'MG691_Gria1', 'MG692_Gria1', 'MG693_Gria1', 'MG736_Gria1', 'MG737_Gria1', ...
-    'CGF027_Gria1', 'CGF028_Gria1', 'CGF033_Gria1', 'CGF034_Gria1', 'CGF035_Gria1', ...
-    'MG705_Gria1', 'MG706_Gria1', 'MG709_Gria1', 'MG716_Gria1', 'MG718_Gria1', ...
-    'MG725_Gria1', 'MG727_Gria1'};
+% Cohort selection (mice come from the shared registry get_cohort.m).
+% Set mice_to_process to {} to process every mouse in groups_to_process.
+% NOTE: this used to be a list of numeric INDICES into a hardcoded mouse
+% list (mice_to_process = 1:17); it is now a list of mouse NAMES, so the
+% selection no longer depends on the order of the registry.
+groups_to_process = {'young'};                  % 'rws' | 'naive' | 'behavior' | 'young'
+mice_to_process   = {'MG903_SepGluA_P20'};      % {} = all mice in groups_to_process
 
-% Set mouse type list
-mousetypes = {'rws','rws','rws','rws','rws', ...
-    'naive','naive','naive','naive','naive', ...
-    'behavior','behavior','behavior','behavior','behavior','behavior','behavior'};
-
-% Define which mice to process (Indices)
-mice_to_process = 1:17;
+% Reference atlas
+atlas_key = 'ccf';
 
 % Output settings
 save_results = true;
@@ -27,7 +24,8 @@ base_output_dir = 'D:\sep_histology\data\intensity_diagnostics';
 %% 2. Add paths
 
 % Get Allen data path
-allenDir = 'D:\sep_histology\data\atlas';
+atlas = get_atlas(atlas_key);
+allenDir = atlas.dir;
 % Add Allen data path
 addpath(allenDir);
 
@@ -35,8 +33,18 @@ addpath(allenDir);
 
 if ~exist(base_output_dir, 'dir'), mkdir(base_output_dir); end
 
-num_mice = numel(mice_to_process);
-processed_mouse_names = mice(mice_to_process);
+% Resolve cohort
+get_cohort('verify');
+if isempty(mice_to_process)
+    cohort = get_cohort('groups', groups_to_process);
+else
+    cohort = get_cohort('names', mice_to_process);
+end
+
+num_mice = numel(cohort);
+processed_mouse_names  = {cohort.name};
+processed_mouse_groups = {cohort.group};
+fprintf('P2bis: %d mouse/mice selected.\n', num_mice);
 
 fprintf('--- Phase 1: Scanning Dimensions ---\n');
 
@@ -44,9 +52,8 @@ dim_store = zeros(num_mice, 3); % [H, W, Z]
 file_paths = cell(num_mice, 1);
 
 for i = 1:num_mice
-    mouse_idx = mice_to_process(i);
-    mouse_name = mice{mouse_idx};
-    mouse_type = mousetypes{mouse_idx};
+    mouse_name = cohort(i).name;
+    mouse_type = cohort(i).group;
 
     nanoPath = fullfile('D:\sep_histology\data\', mouse_type, mouse_name, ...
         'lightsuite', 'volume_centered', 'chan02_Cy5.tiff');
@@ -194,9 +201,9 @@ if save_results
 
     % Robust save (check if variables exist)
     if exist('intensity_iqrs', 'var')
-        save(savePathData, 'intensity_medians', 'intensity_iqrs', 'rel_diff_map', 'processed_mouse_names', 'mice_to_process', '-v7.3');
+        save(savePathData, 'intensity_medians', 'intensity_iqrs', 'rel_diff_map', 'processed_mouse_names', 'processed_mouse_groups', '-v7.3');
     else
-        save(savePathData, 'intensity_medians', 'rel_diff_map', 'processed_mouse_names', 'mice_to_process', '-v7.3');
+        save(savePathData, 'intensity_medians', 'rel_diff_map', 'processed_mouse_names', 'processed_mouse_groups', '-v7.3');
     end
     fprintf('Data saved to: %s\n', savePathData);
 
@@ -414,7 +421,7 @@ grid on; xlim([1 MAX_Z]); ylim([-0.75, 0.75]);
 % --- Saving ---
 if save_results
     savePathData = fullfile(base_output_dir, ['Intensity_Stats_Equalized_' timestamp '.mat']);
-    save(savePathData, 'intensity_medians_eq', 'intensity_iqrs_eq', 'rel_diff_map_eq', 'processed_mouse_names', 'mice_to_process', '-v7.3');
+    save(savePathData, 'intensity_medians_eq', 'intensity_iqrs_eq', 'rel_diff_map_eq', 'processed_mouse_names', 'processed_mouse_groups', '-v7.3');
     fprintf('Equalized Data saved to: %s\n', savePathData);
 
     exportgraphics(f6, fullfile(base_output_dir, ['Plot_Traces_Equalized_' timestamp '.png']), 'Resolution', 300);
@@ -490,9 +497,8 @@ fprintf('--- Phase 10: Saving Equalized Volumes to Individual Folders ---\n');
 
 for i = 1:num_mice
     % 1. Get Mouse Identity
-    mouse_idx = mice_to_process(i);
-    current_mouse = mice{mouse_idx};
-    current_type = mousetypes{mouse_idx};
+    current_mouse = cohort(i).name;
+    current_type  = cohort(i).group;
 
     % 2. Define Output Directory
     base_dir = ['D:\sep_histology\data\', current_type, '\'];
