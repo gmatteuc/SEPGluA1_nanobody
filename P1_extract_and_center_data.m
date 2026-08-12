@@ -24,10 +24,10 @@ clc
 % Cohort selection. Set mice_to_process to {} to process every mouse in
 % groups_to_process; give explicit names to process just those.
 groups_to_process = {'young'};                  % 'rws' | 'naive' | 'behavior' | 'young'
-mice_to_process   = {'MG895_SepGluA_P36', 'MG896_SepGluA_P28', 'MG897_SepGluA_P20', ...
-                     'MG904_SepGluA_P22', 'MG906_SepGluA_P32', 'MG907_SepGluA_P36', ...
-                     'MG908_SepGluA_P32'};      % {} = all mice in groups_to_process
-                                                % MG903 left out, already extracted
+mice_to_process   = {'MG909_SepGluA_P20', 'MG910_SepGluA_P20', 'MG911_SepGluA_P16', ...
+                     'MG912_SepGluA_P20', 'MG913_SepGluA_P20', 'MG914_SepGluA_P28'};
+                                                % {} = all mice in groups_to_process
+                                                % the first eight are already extracted
 
 % Reference atlas (not used for extraction itself, only added to the path)
 atlas_key = 'ccf';
