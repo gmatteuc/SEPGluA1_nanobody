@@ -12,7 +12,7 @@ clc
 % list (mice_to_process = 1:17); it is now a list of mouse NAMES, so the
 % selection no longer depends on the order of the registry.
 groups_to_process = {'young'};                  % 'rws' | 'naive' | 'behavior' | 'young'
-mice_to_process   = {'MG903_SepGluA_P20'};      % {} = all mice in groups_to_process
+mice_to_process   = {};                         % {} = all mice in groups_to_process
 
 % Reference atlas
 atlas_key = 'ccf';

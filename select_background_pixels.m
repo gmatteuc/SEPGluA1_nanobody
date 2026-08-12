@@ -2,6 +2,11 @@ function bg_mask = select_background_pixels(I, p_min, p_max, plot_flag)
 
 if nargin < 2 || isempty(p_min), p_min = 20; end
 if nargin < 3 || isempty(p_max), p_max = 65; end
+% plot_flag had no default, so calling this with three arguments (which is what
+% P2bis does, at four different call sites) left it undefined and the function
+% errored at "if plot_flag" near the end. Diagnostics off by default; P6bis
+% passes the flag explicitly and is unaffected.
+if nargin < 4 || isempty(plot_flag), plot_flag = false; end
 
 % get input and cast to single
 I_single = im2single(I);

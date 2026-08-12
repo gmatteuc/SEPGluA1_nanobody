@@ -9,7 +9,7 @@ clc
 % Cohort selection (mice come from the shared registry get_cohort.m).
 % Set mice_to_process to {} to process every mouse in groups_to_process.
 groups_to_process = {'young'};                  % 'rws' | 'naive' | 'behavior' | 'young'
-mice_to_process   = {'MG903_SepGluA_P20'};      % {} = all mice in groups_to_process
+mice_to_process   = {};                         % {} = all mice in groups_to_process
 
 % Reference atlas
 atlas_key = 'ccf';
