@@ -79,6 +79,14 @@ reg = { ...
     'MG906_SepGluA_P32',  'young',      32, ''
     'MG907_SepGluA_P36',  'young',      36, ''
     'MG908_SepGluA_P32',  'young',      32, ''
+    % --- added to the good-quality list 2026-08-12. MG911 at P16 extends the
+    %     range below the P20 floor the cohort had until now.
+    'MG909_SepGluA_P20',  'young',      20, ''
+    'MG910_SepGluA_P20',  'young',      20, ''
+    'MG911_SepGluA_P16',  'young',      16, ''
+    'MG912_SepGluA_P20',  'young',      20, ''
+    'MG913_SepGluA_P20',  'young',      20, ''
+    'MG914_SepGluA_P28',  'young',      28, ''
     };
 
 %% Build struct array

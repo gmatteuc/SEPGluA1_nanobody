@@ -69,9 +69,10 @@ atlas = get_atlas('ccf');
 
 %% Test 6: young cohort registry is internally consistent
 
+expected_young = 14;   % Sami's good-quality list, extended 2026-08-12
 young = get_cohort('groups', 'young');
-[n_pass, n_fail] = check(numel(young) == 8, ...
-    sprintf('young cohort has 8 mice (got %d)', numel(young)), n_pass, n_fail);
+[n_pass, n_fail] = check(numel(young) == expected_young, ...
+    sprintf('young cohort has %d mice (got %d)', expected_young, numel(young)), n_pass, n_fail);
 
 % Age in the registry must match the age embedded in the folder name
 ok_age = true;
