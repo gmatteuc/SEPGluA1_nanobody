@@ -2,6 +2,11 @@ clear all
 close all
 clc
 
+% Where the project lives. Derived from the location of the code rather than
+% written out, so the tree can be moved or copied to another drive as is.
+paths = get_paths();
+
+
 % /// Pipeline script #6: perform final normalization across mice in each group and plot averages /// 
 
 %%  Set user-defined parameters
@@ -30,10 +35,10 @@ plot_average_video_raw = true;
 %% Add paths
 
 % Define paths
-allenDir = 'D:\sep_histology\data\atlas';
-lightsuiteDir = 'D:\sep_histology\code\LightSuite-main';
-yamlDir = 'D:\sep_histology\code\yamlmatlab';
-elastixDir = 'D:\sep_histology\code\matlab_elastix-master';
+allenDir = paths.atlas;
+lightsuiteDir = paths.lightsuite;
+yamlDir = paths.yaml;
+elastixDir = paths.elastix;
 
 % Add defined paths
 addpath(allenDir)
@@ -62,8 +67,8 @@ for mousetype_idx = 1% 1:numel(mousetypes_list)
     current_mice = mice(current_mice_idx);
     num_current = numel(current_mice);
     % Get base_dirs
-    base_dir = ['D:\sep_histology\data\', current_mouse_type, '\'];
-    global_diagnostics_dir = ['D:\sep_histology\data\', current_mouse_type, '\global_diagnostics'];
+    base_dir = fullfile(paths.data, current_mouse_type);
+    global_diagnostics_dir = fullfile(paths.data, current_mouse_type, 'global_diagnostics');
     if not(exist(global_diagnostics_dir)) %#ok<EXIST>
         mkdir(global_diagnostics_dir)
     end

@@ -34,11 +34,13 @@ if nargin < 1 || isempty(atlas_key)
     atlas_key = 'ccf';
 end
 
+p = get_paths();
+
 switch lower(atlas_key)
 
     case 'ccf'
         atlas.key             = 'ccf';
-        atlas.dir             = 'D:\sep_histology\data\atlas';
+        atlas.dir             = p.atlas;
         atlas.template_file   = 'average_template_10.nii.gz';
         atlas.annotation_file = 'annotation_10.nii.gz';
         atlas.boundary_file   = 'annotation_boundary_10.nii.gz';

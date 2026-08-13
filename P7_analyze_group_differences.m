@@ -2,6 +2,11 @@ clear all
 close all
 clc
 
+% Where the project lives. Derived from the location of the code rather than
+% written out, so the tree can be moved or copied to another drive as is.
+paths = get_paths();
+
+
 % /// Pipeline script #7: analyze hemispheric differences and compare groups /// 
 
 %%  Set user-defined parameters
@@ -11,7 +16,7 @@ ctrl_type = 'naive';
 exp_type  = 'rws';
 
 % Base directory (common part)
-base_root = 'D:\sep_histology\data\';  
+base_root = paths.data;  
 
 % Construct full paths
 ctrl_dir = fullfile(base_root, ctrl_type);
@@ -19,7 +24,7 @@ exp_dir  = fullfile(base_root, exp_type);
 
 %% Allen atlas setup
 
-allenDir = 'D:\sep_histology\data\atlas';
+allenDir = paths.atlas;
 addpath(allenDir);
 AllenFile = fullfile(allenDir, 'annotation_10.nii.gz');
 AllenVol = niftiread(AllenFile);

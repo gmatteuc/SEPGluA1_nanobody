@@ -31,6 +31,10 @@ clc
 
 %% User-defined parameters
 
+% Where the project lives. Derived from the location of the code rather than
+% written out, so the tree can be moved or copied to another drive as is.
+paths = get_paths();
+
 % Cohort selection (mice come from the shared registry get_cohort.m).
 % Set mice_to_process to {} to rebuild every mouse in groups_to_process.
 groups_to_process = {'young'};
@@ -44,7 +48,7 @@ blue_channel  = 'dapi';    % nuclei, conventionally blue
 
 %% Add paths
 
-lightsuiteDir = 'D:\sep_histology\code\LightSuite-main';
+lightsuiteDir = paths.lightsuite;
 addpath(genpath(lightsuiteDir))
 
 %% Resolve cohort

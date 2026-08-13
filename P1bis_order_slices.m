@@ -23,15 +23,19 @@ clc
 
 %% User-defined parameters
 
+% Where the project lives. Derived from the location of the code rather than
+% written out, so the tree can be moved or copied to another drive as is.
+paths = get_paths();
+
 % Cohort selection (mice come from the shared registry get_cohort.m).
 % The GUI is per-mouse, so give exactly one name when run_mode = 'edit'.
 %
 % Whole young cohort below, in registry order, with the number of sections in
 % each. Work down the list: uncomment the one you are on, comment the previous.
 
-mice_to_process = {'MG903_SepGluA_P20'};   % 44 sections
-% mice_to_process = {'MG895_SepGluA_P36'};   % 40 sections
-% mice_to_process = {'MG896_SepGluA_P28'};   % 43 sections
+% mice_to_process = {'MG903_SepGluA_P20'};   % 44 sections DONE
+% mice_to_process = {'MG895_SepGluA_P36'};   % 40 sections DONE
+mice_to_process = {'MG896_SepGluA_P28'};   % 43 sections
 % mice_to_process = {'MG897_SepGluA_P20'};   % 30 sections
 % mice_to_process = {'MG904_SepGluA_P22'};   % 46 sections
 % mice_to_process = {'MG906_SepGluA_P32'};   % 30 sections
@@ -49,8 +53,8 @@ run_mode = 'edit';
 
 %% Add paths
 
-lightsuiteDir = 'D:\sep_histology\code\LightSuite-main';
-yamlDir = 'D:\sep_histology\code\yamlmatlab';
+lightsuiteDir = paths.lightsuite;
+yamlDir = paths.yaml;
 addpath(genpath(lightsuiteDir))
 addpath(genpath(yamlDir))
 

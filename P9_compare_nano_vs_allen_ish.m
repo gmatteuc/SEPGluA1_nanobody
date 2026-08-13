@@ -15,6 +15,10 @@ clc
 
 %% User-defined parameters
 
+% Where the project lives. Derived from the location of the code rather than
+% written out, so the tree can be moved or copied to another drive as is.
+paths = get_paths();
+
 % Channel to compare against ISH: 'nano' (default, surface GluA1) or 'auto'
 % (autofluorescence control). Must match the channel used in the P8 cache.
 channel = 'nano';
@@ -25,7 +29,7 @@ p8_merged_tag    = ['merged_naive_rws_' channel];
 p8_smooth_suffix = '_nosmooth';
 
 % Gene target list (CSV with columns: symbol, experiment_id, category, plane, description)
-gene_list_path = 'D:\sep_histology\data\gene_targets.csv';
+gene_list_path = fullfile(paths.data, 'gene_targets.csv');
 
 % ISH grid orientation (same for all Allen coronal experiments)
 ish_raw_permute = [1, 2, 3];
@@ -58,7 +62,7 @@ analysis_slice_range = [100, 700];
 video_clim_diff = [-3, 3];
 
 % Paths
-base_root     = 'D:\sep_histology\data\';
+base_root     = paths.data;
 p8_out_dir    = fullfile(base_root, 'comparisons', p8_merged_tag);
 ish_cache_dir = fullfile(base_root, 'atlas_ish');
 if ~exist(ish_cache_dir, 'dir'), mkdir(ish_cache_dir); end

@@ -6,6 +6,10 @@ clc
 
 %% User-defined parameters
 
+% Where the project lives. Derived from the location of the code rather than
+% written out, so the tree can be moved or copied to another drive as is.
+paths = get_paths();
+
 % Cohort selection (mice come from the shared registry get_cohort.m).
 % Set mice_to_process to {} to process every mouse in groups_to_process.
 groups_to_process = {'young'};                  % 'rws' | 'naive' | 'behavior' | 'young'
@@ -24,9 +28,9 @@ use_equalized_nano = 1;
 
 atlas = get_atlas(atlas_key);
 allenDir = atlas.dir;
-lightsuiteDir = 'D:\sep_histology\code\LightSuite-main';
-yamlDir = 'D:\sep_histology\code\yamlmatlab';
-elastixDir = 'D:\sep_histology\code\matlab_elastix-master';
+lightsuiteDir = paths.lightsuite;
+yamlDir = paths.yaml;
+elastixDir = paths.elastix;
 addpath(allenDir)
 addpath(genpath(lightsuiteDir))
 addpath(genpath(yamlDir))
@@ -53,7 +57,7 @@ for mouse_idx = 1:numel(cohort)
     mouse_type = cohort(mouse_idx).group;
 
     % Get dirs
-    base_dir = ['D:\sep_histology\data\', mouse_type, '\'];
+    base_dir = fullfile(paths.data, mouse_type);
     mouse_dir = fullfile(base_dir, mouse_name, '\lightsuite');
     correction_dir = fullfile(base_dir, mouse_name, '\lightsuite', 'correction_output');
     before_correction_dir = fullfile(base_dir, mouse_name, '\lightsuite', 'volume_centered');

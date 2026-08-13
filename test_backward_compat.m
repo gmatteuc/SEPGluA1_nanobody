@@ -67,7 +67,44 @@ atlas = get_atlas('ccf');
     strcmp(atlas.template_file, 'average_template_10.nii.gz'), ...
     'get_atlas(''ccf'') filenames match those used by P2/P5/alignSliceVolume', n_pass, n_fail);
 
-%% Test 6: young cohort registry is internally consistent
+%% Test 6: derived paths reproduce the hardcoded roots they replaced
+
+% The pipeline used to write 'D:\sep_histology\...' out in 57 places. Those are
+% now worked out from where the code sits, which is what lets the tree be copied
+% to another drive. The literals below are the ones that were there before, so
+% this asserts the refactor changed nothing on this machine.
+
+paths = get_paths();
+
+expected = { ...
+    'data',       paths.data,       'D:\sep_histology\data'
+    'atlas',      paths.atlas,      'D:\sep_histology\data\atlas'
+    'code',       paths.code,       'D:\sep_histology\code'
+    'lightsuite', paths.lightsuite, 'D:\sep_histology\code\LightSuite-main'
+    'yaml',       paths.yaml,       'D:\sep_histology\code\yamlmatlab'
+    'elastix',    paths.elastix,    'D:\sep_histology\code\matlab_elastix-master'
+    'bioformats', paths.bioformats, 'D:\sep_histology\code\BioformatsImage'};
+
+ok_paths = true;
+for i = 1:size(expected, 1)
+    if ~strcmpi(expected{i,2}, expected{i,3})
+        fprintf('    MISMATCH %s: %s ~= %s\n', expected{i,1}, expected{i,2}, expected{i,3});
+        ok_paths = false;
+    end
+end
+[n_pass, n_fail] = check(ok_paths, ...
+    'get_paths() reproduces every hardcoded root it replaced', n_pass, n_fail);
+
+% A derived path that points nowhere is worse than a literal one
+missing_dirs = {};
+for i = 1:size(expected, 1)
+    if ~exist(expected{i,2}, 'dir'), missing_dirs{end+1} = expected{i,1}; end %#ok<SAGROW>
+end
+[n_pass, n_fail] = check(isempty(missing_dirs), ...
+    sprintf('every derived path exists on disk (missing: %s)', strjoin(missing_dirs, ', ')), ...
+    n_pass, n_fail);
+
+%% Test 7: young cohort registry is internally consistent
 
 expected_young = 14;   % Sami's good-quality list, extended 2026-08-12
 young = get_cohort('groups', 'young');

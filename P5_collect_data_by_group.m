@@ -6,6 +6,10 @@ clc
 
 %% User-defined parameters
 
+% Where the project lives. Derived from the location of the code rather than
+% written out, so the tree can be moved or copied to another drive as is.
+paths = get_paths();
+
 % Set mice and mousetypes
 mice = {'MG691_Gria1', 'MG692_Gria1', 'MG693_Gria1', 'MG736_Gria1', 'MG737_Gria1', 'CGF027_Gria1', 'CGF028_Gria1', 'CGF033_Gria1', 'CGF034_Gria1', 'CGF035_Gria1','MG705_Gria1', 'MG706_Gria1', 'MG709_Gria1', 'MG716_Gria1', 'MG718_Gria1', 'MG725_Gria1', 'MG727_Gria1'};
 mousetypes = {'rws','rws','rws','rws','rws','naive','naive','naive','naive','naive','behavior','behavior','behavior','behavior','behavior','behavior','behavior'};
@@ -16,10 +20,10 @@ correction_type = 'slicewise';
 %% Add paths
 
 % Define paths
-allenDir = 'D:\sep_histology\data\atlas';
-lightsuiteDir = 'D:\sep_histology\code\LightSuite-main';
-yamlDir = 'D:\sep_histology\code\yamlmatlab';
-elastixDir = 'D:\sep_histology\code\matlab_elastix-master';
+allenDir = paths.atlas;
+lightsuiteDir = paths.lightsuite;
+yamlDir = paths.yaml;
+elastixDir = paths.elastix;
 % Add defined paths
 addpath(allenDir)
 addpath(genpath(lightsuiteDir))
@@ -56,7 +60,7 @@ for mousetype_idx = 2:3%1:numel(mousetypes_list)
         mouse_name = current_mice{i};
 
         % Get dirs (base_dir is per type)
-        base_dir = ['D:\sep_histology\data\', current_mouse_type, ''];
+        base_dir = fullfile(paths.data, current_mouse_type);
         mouse_dir = fullfile(base_dir, mouse_name, 'lightsuite');
         correction_dir = fullfile(base_dir, mouse_name, 'lightsuite', 'correction_output');
         before_correction_dir = fullfile(base_dir, mouse_name, 'lightsuite', 'volume_centered');

@@ -6,6 +6,10 @@ clc
 
 %% 1. User-defined parameters
 
+% Where the project lives. Derived from the location of the code rather than
+% written out, so the tree can be moved or copied to another drive as is.
+paths = get_paths();
+
 % Cohort selection (mice come from the shared registry get_cohort.m).
 % Set mice_to_process to {} to process every mouse in groups_to_process.
 % NOTE: this used to be a list of numeric INDICES into a hardcoded mouse
@@ -20,7 +24,7 @@ atlas_key = 'ccf';
 
 % Output settings
 save_results = true;
-base_output_dir = 'D:\sep_histology\data\intensity_diagnostics';
+base_output_dir = fullfile(paths.data, 'intensity_diagnostics');
 
 %% 2. Add paths
 
@@ -56,7 +60,7 @@ for i = 1:num_mice
     mouse_name = cohort(i).name;
     mouse_type = cohort(i).group;
 
-    nanoPath = fullfile('D:\sep_histology\data\', mouse_type, mouse_name, ...
+    nanoPath = fullfile(paths.data, mouse_type, mouse_name, ...
         'lightsuite', 'volume_centered', 'chan02_Cy5.tiff');
     file_paths{i} = nanoPath;
 
@@ -502,7 +506,7 @@ for i = 1:num_mice
     current_type  = cohort(i).group;
 
     % 2. Define Output Directory
-    base_dir = ['D:\sep_histology\data\', current_type, '\'];
+    base_dir = fullfile(paths.data, current_type);
     group_output_dir = fullfile(base_dir, current_mouse, 'lightsuite', 'correction_output');
 
     if ~exist(group_output_dir, 'dir')

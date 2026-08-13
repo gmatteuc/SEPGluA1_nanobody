@@ -14,15 +14,19 @@ clc
 
 %% User-defined parameters
 
+% Where the project lives. Derived from the location of the code rather than
+% written out, so the tree can be moved or copied to another drive as is.
+paths = get_paths();
+
 % Paths to the two channel folders (must contain per_mouse_region_means_*.mat)
-nano_dir = 'D:\sep_histology\data\comparisons\merged_naive_rws_nano';
-auto_dir = 'D:\sep_histology\data\comparisons\merged_naive_rws_auto';
+nano_dir = fullfile(paths.data, 'comparisons', 'merged_naive_rws_nano');
+auto_dir = fullfile(paths.data, 'comparisons', 'merged_naive_rws_auto');
 nano_tag = 'merged_naive_rws_nano';
 auto_tag = 'merged_naive_rws_auto';
 smooth_suffix = '_nosmooth';
 
 % Output directory
-out_dir = 'D:\sep_histology\data\comparisons\nano_vs_auto';
+out_dir = fullfile(paths.data, 'comparisons', 'nano_vs_auto');
 if ~exist(out_dir, 'dir'), mkdir(out_dir); end
 
 % Aggregation method (must match what was cached: 'distweight' or 'eroded')
@@ -671,7 +675,7 @@ bm_int = S_nano_c.brainMask_merged & S_auto_c.brainMask_merged;
 contrast_vol = z_nano - z_auto;
 
 % Atlas boundaries from the half-width crop
-allenDir = 'D:\sep_histology\data\atlas';
+allenDir = paths.atlas;
 AllenVol = niftiread(fullfile(allenDir, 'annotation_10.nii.gz'));
 limits   = [180 1079];
 AllenCrop = AllenVol(limits(1):limits(2), :, :);

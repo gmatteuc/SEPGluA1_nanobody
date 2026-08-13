@@ -21,6 +21,10 @@ clc
 
 %% User-defined parameters
 
+% Where the project lives. Derived from the location of the code rather than
+% written out, so the tree can be moved or copied to another drive as is.
+paths = get_paths();
+
 % Cohort selection. Set mice_to_process to {} to process every mouse in
 % groups_to_process; give explicit names to process just those.
 groups_to_process = {'young'};                  % 'rws' | 'naive' | 'behavior' | 'young'
@@ -37,13 +41,13 @@ atlas_key = 'ccf';
 % Define paths
 atlas = get_atlas(atlas_key);
 allenDir = atlas.dir;
-lightsuiteDir = 'D:\sep_histology\code\LightSuite-main';
-yamlDir = 'D:\sep_histology\code\yamlmatlab';
-elastixDir = 'D:\sep_histology\code\matlab_elastix-master';
+lightsuiteDir = paths.lightsuite;
+yamlDir = paths.yaml;
+elastixDir = paths.elastix;
 % Reader for the raw .czi (BioformatsImage class + bundled bfmatlab).
 % Needed by getSliceInfo/generateSliceVolume; no P script added it before,
 % so P1 only ever ran interactively with the path already set.
-bioformatsDir = 'D:\sep_histology\code\BioformatsImage';
+bioformatsDir = paths.bioformats;
 % Add defined paths
 addpath(allenDir)
 addpath(genpath(lightsuiteDir))

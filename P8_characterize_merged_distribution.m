@@ -14,6 +14,10 @@ clc
 
 %% User-defined parameters
 
+% Where the project lives. Derived from the location of the code rather than
+% written out, so the tree can be moved or copied to another drive as is.
+paths = get_paths();
+
 % Groups to pool (reference group listed first — other groups get linearly
 % aligned to the reference via per-slice profile polyfit, as in P7bis).
 groups_to_merge = {'naive', 'rws'};
@@ -91,7 +95,7 @@ roi_erode_radius = 3;
 analysis_slice_range = [100, 700];
 
 % Paths
-base_root = 'D:\sep_histology\data\';
+base_root = paths.data;
 % merged_tag includes the channel so nano and auto outputs go to separate folders
 merged_tag = ['merged_' strjoin(groups_to_merge, '_') '_' channel];
 out_dir    = fullfile(base_root, 'comparisons', merged_tag);
@@ -106,7 +110,7 @@ end
 
 %% Allen atlas setup (identical to P7bis lines 66-77)
 
-allenDir = 'D:\sep_histology\data\atlas';
+allenDir = paths.atlas;
 addpath(allenDir);
 AllenFile = fullfile(allenDir, 'annotation_10.nii.gz');
 AllenVol = niftiread(AllenFile);

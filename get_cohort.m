@@ -48,7 +48,8 @@ end
 
 %% Registry
 
-base_root = 'D:\sep_histology\data';
+p = get_paths();
+base_root = p.data;
 
 % name, group, age_days, share_subdir
 % --- adult cohorts: LEGACY ORDER, DO NOT REORDER (see header) ---

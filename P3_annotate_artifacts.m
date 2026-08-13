@@ -6,6 +6,10 @@ clc
 
 %% User-defined parameters
 
+% Where the project lives. Derived from the location of the code rather than
+% written out, so the tree can be moved or copied to another drive as is.
+paths = get_paths();
+
 % Cohort selection (mice come from the shared registry get_cohort.m).
 % Set mice_to_process to {} to process every mouse in groups_to_process.
 groups_to_process = {'young'};                  % 'rws' | 'naive' | 'behavior' | 'young'
@@ -36,7 +40,7 @@ for mouse_idx = 1:numel(cohort)
     % NOTE: the 'lightsuite' level was missing here before, so output_dir did
     % not match where P2 writes and P4 reads. As written, P3 could never find
     % scaled_auto_volume_*.mat and silently skipped every mouse.
-    base_dir = ['D:\sep_histology\data\', mouse_type, '\'];
+    base_dir = fullfile(paths.data, mouse_type);
     output_dir = fullfile(base_dir, mouse_name, 'lightsuite', 'correction_output');
     if ~exist(output_dir, 'dir')
         mkdir(output_dir);

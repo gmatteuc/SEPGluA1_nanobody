@@ -12,6 +12,10 @@ clc
 
 %% User-defined parameters
 
+% Where the project lives. Derived from the location of the code rather than
+% written out, so the tree can be moved or copied to another drive as is.
+paths = get_paths();
+
 % Reference atlas
 atlas_key = 'ccf';
 
@@ -20,7 +24,7 @@ atlas_key = 'ccf';
 slice_spacing_um = 150;
 
 % Where to write the sheet
-out_file = 'D:\sep_histology\data\young\_atlas_coronal_reference.png';
+out_file = fullfile(paths.data, 'young', 'atlas_coronal_reference.png');
 
 % How many plates per row
 n_cols = 8;
