@@ -135,7 +135,7 @@ function display_current_slice(fig)
     set(gui_data.orderTextHandle, 'Position', [0.02*size(imgData,2), 0.02*size(imgData,1)], 'String', orderNumStr);
     title_str = {sprintf('Slice at Order Position: %d/%d (Original Index: %d) - %s', ...
                          gui_data.currentDisplayPosition, gui_data.numSlices, originalSliceIdx, status_str), ...
-                 'Keys: Nav = Left/Right | Flip = f | Exclude = o | Reorder = Enter | Save = s | Quit = Esc'};
+                 'Keys: Nav = Left/Right | Flip = f | Exclude = o | Reorder = Enter | Montage = m | Save = s | Quit = Esc'};
     set(gui_data.titleHandle, 'String', title_str);
     guidata(fig, gui_data);
     update_montage_highlight(fig);   % montage
@@ -158,6 +158,8 @@ function callback_keypress(fig, eventdata)
             if gui_data.flipState(originalSliceIdx) == -1, gui_data.flipState(originalSliceIdx) = 0;
             else, gui_data.flipState(originalSliceIdx) = -1; end
             refresh_tiles = true;
+        case 'm'
+            toggle_montage_window(fig); return;   % montage
         case {'return', 'enter'}
             reorder_slice_callback(fig); return;
         case 's', guidata(fig, gui_data); save_processing_decisions(gui_data);return;
@@ -275,8 +277,10 @@ if ~gui_data.showMontage || gui_data.numSlices == 0, return; end
 
 % Thumbnails are made once. The slices themselves never change, only their
 % order and their flip state, so there is no reason to rescale them again on
-% every redraw.
-gui_data.montageThumbs = make_thumbnails(gui_data.originalSliceImages, gui_data.montageThumbWidth);
+% every redraw, or when the window is closed and reopened.
+if isempty(gui_data.montageThumbs)
+    gui_data.montageThumbs = make_thumbnails(gui_data.originalSliceImages, gui_data.montageThumbWidth);
+end
 
 [th, tw, ~] = size(gui_data.montageThumbs{1});
 n_cols = gui_data.montageColumns;
@@ -521,8 +525,26 @@ end
 
 function montage_close_request(montage_fig)
 % Closing the montage on its own just hides that view; the close-up window
-% stays in charge of saving and quitting.
+% stays in charge of saving and quitting. Press m to bring it back.
 if ishandle(montage_fig), delete(montage_fig); end
+end
+
+
+function toggle_montage_window(fig)
+% m closes the montage if it is open and reopens it if it is not, including
+% after it was closed with its own window button. The thumbnails are kept, so
+% reopening is immediate.
+gui_data = guidata(fig);
+
+if ~isempty(gui_data.montageFig) && ishandle(gui_data.montageFig)
+    delete(gui_data.montageFig);
+    gui_data.montageFig = [];
+    guidata(fig, gui_data);
+else
+    gui_data.showMontage = true;   % in case the editor was started without it
+    guidata(fig, gui_data);
+    build_montage_window(fig);
+end
 end
 
 
