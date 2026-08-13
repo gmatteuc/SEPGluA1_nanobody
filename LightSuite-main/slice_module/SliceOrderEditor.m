@@ -255,6 +255,7 @@ function save_processing_decisions(gui_data)
     catch ME_write
         rethrow(ME_write);
     end
+    save_montage_snapshot(gui_data);   % montage
 end
 
 % =========================================================================
@@ -527,6 +528,34 @@ function montage_close_request(montage_fig)
 % Closing the montage on its own just hides that view; the close-up window
 % stays in charge of saving and quitting. Press m to bring it back.
 if ishandle(montage_fig), delete(montage_fig); end
+end
+
+
+function save_montage_snapshot(gui_data)
+% Writes a picture of the montage alongside the decisions file whenever those
+% decisions are saved, so a finished brain can be reviewed later without
+% reopening the editor.
+%
+% This captures the montage as it stands, labels and exclusion marks included.
+% If the montage window happens to be closed there is nothing to capture, so it
+% says so rather than writing a misleading empty picture.
+
+if ~isfield(gui_data, 'montageFig') || isempty(gui_data.montageFig) || ~ishandle(gui_data.montageFig)
+    disp('Montage window is closed, snapshot not saved (press m to reopen it).');
+    return
+end
+
+out_dir = fileparts(gui_data.processingDecisionsFilename);
+snapshot_file = fullfile(out_dir, 'slice_order_montage.png');
+
+try
+    exportgraphics(gui_data.montageFig, snapshot_file, ...
+        'Resolution', 120, 'BackgroundColor', 'k');
+    disp(['Montage snapshot saved to: ', snapshot_file]);
+catch ME_snap
+    % A missing picture is not worth losing the decisions over
+    warning('Could not save montage snapshot: %s', ME_snap.message);
+end
 end
 
 
