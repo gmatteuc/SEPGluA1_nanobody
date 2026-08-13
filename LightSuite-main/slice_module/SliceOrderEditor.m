@@ -135,7 +135,7 @@ function display_current_slice(fig)
     set(gui_data.orderTextHandle, 'Position', [0.02*size(imgData,2), 0.02*size(imgData,1)], 'String', orderNumStr);
     title_str = {sprintf('Slice at Order Position: %d/%d (Original Index: %d) - %s', ...
                          gui_data.currentDisplayPosition, gui_data.numSlices, originalSliceIdx, status_str), ...
-                 'Keys: Nav = Left/Right | Reorder = Enter | Save = s'};
+                 'Keys: Nav = Left/Right | Flip = f | Exclude = o | Reorder = Enter | Save = s | Quit = Esc'};
     set(gui_data.titleHandle, 'String', title_str);
     guidata(fig, gui_data);
     update_montage_highlight(fig);   % montage
