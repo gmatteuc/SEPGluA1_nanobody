@@ -25,7 +25,24 @@ clc
 
 % Cohort selection (mice come from the shared registry get_cohort.m).
 % The GUI is per-mouse, so give exactly one name when run_mode = 'edit'.
-mice_to_process = {'MG903_SepGluA_P20'};
+%
+% Whole young cohort below, in registry order, with the number of sections in
+% each. Work down the list: uncomment the one you are on, comment the previous.
+
+mice_to_process = {'MG903_SepGluA_P20'};   % 44 sections
+% mice_to_process = {'MG895_SepGluA_P36'};   % 40 sections
+% mice_to_process = {'MG896_SepGluA_P28'};   % 43 sections
+% mice_to_process = {'MG897_SepGluA_P20'};   % 30 sections
+% mice_to_process = {'MG904_SepGluA_P22'};   % 46 sections
+% mice_to_process = {'MG906_SepGluA_P32'};   % 30 sections
+% mice_to_process = {'MG907_SepGluA_P36'};   % 33 sections
+% mice_to_process = {'MG908_SepGluA_P32'};   % 37 sections
+% mice_to_process = {'MG909_SepGluA_P20'};   % 46 sections
+% mice_to_process = {'MG910_SepGluA_P20'};   % 46 sections
+% mice_to_process = {'MG911_SepGluA_P16'};   % 50 sections
+% mice_to_process = {'MG912_SepGluA_P20'};   % 30 sections
+% mice_to_process = {'MG913_SepGluA_P20'};   % 42 sections
+% mice_to_process = {'MG914_SepGluA_P28'};   % 46 sections
 
 % 'edit' = open the GUI, 'apply' = rebuild volume_ordered.tiff from decisions
 run_mode = 'edit';
