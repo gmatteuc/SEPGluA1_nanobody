@@ -1,0 +1,7 @@
+# CPU torch: install with
+#   pip install --index-url https://download.pytorch.org/whl/cpu torch
+# then the rest from this file. setup_landmark_refine.ps1 does both.
+torch
+kornia>=0.8
+numpy
+scipy
