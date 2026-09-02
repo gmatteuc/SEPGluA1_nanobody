@@ -901,15 +901,23 @@ gui_data.provisional(gui_data.curr_slice) = false;   % touching it commits the s
 guidata(gui_fig, gui_data);
 draw_selection(gui_fig);
 
-% Follow the mouse until the button comes back up
-set(gui_fig, 'WindowButtonMotionFcn', @drag_motion, ...
-             'WindowButtonUpFcn',     @drag_stop);
+% Follow the mouse until the button comes back up.
+%
+% ButtonDownFcn hands the callback the object that was CLICKED, so the handle
+% arriving here is the image, not the figure. guidata does not care -- it walks
+% up to the figure either way, which is why selecting and deleting worked -- but
+% WindowButtonMotionFcn only exists on a figure, so setting it on the image
+% quietly failed and no drag was ever installed.
+fig = ancestor(gui_fig, 'figure');
+set(fig, 'WindowButtonMotionFcn', @drag_motion, ...
+         'WindowButtonUpFcn',     @drag_stop);
 end
 
 
 function drag_motion(gui_fig, ~)
 % Move the held point to wherever the pointer is now
 
+gui_fig  = ancestor(gui_fig, 'figure');
 gui_data = guidata(gui_fig);
 if isempty(gui_data.sel_side)
     return
@@ -945,8 +953,9 @@ end
 function drag_stop(gui_fig, ~)
 % Let go, and refresh the alignment with the point in its new place
 
-set(gui_fig, 'WindowButtonMotionFcn', '', 'WindowButtonUpFcn', '');
-update_slice(gui_fig);
+fig = ancestor(gui_fig, 'figure');
+set(fig, 'WindowButtonMotionFcn', '', 'WindowButtonUpFcn', '');
+update_slice(fig);
 end
 
 
