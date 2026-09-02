@@ -11,6 +11,9 @@ function atlas = get_atlas(atlas_key)
 %     annotation_file  region-label volume (used for ROI masks)
 %     boundary_file    region-boundary volume (used for overlays)
 %     res_um           isotropic voxel size in micrometres
+%     age_days         postnatal age this atlas represents (56 = adult). An
+%                      age-matched atlas is only valid for mice of that age --
+%                      a P36 brain does not belong on the P20 template.
 %     default_aplims   AP crop used historically for this atlas
 %     description      human-readable note
 %
@@ -45,6 +48,7 @@ switch lower(atlas_key)
         atlas.annotation_file = 'annotation_10.nii.gz';
         atlas.boundary_file   = 'annotation_boundary_10.nii.gz';
         atlas.res_um          = 10;
+        atlas.age_days        = 56;
         atlas.default_aplims  = [180 1079];
         atlas.description     = 'Allen Mouse Brain Common Coordinate Framework v3, 10 um (adult, P56)';
 
@@ -55,6 +59,7 @@ switch lower(atlas_key)
         atlas.annotation_file = 'annotation_10.nii.gz';
         atlas.boundary_file   = '';
         atlas.res_um          = 20;
+        atlas.age_days        = 20;
         atlas.default_aplims  = [63 559];
         atlas.description     = 'DeMBA P20 (Carey 2025), Allen CCFv3 labels, 20 um isotropic';
 
@@ -108,10 +113,15 @@ end
 % LightSuite finds them. So if two of them are on the MATLAB path at once,
 % which() silently picks whichever was added first and a brain can be registered
 % to the wrong atlas with nothing in the log to say so. Drop the others here.
+% Compare whole path ENTRIES, not substrings. 'atlas_demba_p20' contains
+% 'atlas', so a substring test on the path string reports the adult dir as
+% present whenever the DeMBA one is, and rmpath then warns about a directory
+% that was never there.
 all_atlas_dirs = {p.atlas, fullfile(p.data, 'atlas_demba_p20')};
+path_entries = strsplit(path, pathsep);
 for k = 1:numel(all_atlas_dirs)
     d = all_atlas_dirs{k};
-    if ~strcmpi(d, atlas.dir) && contains(lower(path), lower(d))
+    if ~strcmpi(d, atlas.dir) && any(strcmpi(path_entries, d))
         rmpath(d);
         fprintf('get_atlas: removed %s from the path so ''%s'' resolves unambiguously.\n', ...
             d, atlas.key);

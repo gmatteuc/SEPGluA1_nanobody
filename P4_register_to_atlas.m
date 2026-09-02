@@ -29,31 +29,32 @@ paths = get_paths();
 % Cohort selection (mice come from the shared registry get_cohort.m).
 % Set mice_to_process to {} to process every mouse in groups_to_process.
 groups_to_process = {'young'};                  % 'rws' | 'naive' | 'behavior' | 'young'
-mice_to_process   = {'MG903_SepGluA_P20', 'MG897_SepGluA_P20'};   % {} = all mice in groups_to_process
+mice_to_process   = {'MG903_SepGluA_P20'};   % 'annotate' takes one mouse at a time
                                                 % P20 first: curated and the age Sami wants prioritised
 
 % Which half of the script to run. 'annotate' takes one mouse at a time.
-run_mode = 'align';                             % 'align' | 'annotate' | 'register'
+run_mode = 'annotate';                             % 'align' | 'annotate' | 'register'
 
 % Reference atlas.
 %
-% DECIDED 2026-09-02: BOTH cohorts register to the adult Allen CCF. The point
-% is that young and adult get identical treatment -- registering the two groups
-% to two differently built templates would put a methodological difference
-% exactly along the axis the whole comparison rests on.
+% DECIDED 2026-09-02 (Sami, after seeing the comparison): the young cohort
+% registers to the age-matched DeMBA P20 template. The reasoning is that the
+% manual control points carry the correspondence, so the adult template's
+% better contrast -- 1.4x the global CV, 1.6x the local smoothed gradient --
+% matters less than having a target with P20 proportions. Template contrast
+% feeds the image-similarity terms; landmarks do not care about it.
 %
-% The age-matched alternative was built and measured before this was settled,
-% and it did not earn its costs: region centroids sit 0.22 mm apart between the
-% two atlases (2.4% of brain length, inside DeMBA's own 0.10-0.19 mm build
-% accuracy), cortical thickness matches at ratio 1.03, and MG903 registered to
-% the adult CCF better than a typical adult does. Meanwhile the adult template
-% carries 1.4x the global CV and 1.6x the local smoothed gradient, which helps
-% both the image-driven B-spline and the placing of control points against it.
-% See registration_qc\atlas_region_comparison.png.
+% The adults stay on 'ccf' and are NOT re-registered.
 %
-% 'demba_p20' remains built, label-remapped and crop-verified, so this is a
-% one-line switch if it is ever wanted. Do not mix atlases within a run.
-atlas_key = 'ccf';                              % 'ccf' | 'demba_p20'
+% Consequence to remember: the two cohorts then live on different grids.
+% Registered volumes come out at twice the registration grid, so adults land
+% on [900 800 1140] and the young on [994 800 1140]. P5 onward still assume
+% the adult atlas and crop everywhere, so they must be made atlas-aware per
+% cohort before any young data reaches them. Region-level comparison across
+% the two is fine once that is done -- both annotations are in the same
+% parcellation_index space -- but voxelwise cross-group work would need
+% CCF Translator.
+atlas_key = 'demba_p20';                        % 'ccf' | 'demba_p20'
 
 % Choose correction type
 correction_type = 'slicewise';
@@ -97,14 +98,24 @@ fprintf('P4: %d mouse/mice selected, mode ''%s'', atlas ''%s''.\n', ...
     numel(cohort), run_mode, atlas.key);
 
 % Registering against the wrong atlas produces a perfectly plausible-looking
-% result, so say out loud which one is in force whenever it is not the one the
-% project settled on. Every cohort goes to 'ccf'; anything else is a deliberate
-% experiment and should be treated as one.
-if ~strcmp(atlas.key, 'ccf')
-    warning(['P4: registering to ''%s'', not the adult CCF that both cohorts ' ...
-             'use. Outputs from this run are NOT comparable with the rest of ' ...
-             'the dataset -- keep them out of P5.'], atlas.key);
+% result, so check the age rather than trusting the operator. An age-matched
+% atlas is valid for its own age and nothing else: a P36 brain does not belong
+% on the P20 template any more than it belongs on the adult one. Adults carry
+% age_days = NaN in the registry and go to 'ccf' (age_days 56).
+for k = 1:numel(cohort)
+    mouse_age = cohort(k).age_days;
+    if isnan(mouse_age)
+        mouse_age = 56;     % the adult cohorts are not dated individually
+    end
+    if mouse_age ~= atlas.age_days
+        error(['P4: %s is P%g but atlas ''%s'' represents P%g.\n' ...
+               'Register each brain to the atlas for its own age, or add an\n' ...
+               'entry for P%g to get_atlas.'], ...
+               cohort(k).name, mouse_age, atlas.key, atlas.age_days, mouse_age);
+    end
 end
+fprintf('P4: all selected mice are P%g, matching atlas ''%s''.\n', ...
+    atlas.age_days, atlas.key);
 
 % The atlas resolution has to agree with what each mouse's local_settings.txt
 % says, because px_atlas is what sets the AP scale of the reconstruction. A

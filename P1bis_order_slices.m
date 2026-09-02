@@ -40,8 +40,8 @@ paths = get_paths();
 
 % --- P20 (and the P16 next to it) — priority ---
 % mice_to_process = {'MG897_SepGluA_P20'};   % 30 sections DONE
-% mice_to_process = {'MG903_SepGluA_P20'};   % 44 sections DONE
-mice_to_process = {'MG909_SepGluA_P20'};   % 46 sections
+mice_to_process = {'MG903_SepGluA_P20'};   % 44 sections DONE
+%  mice_to_process = {'MG909_SepGluA_P20'};   % 46 sections
 % mice_to_process = {'MG910_SepGluA_P20'};   % 46 sections
 % mice_to_process = {'MG912_SepGluA_P20'};   % 30 sections
 % mice_to_process = {'MG913_SepGluA_P20'};   % 42 sections
