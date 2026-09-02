@@ -225,35 +225,70 @@ guidata(gui_fig,gui_data);
 align_ccf_to_histology(gui_fig);
 
 % Print controls
+show_controls(gui_fig);
+
+end
+
+
+function show_controls(gui_fig)
+% The controls list, in its own non-modal window.
+%
+% This lives in a function rather than inline at startup so that 'h' can bring
+% it back. It is an ordinary window, easy to close by accident and easy to lose
+% behind the main one, and once it is gone nothing on screen says what the keys
+% do.
+
+gui_data = guidata(gui_fig);
+
+% Already open: raise it instead of stacking up copies
+if isfield(gui_data, 'controls_fig') && ~isempty(gui_data.controls_fig) && ...
+        isvalid(gui_data.controls_fig)
+    figure(gui_data.controls_fig);
+    return
+end
+
 CreateStruct.Interpreter = 'tex';
 CreateStruct.WindowStyle = 'non-modal';
-msgbox( ...
+
+% Keys in one column and meanings in another, with every line short enough to
+% fit: msgbox sizes itself to the longest line, so one long sentence stretches
+% the whole window and then wraps anyway.
+gui_data.controls_fig = msgbox( ...
     {'\fontsize{11}' ...
     '\bf NAVIGATE\rm', ...
-    '   left / right     switch slice', ...
-    '   scroll wheel     change atlas plane', ...
-    '   1 2 3 / 0        channels  (0 = all)', ...
-    '   space            overlay on/off', ...
-    '   g                grid on/off', ...
+    '   left / right      switch slice', ...
+    '   scroll wheel      change atlas plane', ...
+    '   1 2 3 / 0         channels  (0 = all)', ...
+    '   space             overlay on / off', ...
+    '   g                 grid on / off', ...
+    '   h                 show this window', ...
     ' ', ...
     '\bf PLACE\rm', ...
-    '   click            add a point  (3 minimum per slice)', ...
+    '   click             add a point', ...
+    '                     (3 per slice minimum)', ...
     ' ', ...
     '\bf EDIT   [ e ]\rm', ...
-    '   click + drag     grab the nearest point and move it', ...
-    '   d                delete it, and its pair', ...
-    '   esc              let go', ...
+    '   click + drag      grab nearest point, move it', ...
+    '   d                 delete it, and its pair', ...
+    '   esc               let go', ...
+    ' ', ...
+    '   a held point also rings its partner', ...
+    '   on the other panel. A ring on one', ...
+    '   side only means it has no partner.', ...
     ' ', ...
     '\bf CARRY FORWARD   [ p ]\rm', ...
-    '   an empty slice inherits a copy of the one before it,', ...
-    '   drawn as hollow orange circles. While orange the wheel', ...
-    '   still scrolls and they follow it. Touching one commits', ...
+    '   an empty slice inherits a copy of', ...
+    '   the one before it, as hollow orange', ...
+    '   circles. The wheel still scrolls them', ...
+    '   while orange. Touching one commits', ...
     '   the slice and locks the plane.', ...
     ' ', ...
     '\bf FINISH\rm', ...
-    '   c                clear every point on this slice', ...
-    '   s                save'}, ...
+    '   c                 clear every point here', ...
+    '   s                 save'}, ...
     'Controls',CreateStruct);
+
+guidata(gui_fig, gui_data);
 
 end
 
@@ -344,6 +379,10 @@ switch eventdata.Key
             cell2mat(setdiff({'on','off'},curr_visibility)))
         set(gui_data.atlas_grid,'Visible', ...
             cell2mat(setdiff({'on','off'},curr_visibility)))
+    % bring the controls window back after it has been closed
+    case 'h'
+        show_controls(gui_fig);
+
     case {'1', '2', '3'}
         gui_data.colsuse = str2double(eventdata.Key);
         guidata(gui_fig,gui_data);
@@ -973,7 +1012,17 @@ end
 
 
 function draw_selection(gui_fig)
-% Ring whichever point is currently held, and nothing on the other panel
+% Ring the point being held AND its partner on the other panel.
+%
+% The two lists are paired by row -- row i of the histology points belongs
+% with row i of the atlas points, which is exactly the pairing the affine
+% fit later relies on -- so the partner is just the same index on the other
+% side. Same colour on both, so they read as one pair; the held one gets the
+% thicker ring so it stays obvious which of the two the mouse has hold of.
+%
+% A ring that appears on one side only means that index has no partner, which
+% makes an unpaired point visible instead of something you find out about at
+% registration time.
 
 gui_data = guidata(gui_fig);
 set(gui_data.histology_sel_plot, 'XData', nan, 'YData', nan);
@@ -983,17 +1032,32 @@ if isempty(gui_data.sel_side)
     return
 end
 
-if strcmp(gui_data.sel_side, 'histology')
-    pts = gui_data.histology_control_points{gui_data.curr_slice};
-    hplot = gui_data.histology_sel_plot;
-else
-    pts = gui_data.atlas_control_points{gui_data.curr_slice};
-    hplot = gui_data.atlas_sel_plot;
+idx      = gui_data.sel_idx;
+hpts     = gui_data.histology_control_points{gui_data.curr_slice};
+apts     = gui_data.atlas_control_points{gui_data.curr_slice};
+heldhist = strcmp(gui_data.sel_side, 'histology');
+
+set_sel_ring(gui_data.histology_sel_plot, hpts, idx,  heldhist);
+set_sel_ring(gui_data.atlas_sel_plot,     apts, idx, ~heldhist);
 end
 
-if gui_data.sel_idx >= 1 && gui_data.sel_idx <= size(pts,1)
-    set(hplot, 'XData', pts(gui_data.sel_idx,3), 'YData', pts(gui_data.sel_idx,2));
+
+function set_sel_ring(hplot, pts, idx, isheld)
+% Place one highlight ring, thick for the point under the mouse and thin for
+% its partner. Nothing is drawn if that index does not exist on this side.
+
+if idx < 1 || idx > size(pts,1)
+    return
 end
+
+if isheld
+    lw = 2;   ms = 13;
+else
+    lw = 1;   ms = 15;
+end
+
+set(hplot, 'XData', pts(idx,3), 'YData', pts(idx,2), ...
+    'LineWidth', lw, 'MarkerSize', ms);
 end
 
 
@@ -1014,9 +1078,14 @@ if gui_data.carry_forward
     modes{end+1} = 'CARRY FORWARD';
 end
 
+% The controls window is easy to close and easy to lose behind this one, so
+% the way back to it rides along in the title bar.
+reminder = '        [ h ] controls';
+
 if isempty(modes)
-    set(gui_fig, 'Name', gui_data.mouse_name);
+    set(gui_fig, 'Name', [gui_data.mouse_name reminder]);
 else
-    set(gui_fig, 'Name', [gui_data.mouse_name '     >>  ' strjoin(modes, '  +  ') '  <<']);
+    set(gui_fig, 'Name', [gui_data.mouse_name '     >>  ' ...
+        strjoin(modes, '  +  ') '  <<' reminder]);
 end
 end
