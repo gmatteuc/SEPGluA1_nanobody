@@ -124,6 +124,7 @@ gui_data.select_radius_frac = 0.02;   % of image width, for click-to-select
 % the way it always did -- that lock is a safety feature, not an obstacle, and
 % it should still protect anything actually placed by hand.
 gui_data.provisional = false(gui_data.Nslices, 1);
+gui_data.order_problem = '';   % set by update_atlas_slice, painted red below
 
 % Create figure, set button functions
 screen_size_px = get(0,'screensize');
@@ -599,32 +600,28 @@ Natlas = size(gui_data.tv, 1);
 % Say so when the mapping has gone somewhere impossible, rather than silently
 % pinning slices to the first or last plane and leaving it looking like the
 % atlas is running backwards.
-% The root cause is almost always an annotated slice sitting on an earlier
-% atlas plane than the one before it. Name it, so it can be corrected at source
-% rather than inferred from the symptom downstream.
+% Record what is wrong with the mapping, rather than printing it once into a
+% console nobody is watching. update_slice paints the titles red off this, so
+% the problem is visible in the window for as long as it lasts.
+gui_data.order_problem = '';
+
 if nnz(hascp) > 1
     bad = find(diff(useratlasinds) < 0);
-    if ~isempty(bad) && ~isfield(gui_data, 'warned_backward')
+    if ~isempty(bad)
         anchors_all = find(hascp);
-        for bi = 1:numel(bad)
-            fprintf(['WARNING: annotated slice %d sits on atlas plane %d, behind' BS 'n' ...
-                     '         slice %d on plane %d. Later slices are interpolated' BS 'n' ...
-                     '         through that dip. Scroll one of them to fix it.' BS 'n'], ...
-                     anchors_all(bad(bi)+1), useratlasinds(bad(bi)+1), ...
-                     anchors_all(bad(bi)),   useratlasinds(bad(bi)));
-        end
+        gui_data.order_problem = sprintf(...
+            'SLICE ORDER CONFLICT: slice %d is on plane %d, BEHIND slice %d on plane %d', ...
+            anchors_all(bad(1)+1), useratlasinds(bad(1)+1), ...
+            anchors_all(bad(1)),   useratlasinds(bad(1)));
     end
-    gui_data.warned_backward = ~isempty(bad);
 end
 
+Natlas = size(gui_data.tv, 1);
 n_clamped = nnz(newinds < 1 | newinds > Natlas);
-if n_clamped > 0 && ~isfield(gui_data, 'warned_clamp')
-    fprintf(['WARNING: %d slice(s) map outside the atlas and are being pinned to' BS 'n' ...
-             '         its ends. Usually one annotated slice sits behind the one' BS 'n' ...
-             '         before it. Check the atlas plane on your annotated slices.' BS 'n'], ...
-             n_clamped);
+if n_clamped > 0 && isempty(gui_data.order_problem)
+    gui_data.order_problem = sprintf(...
+        '%d slice(s) map outside the atlas and are pinned to its ends', n_clamped);
 end
-gui_data.warned_clamp = n_clamped > 0;
 
 newinds(newinds<1)      = 1;
 newinds(newinds>Natlas) = Natlas;
@@ -802,8 +799,19 @@ set(gui_data.atlas_control_points_plot, ...
 %     'AlphaData',histology_aligned_atlas_boundaries_init);
 
 
-title(gui_data.atlas_ax, sprintf('Atlas slice = %2.2f h-slice widths', ...
-        sluse/gui_data.slicewidth));
+if isempty(gui_data.order_problem)
+    title(gui_data.atlas_ax, sprintf('Atlas slice = %2.2f h-slice widths', ...
+            sluse/gui_data.slicewidth), 'Color', 'k');
+else
+    % Red, in the window, naming the slices. The registration code is left
+    % exactly as it was, so a contradictory order is not caught downstream --
+    % it has to be caught here, while it can still be corrected.
+    title(gui_data.atlas_ax, { ...
+        sprintf('Atlas slice = %2.2f h-slice widths', sluse/gui_data.slicewidth), ...
+        gui_data.order_problem, ...
+        'Re-annotate one of them. If the order is genuinely wrong, fix it in P1bis.'}, ...
+        'Color', 'r', 'FontWeight', 'bold');
+end
 
 % Upload gui_data
 guidata(gui_fig, gui_data);

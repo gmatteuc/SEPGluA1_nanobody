@@ -79,64 +79,14 @@ ysamplevals      = ysamplevals(1:end-1) + median(diff(ysamplevals))/2;
 % deal with missing control points
 hascp            = ~cellfun(@isempty,   atlas_cpoints);
 useratlasinds    = cellfun(@(x) x(1,1), atlas_cpoints(hascp));
-
-% How many atlas planes one sample slice is worth, from the initial estimate.
-% Fixed by the section spacing, so it is known without consulting any
-% annotation.
-known_step = (atlasinds(end) - atlasinds(1)) / max(1, Nslices - 1);
-
 if nnz(hascp) > 3
-    % Interpolate BETWEEN the annotated slices, but step out beyond them at
-    % the known rate.
-    %
-    % This used interp1(..., 'extrap'), which takes its slope from the last
-    % two annotated slices alone. Two adjacent anchors with the second even
-    % one plane behind the first, and every slice past them walks backwards --
-    % here, unlike in the GUI, straight into tvnew(atlasinds(islice),:,:) with
-    % nothing clamping it, so it either errors on a non-positive index or
-    % registers slices against the wrong section without complaint.
-    anchors   = find(hascp);
-    allsl     = (1:Nslices)';
-    ivals     = nan(Nslices, 1);
-
-    inside          = allsl >= anchors(1) & allsl <= anchors(end);
-    ivals(inside)   = interp1(anchors, useratlasinds, allsl(inside), 'linear');
-
-    before          = allsl < anchors(1);
-    ivals(before)   = useratlasinds(1)   + (allsl(before) - anchors(1))   * known_step;
-
-    after           = allsl > anchors(end);
-    ivals(after)    = useratlasinds(end) + (allsl(after)  - anchors(end)) * known_step;
-
+    % refine remaining
+    % pfit      = polyfit(atlasinds(hascp), useratlasinds, 1);
+    % atlasinds = round(polyval(pfit, atlasinds));
+    ivals     = interp1(find(hascp), useratlasinds, 1:Nslices, 'linear', 'extrap')';
     atlasinds = round(ivals);
 end
 atlasinds(hascp) = useratlasinds;
-
-% Anchors that run backwards mean a later section was matched to an earlier
-% atlas plane. That is either a slip in the annotation or a genuinely
-% mis-ordered reconstruction, and neither should be registered quietly.
-if nnz(hascp) > 1
-    backward = find(diff(useratlasinds) < 0);
-    if ~isempty(backward)
-        anchor_list = find(hascp);
-        warning(['registerSlicesToAtlas: %d annotated slice(s) sit on an earlier ' ...
-                 'atlas plane than the slice before them (first at slice %d). ' ...
-                 'Either the control points or the slice order is wrong -- check ' ...
-                 'before trusting this registration.'], ...
-                 numel(backward), anchor_list(backward(1)+1));
-    end
-end
-
-% Nothing downstream survives an out-of-range plane, so pin and say so.
-Natlas_planes = size(tvnew, 1);
-n_out = nnz(atlasinds < 1 | atlasinds > Natlas_planes);
-if n_out > 0
-    warning(['registerSlicesToAtlas: %d slice(s) mapped outside the atlas and ' ...
-             'were pinned to its ends. The control points do not describe a ' ...
-             'consistent anterior-to-posterior order.'], n_out);
-end
-atlasinds(atlasinds < 1)             = 1;
-atlasinds(atlasinds > Natlas_planes) = Natlas_planes;
 %=========================================================================
 % for every slice, we fit an affine transform from atlas to the slice
 % if no control points are available, we use only image info
