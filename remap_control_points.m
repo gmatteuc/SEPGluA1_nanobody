@@ -138,9 +138,12 @@ backup = fullfile(procpath, sprintf('atlas2histology_tform_prereorder_%s.mat', .
     datestr(now, 'yyyymmdd_HHMMSS'))); %#ok<TNOW1,DATST>
 copyfile(tformfile, backup);
 
-histology_control_points = hnew_pts;
-atlas_control_points     = anew_pts;
-save(tformfile, 'atlas_control_points', 'histology_control_points');
+% Write the loaded struct back rather than the two arrays alone: some GUI
+% save paths put an atlas2histology_tform in here too, and a bare save of two
+% variables would quietly drop it.
+S.histology_control_points = hnew_pts;
+S.atlas_control_points     = anew_pts;
+save(tformfile, '-struct', 'S');
 
 fprintf('\nWritten: %s\n', tformfile);
 fprintf('Previous version kept at: %s\n', backup);
