@@ -283,6 +283,7 @@ gui_data.controls_fig = msgbox( ...
     '   circles. The wheel still scrolls them', ...
     '   while orange. Touching one commits', ...
     '   the slice and locks the plane.', ...
+    '   Slices left orange are NOT saved.', ...
     ' ', ...
     '\bf FINISH\rm', ...
     '   c                 clear every point here', ...
@@ -411,20 +412,11 @@ switch eventdata.Key
         
     % s: save
     case 's'
-        % Provisional slices hold copies nobody has checked. They would be
-        % saved as if they were real placements, so say so rather than let
-        % them slip into the registration unnoticed.
-        prov = find(gui_data.provisional(:)');
-        if ~isempty(prov)
-            fprintf(['NOTE: %d slice(s) still hold carried, untouched points: %s\n' ...
-                     '      They will be saved as ordinary points. Press c on any\n' ...
-                     '      you did not mean to keep.\n'], numel(prov), mat2str(prov));
-        end
-        histology_control_points = gui_data.histology_control_points;
-        atlas_control_points     = gui_data.atlas_control_points;
+        [histology_control_points, atlas_control_points] = points_for_saving(gui_data);
         save_fn = fullfile(gui_data.save_path,'atlas2histology_tform.mat');
         save(save_fn,'atlas_control_points', 'histology_control_points');
-        disp(['Saved ' save_fn]);
+        fprintf('Saved %d annotated slice(s) to %s\n', ...
+            nnz(~cellfun(@isempty, histology_control_points)), save_fn);
         
 end
 
@@ -827,12 +819,12 @@ switch user_confirm
         % Save and close
         atlas2histology_tform = ...
             gui_data.histology_ccf_manual_alignment;
-        histology_control_points = gui_data.histology_control_points;
-        atlas_control_points     = gui_data.atlas_control_points;
+        [histology_control_points, atlas_control_points] = points_for_saving(gui_data);
         save_fn = fullfile(gui_data.save_path,'atlas2histology_tform.mat');
 
         save(save_fn,'atlas2histology_tform', 'atlas_control_points', 'histology_control_points');
-        disp(['Saved ' save_fn]);
+        fprintf('Saved %d annotated slice(s) to %s\n', ...
+            nnz(~cellfun(@isempty, histology_control_points)), save_fn);
         delete(gui_fig);
 
     case 'No'
@@ -1066,6 +1058,41 @@ heldhist = strcmp(gui_data.sel_side, 'histology');
 
 set_sel_ring(gui_data.histology_sel_plot, hpts, idx,  heldhist);
 set_sel_ring(gui_data.atlas_sel_plot,     apts, idx, ~heldhist);
+end
+
+
+function [hpts, apts] = points_for_saving(gui_data)
+% The points as they should reach disk: everything placed by hand, and nothing
+% that is still a carried guess.
+%
+% A provisional slice holds a copy of its neighbour that nobody has looked at.
+% Those are dropped rather than written, because the provisional flag itself is
+% NOT saved -- once on disk a carried copy is indistinguishable from a real
+% placement, so writing one is a door that does not open again, and the
+% registration ends up anchored on guesses that look like decisions. An empty
+% slice is the honest record, and registerSlicesToAtlas already interpolates a
+% plane for slices that have no points of their own.
+%
+% Touching a slice at all -- placing, grabbing or deleting a point -- clears its
+% provisional flag. So accepting a carried set exactly as it stands is a matter
+% of grabbing any one of its points and letting go.
+
+hpts = gui_data.histology_control_points;
+apts = gui_data.atlas_control_points;
+
+prov = find(gui_data.provisional(:)');
+for k = prov
+    hpts{k} = zeros(0,4);
+    apts{k} = zeros(0,4);
+end
+
+if ~isempty(prov)
+    fprintf(['NOTE: %d slice(s) hold carried, untouched points and were NOT saved:\n' ...
+             '      %s\n' ...
+             '      Grab any point on one to accept it as it stands.\n'], ...
+        numel(prov), mat2str(prov));
+end
+
 end
 
 
