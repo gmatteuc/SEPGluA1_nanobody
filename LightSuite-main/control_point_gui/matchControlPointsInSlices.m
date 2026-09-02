@@ -107,6 +107,24 @@ else
     gui_data.atlas_control_points     = repmat({zeros(0,3)}, gui_data.Nslices,1);
 end
 
+% Editing state. Points are paired by ROW INDEX between the two lists -- row i
+% of the atlas points goes with row i of the histology points in fitgeotform2d
+% -- so anything that removes a point has to remove the same row from both, or
+% every later pair silently shifts onto the wrong partner.
+gui_data.edit_mode     = false;    % 'e' toggles; click selects instead of adding
+gui_data.carry_forward = false;    % 'p' toggles; new slice inherits the last one's points
+gui_data.sel_side      = '';       % 'histology' | 'atlas' | '' when nothing selected
+gui_data.sel_idx       = 0;
+gui_data.select_radius_frac = 0.02;   % of image width, for click-to-select
+
+% Points carried onto a slice are PROVISIONAL until touched: drawn hollow in a
+% different colour, and they do not pin the atlas plane, so the wheel still
+% scrolls freely and they follow the view. The moment one is added, dragged or
+% deleted the slice commits, the normal colours come back, and the plane locks
+% the way it always did -- that lock is a safety feature, not an obstacle, and
+% it should still protect anything actually placed by hand.
+gui_data.provisional = false(gui_data.Nslices, 1);
+
 % Create figure, set button functions
 screen_size_px = get(0,'screensize');
 gui_aspect_ratio = 1.7; % width/length
@@ -174,6 +192,14 @@ gui_data.histology_control_points_plot = plot(gui_data.histology_ax,nan,nan,...
 gui_data.atlas_control_points_plot = plot(gui_data.atlas_ax,nan,nan,...
     'o','MarkerSize', 7, 'MarkerFaceColor', 'w', 'MarkerEdgeColor', 'r');
 
+% Highlight for the point currently picked up in edit mode
+gui_data.histology_sel_plot = plot(gui_data.histology_ax,nan,nan,'o', ...
+    'MarkerSize', 13, 'LineWidth', 2, 'MarkerEdgeColor', [1 0.85 0.1], ...
+    'MarkerFaceColor', 'none', 'PickableParts', 'none');
+gui_data.atlas_sel_plot = plot(gui_data.atlas_ax,nan,nan,'o', ...
+    'MarkerSize', 13, 'LineWidth', 2, 'MarkerEdgeColor', [1 0.85 0.1], ...
+    'MarkerFaceColor', 'none', 'PickableParts', 'none');
+
 % If there was previously auto-alignment, intitialize with that
 if isfield(gui_data,'histology_ccf_auto_alignment')
     gui_data.histology_ccf_manual_alignment = gui_data.histology_ccf_auto_alignment;
@@ -195,7 +221,14 @@ msgbox( ...
     'click: set reference points for manual alignment (3 minimum)', ...
     'space: toggle alignment overlay visibility', ...
     'g: toggle alignment grid', ...
-    'c: clear reference points', ...
+    'u: undo the last point placed (either side)', ...
+    'e: EDIT mode - click a point to grab it, drag to move it', ...
+    '   while one is held: d deletes it and its pair, esc lets go', ...
+    'p: carry points forward - an empty slice inherits a copy of', ...
+    '   the one you came from, shown as hollow orange circles. While', ...
+    '   orange the wheel still scrolls and they follow; touching any', ...
+    '   of them commits the slice and locks the plane as usual', ...
+    'c: clear ALL reference points on this slice', ...
     '1-3 or 0: toggle channels (0 for all)',...
     's: save'}, ...
     'Controls',CreateStruct);
@@ -212,13 +245,64 @@ switch eventdata.Key
     
     % left/right arrows: move slice
     case 'leftarrow'
-        gui_data.curr_slice = max(gui_data.curr_slice - 1,1);
+        gui_data = step_slice(gui_data, -1);
         guidata(gui_fig,gui_data);
         update_slice(gui_fig);
-        
+
     case 'rightarrow'
-        gui_data.curr_slice = ...
-            min(gui_data.curr_slice + 1, gui_data.Nslices);
+        gui_data = step_slice(gui_data, +1);
+        guidata(gui_fig,gui_data);
+        update_slice(gui_fig);
+
+    % e: edit mode. Clicks grab an existing point instead of adding a new one.
+    case 'e'
+        gui_data.edit_mode = ~gui_data.edit_mode;
+        gui_data.sel_side  = '';
+        gui_data.sel_idx   = 0;
+        if gui_data.edit_mode
+            disp('EDIT mode ON: click near a point to grab it, drag to move, d deletes.');
+        else
+            disp('EDIT mode off: clicks add points again.');
+        end
+        guidata(gui_fig,gui_data);
+        update_slice(gui_fig);
+
+    % p: carry the current slice's points onto the next one
+    case 'p'
+        gui_data.carry_forward = ~gui_data.carry_forward;
+        if gui_data.carry_forward
+            disp('CARRY FORWARD on: an empty slice inherits a copy of the one you came from.');
+        else
+            disp('CARRY FORWARD off.');
+        end
+        guidata(gui_fig,gui_data);
+
+    % d / delete: remove the selected point AND its pair
+    case {'d', 'delete', 'backspace'}
+        if isempty(gui_data.sel_side)
+            disp('Nothing selected. Turn on edit mode with e, then click a point.');
+        else
+            idx = gui_data.sel_idx;
+            h = gui_data.histology_control_points{gui_data.curr_slice};
+            a = gui_data.atlas_control_points{gui_data.curr_slice};
+            % Both sides, same row: the two lists are matched by index, so
+            % dropping one alone would re-pair every later point.
+            if size(h,1) >= idx, h(idx,:) = []; end
+            if size(a,1) >= idx, a(idx,:) = []; end
+            gui_data.histology_control_points{gui_data.curr_slice} = h;
+            gui_data.atlas_control_points{gui_data.curr_slice}     = a;
+            gui_data.sel_side = '';
+            gui_data.sel_idx  = 0;
+            gui_data.provisional(gui_data.curr_slice) = false;
+            fprintf('Deleted pair %d (%d histology / %d atlas points left).\n', ...
+                idx, size(h,1), size(a,1));
+            guidata(gui_fig,gui_data);
+            update_slice(gui_fig);
+        end
+
+    case 'escape'
+        gui_data.sel_side = '';
+        gui_data.sel_idx  = 0;
         guidata(gui_fig,gui_data);
         update_slice(gui_fig);
         
@@ -245,16 +329,51 @@ switch eventdata.Key
         guidata(gui_fig,gui_data);
         update_slice(gui_fig, true);
         
+    % u: undo the single most recent point, on either side
+    case 'u'
+        % Each point carries the time it was placed in column 4, so "most
+        % recent" is unambiguous whichever panel it was clicked in. Without
+        % this the only way back was 'c', which throws away the whole slice.
+        h = gui_data.histology_control_points{gui_data.curr_slice};
+        a = gui_data.atlas_control_points{gui_data.curr_slice};
+
+        t_h = -inf;
+        if ~isempty(h) && size(h, 2) >= 4, t_h = h(end, 4); end
+        t_a = -inf;
+        if ~isempty(a) && size(a, 2) >= 4, t_a = a(end, 4); end
+
+        if isinf(t_h) && isinf(t_a)
+            disp('Nothing to undo on this slice.');
+        elseif t_a > t_h
+            gui_data.atlas_control_points{gui_data.curr_slice} = a(1:end-1, :);
+            fprintf('Undid an atlas point (%d left on this slice).\n', size(a,1)-1);
+        else
+            gui_data.histology_control_points{gui_data.curr_slice} = h(1:end-1, :);
+            fprintf('Undid a histology point (%d left on this slice).\n', size(h,1)-1);
+        end
+
+        guidata(gui_fig,gui_data);
+        update_slice(gui_fig);
+
     % c: clear current points
     case 'c'
         gui_data.histology_control_points{gui_data.curr_slice} = zeros(0,3);
         gui_data.atlas_control_points{gui_data.curr_slice} = zeros(0,3);
-        
+
         guidata(gui_fig,gui_data);
         update_slice(gui_fig);
         
     % s: save
     case 's'
+        % Provisional slices hold copies nobody has checked. They would be
+        % saved as if they were real placements, so say so rather than let
+        % them slip into the registration unnoticed.
+        prov = find(gui_data.provisional(:)');
+        if ~isempty(prov)
+            fprintf(['NOTE: %d slice(s) still hold carried, untouched points: %s\n' ...
+                     '      They will be saved as ordinary points. Press c on any\n' ...
+                     '      you did not mean to keep.\n'], numel(prov), mat2str(prov));
+        end
         histology_control_points = gui_data.histology_control_points;
         atlas_control_points     = gui_data.atlas_control_points;
         save_fn = fullfile(gui_data.save_path,'atlas2histology_tform.mat');
@@ -267,13 +386,22 @@ end
 
 
 function mouseclick_histology(gui_fig,eventdata)
-% Draw new point for alignment
+% Draw new point for alignment, or in edit mode grab an existing one
 
 % Get guidata
 gui_data = guidata(gui_fig);
 toplot   = [2 3];
+
+if gui_data.edit_mode
+    grab_point(gui_fig, 'histology', flip(eventdata.IntersectionPoint(1:2)));
+    return
+end
+
 cpt(1)   = gui_data.curr_slice;
 cpt(2:3) = flip(eventdata.IntersectionPoint(1:2));
+
+% Placing a point commits the slice: it stops being a carried guess
+gui_data.provisional(gui_data.curr_slice) = false;
 
 % Add clicked location to control points
 gui_data.histology_control_points{gui_data.curr_slice} = ...
@@ -299,15 +427,23 @@ end
 
 
 function mouseclick_atlas(gui_fig,eventdata)
-% Draw new point for alignment
+% Draw new point for alignment, or in edit mode grab an existing one
 
 % Get guidata
 gui_data = guidata(gui_fig);
+
+if gui_data.edit_mode
+    grab_point(gui_fig, 'atlas', flip(eventdata.IntersectionPoint(1:2)));
+    return
+end
 
 cpt      = zeros(1,3);
 cpt(1)   = gui_data.atlas_slice;
 cpt(2:3) =  flip(eventdata.IntersectionPoint(1:2));
 toplot   = [2 3];
+
+% Placing a point commits the slice: it stops being a carried guess
+gui_data.provisional(gui_data.curr_slice) = false;
 
 % Add clicked location to control points
 gui_data.atlas_control_points{gui_data.curr_slice} = ...
@@ -417,6 +553,12 @@ hascp            = ~cellfun(@isempty,   atlas_cpoints);
 useratlasinds    = cellfun(@(x) x(1,1), atlas_cpoints(hascp));
 replaceinds      = gui_data.atlasinds;
 
+% How many atlas planes one sample slice is worth. This is fixed by the
+% section spacing, so it is known before any point is placed and does not have
+% to be inferred from the annotations.
+known_step = (gui_data.atlasinds(end) - gui_data.atlasinds(1)) / ...
+             max(1, gui_data.Nslices - 1);
+
 if nnz(hascp) > 0
     meanrem     = mean(gui_data.atlasinds(hascp));
     newinds     = gui_data.atlasinds - meanrem + mean(useratlasinds);
@@ -424,24 +566,86 @@ if nnz(hascp) > 0
 end
 if nnz(hascp) > 1
     % refine remaining
-    pfit        = polyfit(gui_data.atlasinds(hascp), useratlasinds, 1);
-    replaceinds = round(polyval(pfit, gui_data.atlasinds));
+    pfit = polyfit(gui_data.atlasinds(hascp), useratlasinds, 1);
+    % A fit that runs backwards means later slices would sit on earlier atlas
+    % planes, which cannot be right. Keep the offset, drop the bad slope.
+    if pfit(1) > 0
+        replaceinds = round(polyval(pfit, gui_data.atlasinds));
+    else
+        replaceinds = round(gui_data.atlasinds - mean(gui_data.atlasinds(hascp)) ...
+                            + mean(useratlasinds));
+    end
 end
 if nnz(hascp) > 3
-    % refine remaining
-    pfit        = interp1(find(hascp), useratlasinds, 1:gui_data.Nslices, 'linear', 'extrap')';
-    replaceinds = round(pfit);
+    % Interpolate BETWEEN the annotated slices, but step out beyond them at the
+    % known rate instead of continuing the slope of the last pair.
+    %
+    % The original used interp1(..., 'extrap'), which takes its slope from the
+    % final two annotated slices alone. If those are adjacent and the second
+    % sits even one plane behind the first, every slice past them marches
+    % backwards, runs off the front of the atlas and gets clamped to plane 1 --
+    % which is the atlas appearing to travel the wrong way as you advance.
+    anchors = find(hascp);
+    allsl   = (1:gui_data.Nslices)';
+    out     = nan(gui_data.Nslices, 1);
+
+    inside        = allsl >= anchors(1) & allsl <= anchors(end);
+    out(inside)   = interp1(anchors, useratlasinds, allsl(inside), 'linear');
+
+    before        = allsl < anchors(1);
+    out(before)   = useratlasinds(1)   + (allsl(before) - anchors(1))   * known_step;
+
+    after         = allsl > anchors(end);
+    out(after)    = useratlasinds(end) + (allsl(after)  - anchors(end)) * known_step;
+
+    replaceinds = round(out);
 end
 
 newinds = replaceinds;
 
 Natlas = size(gui_data.tv, 1);
+
+% Say so when the mapping has gone somewhere impossible, rather than silently
+% pinning slices to the first or last plane and leaving it looking like the
+% atlas is running backwards.
+% The root cause is almost always an annotated slice sitting on an earlier
+% atlas plane than the one before it. Name it, so it can be corrected at source
+% rather than inferred from the symptom downstream.
+if nnz(hascp) > 1
+    bad = find(diff(useratlasinds) < 0);
+    if ~isempty(bad) && ~isfield(gui_data, 'warned_backward')
+        anchors_all = find(hascp);
+        for bi = 1:numel(bad)
+            fprintf(['WARNING: annotated slice %d sits on atlas plane %d, behind' BS 'n' ...
+                     '         slice %d on plane %d. Later slices are interpolated' BS 'n' ...
+                     '         through that dip. Scroll one of them to fix it.' BS 'n'], ...
+                     anchors_all(bad(bi)+1), useratlasinds(bad(bi)+1), ...
+                     anchors_all(bad(bi)),   useratlasinds(bad(bi)));
+        end
+    end
+    gui_data.warned_backward = ~isempty(bad);
+end
+
+n_clamped = nnz(newinds < 1 | newinds > Natlas);
+if n_clamped > 0 && ~isfield(gui_data, 'warned_clamp')
+    fprintf(['WARNING: %d slice(s) map outside the atlas and are being pinned to' BS 'n' ...
+             '         its ends. Usually one annotated slice sits behind the one' BS 'n' ...
+             '         before it. Check the atlas plane on your annotated slices.' BS 'n'], ...
+             n_clamped);
+end
+gui_data.warned_clamp = n_clamped > 0;
+
 newinds(newinds<1)      = 1;
 newinds(newinds>Natlas) = Natlas;
 
 gui_data.atlasindsuse = newinds;
 
 
+% Unchanged from the original: the displayed plane always comes from the
+% points when a slice has any, otherwise from the prediction. Arriving at a
+% carried slice therefore shows the plane step_slice stamped into the copies,
+% not whatever the previous slice happened to be on. Whether the wheel can
+% MOVE that plane is decided in scroll_atlas_slice, not here.
 cpointsatlas = gui_data.atlas_control_points{gui_data.curr_slice};
 if ~isempty(cpointsatlas)
     gui_data.atlas_slice = median(cpointsatlas(:,1));
@@ -462,6 +666,22 @@ set(gui_data.histology_control_points_plot, ...
     'XData',gui_data.histology_control_points{gui_data.curr_slice}(:,toplot(2)), ...
     'YData',gui_data.histology_control_points{gui_data.curr_slice}(:,toplot(1)));
 
+% Carried-but-untouched points are drawn as hollow orange circles, so it is
+% obvious at a glance that they are a guess inherited from the previous slice
+% and that the atlas plane is still free to scroll. They become solid green and
+% red the moment the slice is committed.
+if gui_data.provisional(gui_data.curr_slice)
+    set(gui_data.histology_control_points_plot, ...
+        'MarkerFaceColor', 'none', 'MarkerEdgeColor', [0.95 0.55 0.10], 'LineWidth', 1.5);
+    set(gui_data.atlas_control_points_plot, ...
+        'MarkerFaceColor', 'none', 'MarkerEdgeColor', [0.95 0.55 0.10], 'LineWidth', 1.5);
+else
+    set(gui_data.histology_control_points_plot, ...
+        'MarkerFaceColor', 'w', 'MarkerEdgeColor', 'g', 'LineWidth', 0.5);
+    set(gui_data.atlas_control_points_plot, ...
+        'MarkerFaceColor', 'w', 'MarkerEdgeColor', 'r', 'LineWidth', 0.5);
+end
+
 histology_aligned_atlas_boundaries_init = nan(1,2);
 set(gui_data.histology_aligned_atlas_boundaries, ...
     'XData',histology_aligned_atlas_boundaries_init(:,1), 'YData',histology_aligned_atlas_boundaries_init(:,2));
@@ -471,6 +691,9 @@ guidata(gui_fig, gui_data);
 
 % Update atlas boundaries
 align_ccf_to_histology(gui_fig)
+
+% Keep the edit-mode highlight in step with whatever is on screen
+draw_selection(gui_fig)
 
 if ~sliceonly
 
@@ -509,6 +732,20 @@ gui_data.atlas_slice = ...
 
 gui_data.atlas_slice = max(gui_data.atlas_slice, 1);
 gui_data.atlas_slice = min(gui_data.atlas_slice, size(gui_data.tv, 1));
+
+% Carried-but-untouched points follow the wheel; committed ones do not.
+%
+% update_atlas_slice pins the displayed plane to median(points(:,1)) once a
+% slice has atlas points, which is deliberate -- it stops an accidental scroll
+% silently relocating work already placed by hand. That protection stays. Only
+% provisional points, copied from the previous slice and not yet touched, are
+% re-stamped so the wheel can still be used to find the right plane.
+if gui_data.provisional(gui_data.curr_slice)
+    cpts = gui_data.atlas_control_points{gui_data.curr_slice};
+    if ~isempty(cpts)
+        gui_data.atlas_control_points{gui_data.curr_slice}(:,1) = gui_data.atlas_slice;
+    end
+end
 
 % Upload gui data
 guidata(gui_fig, gui_data);
@@ -583,17 +820,167 @@ guidata(gui_fig, gui_data);
 end
 
 
+function gui_data = step_slice(gui_data, dir)
+% Move one slice, optionally carrying the current points along.
+%
+% Copying keeps the in-plane positions but re-stamps the slice index: the
+% histology point gets the new sample slice, and the atlas point gets the atlas
+% plane predicted for it, so the copy lands on the right section rather than
+% dragging the previous slice's atlas plane along with it.
+
+from_slice = gui_data.curr_slice;
+to_slice   = min(max(from_slice + dir, 1), gui_data.Nslices);
+
+if gui_data.carry_forward && to_slice ~= from_slice
+    src_h = gui_data.histology_control_points{from_slice};
+    src_a = gui_data.atlas_control_points{from_slice};
+    dst_h = gui_data.histology_control_points{to_slice};
+    dst_a = gui_data.atlas_control_points{to_slice};
+
+    % Only seed an empty slice. Never overwrite work already done there.
+    if isempty(dst_h) && isempty(dst_a) && ~isempty(src_h)
+        now_stamp   = convertTo(datetime('now'), 'datenum');
+        target_plane = gui_data.atlasindsuse(to_slice);
+
+        new_h = src_h;
+        new_h(:, 1) = to_slice;
+        new_h(:, 4) = now_stamp;
+
+        new_a = src_a;
+        if ~isempty(new_a)
+            new_a(:, 1) = target_plane;
+            new_a(:, 4) = now_stamp;
+        end
+
+        gui_data.histology_control_points{to_slice} = new_h;
+        gui_data.atlas_control_points{to_slice}     = new_a;
+        gui_data.provisional(to_slice)              = true;
+        fprintf('Carried %d point(s) from slice %d to %d (atlas plane %d).\n', ...
+            size(new_h,1), from_slice, to_slice, target_plane);
+    end
+end
+
+gui_data.curr_slice = to_slice;
+gui_data.sel_side   = '';
+gui_data.sel_idx    = 0;
+end
 
 
+function grab_point(gui_fig, side, yx)
+% Pick the nearest existing point on this panel and start dragging it.
+
+gui_data = guidata(gui_fig);
+
+if strcmp(side, 'histology')
+    pts = gui_data.histology_control_points{gui_data.curr_slice};
+    width = size(gui_data.volume, 3);
+else
+    pts = gui_data.atlas_control_points{gui_data.curr_slice};
+    width = size(gui_data.av, 3);
+end
+
+if isempty(pts)
+    disp('No points on this slice to grab.');
+    return
+end
+
+% Columns 2 and 3 hold y and x
+d = hypot(pts(:,2) - yx(1), pts(:,3) - yx(2));
+[dmin, idx] = min(d);
+
+if dmin > gui_data.select_radius_frac * width
+    fprintf('No point within reach (nearest is %.0f px away).\n', dmin);
+    return
+end
+
+gui_data.sel_side = side;
+gui_data.sel_idx  = idx;
+gui_data.provisional(gui_data.curr_slice) = false;   % touching it commits the slice
+guidata(gui_fig, gui_data);
+draw_selection(gui_fig);
+
+% Follow the mouse until the button comes back up
+set(gui_fig, 'WindowButtonMotionFcn', @drag_motion, ...
+             'WindowButtonUpFcn',     @drag_stop);
+end
 
 
+function drag_motion(gui_fig, ~)
+% Move the held point to wherever the pointer is now
+
+gui_data = guidata(gui_fig);
+if isempty(gui_data.sel_side)
+    return
+end
+
+if strcmp(gui_data.sel_side, 'histology')
+    ax = gui_data.histology_ax;
+else
+    ax = gui_data.atlas_ax;
+end
+cp = get(ax, 'CurrentPoint');
+x  = cp(1,1);
+y  = cp(1,2);
+
+% Ignore excursions outside the panel rather than flinging the point away
+xl = xlim(ax); yl = ylim(ax);
+if x < xl(1) || x > xl(2) || y < yl(1) || y > yl(2)
+    return
+end
+
+if strcmp(gui_data.sel_side, 'histology')
+    gui_data.histology_control_points{gui_data.curr_slice}(gui_data.sel_idx, 2:3) = [y x];
+else
+    gui_data.atlas_control_points{gui_data.curr_slice}(gui_data.sel_idx, 2:3) = [y x];
+end
+
+guidata(gui_fig, gui_data);
+redraw_points(gui_fig);
+draw_selection(gui_fig);
+end
 
 
+function drag_stop(gui_fig, ~)
+% Let go, and refresh the alignment with the point in its new place
+
+set(gui_fig, 'WindowButtonMotionFcn', '', 'WindowButtonUpFcn', '');
+align_ccf_to_histology(gui_fig);
+end
 
 
+function redraw_points(gui_fig)
+% Refresh both point plots from the stored coordinates
+
+gui_data = guidata(gui_fig);
+h = gui_data.histology_control_points{gui_data.curr_slice};
+a = gui_data.atlas_control_points{gui_data.curr_slice};
+set(gui_data.histology_control_points_plot, ...
+    'XData', h(:,3), 'YData', h(:,2));
+set(gui_data.atlas_control_points_plot, ...
+    'XData', a(:,3), 'YData', a(:,2));
+end
 
 
+function draw_selection(gui_fig)
+% Ring whichever point is currently held, and nothing on the other panel
 
+gui_data = guidata(gui_fig);
+set(gui_data.histology_sel_plot, 'XData', nan, 'YData', nan);
+set(gui_data.atlas_sel_plot,     'XData', nan, 'YData', nan);
 
+if isempty(gui_data.sel_side)
+    return
+end
 
+if strcmp(gui_data.sel_side, 'histology')
+    pts = gui_data.histology_control_points{gui_data.curr_slice};
+    hplot = gui_data.histology_sel_plot;
+else
+    pts = gui_data.atlas_control_points{gui_data.curr_slice};
+    hplot = gui_data.atlas_sel_plot;
+end
 
+if gui_data.sel_idx >= 1 && gui_data.sel_idx <= size(pts,1)
+    set(hplot, 'XData', pts(gui_data.sel_idx,3), 'YData', pts(gui_data.sel_idx,2));
+end
+end
