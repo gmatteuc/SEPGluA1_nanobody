@@ -137,7 +137,12 @@ regopts.howtoperm    = [3 1 2];
 regopts.procpath     = sliceinfo.procpath;
 regopts.registres    = sliceinfo.px_register;
 regopts.processres   = sliceinfo.px_process;
-regopts.allenres     = 10; % um
+% Was hardcoded to 10 um, which is right for the adult CCF and wrong for any
+% other atlas. registerSlicesToAtlas divides by this to get downfac_reg, so a
+% 20 um atlas registered with allenres = 10 gets downsampled to 40 um and every
+% AP coordinate is out by a factor of two, with nothing in the log to show it.
+% Take it from the settings, where px_atlas already says what the atlas is.
+regopts.allenres     = sliceinfo.px_atlas; % um
 regopts.errall       = errall;
 regopts.atlasaplims  = sliceinfo.atlasaplims;
 regopts.pxsizes      = [sliceinfo.slicethickness/sliceinfo.px_register 1 1];

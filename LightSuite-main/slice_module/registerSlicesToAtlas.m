@@ -26,8 +26,12 @@ if ~isempty(cppath)
     histology_cpoints = cpdata.histology_control_points;
     atlas_cpoints     = cpdata.atlas_control_points;
 else
-    histology_cpoints = repmat({zeros(0,2)}, [Nslices 1]);
-    atlas_cpoints     = repmat({zeros(0,2)}, [Nslices 1]);
+    % Four columns, not two: the loop below reads columns [3 2] off these
+    % (and the commented-out timing code reads column 4), so a 0x2 placeholder
+    % threw "Index in position 2 exceeds array bounds" on the first slice and
+    % the image-only path this branch exists to allow could never run.
+    histology_cpoints = repmat({zeros(0,4)}, [Nslices 1]);
+    atlas_cpoints     = repmat({zeros(0,4)}, [Nslices 1]);
 end
 %==========================================================================
 downfac_reg = regopts.allenres/regopts.registres;

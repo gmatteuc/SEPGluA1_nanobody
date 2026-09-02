@@ -21,7 +21,10 @@ param(
     [string]$MatlabExe = "C:\Program Files\MATLAB\R2024b\bin\matlab.exe"
 )
 
-$scripts = $Script -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
+# @() around the pipeline: with a single script name the pipeline returns a bare
+# string rather than an array, and $scripts[0] then indexes its first character,
+# so every single-stage run logged to _P.log instead of _<script>.log.
+$scripts = @($Script -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })
 $log = Join-Path $LogDir ("_{0}.log" -f $scripts[0])
 
 # Chain onto an earlier stage when asked, so a long copy can hand over to

@@ -76,3 +76,6 @@ matlab_elastix-master/matlab_elastix-master/
 
 # ---- Claude Code local settings (machine-specific) ----
 .claude/settings.local.json
+
+# Python env for brainglobe-atlasapi (atlas downloads); not part of the pipeline
+tools/venv_atlas/

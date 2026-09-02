@@ -30,23 +30,31 @@ paths = get_paths();
 % Cohort selection (mice come from the shared registry get_cohort.m).
 % The GUI is per-mouse, so give exactly one name when run_mode = 'edit'.
 %
-% Whole young cohort below, in registry order, with the number of sections in
-% each. Work down the list: uncomment the one you are on, comment the previous.
+% Whole young cohort below, with the number of sections in each. Work down the
+% list: uncomment the one you are on, comment the previous.
+%
+% The P20 brains come first now: after the discussion with Sami the youngest
+% ages are where the difference from adults is expected to be largest, so they
+% are the ones that need to reach the registration stage first. The rest of the
+% cohort follows, still worth curating but not on the critical path.
 
+% --- P20 (and the P16 next to it) — priority ---
+% mice_to_process = {'MG897_SepGluA_P20'};   % 30 sections DONE
 % mice_to_process = {'MG903_SepGluA_P20'};   % 44 sections DONE
-% mice_to_process = {'MG895_SepGluA_P36'};   % 40 sections DONE
-mice_to_process = {'MG896_SepGluA_P28'};   % 43 sections
-% mice_to_process = {'MG897_SepGluA_P20'};   % 30 sections
-% mice_to_process = {'MG904_SepGluA_P22'};   % 46 sections
-% mice_to_process = {'MG906_SepGluA_P32'};   % 30 sections
-% mice_to_process = {'MG907_SepGluA_P36'};   % 33 sections
-% mice_to_process = {'MG908_SepGluA_P32'};   % 37 sections
-% mice_to_process = {'MG909_SepGluA_P20'};   % 46 sections
+mice_to_process = {'MG909_SepGluA_P20'};   % 46 sections
 % mice_to_process = {'MG910_SepGluA_P20'};   % 46 sections
-% mice_to_process = {'MG911_SepGluA_P16'};   % 50 sections
 % mice_to_process = {'MG912_SepGluA_P20'};   % 30 sections
 % mice_to_process = {'MG913_SepGluA_P20'};   % 42 sections
+% mice_to_process = {'MG911_SepGluA_P16'};   % 50 sections
+
+% --- older ages — after the P20s ---
+% mice_to_process = {'MG904_SepGluA_P22'};   % 46 sections DONE
+% mice_to_process = {'MG896_SepGluA_P28'};   % 43 sections DONE
+% mice_to_process = {'MG906_SepGluA_P32'};   % 30 sections DONE
+% mice_to_process = {'MG895_SepGluA_P36'};   % 40 sections DONE
 % mice_to_process = {'MG914_SepGluA_P28'};   % 46 sections
+% mice_to_process = {'MG908_SepGluA_P32'};   % 37 sections
+% mice_to_process = {'MG907_SepGluA_P36'};   % 33 sections
 
 % 'edit' = open the GUI, 'apply' = rebuild volume_ordered.tiff from decisions
 run_mode = 'edit';
