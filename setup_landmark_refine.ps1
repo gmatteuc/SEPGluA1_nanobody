@@ -18,7 +18,18 @@ if (-not (Test-Path $py)) {
     python -m venv $venv
 }
 & $py -m pip install --quiet --upgrade pip
-& $py -m pip install --quiet --index-url https://download.pytorch.org/whl/cpu torch
+
+# An NVIDIA GPU makes the matching ~10x faster; use the CUDA build of torch when
+# one is present, the CPU build otherwise. Either works, the wrapper does not care.
+$gpu = $false
+try { & nvidia-smi -L 2>$null | Out-Null; $gpu = ($LASTEXITCODE -eq 0) } catch { $gpu = $false }
+if ($gpu) {
+    Write-Host "NVIDIA GPU found: installing the CUDA build of torch (about 2.5 GB)"
+    & $py -m pip install --quiet --index-url https://download.pytorch.org/whl/cu124 torch
+} else {
+    Write-Host "no NVIDIA GPU: installing the CPU build of torch"
+    & $py -m pip install --quiet --index-url https://download.pytorch.org/whl/cpu torch
+}
 & $py -m pip install --quiet -r (Join-Path $pydir 'requirements.txt')
 
 Write-Host "downloading LoFTR weights and running a self-test..."

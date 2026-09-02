@@ -37,7 +37,9 @@ import torch
 from scipy.ndimage import distance_transform_edt, gaussian_filter, sobel, uniform_filter
 
 _LOFTR = None
-SIGMAS = (0, 1, 2, 3)
+_DEVICE = None
+SIGMAS = (0, 1, 2, 3)          # suggest: measured at 9.3 px with all four
+SIGMAS_REFINE = (0, 2)         # refine: (0,2) measured 9.5 px vs 9.7 for all four, at half the cost
 W_BOUND = 3.0          # boundary bonus; chosen by leave-one-slice-out CV
 W_CORNER = 1.0
 SNAP_R = 12            # px; snapping is a nudge, accuracy comes from the transfer
@@ -67,24 +69,34 @@ def _pad8(im):
     return out
 
 
+def device():
+    """The GPU when there is one, else the CPU. Four LoFTR passes take ~2 s on
+    CPU and a fraction of that on a modest GPU; nothing else here is slow."""
+    global _DEVICE
+    if _DEVICE is None:
+        _DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    return _DEVICE
+
+
 def _loftr():
     global _LOFTR
     if _LOFTR is None:
         import kornia.feature as KF
         torch.set_grad_enabled(False)
-        _LOFTR = KF.LoFTR(pretrained='outdoor').eval()
+        _LOFTR = KF.LoFTR(pretrained='outdoor').eval().to(device())
     return _LOFTR
 
 
 def match_multiscale(atlas, hist, sigmas=SIGMAS):
     """Pooled LoFTR matches across blur levels. Returns (pa, ph, conf)."""
     m = _loftr()
+    dev = device()
     pas, phs, cfs = [], [], []
     for s in sigmas:
         a = gaussian_filter(atlas, s) if s else atlas
         b = gaussian_filter(hist, s) if s else hist
-        ta = torch.from_numpy(_pad8(a))[None, None]
-        tb = torch.from_numpy(_pad8(b))[None, None]
+        ta = torch.from_numpy(_pad8(a))[None, None].to(dev)
+        tb = torch.from_numpy(_pad8(b))[None, None].to(dev)
         out = m({'image0': ta, 'image1': tb})
         pas.append(out['keypoints0'].cpu().numpy())
         phs.append(out['keypoints1'].cpu().numpy())
@@ -299,14 +311,14 @@ def select_pairs_stratified(pa, score, xmid, k, tol=MIRROR_TOL):
 MIN_INLIERS = 30       # pooled inliers on real slices were 400-700; blank or wrong images give a handful
 
 
-def _matches(atlas, hist):
+def _matches(atlas, hist, sigmas=SIGMAS):
     info = dict(n_matches=0, n_inliers=0, det=0.0, mean_conf=0.0)
     # A blank or constant panel matches itself perfectly everywhere -- LoFTR
     # returns hundreds of identical-feature matches consistent with the
     # identity, which no inlier count would reject. Check the input first.
     if atlas.std() < 1e-3 or hist.std() < 1e-3:
         return None, None, None, None, info
-    pa, ph, cf = match_multiscale(atlas, hist)
+    pa, ph, cf = match_multiscale(atlas, hist, sigmas)
     M, inl = ransac_affine(pa, ph)
     info.update(n_matches=int(len(pa)), n_inliers=int(inl.sum()),
                 det=float(np.linalg.det(M[:, :2])) if M is not None else 0.0,
@@ -328,7 +340,7 @@ def refine(atlas, hist, atlas_pts, labels=None, snap_r=SNAP_R):
     t0 = time.time()
     atlas, hist = as_float(atlas), as_float(hist)
     atlas_pts = np.asarray(atlas_pts, float).reshape(-1, 2)
-    pa, ph, cf, M, info = _matches(atlas, hist)
+    pa, ph, cf, M, info = _matches(atlas, hist, SIGMAS_REFINE)
     if M is None:
         return dict(ok=False, message='no affine found: too few consistent matches',
                     atlas_pts=atlas_pts, hist_pts=np.full_like(atlas_pts, np.nan),

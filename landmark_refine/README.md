@@ -11,8 +11,25 @@ one piece of machinery, nothing trained:
 The floor — the annotator's own affine residual — is 7.4 px. Every number and the full
 experimental record are in `D:\sep_histology\sandbox_landmark_matching\README.md`.
 
-Matching is LoFTR via `kornia` (pretrained `outdoor`), run at four blur levels and pooled.
-Runs on CPU in ~2.5 s per slice; a cold Python process adds ~1.5 s.
+Matching is LoFTR via `kornia` (pretrained `outdoor`), run at several blur levels and pooled:
+four for `suggest`, two for `refine` (measured as accurate as four on the carry-over, at half
+the cost).
+
+## Speed
+
+Measured on slice 6 of MG903, 400 x 570 px:
+
+| | CPU | GPU (RTX A2000) |
+|---|---|---|
+| `refine`, 2 blur levels | 1.3 s | **0.4 s** |
+| `suggest`, 4 blur levels | 2.4 s | **0.7 s** |
+| torch import + model load, once per process | 2.2 s | 2.1 s |
+
+So a carry-over press in the GUI costs about **2.5 s on the GPU**, nearly all of it Python
+start-up. The setup script installs the CUDA build of torch when `nvidia-smi` finds a GPU.
+If that 2 s ever matters, the fix is a persistent worker process that imports once and
+answers requests; `core.py` is stateless apart from the cached model, so it is a small
+addition. It was not built because with the CPU numbers it would only have saved 1.5 of ~4.5 s.
 
 ## Layout
 
@@ -58,10 +75,9 @@ throws on a matching failure, so the GUI can fall back to a plain copy.
 ## The MATLAB/Python bridge
 
 Deliberately the simplest thing that works: a `.mat` file each way and one `system()`
-call. Measured cost of that choice is ~1.5 s per call for process start-up and torch
-import, against ~2.5 s of actual matching, so a persistent worker was not worth its
-moving parts. If that ever changes, `core.py` is import-safe and stateless apart from the
-cached model, so a worker is a small addition.
+call. The MATLAB side of that costs nothing measurable (bare `system()` 0.1 s, the `.mat`
+round trip 0.03 s); what a call pays for is Python start-up, torch import and model load,
+about 2 s. See Speed above for when a persistent worker would be worth having.
 
 ## Provenance
 
