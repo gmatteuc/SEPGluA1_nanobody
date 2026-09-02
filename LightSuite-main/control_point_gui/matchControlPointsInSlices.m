@@ -124,7 +124,7 @@ gui_data.select_radius_frac = 0.04;   % of image width, for click-to-select
 % the way it always did -- that lock is a safety feature, not an obstacle, and
 % it should still protect anything actually placed by hand.
 gui_data.provisional = false(gui_data.Nslices, 1);
-gui_data.order_problem = '';   % set by update_atlas_slice, painted red below
+gui_data.order_problem = '';   % set by update_atlas_slice, painted purple below
 
 % Create figure, set button functions
 screen_size_px = get(0,'screensize');
@@ -266,6 +266,7 @@ gui_data.controls_fig = msgbox( ...
     '\bf PLACE\rm', ...
     '   click             add a point', ...
     '                     (3 per slice minimum)', ...
+    '   ctrl + z          undo the last one', ...
     ' ', ...
     '\bf EDIT   [ e ]\rm', ...
     '   click + drag      grab nearest point, move it', ...
@@ -392,6 +393,14 @@ switch eventdata.Key
         guidata(gui_fig,gui_data);
         update_slice(gui_fig, true);
         
+    % ctrl+z: take back the last point placed on this slice
+    case 'z'
+        if any(strcmp(eventdata.Modifier, 'control'))
+            gui_data = undo_last_point(gui_data);
+            guidata(gui_fig,gui_data);
+            update_slice(gui_fig);
+        end
+
     % c: clear current points
     case 'c'
         gui_data.histology_control_points{gui_data.curr_slice} = zeros(0,3);
@@ -521,6 +530,22 @@ currim        = squeeze(gui_data.av(idatlas, :, :));
 
 tstrcurr      = sprintf('Slice %d/%d', gui_data.curr_slice, gui_data.Nslices);
 
+% Second title line: which atlas plane this slice sits on, and whether that is
+% its own or borrowed. A slice carrying points is ANCHORED there and stays put;
+% one without is only where the interpolation between the surrounding anchors
+% currently puts it, and will move as neighbours get annotated. Same units as
+% the atlas panel, so the two read against each other directly.
+anchorpts = gui_data.atlas_control_points{gui_data.curr_slice};
+if ~isempty(anchorpts)
+    anchorstr = sprintf('anchored at atlas %2.2f h-slice widths', ...
+        median(anchorpts(:,1))/gui_data.slicewidth);
+elseif isfield(gui_data, 'atlasindsuse')
+    anchorstr = sprintf('not anchored, predicted atlas %2.2f h-slice widths', ...
+        gui_data.atlasindsuse(gui_data.curr_slice)/gui_data.slicewidth);
+else
+    anchorstr = 'not anchored';
+end
+
 if size(cptshistology,1) == size(cptsatlas,1) && ...
         (size(cptshistology,1) >= Nmin && size(cptsatlas,1) >= Nmin)
     
@@ -537,6 +562,11 @@ elseif size(gui_data.histology_control_points{gui_data.curr_slice},1) >= 1 ||  .
     % If less than 3 or nonmatching points, use auto but don't draw
     tstrcurr = sprintf('%s, New alignment ', tstrcurr);
 
+    % This branch returns before the title call below, so set it here too --
+    % otherwise a slice part-way through a pair keeps the previous slice's
+    % title, anchor line included.
+    title(gui_data.histology_ax, {tstrcurr, anchorstr})
+
     % Upload gui data
     guidata(gui_fig, gui_data);
     return
@@ -551,7 +581,7 @@ else
     tform = affinetform2d;
 end
 
-title(gui_data.histology_ax, tstrcurr)
+title(gui_data.histology_ax, {tstrcurr, anchorstr})
 
 av_warp_boundaries = round(conv2(currim,ones(3)./9,'same')) ~= currim;
 
@@ -640,14 +670,11 @@ end
 
 newinds = replaceinds;
 
-Natlas = size(gui_data.tv, 1);
-
 % Say so when the mapping has gone somewhere impossible, rather than silently
 % pinning slices to the first or last plane and leaving it looking like the
-% atlas is running backwards.
-% Record what is wrong with the mapping, rather than printing it once into a
-% console nobody is watching. update_slice paints the titles red off this, so
-% the problem is visible in the window for as long as it lasts.
+% atlas is running backwards. Record what is wrong rather than printing it once
+% into a console nobody is watching. update_slice paints the title purple off this,
+% so the problem is visible in the window for as long as it lasts.
 gui_data.order_problem = '';
 
 if nnz(hascp) > 1
@@ -847,12 +874,12 @@ if isempty(gui_data.order_problem)
     title(gui_data.atlas_ax, sprintf('Atlas slice = %2.2f h-slice widths', ...
             sluse/gui_data.slicewidth), 'Color', 'k');
 else
-    % Red, in the window, naming the slices. The registration code is left
+    % Purple, in the window, naming the slices. The registration code is left
     % exactly as it was, so a contradictory order is not caught downstream --
     % it has to be caught here, while it can still be corrected.
     title(gui_data.atlas_ax, { ...
         sprintf('Atlas slice = %2.2f h-slice widths', sluse/gui_data.slicewidth), ...
-        gui_data.order_problem}, 'Color', 'r', 'FontWeight', 'bold');
+        gui_data.order_problem}, 'Color', [0.55 0.10 0.75], 'FontWeight', 'bold');
 end
 
 % Upload gui_data
@@ -1039,6 +1066,65 @@ heldhist = strcmp(gui_data.sel_side, 'histology');
 
 set_sel_ring(gui_data.histology_sel_plot, hpts, idx,  heldhist);
 set_sel_ring(gui_data.atlas_sel_plot,     apts, idx, ~heldhist);
+end
+
+
+function gui_data = undo_last_point(gui_data)
+% Take back the last control point placed on this slice.
+%
+% Nothing has to be recorded to know which one that was. Column 4 of every
+% point is the datenum it was clicked -- the original GUI has always written
+% it -- so the two lists already carry the placement order between them. Points
+% are appended, so the newest on each side is its last row, and comparing those
+% two stamps says which side was touched last.
+%
+% One point, not the pair: that is how they go down, so ctrl+z once undoes a
+% misclick without throwing away its partner, and twice walks back a full pair.
+
+sl = gui_data.curr_slice;
+h  = gui_data.histology_control_points{sl};
+a  = gui_data.atlas_control_points{sl};
+
+if isempty(h) && isempty(a)
+    disp('Nothing to undo on this slice.');
+    return
+end
+
+if stamp_of_last(h) >= stamp_of_last(a)
+    h(end,:) = [];
+    gui_data.histology_control_points{sl} = h;
+    sidestr = 'histology';
+else
+    a(end,:) = [];
+    gui_data.atlas_control_points{sl} = a;
+    sidestr = 'atlas';
+end
+
+fprintf('Undid the last %s point (%d histology / %d atlas left).\n', ...
+    sidestr, size(h,1), size(a,1));
+
+% Rows shift under a removal, so whatever was selected no longer means what
+% it did.
+gui_data.sel_side = '';
+gui_data.sel_idx  = 0;
+
+% Taking a point back still counts as having touched the slice
+gui_data.provisional(sl) = false;
+end
+
+
+function t = stamp_of_last(pts)
+% When the newest point in a list was placed. An empty list loses every
+% comparison; a list from before column 4 existed still beats an empty one,
+% but never a real timestamp.
+
+if isempty(pts)
+    t = -inf;
+elseif size(pts,2) < 4
+    t = 0;
+else
+    t = pts(end,4);
+end
 end
 
 
