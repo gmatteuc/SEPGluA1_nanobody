@@ -115,7 +115,7 @@ gui_data.edit_mode     = false;    % 'e' toggles; click selects instead of addin
 gui_data.carry_forward = false;    % 'p' toggles; new slice inherits the last one's points
 gui_data.sel_side      = '';       % 'histology' | 'atlas' | '' when nothing selected
 gui_data.sel_idx       = 0;
-gui_data.select_radius_frac = 0.02;   % of image width, for click-to-select
+gui_data.select_radius_frac = 0.04;   % of image width, for click-to-select
 
 % Points carried onto a slice are PROVISIONAL until touched: drawn hollow in a
 % different colour, and they do not pin the atlas plane, so the wheel still
@@ -162,7 +162,7 @@ set(gui_data.histology_ax,'Position',[0,0,0.5,0.9]);
 hold on; colormap(gray); axis image off;
 gui_data.histology_im_h = image(curr_image,...
     'Parent',gui_data.histology_ax,'ButtonDownFcn',@mouseclick_histology);
-gui_data.histology_grid = line(xlinesall(:), ylinesall(:), 'Color', 'w', 'LineWidth', 0.5);
+gui_data.histology_grid = line(xlinesall(:), ylinesall(:), 'Color', 'w', 'LineWidth', 0.5, 'PickableParts', 'none');
 set(gui_data.histology_grid,'Visible','off')
 
 % Set up histology-aligned atlas overlay
@@ -188,16 +188,22 @@ set(gui_data.atlas_ax,'Position',[0.5,0,0.5,0.9]);
 hold on; axis image off; colormap(gray); clim([0,255]);
 gui_data.atlas_im_h = imagesc(curr_atlas, ...
     'Parent',gui_data.atlas_ax,'ButtonDownFcn',@mouseclick_atlas);
-gui_data.atlas_grid = line(xlinesall(:), ylinesall(:), 'Color', 'w', 'LineWidth', 0.5);
+gui_data.atlas_grid = line(xlinesall(:), ylinesall(:), 'Color', 'w', 'LineWidth', 0.5, 'PickableParts', 'none');
 set(gui_data.atlas_grid,'Visible','off')
 
 title(gui_data.atlas_ax, sprintf('Atlas slice = %2.2f h-slice widths', ...
         gui_data.atlas_slice/gui_data.slicewidth));
 
+% PickableParts none, or the markers swallow the click. Both axes carry their
+% ButtonDownFcn on the IMAGE, and a marker drawn on top of it intercepts the
+% press without doing anything -- so clicking straight at a point, which is
+% exactly what selecting one means, did nothing at all.
 gui_data.histology_control_points_plot = plot(gui_data.histology_ax,nan,nan,...
-    'o','MarkerSize', 7, 'MarkerFaceColor', 'w', 'MarkerEdgeColor', 'g');
+    'o','MarkerSize', 7, 'MarkerFaceColor', 'w', 'MarkerEdgeColor', 'g', ...
+    'PickableParts', 'none');
 gui_data.atlas_control_points_plot = plot(gui_data.atlas_ax,nan,nan,...
-    'o','MarkerSize', 7, 'MarkerFaceColor', 'w', 'MarkerEdgeColor', 'r');
+    'o','MarkerSize', 7, 'MarkerFaceColor', 'w', 'MarkerEdgeColor', 'r', ...
+    'PickableParts', 'none');
 
 % Highlight for the point currently picked up in edit mode
 gui_data.histology_sel_plot = plot(gui_data.histology_ax,nan,nan,'o', ...
@@ -610,7 +616,7 @@ if nnz(hascp) > 1
     if ~isempty(bad)
         anchors_all = find(hascp);
         gui_data.order_problem = sprintf(...
-            'SLICE ORDER CONFLICT: slice %d is on plane %d, BEHIND slice %d on plane %d', ...
+            'ORDER CONFLICT: slice %d (plane %d) is behind slice %d (plane %d)', ...
             anchors_all(bad(1)+1), useratlasinds(bad(1)+1), ...
             anchors_all(bad(1)),   useratlasinds(bad(1)));
     end
@@ -619,8 +625,7 @@ end
 Natlas = size(gui_data.tv, 1);
 n_clamped = nnz(newinds < 1 | newinds > Natlas);
 if n_clamped > 0 && isempty(gui_data.order_problem)
-    gui_data.order_problem = sprintf(...
-        '%d slice(s) map outside the atlas and are pinned to its ends', n_clamped);
+    gui_data.order_problem = sprintf('%d slice(s) map off the end of the atlas', n_clamped);
 end
 
 newinds(newinds<1)      = 1;
@@ -808,9 +813,7 @@ else
     % it has to be caught here, while it can still be corrected.
     title(gui_data.atlas_ax, { ...
         sprintf('Atlas slice = %2.2f h-slice widths', sluse/gui_data.slicewidth), ...
-        gui_data.order_problem, ...
-        'Re-annotate one of them. If the order is genuinely wrong, fix it in P1bis.'}, ...
-        'Color', 'r', 'FontWeight', 'bold');
+        gui_data.order_problem}, 'Color', 'r', 'FontWeight', 'bold');
 end
 
 % Upload gui_data
@@ -943,7 +946,7 @@ function drag_stop(gui_fig, ~)
 % Let go, and refresh the alignment with the point in its new place
 
 set(gui_fig, 'WindowButtonMotionFcn', '', 'WindowButtonUpFcn', '');
-align_ccf_to_histology(gui_fig);
+update_slice(gui_fig);
 end
 
 
