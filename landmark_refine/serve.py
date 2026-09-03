@@ -40,6 +40,21 @@ def touch(path):
 
 def main(folder):
     os.makedirs(folder, exist_ok=True)
+    # Write our own log, unbuffered, rather than trust whoever launched us to
+    # have captured stdout: the process may have no console at all (pythonw),
+    # and a start-up crash that leaves an empty log is the worst kind.
+    log = open(os.path.join(folder, 'worker.log'), 'a', buffering=1)
+    sys.stdout = sys.stderr = log
+    print(f'--- worker starting, pid {os.getpid()}, python {sys.version.split()[0]}', flush=True)
+    try:
+        return _serve(folder)
+    except BaseException:           # noqa: BLE001  -- the log must say what happened
+        import traceback
+        traceback.print_exc()
+        raise
+
+
+def _serve(folder):
     stop = os.path.join(folder, 'stop')
     if os.path.exists(stop):
         os.remove(stop)

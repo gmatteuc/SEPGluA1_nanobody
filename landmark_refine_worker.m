@@ -45,9 +45,14 @@ switch lower(action)
         if ~exist(folder, 'dir'), mkdir(folder); end
         if exist(fullfile(folder, 'stop'), 'file'), delete(fullfile(folder, 'stop')); end
         logf = fullfile(folder, 'worker.log');
-        % start + & so system() returns at once; the process outlives MATLAB's call
-        cmd = sprintf('start "" /B "%s" "%s" "%s" > "%s" 2>&1 &', ...
-            py, fullfile(pydir, 'serve.py'), folder, logf);
+        % pythonw, not python, and start without /B: a console-less process
+        % launched through start owns itself, so it survives the shell that
+        % system() opened and closed. With /B the child shared that shell's
+        % console and, from the MATLAB desktop, died with it two seconds in --
+        % pid written, no heartbeat, empty log. The worker writes its own log.
+        pyw = strrep(py, 'python.exe', 'pythonw.exe');
+        if ~exist(pyw, 'file'), pyw = py; end
+        cmd = sprintf('start "" "%s" "%s" "%s"', pyw, fullfile(pydir, 'serve.py'), folder);
         system(cmd);
         fprintf('starting the landmark_refine worker (model load, a few seconds)');
         for k = 1:60                          % up to ~30 s
@@ -61,6 +66,11 @@ switch lower(action)
         else
             warning('landmark_refine_worker:timeout', ...
                 'worker did not report in; see %s', logf);
+            if exist(logf, 'file')
+                txt = fileread(logf);
+                fprintf('--- last lines of the worker log ---\n%s\n', ...
+                    strtrim(txt(max(1, end-1500):end)));
+            end
         end
 
     case 'stop'
@@ -94,9 +104,10 @@ end
 
 
 function py = find_python(pydir)
+% An explicit override, else the venv setup_landmark_refine.ps1 creates next
+% to the package -- relative to the code folder, so it moves with it.
 cands = { getenv('LANDMARK_REFINE_PYTHON'), ...
-          fullfile(pydir, '.venv', 'Scripts', 'python.exe'), ...
-          'D:\sep_histology\sandbox_landmark_matching\.venv\Scripts\python.exe' };
+          fullfile(pydir, '.venv', 'Scripts', 'python.exe') };
 py = '';
 for k = 1:numel(cands)
     if ~isempty(cands{k}) && exist(cands{k}, 'file'), py = cands{k}; return, end

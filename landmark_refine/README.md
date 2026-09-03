@@ -93,6 +93,30 @@ call. The MATLAB side of that costs nothing measurable (bare `system()` 0.1 s, t
 round trip 0.03 s); what a call pays for is Python start-up, torch import and model load,
 about 2 s. See Speed above for when a persistent worker would be worth having.
 
+## Taking it to another machine
+
+Everything the matcher needs is inside `code\`, relative to itself:
+
+- **weights** — `landmark_refine\weights\loftr_outdoor.ckpt` (45 MB) is in the repo; `core.py`
+  loads it from there and never downloads unless the file is missing. No internet needed at
+  run time.
+- **Python** — `setup_landmark_refine.ps1` creates `landmark_refine\.venv` from pinned
+  versions (`requirements.txt`; torch 2.6.0, CUDA build if `nvidia-smi` finds a GPU, CPU
+  build otherwise). Needs a Python 3.10–3.12 on PATH and internet *for the install only*.
+  The venv itself is not portable (it hard-codes its own path), which is why it is
+  rebuilt per machine and ignored by git.
+- **MATLAB** — `landmark_refine.m` and `landmark_refine_worker.m` find the venv relative to
+  the code folder. `LANDMARK_REFINE_PYTHON` in the environment overrides that if you would
+  rather point at some other interpreter that has the requirements installed.
+
+Without a GPU everything still works: the worker makes a proposal in ~1.3 s instead of
+0.4 s, and without the worker each proposal is one Python start-up, ~4–5 s. Without Python
+at all, `r` reports that and does nothing; plain `p` carry-forward never touches any of this.
+
+For a machine with no internet, the install can be done from a wheelhouse: on a connected
+machine `pip download -r requirements.txt torch==2.6.0 --index-url ... -d wheels\`, copy
+the folder, and install with `--no-index --find-links wheels\`. Not scripted; ask if needed.
+
 ## Provenance
 
 Built 2–3 September 2026 from the sandbox experiments. Things that were tried and

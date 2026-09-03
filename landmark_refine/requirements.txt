@@ -1,7 +1,9 @@
-# CPU torch: install with
-#   pip install --index-url https://download.pytorch.org/whl/cpu torch
-# then the rest from this file. setup_landmark_refine.ps1 does both.
-torch
-kornia>=0.8
-numpy
-scipy
+# Pinned to the versions the method was measured with (2026-09-03).
+# torch is installed separately by setup_landmark_refine.ps1, which picks the
+# CUDA build when nvidia-smi finds a GPU and the CPU build otherwise:
+#   pip install --index-url https://download.pytorch.org/whl/cu124 torch==2.6.0
+#   pip install --index-url https://download.pytorch.org/whl/cpu   torch==2.6.0
+kornia==0.8.3
+kornia_rs==0.1.14
+numpy==2.5.2
+scipy==1.18.1

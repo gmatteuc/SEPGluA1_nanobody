@@ -30,6 +30,7 @@ Coordinates everywhere here are (x, y) in pixels of the images as given. The
 MATLAB wrapper handles the GUI's [plane y x t] convention.
 """
 
+import os
 import time
 
 import numpy as np
@@ -78,12 +79,23 @@ def device():
     return _DEVICE
 
 
+WEIGHTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'weights', 'loftr_outdoor.ckpt')
+
+
 def _loftr():
+    """The model, loaded once. Weights come from the bundled file next to this
+    module, so a machine with no internet works; only if that file is missing
+    does kornia go and download them."""
     global _LOFTR
     if _LOFTR is None:
         import kornia.feature as KF
         torch.set_grad_enabled(False)
-        _LOFTR = KF.LoFTR(pretrained='outdoor').eval().to(device())
+        if os.path.exists(WEIGHTS):
+            m = KF.LoFTR(pretrained=None)
+            m.load_state_dict(torch.load(WEIGHTS, map_location='cpu')['state_dict'])
+        else:
+            m = KF.LoFTR(pretrained='outdoor')
+        _LOFTR = m.eval().to(device())
     return _LOFTR
 
 

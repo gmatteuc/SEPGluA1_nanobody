@@ -105,11 +105,10 @@ end
 
 
 function py = landmark_refine_python(pydir)
-% The interpreter, in order of preference: an explicit override, the venv the
-% setup script creates, then the sandbox venv the experiments were run in.
+% The interpreter: an explicit override, else the venv setup_landmark_refine.ps1
+% creates next to the package -- relative to the code folder, so it moves with it.
 cands = { getenv('LANDMARK_REFINE_PYTHON'), ...
-          fullfile(pydir, '.venv', 'Scripts', 'python.exe'), ...
-          'D:\sep_histology\sandbox_landmark_matching\.venv\Scripts\python.exe' };
+          fullfile(pydir, '.venv', 'Scripts', 'python.exe') };
 py = '';
 for k = 1:numel(cands)
     if ~isempty(cands{k}) && exist(cands{k}, 'file')
