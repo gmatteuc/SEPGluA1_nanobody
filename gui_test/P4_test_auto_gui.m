@@ -14,6 +14,10 @@ clc
 %       the match field -- and placed as provisional orange points. Nothing
 %       runs on its own: find the plane first, then ask. Never overwrites
 %       hand-placed points (c to clear first).
+%   t   TAKE: the same, but a plain copy of the neighbouring slice's points
+%       at the plane you have scrolled to -- no matcher, instant. The cheap
+%       start when the section barely changed, and the fallback when Python
+%       is not available.
 %
 %   every point carries its index number, on both panels, so the pairing is
 %   always visible.

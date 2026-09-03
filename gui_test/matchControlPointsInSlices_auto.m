@@ -303,6 +303,8 @@ gui_data.controls_fig = msgbox( ...
     '   this plane by the image matcher and', ...
     '   placed here, orange. A few seconds.', ...
     '   Never overwrites hand-placed points.', ...
+    '   t                 same, but a plain copy:', ...
+    '                     no matcher, instant', ...
     ' ', ...
     '\bf FINISH\rm', ...
     '   c                 clear every point here', ...
@@ -422,13 +424,7 @@ switch eventdata.Key
         if ~isempty(gui_data.histology_control_points{sl}) && ~gui_data.provisional(sl)
             disp('This slice has hand-placed points. Press c to clear them first if you want a proposal.');
         else
-            % Source: the slice before, else the slice after
-            src = 0;
-            if sl > 1 && ~isempty(gui_data.atlas_control_points{sl-1})
-                src = sl - 1;
-            elseif sl < gui_data.Nslices && ~isempty(gui_data.atlas_control_points{sl+1})
-                src = sl + 1;
-            end
+            src = source_slice(gui_data, sl);
             if src == 0
                 disp('Nothing to propose from: neither neighbouring slice has points.');
             else
@@ -461,6 +457,37 @@ switch eventdata.Key
                 else
                     fprintf('Proposal failed: %s\n', msg);
                 end
+            end
+        end
+
+    % t: take the neighbouring slice's points exactly as they are -- carry-
+    % forward on demand, at the atlas plane on screen, no matcher involved.
+    % The cheap start when the section barely changed, and the fallback when
+    % Python is not there. Same rules as r: provisional, never overwrites.
+    case 't'
+        sl = gui_data.curr_slice;
+        if ~isempty(gui_data.histology_control_points{sl}) && ~gui_data.provisional(sl)
+            disp('This slice has hand-placed points. Press c to clear them first.');
+        else
+            src = source_slice(gui_data, sl);
+            if src == 0
+                disp('Nothing to take: neither neighbouring slice has points.');
+            else
+                plane = round(gui_data.atlas_slice);
+                h = gui_data.histology_control_points{src};
+                a = gui_data.atlas_control_points{src};
+                now_stamp = convertTo(datetime('now'), 'datenum');
+                h(:, 1) = sl;       h(:, 4) = now_stamp;
+                a(:, 1) = plane;    a(:, 4) = now_stamp;
+                gui_data.histology_control_points{sl} = h;
+                gui_data.atlas_control_points{sl}     = a;
+                gui_data.provisional(sl) = true;
+                gui_data.sel_side = '';
+                gui_data.sel_idx  = 0;
+                fprintf('Took %d point(s) from slice %d as they are, at atlas plane %d. Provisional: touch one to keep, c to discard.\n', ...
+                    size(h,1), src, plane);
+                guidata(gui_fig, gui_data);
+                update_slice(gui_fig);
             end
         end
 
@@ -1377,5 +1404,17 @@ for k = 1:size(pts,1)
     t(k) = text(ax, pts(k,3) + 6, pts(k,2) - 5, sprintf('%d', k), ...
         'Color', col, 'FontSize', 8, 'FontWeight', 'bold', ...
         'PickableParts', 'none', 'Clipping', 'on');
+end
+end
+
+
+function src = source_slice(gui_data, sl)
+% Where r and t take their points from: the slice before if it has any,
+% else the slice after, else 0.
+src = 0;
+if sl > 1 && ~isempty(gui_data.atlas_control_points{sl-1})
+    src = sl - 1;
+elseif sl < gui_data.Nslices && ~isempty(gui_data.atlas_control_points{sl+1})
+    src = sl + 1;
 end
 end
