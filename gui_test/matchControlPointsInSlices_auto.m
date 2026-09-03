@@ -126,12 +126,13 @@ gui_data.select_radius_frac = 0.04;   % of image width, for click-to-select
 gui_data.provisional = false(gui_data.Nslices, 1);
 gui_data.order_problem = '';   % set by update_atlas_slice, painted purple below
 
-% Automatic landmark help (landmark_refine.m). Carried points are refined by
-% the image matcher instead of copied: a plain copy was measured at 15 px from
-% the final answer -- no better than starting empty -- the refined one at 10.
-% 'a' toggles it, 'r' runs it on the current slice. Matching uses the
-% autofluorescence channel, which is the closest modality to the template.
-gui_data.auto_refine  = true;
+% Landmark proposals (landmark_refine.m). Nothing runs on its own: you find
+% the best-matching atlas plane with the wheel, then press r, and the
+% neighbouring slice's points are refined through the image matcher against
+% THAT plane and placed here as provisional points. A plain copy was measured
+% at 15 px from the final answer -- no better than starting empty -- the
+% refined one at 10. Matching uses the autofluorescence channel, the closest
+% modality to the template.
 gui_data.refine_chan  = min(3, size(gui_data.volume, 4));
 gui_data.hist_labels  = gobjects(0);   % the little index numbers next to each point
 gui_data.atlas_labels = gobjects(0);
@@ -282,8 +283,6 @@ gui_data.controls_fig = msgbox( ...
     '   click + drag      grab nearest point, move it', ...
     '   d                 delete it, and its pair', ...
     '   esc               let go', ...
-    '   r                 refine this slice''s points', ...
-    '                     through the image matcher', ...
     ' ', ...
     '   a held point also rings its partner', ...
     '   on the other panel. A ring on one', ...
@@ -296,9 +295,14 @@ gui_data.controls_fig = msgbox( ...
     '   while orange. Touching one commits', ...
     '   the slice and locks the plane.', ...
     '   Slices left orange are NOT saved.', ...
-    '   The copies are REFINED by the image', ...
-    '   matcher (takes a few seconds).', ...
-    '   a                 auto-refine on / off', ...
+    ' ', ...
+    '\bf PROPOSE   [ r ]\rm', ...
+    '   scroll to the best-matching atlas', ...
+    '   plane, then r: the neighbouring', ...
+    '   slice''s points are refined against', ...
+    '   this plane by the image matcher and', ...
+    '   placed here, orange. A few seconds.', ...
+    '   Never overwrites hand-placed points.', ...
     ' ', ...
     '\bf FINISH\rm', ...
     '   c                 clear every point here', ...
@@ -409,41 +413,49 @@ switch eventdata.Key
         guidata(gui_fig,gui_data);
         update_slice(gui_fig, true);
         
-    % r: refine the points already on this slice through the matcher. The
-    % provisional flag is left as it was: refining a carried slice does not
-    % make it hand-checked.
+    % r: propose points for THIS slice at the atlas plane on screen, by
+    % refining the neighbouring slice's points through the image matcher.
+    % Deliberately not automatic -- find the best-matching plane with the
+    % wheel first, then ask. Hand-placed points are never overwritten.
     case 'r'
         sl = gui_data.curr_slice;
-        h  = gui_data.histology_control_points{sl};
-        a  = gui_data.atlas_control_points{sl};
-        if isempty(a) || size(h,1) ~= size(a,1)
-            disp('Nothing to refine: this slice needs an equal number of histology and atlas points.');
+        if ~isempty(gui_data.histology_control_points{sl}) && ~gui_data.provisional(sl)
+            disp('This slice has hand-placed points. Press c to clear them first if you want a proposal.');
         else
-            fprintf('Refining %d point(s) on slice %d...\n', size(a,1), sl);
-            [h2, a2, ok, msg] = auto_refine_points(gui_data, sl, round(median(a(:,1))), h, a);
-            if ok
-                gui_data.histology_control_points{sl} = h2;
-                gui_data.atlas_control_points{sl}     = a2;
-                gui_data.sel_side = '';
-                gui_data.sel_idx  = 0;
-                fprintf('Refined %d point(s) on slice %d.\n', size(h2,1), sl);
-                guidata(gui_fig, gui_data);
-                update_slice(gui_fig);
+            % Source: the slice before, else the slice after
+            src = 0;
+            if sl > 1 && ~isempty(gui_data.atlas_control_points{sl-1})
+                src = sl - 1;
+            elseif sl < gui_data.Nslices && ~isempty(gui_data.atlas_control_points{sl+1})
+                src = sl + 1;
+            end
+            if src == 0
+                disp('Nothing to propose from: neither neighbouring slice has points.');
             else
-                fprintf('Refine failed: %s\n', msg);
+                plane = round(gui_data.atlas_slice);
+                h = gui_data.histology_control_points{src};
+                a = gui_data.atlas_control_points{src};
+                fprintf('Proposing %d point(s) for slice %d from slice %d at atlas plane %d (a few seconds)...\n', ...
+                    size(a,1), sl, src, plane);
+                [h2, a2, ok, msg] = auto_refine_points(gui_data, sl, plane, h, a);
+                if ok
+                    now_stamp = convertTo(datetime('now'), 'datenum');
+                    h2(:, 1) = sl;      h2(:, 4) = now_stamp;
+                    a2(:, 1) = plane;   a2(:, 4) = now_stamp;
+                    gui_data.histology_control_points{sl} = h2;
+                    gui_data.atlas_control_points{sl}     = a2;
+                    gui_data.provisional(sl) = true;
+                    gui_data.sel_side = '';
+                    gui_data.sel_idx  = 0;
+                    fprintf('Proposed %d point(s). They are provisional: touch one to keep them, c to discard.\n', ...
+                        size(h2,1));
+                    guidata(gui_fig, gui_data);
+                    update_slice(gui_fig);
+                else
+                    fprintf('Proposal failed: %s\n', msg);
+                end
             end
         end
-
-    % a: automatic refinement of carried points on / off
-    case 'a'
-        gui_data.auto_refine = ~gui_data.auto_refine;
-        if gui_data.auto_refine
-            disp('AUTO-REFINE on: carried points are refined by the image matcher.');
-        else
-            disp('AUTO-REFINE off: carried points are plain copies.');
-        end
-        guidata(gui_fig, gui_data);
-        update_window_title(gui_fig);
 
     % ctrl+z: take back the last point placed on this slice
     case 'z'
@@ -964,32 +976,11 @@ if gui_data.carry_forward && to_slice ~= from_slice
             new_a(:, 4) = now_stamp;
         end
 
-        % Refine the copy rather than trust it. The atlas side is nudged onto
-        % the nearest structure boundary of the NEW plane and the histology
-        % side is re-derived through the image match field. Measured: a plain
-        % copy sits 15 px from the final answer, no better than no points at
-        % all; the refined one 10 px, and it is still your choice of
-        % landmarks. Falls back to the plain copy if the matcher is off,
-        % missing, or refuses.
-        refined = false;
-        if gui_data.auto_refine && ~isempty(new_a)
-            fprintf('Refining the carried points (a few seconds)...\n');
-            [new_h, new_a, refined, msg] = auto_refine_points(gui_data, to_slice, target_plane, new_h, new_a);
-            if ~refined
-                fprintf('  refine skipped, plain copy used: %s\n', msg);
-            end
-        end
-
         gui_data.histology_control_points{to_slice} = new_h;
         gui_data.atlas_control_points{to_slice}     = new_a;
         gui_data.provisional(to_slice)              = true;
-        if refined
-            fprintf('Carried and REFINED %d point(s) from slice %d to %d (atlas plane %d).\n', ...
-                size(new_h,1), from_slice, to_slice, target_plane);
-        else
-            fprintf('Carried %d point(s) from slice %d to %d (atlas plane %d).\n', ...
-                size(new_h,1), from_slice, to_slice, target_plane);
-        end
+        fprintf('Carried %d point(s) from slice %d to %d (atlas plane %d). Press r for a refined proposal.\n', ...
+            size(new_h,1), from_slice, to_slice, target_plane);
     end
 end
 
@@ -1263,9 +1254,6 @@ if gui_data.edit_mode
 end
 if gui_data.carry_forward
     modes{end+1} = 'CARRY FORWARD';
-end
-if gui_data.auto_refine
-    modes{end+1} = 'AUTO-REFINE';
 end
 
 % The controls window is easy to close and easy to lose behind this one, so

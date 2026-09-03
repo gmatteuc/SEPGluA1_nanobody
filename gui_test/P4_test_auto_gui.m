@@ -5,25 +5,28 @@ clc
 % /// Test launcher for the control-point GUI with automatic landmark help ///
 %
 % Opens matchControlPointsInSlices_auto -- a COPY of the production GUI with
-% three additions, nothing else changed:
+% two additions, nothing else changed:
 %
-%   p   carry-forward now REFINES the carried points: the atlas side is nudged
-%       onto the nearest structure boundary of the new plane, the histology
-%       side is re-derived through the image match field (landmark_refine).
-%       Falls back to the plain copy if the matcher is unavailable or fails.
-%   r   refine the points already on the current slice, in place
-%   a   toggle the automatic refinement on/off (on by default)
+%   r   PROPOSE: on the current slice, at whatever atlas plane you have
+%       scrolled to, the neighbouring slice's points are refined through the
+%       image matcher (landmark_refine) -- atlas side nudged onto the nearest
+%       structure boundary of that plane, histology side re-derived through
+%       the match field -- and placed as provisional orange points. Nothing
+%       runs on its own: find the plane first, then ask. Never overwrites
+%       hand-placed points (c to clear first).
 %
 %   every point carries its index number, on both panels, so the pairing is
 %   always visible.
+%
+% p (plain carry-forward), e, d, ctrl+z, c, s all work exactly as before.
 %
 % The production GUI, the registration code and the pipeline scripts are not
 % touched. This writes atlas2histology_tform.mat exactly where the production
 % GUI does, so back that file up before testing on a mouse you care about --
 % or point it at a mouse whose annotation you are happy to redo.
 %
-% Expect ~5-7 s per refined carry on CPU: Python start-up plus four LoFTR
-% passes. The window title says AUTO-REFINE while it is on.
+% Expect ~2-3 s per proposal on the GPU (~5 s on CPU), nearly all of it
+% Python start-up; the console says "Proposing..." while it works.
 
 %% User-defined parameters
 
