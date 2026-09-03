@@ -45,6 +45,11 @@ switch lower(action)
         if ~exist(folder, 'dir'), mkdir(folder); end
         if exist(fullfile(folder, 'stop'), 'file'), delete(fullfile(folder, 'stop')); end
         logf = fullfile(folder, 'worker.log');
+        % Fresh log per start, or the crash-detection below trips on a
+        % traceback left by an earlier run and gives up on a healthy worker.
+        if exist(logf, 'file')
+            movefile(logf, fullfile(folder, 'worker.prev.log'), 'f');
+        end
         % pythonw, not python, and start without /B: a console-less process
         % launched through start owns itself, so it survives the shell that
         % system() opened and closed. With /B the child shared that shell's
