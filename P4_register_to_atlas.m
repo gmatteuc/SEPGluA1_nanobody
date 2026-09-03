@@ -37,7 +37,7 @@ paths = get_paths();
 % Cohort selection (mice come from the shared registry get_cohort.m).
 % Set mice_to_process to {} to process every mouse in groups_to_process.
 groups_to_process = {'young'};                  % 'rws' | 'naive' | 'behavior' | 'young'
-mice_to_process   = {'MG903_SepGluA_P20'};   % 'annotate' takes one mouse at a time
+mice_to_process   = {'MG897_SepGluA_P20'};   % 'annotate' takes one mouse at a time
                                                 % P20 first: curated and the age Sami wants prioritised
 
 % Which half of the script to run. 'annotate' takes one mouse at a time.
@@ -230,6 +230,12 @@ for mouse_idx = 1:numel(cohort)
                         fprintf('  NOTE: slice(s) %s have fewer than 5 points and will be registered from image only.\n', ...
                             mat2str(find(n_cp(:) < 5)'));
                     end
+                    % A mismatched pair -- a point on the wrong structure, or a
+                    % left/right swap -- drags the whole slice's affine and only
+                    % shows up as a bad overlay after the run. Fit each slice
+                    % robustly and name the pairs that stand far off it, by the
+                    % numbers the GUI draws next to them.
+                    report_suspect_pairs(S_cp.atlas_control_points, S_cp.histology_control_points);
                 elseif allow_image_only_registration
                     fprintf(['  no control points, and allow_image_only_registration is true.\n' ...
                              '  Registering from image information alone -- diagnostic only,\n' ...
@@ -340,4 +346,29 @@ for mouse_idx = 1:numel(cohort)
     fprintf(['  aligned. regopts.mat and volume_for_inspection.tiff are written, so this\n' ...
              '  mouse is ready for run_mode = ''annotate''.\n']);
 
+end
+
+
+function report_suspect_pairs(acp, hcp)
+% Per slice: affine from atlas to histology, reweighted a few times so that
+% outliers stop pulling the fit toward themselves, then list any pair further
+% than 3x the slice's median residual (and at least 30 px) from it.
+for k = 1:numel(acp)
+    a = acp{k}; h = hcp{k};
+    if size(a,1) < 5 || size(a,1) ~= size(h,1), continue, end
+    src = a(:, [3 2]); dst = h(:, [3 2]);
+    w = ones(size(src,1), 1);
+    for it = 1:8
+        tf = fitgeotform2d(src(w > 0.999, :), dst(w > 0.999, :), 'affine');
+        r  = vecnorm(tf.transformPointsForward(src) - dst, 2, 2);
+        s  = median(r) + 1e-6;
+        w  = double(r <= 2*s);                      % drop, refit, repeat
+        if nnz(w) < 5, break, end
+    end
+    bad = find(r > max(3*median(r), 30))';
+    if ~isempty(bad)
+        fprintf('  CHECK slice %d: pair(s) %s sit %s px off the slice''s own affine (median %.0f). Wrong structure or a left/right swap?\n', ...
+            k, mat2str(bad), mat2str(round(r(bad))'), median(r));
+    end
+end
 end
