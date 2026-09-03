@@ -25,22 +25,36 @@ Measured on slice 6 of MG903, 400 x 570 px:
 | `suggest`, 4 blur levels | 2.4 s | **0.7 s** |
 | torch import + model load, once per process | 2.2 s | 2.1 s |
 
-So a carry-over press in the GUI costs about **2.5 s on the GPU**, nearly all of it Python
-start-up. The setup script installs the CUDA build of torch when `nvidia-smi` finds a GPU.
-If that 2 s ever matters, the fix is a persistent worker process that imports once and
-answers requests; `core.py` is stateless apart from the cached model, so it is a small
-addition. It was not built because with the CPU numbers it would only have saved 1.5 of ~4.5 s.
+So without anything else a GUI press costs several seconds, nearly all of it Python
+start-up. Hence the **worker**: `serve.py` imports torch and loads the model once, then
+answers requests dropped into a folder under `tempdir`. Measured from MATLAB, through the
+worker: **0.47 s per `refine`, 0.76 s per `suggest`** on the GPU, identical results.
+
+```matlab
+landmark_refine_worker('start')     % the GUI launcher does this; idempotent, ~3 s
+landmark_refine_worker('status')
+landmark_refine_worker('stop')      % when done for the day; it idles at no CPU otherwise
+```
+
+`landmark_refine()` uses the worker when its heartbeat is fresh and falls back to
+`cli.py` (same code, one process per call, ~4 s) when it is not — so nothing ever depends
+on the worker being up. The protocol is in `serve.py`'s docstring: requests are written
+under a temporary name and renamed into place, so neither side ever reads a half-written
+file. The setup script installs the CUDA build of torch when `nvidia-smi` finds a GPU.
 
 ## Layout
 
 ```
 landmark_refine/
   core.py            the algorithms; importable, no file I/O
-  cli.py             python cli.py request.mat response.mat   (what MATLAB calls)
+  handler.py         one request dict -> one response dict; shared by the two below
+  cli.py             python cli.py request.mat response.mat   (one process per call)
+  serve.py           python serve.py <folder>                  (persistent worker)
   requirements.txt
   README.md
-../landmark_refine.m          MATLAB wrapper: writes the request, calls cli.py, reads the response
-../setup_landmark_refine.ps1  creates the venv and downloads the weights
+../landmark_refine.m          MATLAB wrapper: worker if alive, else cli.py; same answer
+../landmark_refine_worker.m   start / stop / status of the worker from MATLAB
+../setup_landmark_refine.ps1  creates the venv (CUDA torch if a GPU) and downloads the weights
 ```
 
 ## Setup (once per machine)

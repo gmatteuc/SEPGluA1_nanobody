@@ -1,10 +1,12 @@
 """
-Command-line entry point, for calling from MATLAB via system().
+One-shot entry point, for calling from MATLAB via system() when no worker is
+running. Pays Python start-up, torch import and model load on every call
+(2-3 s); serve.py pays them once.
 
     python cli.py request.mat response.mat
 
 request.mat (MATLAB -v7):
-    mode       'refine' | 'suggest'
+    mode       'refine' | 'suggest' | 'ping'
     atlas      HxW image (uint8 or float), the atlas plane as shown in the GUI
     hist       HxW image, the histology slice as shown in the GUI (same size)
     atlas_pts  Nx2 [x y], refine only: the points to carry over
@@ -17,7 +19,7 @@ request.mat (MATLAB -v7):
 response.mat:
     ok, message, atlas_pts, hist_pts, and per-point diagnostics
     (moved, n_local, local_rms for refine; score for suggest),
-    n_matches, n_inliers, det, seconds.
+    n_matches, n_inliers, det, mean_conf, seconds.
 
 Exit code 0 on success, 1 on failure; a response is written either way so
 the caller never has to parse stderr.
@@ -25,57 +27,20 @@ the caller never has to parse stderr.
 
 import os
 import sys
-import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import numpy as np                      # noqa: E402
 from scipy.io import loadmat, savemat   # noqa: E402
-
-
-def _scalar(d, key, default):
-    if key not in d:
-        return default
-    v = np.asarray(d[key]).ravel()
-    return default if v.size == 0 else v[0]
-
-
-def _str(d, key, default):
-    if key not in d:
-        return default
-    v = d[key]
-    return str(v[0]) if isinstance(v, np.ndarray) and v.size else str(v)
+from handler import handle              # noqa: E402
 
 
 def main(req_path, resp_path):
-    resp = dict(ok=0, message='', atlas_pts=np.zeros((0, 2)), hist_pts=np.zeros((0, 2)))
     try:
         req = loadmat(req_path)
-        mode = _str(req, 'mode', 'refine').strip().lower()
-        atlas, hist = req['atlas'], req['hist']
-        labels = req['labels'] if 'labels' in req and np.asarray(req['labels']).size else None
-
-        import core
-        if mode == 'refine':
-            pts = np.asarray(req['atlas_pts'], float).reshape(-1, 2)
-            out = core.refine(atlas, hist, pts, labels, snap_r=float(_scalar(req, 'snap_r', core.SNAP_R)))
-        elif mode == 'suggest':
-            out = core.suggest(atlas, hist, labels, n=int(_scalar(req, 'n', 10)),
-                               mirror=bool(_scalar(req, 'mirror', 1)))
-        else:
-            raise ValueError(f'unknown mode {mode!r}')
-
-        for k, v in out.items():
-            if isinstance(v, np.ndarray):
-                v = v.astype(float) if v.dtype == bool else v
-            resp[k] = v
-        resp['ok'] = int(bool(out['ok']))
-        resp['message'] = out.get('message', '')
-    except Exception as e:          # noqa: BLE001
-        resp['ok'] = 0
-        resp['message'] = f'{type(e).__name__}: {e}'
-        traceback.print_exc()
-    resp['message'] = resp['message'] or ' '
+    except Exception as e:              # noqa: BLE001
+        resp = dict(ok=0, message=f'could not read request: {type(e).__name__}: {e}')
+    else:
+        resp = handle(req)
     savemat(resp_path, resp, do_compression=False)
     return 0 if resp['ok'] else 1
 

@@ -25,8 +25,8 @@ clc
 % GUI does, so back that file up before testing on a mouse you care about --
 % or point it at a mouse whose annotation you are happy to redo.
 %
-% Expect ~2-3 s per proposal on the GPU (~5 s on CPU), nearly all of it
-% Python start-up; the console says "Proposing..." while it works.
+% Expect well under a second per proposal on the GPU once the worker is up;
+% the console says "Proposing..." while it works.
 
 %% User-defined parameters
 
@@ -62,4 +62,10 @@ if exist(tform_name, 'file')
 end
 
 fprintf('opening the TEST GUI on %s against %s\n', mouse_to_test, atlas_key);
+% The matcher runs in a persistent worker process: torch and the model are
+% loaded once, and each proposal then takes ~0.4 s instead of several seconds
+% of Python start-up. Starting it is idempotent; it outlives the GUI so that
+% reopening is instant. landmark_refine_worker('stop') when done for the day.
+landmark_refine_worker('start');
+
 matchControlPointsInSlices_auto(opts);

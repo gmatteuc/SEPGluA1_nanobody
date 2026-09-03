@@ -926,16 +926,35 @@ set(gui_data.atlas_control_points_plot, ...
 %     'AlphaData',histology_aligned_atlas_boundaries_init);
 
 
+% Second line: where the neighbouring slices are anchored, in the same units,
+% so scrolling for the best plane has a floor and a ceiling on screen instead
+% of in memory -- going further back than the previous slice is a mistake
+% that is easy to make and hard to notice.
+sl = gui_data.curr_slice;
+nb = {};
+if sl > 1 && ~isempty(gui_data.atlas_control_points{sl-1})
+    nb{end+1} = sprintf('slice %d is at %2.2f', sl-1, ...
+        median(gui_data.atlas_control_points{sl-1}(:,1))/gui_data.slicewidth);
+end
+if sl < gui_data.Nslices && ~isempty(gui_data.atlas_control_points{sl+1})
+    nb{end+1} = sprintf('slice %d is at %2.2f', sl+1, ...
+        median(gui_data.atlas_control_points{sl+1}(:,1))/gui_data.slicewidth);
+end
+if isempty(nb)
+    nbline = 'no annotated neighbour';
+else
+    nbline = strjoin(nb, '    |    ');
+end
+lines = { sprintf('Atlas slice = %2.2f h-slice widths', sluse/gui_data.slicewidth), nbline };
+
 if isempty(gui_data.order_problem)
-    title(gui_data.atlas_ax, sprintf('Atlas slice = %2.2f h-slice widths', ...
-            sluse/gui_data.slicewidth), 'Color', 'k');
+    title(gui_data.atlas_ax, lines, 'Color', 'k', 'FontWeight', 'normal');
 else
     % Purple, in the window, naming the slices. The registration code is left
     % exactly as it was, so a contradictory order is not caught downstream --
     % it has to be caught here, while it can still be corrected.
-    title(gui_data.atlas_ax, { ...
-        sprintf('Atlas slice = %2.2f h-slice widths', sluse/gui_data.slicewidth), ...
-        gui_data.order_problem}, 'Color', [0.55 0.10 0.75], 'FontWeight', 'bold');
+    title(gui_data.atlas_ax, [lines, {gui_data.order_problem}], ...
+        'Color', [0.55 0.10 0.75], 'FontWeight', 'bold');
 end
 
 % Upload gui_data

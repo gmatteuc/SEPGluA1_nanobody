@@ -48,19 +48,43 @@ if isfield(opts, 'snap_r'), req.snap_r = double(opts.snap_r); end
 if isfield(opts, 'n'),      req.n      = double(opts.n);      end
 if isfield(opts, 'mirror'), req.mirror = double(opts.mirror); end
 
-tmp   = tempname;                                   % unique per call
-reqf  = [tmp '_req.mat'];
-respf = [tmp '_resp.mat'];
-save(reqf, '-struct', 'req', '-v7');
-cleaner = onCleanup(@() delete_quiet({reqf, respf}));
-
 % ----------------------------------------------------------------- call
-cmd = sprintf('"%s" "%s" "%s" "%s"', py, fullfile(pydir, 'cli.py'), reqf, respf);
-[status, log] = system(cmd);
+% Through the persistent worker when one is alive (~0.4 s on the GPU), else
+% a one-shot python process (several seconds, nearly all of it start-up).
+% Same code answers either way -- see landmark_refine/handler.py.
+[worker_alive, wdir] = landmark_refine_worker('status');
+status = 0;
+log    = '';
 
-if ~exist(respf, 'file')
-    out.message = sprintf('python produced no response (status %d):\n%s', status, strtrim(log));
-    return
+if worker_alive
+    id    = sprintf('%s_%06d', datestr(now, 'HHMMSSFFF'), randi(999999));   %#ok<TNOW1,DATST>
+    tmpf  = fullfile(wdir, ['tmp_' id '.mat']);
+    reqf  = fullfile(wdir, ['req_' id '.mat']);
+    respf = fullfile(wdir, ['resp_' id '.mat']);
+    save(tmpf, '-struct', 'req', '-v7');
+    movefile(tmpf, reqf);                       % rename is atomic: never read half-written
+    cleaner = onCleanup(@() delete_quiet({reqf, respf}));
+    t0 = tic;
+    while ~exist(respf, 'file')
+        pause(0.02);
+        if toc(t0) > 90
+            out.message = 'the worker did not answer within 90 s; stop and restart it';
+            return
+        end
+    end
+    pause(0.01);                                % let the rename settle
+else
+    tmp   = tempname;                           % unique per call
+    reqf  = [tmp '_req.mat'];
+    respf = [tmp '_resp.mat'];
+    save(reqf, '-struct', 'req', '-v7');
+    cleaner = onCleanup(@() delete_quiet({reqf, respf}));
+    cmd = sprintf('"%s" "%s" "%s" "%s"', py, fullfile(pydir, 'cli.py'), reqf, respf);
+    [status, log] = system(cmd);
+    if ~exist(respf, 'file')
+        out.message = sprintf('python produced no response (status %d):\n%s', status, strtrim(log));
+        return
+    end
 end
 r = load(respf);
 
