@@ -27,6 +27,9 @@ clc
 
 %% User-defined parameters
 
+% This lives one folder below the code root, so put the root on the path
+% before asking it for anything -- then it runs from wherever it is opened.
+addpath(fileparts(fileparts(mfilename('fullpath'))));
 paths = get_paths();
 mouse_to_test = 'MG903_SepGluA_P20';
 atlas_key     = 'demba_p20';
