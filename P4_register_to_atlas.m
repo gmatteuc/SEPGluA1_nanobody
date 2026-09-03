@@ -11,6 +11,14 @@ clc
 %                                   align the slices and fit the atlas rigidly.
 %                                   Writes regopts.mat and volume_for_inspection.tiff.
 %   run_mode = 'annotate'  (MANUAL) open the control-point GUI on one mouse.
+%                                   Besides placing points by hand, r proposes
+%                                   points for the slice at the atlas plane on
+%                                   screen (the neighbouring slice's landmarks,
+%                                   refined through the image matcher; a ? marks
+%                                   the ones it was unsure of) and t drops in a
+%                                   plain copy. Both land provisional and are
+%                                   never saved unless touched. Needs the Python
+%                                   side once per machine: setup_landmark_refine.ps1.
 %                                   Writes atlas2histology_tform.mat.
 %   run_mode = 'register'  (auto)   elastix refinement and the registered volumes.
 %                                   Picks up the control points if they exist.
@@ -33,7 +41,7 @@ mice_to_process   = {'MG903_SepGluA_P20'};   % 'annotate' takes one mouse at a t
                                                 % P20 first: curated and the age Sami wants prioritised
 
 % Which half of the script to run. 'annotate' takes one mouse at a time.
-run_mode = 'annotate';                             % 'align' | 'annotate' | 'register'
+run_mode = 'align';                             % 'align' | 'annotate' | 'register'
 
 % Reference atlas.
 %
@@ -183,6 +191,11 @@ for mouse_idx = 1:numel(cohort)
                 if exist(tform_name, 'file')
                     fprintf('  NOTE: control points already exist and will be overwritten on save:\n    %s\n', tform_name);
                 end
+                % The proposal keys (r, t) call the image matcher through a
+                % persistent Python worker; start it now so the first press is
+                % fast. Optional: if Python is missing the GUI still opens and
+                % r reports why. See landmark_refine/README.md.
+                landmark_refine_worker('start');
                 fprintf('  opening the control-point GUI against atlas ''%s''.\n', atlas.key);
                 fprintf('  place points on every slice, then SAVE and CLOSE, and re-run with run_mode = ''register''.\n');
                 matchControlPointsInSlices(opts);
