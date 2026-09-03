@@ -47,6 +47,13 @@ if ~isempty(labels), req.labels = double(labels); else, req.labels = []; end
 if isfield(opts, 'snap_r'), req.snap_r = double(opts.snap_r); end
 if isfield(opts, 'n'),      req.n      = double(opts.n);      end
 if isfield(opts, 'mirror'), req.mirror = double(opts.mirror); end
+% refine only, optional: the previous slice's histology panel and the points
+% on it give a second, histology-to-histology estimate that is averaged in.
+% Measured to cut the per-point correction from 9.7 to 7.2 px.
+if isfield(opts, 'hist_prev') && ~isempty(opts.hist_prev)
+    req.hist_prev     = uint8(opts.hist_prev);
+    req.hist_pts_prev = double(reshape(opts.hist_pts_prev, [], 2));
+end
 
 % ----------------------------------------------------------------- call
 % Through the persistent worker when one is alive (~0.4 s on the GPU), else
@@ -93,11 +100,12 @@ out.ok      = logical(r.ok);
 out.message = strtrim(char(r.message));
 out.atlas_pts = double(r.atlas_pts);
 out.hist_pts  = double(r.hist_pts);
-for f = {'moved', 'n_local', 'local_rms', 'score', 'n_matches', 'n_inliers', 'det', ...
-         'mean_conf', 'seconds'}
+for f = {'moved', 'n_local', 'local_rms', 'disagree', 'uncertain', 'score', ...
+         'n_matches', 'n_inliers', 'n_inliers_hh', 'det', 'mean_conf', 'seconds'}
     if isfield(r, f{1}), out.(f{1}) = double(r.(f{1})); end
 end
-if isfield(out, 'moved'), out.moved = logical(out.moved); end
+if isfield(out, 'moved'),     out.moved     = logical(out.moved);     end
+if isfield(out, 'uncertain'), out.uncertain = logical(out.uncertain); end
 if ~out.ok && isempty(out.message)
     out.message = sprintf('python failed (status %d):\n%s', status, strtrim(log));
 end

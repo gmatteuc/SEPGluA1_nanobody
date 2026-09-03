@@ -40,7 +40,12 @@ def handle(req):
 
         if mode == 'refine':
             pts = np.asarray(req['atlas_pts'], float).reshape(-1, 2)
-            out = core.refine(atlas, hist, pts, labels, snap_r=float(_scalar(req, 'snap_r', core.SNAP_R)))
+            # optional second estimate: previous slice's histology + points on it
+            hp = req['hist_prev'] if 'hist_prev' in req and np.asarray(req['hist_prev']).size else None
+            hpp = (np.asarray(req['hist_pts_prev'], float).reshape(-1, 2)
+                   if 'hist_pts_prev' in req and np.asarray(req['hist_pts_prev']).size else None)
+            out = core.refine(atlas, hist, pts, labels, snap_r=float(_scalar(req, 'snap_r', core.SNAP_R)),
+                              hist_prev=hp, hist_pts_prev=hpp)
         elif mode == 'suggest':
             out = core.suggest(atlas, hist, labels, n=int(_scalar(req, 'n', 10)),
                                mirror=bool(_scalar(req, 'mirror', 1)))

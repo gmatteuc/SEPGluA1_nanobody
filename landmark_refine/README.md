@@ -5,7 +5,7 @@ one piece of machinery, nothing trained:
 
 | operation | what it does | measured (MG903 P20, 19 slices) |
 |---|---|---|
-| **refine** | *adjusted carry-over*: keep the previous slice's atlas landmarks, nudge them onto the nearest structure boundary of the new plane, and re-derive the histology coordinates through the image match field | **9.7 px** median vs **15.2** for a plain copy; beats it on 16/18 slices; keeps the annotator's mirror-pair structure |
+| **refine** | *adjusted carry-over*: keep the previous slice's atlas landmarks, nudge them onto the nearest structure boundary of the new plane, and re-derive the histology coordinates from **two** match fields averaged — atlas→histology, and the previous slice's histology→this histology (same modality, adjacent sections: the easier match) | per landmark, the correction the annotator still had to make: **7.2 px** vs 9.7 with the atlas field alone and 12.5 for a plain copy; better on 28/33 slices. Where the two fields disagree by >15 px the point is flagged `uncertain` — those need ~2× the correction (r = +0.51) |
 | **suggest** | points from scratch: multi-scale matches scored by confidence + boundary + cornerness, chosen as left/right pairs across lateral bands | 10.2 px at 10 points, 9.3 at 15 unpaired |
 
 The floor — the annotator's own affine residual — is 7.4 px. Every number and the full
