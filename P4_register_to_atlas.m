@@ -41,7 +41,7 @@ mice_to_process   = {'MG903_SepGluA_P20'};   % 'annotate' takes one mouse at a t
                                                 % P20 first: curated and the age Sami wants prioritised
 
 % Which half of the script to run. 'annotate' takes one mouse at a time.
-run_mode = 'align';                             % 'align' | 'annotate' | 'register'
+run_mode = 'register';                             % 'align' | 'annotate' | 'register'
 
 % Reference atlas.
 %
@@ -209,13 +209,26 @@ for mouse_idx = 1:numel(cohort)
                 % looks fine in the folder and is not comparable to the adults.
                 tform_name = fullfile(mouse_dir, 'atlas2histology_tform.mat');
                 if exist(tform_name, 'file')
-                    S_cp  = load(tform_name, 'histology_control_points');
+                    S_cp  = load(tform_name, 'histology_control_points', 'atlas_control_points');
                     n_cp  = cellfun(@(c) size(c, 1), S_cp.histology_control_points);
+                    n_at  = cellfun(@(c) size(c, 1), S_cp.atlas_control_points);
                     fprintf('  control points: %d slices, %d-%d points each (median %g)\n', ...
                         numel(n_cp), min(n_cp), max(n_cp), median(n_cp));
-                    if any(n_cp == 0)
-                        fprintf('  NOTE: %d slice(s) carry no points; those fall back to image only.\n', ...
-                            nnz(n_cp == 0));
+                    % Points are paired by row, so a slice whose two lists differ
+                    % in length has no valid pairing at all. elastix would only
+                    % find out when it reached that slice, an hour in. Say so now.
+                    bad = find(n_cp(:) ~= n_at(:))';
+                    if ~isempty(bad)
+                        error(['P4: slice(s) %s have different numbers of histology and atlas points.\n' ...
+                               'Open run_mode = ''annotate'', go to each, and delete the unpaired point(s)\n' ...
+                               '(edit mode, d) or press c and re-place them.'], mat2str(bad));
+                    end
+                    % registerSlicesToAtlas uses the points only when a slice has
+                    % at least five; with fewer it silently registers that slice
+                    % from image information alone.
+                    if any(n_cp < 5)
+                        fprintf('  NOTE: slice(s) %s have fewer than 5 points and will be registered from image only.\n', ...
+                            mat2str(find(n_cp(:) < 5)'));
                     end
                 elseif allow_image_only_registration
                     fprintf(['  no control points, and allow_image_only_registration is true.\n' ...
