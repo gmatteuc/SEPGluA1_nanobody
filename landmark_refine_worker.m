@@ -59,6 +59,11 @@ switch lower(action)
             pause(0.5); fprintf('.');
             alive = is_alive(folder);
             if alive, break, end
+            % A broken install crashes at import within a second or two; its
+            % traceback is in the log. No point waiting out the full 30 s.
+            if exist(logf, 'file') && contains(fileread(logf), 'Traceback')
+                break
+            end
         end
         fprintf('\n');
         if alive

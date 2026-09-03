@@ -435,9 +435,16 @@ switch eventdata.Key
                 plane = round(gui_data.atlas_slice);
                 h = gui_data.histology_control_points{src};
                 a = gui_data.atlas_control_points{src};
-                fprintf('Proposing %d point(s) for slice %d from slice %d at atlas plane %d (a few seconds)...\n', ...
+                fprintf('Proposing %d point(s) for slice %d from slice %d at atlas plane %d...\n', ...
                     size(a,1), sl, src, plane);
-                [h2, a2, ok, msg] = auto_refine_points(gui_data, sl, plane, h, a);
+                % Whatever goes wrong on the Python side -- no interpreter, a
+                % broken install, a corrupt reply -- ends here as a message.
+                % A key press must never take the GUI down.
+                try
+                    [h2, a2, ok, msg] = auto_refine_points(gui_data, sl, plane, h, a);
+                catch err
+                    ok = false; msg = err.message;
+                end
                 if ok
                     now_stamp = convertTo(datetime('now'), 'datenum');
                     h2(:, 1) = sl;      h2(:, 4) = now_stamp;
