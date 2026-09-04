@@ -120,7 +120,11 @@ def main(mice):
         off = (~brain) & (nz > 0) & reached[:, None, None]                # off-tissue but imaged
         bg_n = float(np.median(sig[off])); bg_a = float(np.median(aut[off]))
         mad_a = float(np.median(np.abs(aut[off] - bg_a))) * 1.4826
-        tissue = brain & (nz >= 0.5) & (aut > bg_a + MAD_K * mad_a) & reached[:, None, None]
+        # 'reached' is NOT part of the tissue mask: a plane where a section
+        # covers 45% of the atlas brain is real data (MG897 and MG913 at their
+        # posterior ends), and the per-voxel criteria already exclude what no
+        # section imaged. 'reached' only guards the off-tissue sampling above.
+        tissue = brain & (nz >= 0.5) & (aut > bg_a + MAD_K * mad_a)
         sig -= bg_n; aut -= bg_a
         cortex = tissue & np.isin(ann, list(iso))
         cortex_mean = float(sig[cortex].mean())
