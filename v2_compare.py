@@ -79,6 +79,59 @@ def unfold_into_demba(half):
     return full
 
 
+def draw_figures(z, out):
+    """Slices figure per mode from the saved volumes (also used by v2_replot.py).
+
+    Colour conventions, so that nothing is ambiguous: no data (outside the
+    atlas, or too few mice) is flat GREY; the intensity map is 'hot' cut off
+    before its white end, so saturation is bright yellow and never white; the
+    range is the 99th percentile of the ADULT ISOCORTEX, the structure the
+    question is about, so the hippocampus saturates by design.
+    """
+    from matplotlib.colors import LinearSegmentedColormap
+    ann_h, both = z['annot20'], z['both']
+    inside = ann_h > 0
+    hot = plt.get_cmap('hot')
+    hot_cut = LinearSegmentedColormap.from_list('hot_cut', hot(np.linspace(0, 0.82, 256)))
+    grey = '#bfbfbf'
+    iso_ids = set()
+    with open(CSV_MAP, newline='', encoding='utf-8') as fh:
+        for row in csv.DictReader(fh):
+            if row['parcellation_term_set_name'] == 'division' and row['parcellation_term_acronym'] == 'Isocortex':
+                iso_ids.add(int(row['parcellation_index']))
+    iso = both & np.isin(ann_h, list(iso_ids))
+    cov = both.reshape(both.shape[0], -1).sum(1)
+    ok = np.nonzero(cov > 0.5 * cov.max())[0]
+    planes = [int(v) for v in np.linspace(ok[0], ok[-1], 6).round()]
+    what = {'ratio': 'nano / autofluorescence, both background-subtracted',
+            'cref': "background-subtracted nano relative to each mouse's isocortex mean"}
+    for m in MODES:
+        adult_v, p20_v, log2_v = z[f'adult_{m}'], z[f'p20_{m}'], z[f'log2_{m}']
+        vmax = float(np.nanpercentile(adult_v[iso], 99))
+        lim2 = float(np.nanpercentile(np.abs(log2_v[both]), 98))
+        fig, axes = plt.subplots(len(planes), 3, figsize=(13.5, 3.9 * len(planes)))
+        for i, zc in enumerate(planes):
+            shown = both[zc]
+            panels = ((np.where(inside[zc] & np.isfinite(adult_v[zc]), adult_v[zc], np.nan), f'adult (n = 10)  {m}', hot_cut, (0, vmax)),
+                      (np.where(shown, p20_v[zc], np.nan), f'P20 in CCF (n = 3)  {m}', hot_cut, (0, vmax)),
+                      (np.where(shown, log2_v[zc], np.nan), 'log2( P20 / adult )', 'RdBu_r', (-lim2, lim2)))
+            for j, (im, title, cmap, lim) in enumerate(panels):
+                ax = axes[i, j]
+                bg = np.zeros(inside[zc].shape + (4,)); bg[inside[zc]] = matplotlib.colors.to_rgba(grey)
+                ax.imshow(bg, origin='upper', interpolation='nearest', aspect='equal')
+                h = ax.imshow(im, cmap=cmap, vmin=lim[0], vmax=lim[1], origin='upper', interpolation='nearest', aspect='equal')
+                ax.set_title(f'{title}   plane {zc * 2 + CCF_AP0} / 10 um', fontsize=9.5)
+                ax.set_xticks([]); ax.set_yticks([])
+                plt.colorbar(h, ax=ax, fraction=0.035, pad=0.01, extend='max' if j < 2 else 'both')
+        fig.suptitle(f'{what[m]}.  Hemispheres averaged, P20 carried DeMBA -> CCF.\n'
+                     f'Grey = no data (fewer than {MIN_N_P20} pups or {MIN_N_ADULT} adults with tissue).  '
+                     f'Colour range 0 to {vmax:.2f} = 99th percentile of adult isocortex; above that is bright yellow, never white.',
+                     fontsize=10)
+        fig.tight_layout()
+        fig.savefig(os.path.join(out, f'slices_{m}.png'), dpi=105)
+        plt.close(fig)
+
+
 def main():
     t0 = time.time()
     os.makedirs(OUT, exist_ok=True)
@@ -168,30 +221,9 @@ def main():
         fh.write('\n'.join(lines) + '\n')
     print('\n'.join(lines))
 
-    # ------------------------------------------------------------- figures
-    cov = both.reshape(both.shape[0], -1).sum(1)
-    ok = np.nonzero(cov > 0.5 * cov.max())[0]
-    planes = [int(v) for v in np.linspace(ok[0], ok[-1], 6).round()]
-    vmax = {'ratio': 2.0, 'cref': 2.5}
-    for m in MODES:
-        fig, axes = plt.subplots(len(planes), 3, figsize=(13.5, 3.9 * len(planes)))
-        for i, zc in enumerate(planes):
-            panels = ((np.where(inside[zc], adult[m][zc], np.nan), f'adult (n = 10)  {m}', 'hot', (0, vmax[m])),
-                      (np.where(inside[zc] & ok_h[zc], p20_h[m][zc], np.nan), f'P20 in CCF (n = 3)  {m}', 'hot', (0, vmax[m])),
-                      (log2[m][zc], 'log2( P20 / adult )', 'RdBu_r', (-1.5, 1.5)))
-            for j, (im, title, cmap, lim) in enumerate(panels):
-                ax = axes[i, j]
-                h = ax.imshow(im, cmap=cmap, vmin=lim[0], vmax=lim[1], origin='upper', interpolation='nearest', aspect='equal')
-                ax.contour(inside[zc].astype(float), levels=[0.5], colors='w' if j < 2 else 'k', linewidths=0.35)
-                ax.set_title(f'{title}   plane {zc * 2 + CCF_AP0} / 10 um', fontsize=9.5)
-                ax.set_xticks([]); ax.set_yticks([])
-                plt.colorbar(h, ax=ax, fraction=0.035, pad=0.01)
-        what = {'ratio': 'nano / autofluorescence, both background-subtracted',
-                'cref': 'background-subtracted nano relative to each mouse\'s isocortex mean'}[m]
-        fig.suptitle(f'{what}.  Hemispheres averaged; P20 carried DeMBA -> CCF.  '
-                     f'Grey = fewer than {MIN_N_P20} pups or {MIN_N_ADULT} adults with tissue.', fontsize=10.5)
-        fig.tight_layout()
-        fig.savefig(os.path.join(OUT, f'slices_{m}.png'), dpi=105)
+    draw_figures(dict(annot20=ann_h, both=both, adult_n=adult_n, p20_n=n_h,
+                      **{f'adult_{m}': adult[m] for m in MODES}, **{f'p20_{m}': p20_h[m] for m in MODES},
+                      **{f'log2_{m}': log2[m] for m in MODES}), OUT)
     print(f'done  {time.time() - t0:.0f} s')
 
 
