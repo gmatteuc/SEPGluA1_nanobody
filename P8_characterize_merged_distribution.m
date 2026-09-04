@@ -634,6 +634,59 @@ if generate_region_barchart && ~isempty(roi_list)
         roi_erode_radius, dist_weight_power, ...
         analysis_slice_range(1), analysis_slice_range(2)));
 
+    % A cohort analysed for the first time has no sparse mask cache yet -- P9
+    % used to be the only thing that built it, and the per-mouse block below
+    % cannot run without it. Build it here, in exactly the form P9 writes, so
+    % either script can be first. A cohort that already has one (the adults,
+    % since May) never enters this branch and is unaffected.
+    if ~exist(masks_cache_path, 'file')
+        fprintf('  Building sparse ROI masks + distance weights for %d regions (first run for this cohort)...\n', n_rois);
+        if roi_erode_radius > 0
+            se_erode = strel('sphere', roi_erode_radius);
+        end
+        roi_indices     = cell(n_rois, 1);
+        roi_weights_dw  = cell(n_rois, 1);
+        roi_indices_ero = cell(n_rois, 1);
+        roi_px_raw_c    = zeros(n_rois, 1);
+        roi_px_ero_c    = zeros(n_rois, 1);
+        for r = 1:n_rois
+            try
+                m_raw = get_allen_region_mask(allenDir, AllenCrop, roi_list(r), brainMask, '');
+                if size(m_raw, 3) > half_width, m_raw = m_raw(:, :, 1:half_width); end
+                idx_raw = uint32(find(m_raw));
+                roi_indices{r} = idx_raw;
+                roi_px_raw_c(r) = numel(idx_raw);
+                if roi_erode_radius > 0
+                    m_ero = imerode(m_raw, se_erode);
+                    if nnz(m_ero) == 0, m_ero = m_raw; end
+                else
+                    m_ero = m_raw;
+                end
+                roi_indices_ero{r} = uint32(find(m_ero));
+                roi_px_ero_c(r) = numel(roi_indices_ero{r});
+                dist = single(bwdist(~m_raw));
+                mx = max(dist(m_raw));
+                if mx > 0
+                    w = (dist(m_raw) / mx) .^ dist_weight_power;
+                else
+                    w = ones(numel(idx_raw), 1, 'single');
+                end
+                roi_weights_dw{r} = w;
+            catch
+                roi_indices{r}     = uint32([]);
+                roi_weights_dw{r}  = single([]);
+                roi_indices_ero{r} = uint32([]);
+                warning('Could not build mask for: %s', roi_list{r});
+            end
+            if mod(r, 50) == 0, fprintf('    %d/%d masks done\n', r, n_rois); end
+        end
+        roi_px_raw = roi_px_raw_c; roi_px_ero = roi_px_ero_c;   %#ok<NASGU>  the names P9 saves
+        save(masks_cache_path, 'roi_indices', 'roi_weights_dw', 'roi_indices_ero', ...
+            'roi_px_raw', 'roi_px_ero', 'roi_list', 'roi_acronyms', 'roi_macro', '-v7.3');
+        fprintf('  ROI masks cached: %s\n', masks_cache_path);
+        clear roi_indices roi_weights_dw roi_indices_ero roi_px_raw_c roi_px_ero_c se_erode
+    end
+
     if exist(masks_cache_path, 'file')
         fprintf('  Loading sparse ROI masks for t-score computation...\n');
         M = load(masks_cache_path);
