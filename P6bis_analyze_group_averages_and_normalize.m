@@ -795,6 +795,19 @@ for ci = 1:numel(cohort_specs)
         % Apply formula: (Raw - Intercept) / Slope
         data_4d_normalized(:,:,:,i) = (data_4d(:,:,:,i) - intercept) / slope;
 
+        % A raw value of exactly zero is a voxel no section reached (the
+        % registered volume is zero-filled beyond the first and last slice and
+        % where a section does not cover the plane). Mapped through the line
+        % above it became -intercept/slope, a large constant that P8's abs()
+        % then turned into a bright slab wherever a cohort's coverage was
+        % partial. It is not tissue; mark it NaN so every downstream nanmean
+        % simply leaves that mouse out of that voxel. Voxels with data are
+        % untouched, so outputs only change where a mouse had no section.
+        tmp = data_4d_normalized(:,:,:,i);
+        tmp(data_4d(:,:,:,i) == 0) = NaN;
+        data_4d_normalized(:,:,:,i) = tmp;
+        clear tmp
+
         fprintf('  Applied normalization to Mouse %d/%d (Slope=%.2f, Int=%.2f)\n', ...
             i, num_mice_subset, slope, intercept);
     end
