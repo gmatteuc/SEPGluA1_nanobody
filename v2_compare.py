@@ -127,7 +127,7 @@ def draw_figures(z, out):
                      f'Grey = no data (fewer than {MIN_N_P20} pups or {MIN_N_ADULT} adults with tissue).  '
                      f'Colour range 0 to {vmax:.2f} = 99th percentile of adult isocortex; above that is bright yellow, never white.',
                      fontsize=10)
-        fig.tight_layout()
+        fig.tight_layout(rect=(0, 0, 1, 0.975))
         fig.savefig(os.path.join(out, f'slices_{m}.png'), dpi=105)
         plt.close(fig)
 
