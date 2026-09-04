@@ -27,7 +27,19 @@ plot_verification_video = false;
 % Channel to normalize: 'nano' (default, surface GluA1) or 'auto' (autofluorescence control).
 % Loads <channel>_4d.mat and saves <channel>_4d_normalized.mat in each cohort folder.
 % Pipeline scripts downstream (P7bis, P8, P9) read whichever channel they're configured for.
-channel = 'auto'; % 'nano' 
+channel = 'nano'; % 'auto'
+
+% Cohorts to normalise, as specs: an adult group by name ('rws', 'naive',
+% 'behavior'), or the young group with an age ('young_P20'). An adult group
+% keeps the mouse lists and selections above, exactly as before. A young
+% cohort takes the mice P5 stacked (collected_mice<tag>.mat), all of them, and
+% its own atlas. See get_cohort_spec.
+cohort_specs = {'rws', 'naive'};
+% Batch runs can pick the cohorts without editing this file:
+%   set SEP_COHORT_SPECS=young_P20   (comma-separated for several)
+if ~isempty(getenv('SEP_COHORT_SPECS'))
+    cohort_specs = strtrim(strsplit(getenv('SEP_COHORT_SPECS'), ','));
+end
 
 %% Add paths
 
@@ -43,31 +55,41 @@ addpath(genpath(lightsuiteDir))
 addpath(genpath(yamlDir))
 addpath(genpath(elastixDir))
 
-%% Allen atlas setup
+%% Atlas
 
-AllenFile = [allenDir,'\annotation_10.nii.gz'];
-AllenVol = niftiread(AllenFile);
-limits = [180 1079];
-AllenCrop = AllenVol(limits(1):limits(2),:,:);
-brainMask = AllenCrop > 0;
+% Loaded per cohort inside the loop (get_atlas_crop): the adults are on the
+% CCF, the P20 brains on DeMBA, and each comes out on the grid of its own
+% registered volumes. For an adult group the arrays are the same, byte for
+% byte, as the inline crop this block used to do.
 
 %% Plot videos per mouse type
 
-for mousetype_idx = 1:2%:numel(mousetypes_list)
+for ci = 1:numel(cohort_specs)
     tic
 
-    % --- Fetch single mouse data for current type ---
+    % --- Fetch single mouse data for current cohort ---
 
-    % Get current mouse type
-    current_mouse_type = mousetypes_list{mousetype_idx};
+    S = get_cohort_spec(cohort_specs{ci});
+    current_mouse_type = S.group;
+    mousetype_idx = find(strcmp(mousetypes_list, S.group));
 
-    % 1. Find all mice of this type
-    all_mice_of_type_idx = find(strcmp(mousetypes, current_mouse_type));
-    all_mice_of_type = mice(all_mice_of_type_idx);
+    if ~isempty(mousetype_idx)
+        % An adult group: the lists and selections above, as they always were
+        all_mice_of_type_idx = find(strcmp(mousetypes, current_mouse_type));
+        all_mice_of_type = mice(all_mice_of_type_idx);
+        subset_indices = selected_mice_idx_list{mousetype_idx};
+        current_mice = all_mice_of_type(subset_indices);
+    else
+        % A young cohort: whatever P5 stacked, in that order, all of it
+        current_mice   = S.mice;
+        subset_indices = 1:numel(current_mice);
+    end
 
-    % 2. Apply Selection Filter
-    subset_indices = selected_mice_idx_list{mousetype_idx};
-    current_mice = all_mice_of_type(subset_indices);
+    % The cohort's atlas on the grid of its registered volumes
+    A = get_atlas_crop(S.atlas_key);
+    AllenCrop = A.annot;
+    brainMask = A.brainMask;
+    allenDir  = A.csv_dir;
 
     num_current = numel(current_mice);
     num_mice_subset = num_current; % Update subset count for later loops
@@ -87,7 +109,7 @@ for mousetype_idx = 1:2%:numel(mousetypes_list)
 
     % Filter the 4D matrices to keep only selected mice
     input_var_name = [channel '_4d'];                   % e.g. 'nano_4d' or 'auto_4d'
-    input_file     = fullfile(base_dir, [channel '_4d.mat']);
+    input_file     = fullfile(base_dir, [channel '_4d' S.tag '.mat']);
     fprintf('Loading channel ''%s'' from %s ...\n', channel, input_file);
     temp_data = load(input_file);
     data_4d = temp_data.(input_var_name)(:, :, :, subset_indices);
@@ -98,10 +120,12 @@ for mousetype_idx = 1:2%:numel(mousetypes_list)
     % ----------- Set user-defined parameters for the plot -----------
 
     % Range of slices to use for CALCULATING the normalization (pooling pixels)
-    slices_range_for_norm = 1:5:900; % Example: Every 10th slice from 400 to 600
+    % Written in adult AP planes (900 in the CCF crop) and scaled to this
+    % cohort's AP length: unchanged for the adults, 994 planes for P20.
+    slices_range_for_norm = unique(round((1:5:900) * A.ap_scale));
 
     % List of slices to VISUALIZE and Save (Diagnostics)
-    slices_to_visualize_list = [450,500,550];
+    slices_to_visualize_list = round([450,500,550] * A.ap_scale);
 
     plot_limit = 5000;
     hist_num_bins = 150;
@@ -128,20 +152,23 @@ for mousetype_idx = 1:2%:numel(mousetypes_list)
             if mod(slice_idx_loop, 100) == 0
                 fprintf('    -> Slice %d / %d\n', slice_idx_loop, total_slices);
             end
-            % Set settings
-            if slice_idx_loop<100
+            % Set settings. The breakpoints are adult AP planes; the index
+            % is brought back to that scale so the same schedule applies
+            % at the same relative depth in a longer young volume.
+            s_adult = slice_idx_loop / A.ap_scale;
+            if s_adult<100
                 pmax_val=95;
                 pmin_val=0;
-            elseif  slice_idx_loop>=100 && slice_idx_loop<250
+            elseif  s_adult>=100 && s_adult<250
                 pmax_val=75;
                 pmin_val=5;
-            elseif slice_idx_loop>=250 && slice_idx_loop<500
+            elseif s_adult>=250 && s_adult<500
                 pmax_val=55;
                 pmin_val=15;
-            elseif slice_idx_loop>=500 && slice_idx_loop<700
+            elseif s_adult>=500 && s_adult<700
                 pmax_val=45;
                 pmin_val=15;
-            elseif slice_idx_loop>=700 && slice_idx_loop<725
+            elseif s_adult>=700 && s_adult<725
                 pmax_val=55;
                 pmin_val=15;
             else
@@ -161,7 +188,7 @@ for mousetype_idx = 1:2%:numel(mousetypes_list)
     end
 
     % Plot diagnostics
-    h_fig = figure('Visible', 'off', 'Name', ['Background_mask_diagnostics_trace_',current_mouse_type,'_',channel], 'Color', 'w', 'Position', [100 100 1400 600]);
+    h_fig = figure('Visible', 'off', 'Name', ['Background_mask_diagnostics_trace_',current_mouse_type,S.tag,'_',channel], 'Color', 'w', 'Position', [100 100 1400 600]);
     nMice = size(median_vecs, 2);
     nSlices = size(median_vecs, 1);
     x_vals = 1:nSlices;
@@ -777,8 +804,8 @@ for mousetype_idx = 1:2%:numel(mousetypes_list)
     % dynamic access. The bkgmask file keeps a generic field name (channel-agnostic
     % across consumers).
     norm_var_name     = [channel '_4d_normalized'];
-    save_filename     = fullfile(base_dir, [channel '_4d_normalized.mat']);
-    save_filename_bis = fullfile(base_dir, [channel '_4d_normalized_bkgmask.mat']);
+    save_filename     = fullfile(base_dir, [channel '_4d_normalized' S.tag '.mat']);
+    save_filename_bis = fullfile(base_dir, [channel '_4d_normalized_bkgmask' S.tag '.mat']);
 
     save_struct                        = struct();
     save_struct.(norm_var_name)        = data_4d_normalized;
@@ -786,6 +813,8 @@ for mousetype_idx = 1:2%:numel(mousetypes_list)
     save_struct.current_mice           = current_mice;
     save_struct.selected_mice_idx_list = selected_mice_idx_list;
     save_struct.channel                = channel;
+    save_struct.cohort_spec            = S.label;
+    save_struct.atlas_key              = S.atlas_key;
     save(save_filename, '-struct', 'save_struct', '-v7.3');
 
     save(save_filename_bis, 'recomputed_bkg_mask_4d', 'current_mice', 'selected_mice_idx_list', '-v7.3');

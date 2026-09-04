@@ -18,9 +18,16 @@ clc
 % written out, so the tree can be moved or copied to another drive as is.
 paths = get_paths();
 
-% Groups to pool (reference group listed first — other groups get linearly
-% aligned to the reference via per-slice profile polyfit, as in P7bis).
+% Cohorts to pool, as specs (see get_cohort_spec): adult groups by name, or
+% the young group with an age, e.g. {'young_P20'}. The first is the reference
+% -- the others get linearly aligned to it via per-slice profile polyfit, as
+% in P7bis. All must share one atlas; a single cohort is fine.
 groups_to_merge = {'naive', 'rws'};
+% Batch runs can pick the cohorts without editing this file:
+%   set SEP_MERGE_SPECS=young_P20   (comma-separated for several)
+if ~isempty(getenv('SEP_MERGE_SPECS'))
+    groups_to_merge = strtrim(strsplit(getenv('SEP_MERGE_SPECS'), ','));
+end
 
 % Smoothing (match P7bis)
 apply_smoothing = false;
@@ -110,15 +117,26 @@ end
 
 %% Allen atlas setup (identical to P7bis lines 66-77)
 
-allenDir = paths.atlas;
+% Resolve the cohorts, and take the atlas from them: the adults are on the
+% CCF, the P20 brains on DeMBA, each on the grid of its registered volumes.
+% For the adults the arrays are the inline crop of old, byte for byte.
+specs = cell(1, numel(groups_to_merge));
+for gi = 1:numel(groups_to_merge), specs{gi} = get_cohort_spec(groups_to_merge{gi}); end
+atlas_keys = unique(cellfun(@(c) c.atlas_key, specs, 'UniformOutput', false));
+if numel(atlas_keys) > 1
+    error('P8: cohorts on different atlases cannot be merged (%s).', strjoin(atlas_keys, ', '));
+end
+A = get_atlas_crop(atlas_keys{1});
+allenDir = A.csv_dir;
 addpath(allenDir);
-AllenFile = fullfile(allenDir, 'annotation_10.nii.gz');
-AllenVol = niftiread(AllenFile);
-limits = [180 1079];
-AllenCrop = AllenVol(limits(1):limits(2), :, :);
-brainMask = AllenCrop > 0;
+AllenCrop = A.annot;
+brainMask = A.brainMask;
 half_atlas = AllenCrop(:, :, 1:end);
-clear AllenVol
+
+% Slice indices below are written in adult AP planes (900 in the CCF crop)
+% and scaled to this cohort's AP length: x1 for the adults, 994/900 for P20.
+ap_scale = A.ap_scale;
+analysis_slice_range = round(analysis_slice_range * ap_scale);
 
 %% Load normalized data for each group
 
@@ -135,9 +153,12 @@ bkgmask_filename = [channel '_4d_normalized_bkgmask.mat'];
 
 for gi = 1:G
     gname = groups_to_merge{gi};
-    gdir  = fullfile(base_root, gname);
-    fprintf('Loading group %s (channel=%s) ...\n', gname, channel);
+    gdir  = specs{gi}.base_dir;
+    fprintf('Loading cohort %s (channel=%s) ...\n', gname, channel);
 
+    % P6bis writes an age-filtered cohort with the same tag P5 used
+    norm_filename    = [channel '_4d_normalized' specs{gi}.tag '.mat'];
+    bkgmask_filename = [channel '_4d_normalized_bkgmask' specs{gi}.tag '.mat'];
     S_vol  = load(fullfile(gdir, norm_filename), norm_var_name, 'current_mice');
     S_mask = load(fullfile(gdir, bkgmask_filename), 'recomputed_bkg_mask_4d');
 
@@ -206,7 +227,7 @@ end
 %% Linearly align each non-reference group to the reference group
 
 ref_gi = 1;  % first group listed is the reference
-interest_region = 200:700;
+interest_region = unique(round((200:700) * ap_scale));
 
 mean_ref_profile = nanmean(med_profiles{ref_gi}, 2);
 y_target_full    = mean_ref_profile(interest_region);
@@ -229,7 +250,7 @@ end
 
 %% Compute a common median factor (unit scaling, match P7bis lines 206-211)
 
-interest_region_bis = 300:500;
+interest_region_bis = unique(round((300:500) * ap_scale));
 fact_list = zeros(G, 1);
 for gi = 1:G
     fact_list(gi) = nanmean(nanmean(norm_profiles{gi}(interest_region_bis, :), 1));
@@ -1322,7 +1343,7 @@ fprintf('P8 done. Outputs in: %s\n', out_dir);
 
 %% Diagnostic: visualize distance weights on a specific slice
 
-diag_slice = 620;  % the slice where HP bleedthrough is visible
+diag_slice = round(620 * ap_scale);  % the slice where HP bleedthrough is visible (adult plane 620)
 diag_power = [1, 2, 4];  % linear, quadratic, quartic weighting
 
 fprintf('Generating distance-weight diagnostic for slice %d...\n', diag_slice);

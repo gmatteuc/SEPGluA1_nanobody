@@ -40,14 +40,14 @@ addpath(genpath(lightsuiteDir))
 addpath(genpath(yamlDir))
 addpath(genpath(elastixDir))
 
-%% Get atlas
+%% Atlas
 
-% Load Allen atlas annotations
-AllenFile = [allenDir,'\annotation_10.nii.gz'];
-AllenVol = niftiread(AllenFile);
-limits = [180 1079];
-AllenCrop = AllenVol(limits(1):limits(2),:,:);
-brainMask = AllenCrop > 0;
+% Nothing below uses the atlas -- the block that used to load and crop the
+% adult annotation here fed nothing. What matters is that every registered
+% volume of a cohort sits on the same grid, which is what makes cat(4, ...)
+% legal: the adults on the CCF (900 x 800 x 1140), the P20 brains on DeMBA
+% (994 x 800 x 1140). get_atlas_crop is where that grid lives, and P6bis and
+% P8 take it from there.
 
 %% Process per mouse type
 
