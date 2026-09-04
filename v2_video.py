@@ -34,8 +34,8 @@ from v2_per_mouse import annotation_20, CSV_MAP
 from v2_cohort import V2, COHORTS
 
 ATLAS = {'young_P20': 'demba_p20', 'naive': 'ccf', 'rws': 'ccf', 'adult': 'ccf'}
-MEAN_VMAX = {'cref': 3.0, 'ratio': 3.0}
-T_VMAX = 10.0
+MEAN_VMAX = {'cref': 2.0, 'ratio': 2.0}   # cortex sits near 1 in both readings; HPF saturates by design
+T_PCT = 95.0                              # t panel range: 0 .. this percentile of t over the cohort's voxels
 MIN_N = {'young_P20': 2, 'naive': 3, 'rws': 3, 'adult': 5}
 FPS = 12
 MIN_LABEL_AREA = 150     # 20 um voxels in the plane, below which no acronym is drawn
@@ -66,7 +66,7 @@ def main(cohorts):
                 acro[int(row['parcellation_index'])] = row['parcellation_term_acronym']
     hot = plt.get_cmap('hot')
     hot_cut = LinearSegmentedColormap.from_list('hot_cut', hot(np.linspace(0, 0.82, 256)))
-    hot_cut.set_bad('#3a3a3a')
+    hot_cut.set_bad((0, 0, 0, 0))            # masked = transparent, so the grey/black ground shows through
     anns = {}
     for cohort in cohorts:
         key = ATLAS[cohort]
@@ -80,7 +80,9 @@ def main(cohorts):
             mean = fold(np.load(os.path.join(V2, cohort, f'{reading}_mean.npy')))
             sd = fold(np.load(os.path.join(V2, cohort, f'{reading}_sd.npy')))
             ok = (n_h >= MIN_N[cohort]) & np.isfinite(mean)
-            tval = np.where(ok & (sd > 0), mean / (sd / np.sqrt(np.maximum(n_h, 1))), np.nan)
+            with np.errstate(divide='ignore', invalid='ignore'):
+                tval = np.where(ok & (sd > 0), mean / (sd / np.sqrt(np.maximum(n_h, 1))), np.nan)
+            t_vmax = float(np.nanpercentile(tval[ok & (sd > 0)], T_PCT))
             frames = [k for k in range(ann_h.shape[0]) if ok[k].sum() > 200]
             out = os.path.join(V2, cohort, f'video_{reading}_{cohort}.mp4')
             writer = imageio_ffmpeg.write_frames(out, (1600, 800), fps=FPS, quality=7, macro_block_size=8)
@@ -93,11 +95,13 @@ def main(cohorts):
                 lab = ann_h[k]; inside = lab > 0
                 bnd = boundaries(lab)
                 panels = ((np.where(ok[k], mean[k], np.nan), hot_cut, (0, MEAN_VMAX[reading]), f'{title} - mean (hemispheres averaged)'),
-                          (np.where(ok[k], tval[k], np.nan), hot_cut, (0, T_VMAX), f'{title} - reliability t = mean/SEM'))
+                          (np.where(ok[k], tval[k], np.nan), hot_cut, (0, t_vmax), f'{title} - reliability t = mean/SEM  (range = {T_PCT:.0f}th pct)'))
                 for ax, cax, (im, cmap, lim, ttl) in zip(axes, caxes, panels):
                     ax.clear(); cax.clear()
-                    im = np.ma.masked_invalid(np.where(inside, im, np.nan))
-                    im_full = np.ma.masked_where(~inside, im.filled(np.nan))
+                    # black outside the atlas, grey inside it where there is no data, colour where there is
+                    bg = np.zeros(lab.shape + (4,)); bg[inside] = (0.23, 0.23, 0.23, 1.0)
+                    ax.imshow(bg, origin='upper', interpolation='nearest', aspect='equal')
+                    im_full = np.ma.masked_invalid(np.where(inside, im, np.nan))
                     h = ax.imshow(im_full, cmap=cmap, vmin=lim[0], vmax=lim[1], origin='upper', interpolation='nearest', aspect='equal')
                     ov = np.zeros(lab.shape + (4,)); ov[bnd] = (0.75, 0.75, 0.75, 0.9)
                     ax.imshow(ov, origin='upper', interpolation='nearest', aspect='equal')
