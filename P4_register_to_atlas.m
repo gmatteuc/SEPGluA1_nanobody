@@ -37,11 +37,11 @@ paths = get_paths();
 % Cohort selection (mice come from the shared registry get_cohort.m).
 % Set mice_to_process to {} to process every mouse in groups_to_process.
 groups_to_process = {'young'};                  % 'rws' | 'naive' | 'behavior' | 'young'
-mice_to_process   = {'MG897_SepGluA_P20'};   % 'annotate' takes one mouse at a time
+mice_to_process   = {'MG913_SepGluA_P20'};   % 'annotate' takes one mouse at a time
                                                 % P20 first: curated and the age Sami wants prioritised
 
 % Which half of the script to run. 'annotate' takes one mouse at a time.
-run_mode = 'register';                             % 'align' | 'annotate' | 'register'
+run_mode = 'annotate';                             % 'align' | 'annotate' | 'register'
 
 % Reference atlas.
 %
@@ -178,6 +178,12 @@ for mouse_idx = 1:numel(cohort)
                    mouse_name, regopts_name);
         end
         opts = load(regopts_name);
+        % regopts.procpath is written by 'align' as an absolute path, drive
+        % letter included, so a mouse aligned on another machine (or the same
+        % disk under a different letter) points the GUI and the registration
+        % at a folder that does not exist here. The folder is always this
+        % mouse's lightsuite directory, so say so from where the code sits.
+        opts.procpath = mouse_dir;
 
         switch run_mode
 
