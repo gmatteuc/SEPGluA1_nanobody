@@ -43,6 +43,18 @@ mice_to_process   = {'MG913_SepGluA_P20'};   % 'annotate' takes one mouse at a t
 % Which half of the script to run. 'annotate' takes one mouse at a time.
 run_mode = 'annotate';                             % 'align' | 'annotate' | 'register'
 
+% How far the atlas shown in the GUI (and used by the registration) extends
+% beyond the slice stack, in slices, on each side. The atlas on screen is
+% the rigidly pre-aligned atlas resampled onto the stack's AP range plus this
+% margin, so if the automatic rigid fit lands the stack too far back, the
+% true plane of the first slices sits outside the margin and the wheel
+% cannot reach it (MG912: slice 1 needed ~7 slices beyond LightSuite's 6).
+% Widening it costs nothing but memory. It must not change once a mouse has
+% control points, because the saved atlas planes are counted from the start
+% of this range -- P4 refuses to change it in that case. The three P20 mice
+% registered before this existed keep LightSuite's 6.
+atlas_extent_slices = 15;
+
 % Reference atlas.
 %
 % DECIDED 2026-09-02 (Sami, after seeing the comparison): the young cohort
@@ -184,6 +196,26 @@ for mouse_idx = 1:numel(cohort)
         % at a folder that does not exist here. The folder is always this
         % mouse's lightsuite directory, so say so from where the code sits.
         opts.procpath = mouse_dir;
+
+        % Apply the AP margin (see atlas_extent_slices above). The GUI reads it
+        % from opts and the registration re-reads regopts.mat from disk, so
+        % the two must agree: write it back. Never after annotation.
+        if opts.extentfactor ~= atlas_extent_slices
+            tform_check = fullfile(mouse_dir, 'atlas2histology_tform.mat');
+            if exist(tform_check, 'file')
+                error(['P4: %s already has control points placed with an atlas margin of %d slices; ' ...
+                       'atlas_extent_slices = %d would shift every saved atlas plane. ' ...
+                       'Set atlas_extent_slices = %d for this mouse.'], ...
+                       mouse_name, opts.extentfactor, atlas_extent_slices, opts.extentfactor);
+            end
+            fprintf('  atlas margin around the stack: %d -> %d slices (written to regopts.mat)\n', ...
+                opts.extentfactor, atlas_extent_slices);
+            opts.extentfactor = atlas_extent_slices;
+            regopts_disk = load(regopts_name);
+            regopts_disk.extentfactor = atlas_extent_slices;
+            save(regopts_name, '-struct', 'regopts_disk');
+            clear regopts_disk
+        end
 
         switch run_mode
 
