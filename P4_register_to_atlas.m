@@ -13,11 +13,20 @@ clc
 %   run_mode = 'angle'     (MANUAL) optional, between align and annotate: set the
 %                                   cutting angle by eye (determineCuttingAngleGUI).
 %                                   Every adult had this done; without it the
-%                                   rotation is the automatic rigid fit's. Arrows
-%                                   tilt the atlas plane (0.3 deg per press), space
-%                                   moves to the next reference slice, return saves
-%                                   the current slice's plane, c clears it, 0 resets
-%                                   the view; closing the window writes
+%                                   rotation is the automatic rigid fit's, which
+%                                   came out at 17-21 deg for MG897 and MG913.
+%                                   One angle serves the whole brain: the planes
+%                                   saved on individual slices are averaged into a
+%                                   single normal by applyAngleToTransform, so save
+%                                   it on three to five slices spread front to
+%                                   back and let the average cancel the misses.
+%                                   Controls: plain left/right change the slice;
+%                                   SHIFT + arrows tilt the atlas (0.3 deg per
+%                                   press, hold the key); the wheel moves the
+%                                   plane along its normal; return saves the plane
+%                                   for the current slice, c clears it; space
+%                                   toggles the region outlines; 1/2/3 show one
+%                                   channel, 0 all. Closing the window writes
 %                                   cutting_angle_data.mat. Must come BEFORE
 %                                   annotate: it changes the atlas block the
 %                                   control points are counted in, so P4 refuses
@@ -50,10 +59,9 @@ paths = get_paths();
 % Set mice_to_process to {} to process every mouse in groups_to_process.
 groups_to_process = {'young'};                  % 'rws' | 'naive' | 'behavior' | 'young'
 mice_to_process   = {'MG913_SepGluA_P20'};   % 'annotate' takes one mouse at a time
-                                                % P20 first: curated and the age Sami wants prioritised
 
 % Which half of the script to run. 'annotate' takes one mouse at a time.
-run_mode = 'annotate';                             % 'align' | 'angle' | 'annotate' | 'register'
+run_mode = 'angle';                             % 'align' | 'angle' | 'annotate' | 'register'
 
 % How far the atlas shown in the GUI (and used by the registration) extends
 % beyond the slice stack, in slices, on each side. The atlas on screen is
@@ -69,7 +77,7 @@ atlas_extent_slices = 15;
 
 % Reference atlas.
 %
-% DECIDED 2026-09-02 (Sami, after seeing the comparison): the young cohort
+% DECIDED 2026-09-02: the young cohort
 % registers to the age-matched DeMBA P20 template. The reasoning is that the
 % manual control points carry the correspondence, so the adult template's
 % better contrast -- 1.4x the global CV, 1.6x the local smoothed gradient --
@@ -249,7 +257,8 @@ for mouse_idx = 1:numel(cohort)
                     fprintf('  NOTE: a cutting angle is already saved and will be overwritten on close:\n    %s\n', angle_name);
                 end
                 fprintf('  opening the cutting-angle GUI against atlas ''%s''.\n', atlas.key);
-                fprintf('  tilt with the arrows, return saves each reference slice, close the window to write the file.\n');
+                fprintf(['  SHIFT+arrows tilt, wheel moves the plane, return saves the plane on the current slice ' ...
+                         '(3-5 slices, averaged), close the window to write the file.\n']);
                 determineCuttingAngleGUI(opts);
 
             case 'annotate'
