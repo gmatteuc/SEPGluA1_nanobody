@@ -10,6 +10,18 @@ clc
 %   run_mode = 'align'     (auto)   bridge the corrected volumes into LightSuite,
 %                                   align the slices and fit the atlas rigidly.
 %                                   Writes regopts.mat and volume_for_inspection.tiff.
+%   run_mode = 'angle'     (MANUAL) optional, between align and annotate: set the
+%                                   cutting angle by eye (determineCuttingAngleGUI).
+%                                   Every adult had this done; without it the
+%                                   rotation is the automatic rigid fit's. Arrows
+%                                   tilt the atlas plane (0.3 deg per press), space
+%                                   moves to the next reference slice, return saves
+%                                   the current slice's plane, c clears it, 0 resets
+%                                   the view; closing the window writes
+%                                   cutting_angle_data.mat. Must come BEFORE
+%                                   annotate: it changes the atlas block the
+%                                   control points are counted in, so P4 refuses
+%                                   it once a mouse has points.
 %   run_mode = 'annotate'  (MANUAL) open the control-point GUI on one mouse.
 %                                   Besides placing points by hand, r proposes
 %                                   points for the slice at the atlas plane on
@@ -41,7 +53,7 @@ mice_to_process   = {'MG913_SepGluA_P20'};   % 'annotate' takes one mouse at a t
                                                 % P20 first: curated and the age Sami wants prioritised
 
 % Which half of the script to run. 'annotate' takes one mouse at a time.
-run_mode = 'annotate';                             % 'align' | 'annotate' | 'register'
+run_mode = 'annotate';                             % 'align' | 'angle' | 'annotate' | 'register'
 
 % How far the atlas shown in the GUI (and used by the registration) extends
 % beyond the slice stack, in slices, on each side. The atlas on screen is
@@ -110,8 +122,8 @@ else
 end
 % Catch a mistyped mode here rather than letting it fall through to 'align' and
 % quietly redo an hour of bridging nobody asked for.
-if ~ismember(run_mode, {'align', 'annotate', 'register'})
-    error('P4: unknown run_mode ''%s'' (use ''align'', ''annotate'' or ''register'').', run_mode);
+if ~ismember(run_mode, {'align', 'angle', 'annotate', 'register'})
+    error('P4: unknown run_mode ''%s'' (use ''align'', ''angle'', ''annotate'' or ''register'').', run_mode);
 end
 
 fprintf('P4: %d mouse/mice selected, mode ''%s'', atlas ''%s''.\n', ...
@@ -181,7 +193,7 @@ for mouse_idx = 1:numel(cohort)
 
     % 'annotate' and 'register' both work off what 'align' already wrote, so
     % they skip the expensive bridging below and go straight to their step.
-    if ismember(run_mode, {'annotate', 'register'})
+    if ismember(run_mode, {'angle', 'annotate', 'register'})
 
         regopts_name = fullfile(mouse_dir, 'regopts.mat');
         if ~exist(regopts_name, 'file')
@@ -222,6 +234,24 @@ for mouse_idx = 1:numel(cohort)
 
         switch run_mode
 
+            case 'angle'
+                if numel(cohort) > 1
+                    error('P4: run_mode ''angle'' opens one GUI at a time; select a single mouse.');
+                end
+                if exist(fullfile(mouse_dir, 'atlas2histology_tform.mat'), 'file')
+                    error(['P4: %s already has control points. The cutting angle changes the atlas ' ...
+                           'block those points are counted in, so it has to be set before annotating. ' ...
+                           'Move atlas2histology_tform.mat aside first if you really want to redo both.'], ...
+                           mouse_name);
+                end
+                angle_name = fullfile(mouse_dir, 'cutting_angle_data.mat');
+                if exist(angle_name, 'file')
+                    fprintf('  NOTE: a cutting angle is already saved and will be overwritten on close:\n    %s\n', angle_name);
+                end
+                fprintf('  opening the cutting-angle GUI against atlas ''%s''.\n', atlas.key);
+                fprintf('  tilt with the arrows, return saves each reference slice, close the window to write the file.\n');
+                determineCuttingAngleGUI(opts);
+
             case 'annotate'
                 % One GUI at a time, or the control points get placed in the
                 % wrong mouse's file.
@@ -237,6 +267,11 @@ for mouse_idx = 1:numel(cohort)
                 % fast. Optional: if Python is missing the GUI still opens and
                 % r reports why. See landmark_refine/README.md.
                 landmark_refine_worker('start');
+                if exist(fullfile(mouse_dir, 'cutting_angle_data.mat'), 'file')
+                    fprintf('  cutting angle: from cutting_angle_data.mat (set by hand).\n');
+                else
+                    fprintf('  cutting angle: the automatic rigid fit''s (no cutting_angle_data.mat; run_mode = ''angle'' to set it by eye).\n');
+                end
                 fprintf('  opening the control-point GUI against atlas ''%s''.\n', atlas.key);
                 fprintf('  place points on every slice, then SAVE and CLOSE, and re-run with run_mode = ''register''.\n');
                 matchControlPointsInSlices(opts);
@@ -380,9 +415,8 @@ for mouse_idx = 1:numel(cohort)
 
     alignedvol = alignSliceVolume(sliceinfo.slicevol, sliceinfo);
 
-    % %% (manual) Determine cutting angle gui if you are not happy with the original estimation
-    % opts = load(fullfile(sliceinfo.procpath, "regopts.mat"));
-    % determineCuttingAngleGUI(opts)
+    % The cutting angle can be set by eye next: run_mode = 'angle' (optional,
+    % but every adult had it), then 'annotate'.
 
     fprintf(['  aligned. regopts.mat and volume_for_inspection.tiff are written, so this\n' ...
              '  mouse is ready for run_mode = ''annotate''.\n']);
