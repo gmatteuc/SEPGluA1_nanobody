@@ -1,18 +1,29 @@
 """
-v2, per-mouse region plot: the same figure as plot_region_ratio_young_vs_adult
-but computed from the v2 per-mouse volumes, so it rests on exactly the tissue
-mask, background subtraction and readings that the v2 maps use.
+v2, per-mouse region statistics and dot plot, computed on each brain's OWN
+atlas -- no warping anywhere.
 
-Per mouse and structure: mean of ratio (sig/auto) and of sig over the tissue
-voxels, on the cohort's own 20 um atlas labels. Then, per mouse, log2 of
+This is where the numbers to quote come from. A region-wise comparison only
+needs every voxel's label, and the DeMBA annotations were remapped to Allen
+parcellation_index when they were built, so VISp in a P16 brain is measured
+against the P16 annotation, VISp in a P20 brain against the P20 one, and only
+the resulting per-mouse means are compared. Pooling ages is therefore clean
+here in a way it is not for a voxelwise map, where the young brains have to be
+carried into the CCF first (v2_to_ccf).
+
+Per mouse and structure: the mean of ratio (sig/auto) and of sig over the
+tissue voxels, then per mouse
   ratio                       nano per unit autofluorescence, no reference
   sig / isocortex mean        share of the cortex
   sig / subcortex-HPF-STR     share of the subcortex without the two
                               structures that dominate the scale
+and per structure a Welch test of young against the ten adults, with the
+naive-vs-rws difference printed beside it as the size of a difference that
+carries no developmental meaning. The young group is P20 + P16 pooled; the
+P20-only contrast is reported next to it, and the P16 brain is drawn as a
+distinct marker, so the pooling never has to be taken on trust.
 
-Writes region_means_per_mouse.csv (both readings, every structure with at
-least MIN_VOX tissue voxels), region_stats.csv (cohort means, Welch p vs the
-ten adults, naive-vs-rws null) and region_plot.png.
+Writes region_means_per_mouse.csv, region_stats.csv and region_plot.png into
+data/comparisons_v2/young_vs_adult/.
 
   D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_region_plot.py
 """
@@ -28,11 +39,11 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from v2_per_mouse import annotation_20, MICE, CSV_MAP
-from v2_cohort import PER_MOUSE, V2, RATIO_CLIP
+from v2_per_mouse import annotation_20, MICE, CSV_MAP, OUT as PER_MOUSE, DATA
+from v2_cohort import RATIO_CLIP, YOUNG_P20, YOUNG_P16, NAIVE, RWS
 
-OUT = os.path.join(V2, 'young_P20_vs_adult')
-MIN_VOX = 250      # 20 um voxels = 2 nl, the same volume as before
+OUT = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult')
+MIN_VOX = 250      # 20 um voxels = 2 nl, the same volume as the earlier tables
 AREAS = ['VISp', 'VISl', 'VISal', 'VISrl', 'VISpm', 'VISam', 'SSp-bfd', 'SSp-ul', 'SSp-ll', 'SSp-m', 'SSp-n', 'SSs',
          'AUDp', 'AUDd', 'MOp', 'MOs', 'RSPd', 'RSPv', 'ACAd', 'ACAv', 'PL', 'ILA', 'ORBl',
          '|', 'VPM', 'VPL', 'LGd', 'LP', 'CP', 'ACB', 'CA1', 'CA3', 'DG', 'GPe', 'PVH', 'ZI']
@@ -40,8 +51,11 @@ NOT_SUBCORTEX = {'Isocortex', 'HPF', 'STR', 'OLF', 'CTXsp', 'fiber tracts', 'VS'
 READINGS = [('ratio', 'nanobody / autofluorescence, both background-subtracted  (log2)'),
             ('cref', 'background-subtracted nanobody, relative to the mouse\'s own isocortex  (log2)'),
             ('subref', 'background-subtracted nanobody, relative to subcortex excluding HPF and STR  (log2)')]
-COL = {'young_P20': '#c0392b', 'naive': '#555555', 'rws': '#9a9a9a'}
-LABEL = {'young_P20': 'P20 (n = 3)', 'naive': 'adult naive (n = 5)', 'rws': 'adult rws (n = 5)'}
+GROUPS = {'young': YOUNG_P20 + YOUNG_P16, 'naive': NAIVE, 'rws': RWS}
+ADULTS = NAIVE + RWS
+COL = {'young': '#c0392b', 'naive': '#555555', 'rws': '#9a9a9a'}
+LABEL = {'young': f'young P20 (n = {len(YOUNG_P20)})', 'naive': f'adult naive (n = {len(NAIVE)})',
+         'rws': f'adult rws (n = {len(RWS)})'}
 
 
 def welch(a, b):
@@ -67,10 +81,10 @@ def main():
             elif row['parcellation_term_set_name'] == 'division':
                 divi[idx] = row['parcellation_term_acronym']
 
-    # per mouse, per structure NAME: voxel-weighted mean of sig and of ratio
-    anns = {}
-    per = {}                                   # per[mouse][name] = (n, mean_sig, mean_ratio)
-    for mouse, (cohort, atlas_key, *_r) in MICE.items():
+    anns, per = {}, {}
+    mice = [m for g in GROUPS.values() for m in g]
+    for mouse in mice:
+        cohort, atlas_key = MICE[mouse][:2]
         if atlas_key not in anns:
             anns[atlas_key] = annotation_20(atlas_key)
         ann = anns[atlas_key]
@@ -89,13 +103,11 @@ def main():
             key = names.get(int(idx), f'id{idx}')
             d[key][0] += int(n[idx]); d[key][1] += s_sig[idx]; d[key][2] += s_rat[idx]
         per[mouse] = {k: (v[0], v[1] / v[0], v[2] / v[0]) for k, v in d.items() if v[0] >= MIN_VOX}
-        print(f'{mouse:20s} {len(per[mouse])} structures', flush=True)
-    meta = {}
-    for idx, nm in names.items():
-        meta[nm] = (acro[idx], divi.get(idx, ''))
-    mice = sorted(per, key=lambda m: (MICE[m][0], m))
-    cohort_of = {m: MICE[m][0] for m in mice}
+        print(f'{mouse:20s} {atlas_key:10s} {len(per[mouse])} structures', flush=True)
+
+    meta = {nm: (acro[idx], divi.get(idx, '')) for idx, nm in names.items()}
     by_acro = {meta[k][0]: k for k in meta}
+    group_of = {m: g for g, ms in GROUPS.items() for m in ms}
 
     def ref(m, pred):
         s = c = 0.0
@@ -103,10 +115,11 @@ def main():
             if pred(meta.get(k, ('', ''))[1]):
                 s += ms * n; c += n
         return s / c if c else float('nan')
-    refs = {m: {'cref': ref(m, lambda d: d == 'Isocortex'), 'subref': ref(m, lambda d: d not in NOT_SUBCORTEX)} for m in mice}
+    refs = {m: {'cref': ref(m, lambda d: d == 'Isocortex'),
+                'subref': ref(m, lambda d: d not in NOT_SUBCORTEX)} for m in mice}
 
     def value(reading, m, k):
-        if k not in per[m]:
+        if k is None or k not in per[m]:
             return None
         n, ms, mr = per[m][k]
         v = mr if reading == 'ratio' else ms / refs[m][reading]
@@ -119,30 +132,39 @@ def main():
             v = {m: value(reading, m, k) for m in mice}
             v = {m: x for m, x in v.items() if x is not None}
             for m, x in v.items():
-                rows_pm.append((reading, cohort_of[m], m, k, meta[k][0], meta[k][1], per[m][k][0], x))
-            yp = [v[m] for m in mice if cohort_of[m] == 'young_P20' and m in v]
-            ad = [v[m] for m in mice if cohort_of[m] != 'young_P20' and m in v]
-            nv = [v[m] for m in mice if cohort_of[m] == 'naive' and m in v]
-            rw = [v[m] for m in mice if cohort_of[m] == 'rws' and m in v]
-            if len(yp) >= 2 and len(ad) >= 4:
-                rows_st.append((reading, k, meta[k][0], meta[k][1], len(yp), len(ad), np.mean(yp), np.mean(ad),
-                                np.mean(yp) - np.mean(ad), welch(yp, ad),
-                                (np.mean(nv) - np.mean(rw)) if nv and rw else float('nan')))
+                rows_pm.append((reading, group_of[m], MICE[m][0], m, k, meta[k][0], meta[k][1], per[m][k][0], x))
+            yo = [v[m] for m in GROUPS['young'] if m in v]
+            y20 = [v[m] for m in YOUNG_P20 if m in v]
+            p16 = [v[m] for m in YOUNG_P16 if m in v]
+            ad = [v[m] for m in ADULTS if m in v]
+            nv = [v[m] for m in NAIVE if m in v]
+            rw = [v[m] for m in RWS if m in v]
+            if len(yo) < 2 or len(ad) < 4:
+                continue
+            rows_st.append((reading, k, meta[k][0], meta[k][1], len(yo), len(ad),
+                            np.mean(yo), np.mean(ad), np.mean(yo) - np.mean(ad), welch(yo, ad),
+                            (np.mean(y20) - np.mean(ad)) if len(y20) >= 2 else float('nan'),
+                            welch(y20, ad) if len(y20) >= 2 else float('nan'),
+                            (p16[0] - np.mean(ad)) if p16 else float('nan'),
+                            (np.mean(nv) - np.mean(rw)) if nv and rw else float('nan')))
     with open(os.path.join(OUT, 'region_means_per_mouse.csv'), 'w', newline='', encoding='utf-8') as fh:
-        w = csv.writer(fh); w.writerow(['reading', 'cohort', 'mouse', 'structure', 'acronym', 'division', 'n_vox20', 'log2_value'])
-        w.writerows([r[:7] + (f'{r[7]:.4f}',) for r in rows_pm])
+        w = csv.writer(fh)
+        w.writerow(['reading', 'group', 'cohort', 'mouse', 'structure', 'acronym', 'division', 'n_vox20', 'log2_value'])
+        w.writerows([r[:8] + (f'{r[8]:.4f}',) for r in rows_pm])
     with open(os.path.join(OUT, 'region_stats.csv'), 'w', newline='', encoding='utf-8') as fh:
         w = csv.writer(fh)
-        w.writerow(['reading', 'structure', 'acronym', 'division', 'n_P20', 'n_adult', 'P20_mean_log2', 'adult_mean_log2',
-                    'diff_log2', 'welch_p', 'naive_minus_rws_log2'])
+        w.writerow(['reading', 'structure', 'acronym', 'division', 'n_young', 'n_adult',
+                    'young_mean_log2', 'adult_mean_log2', 'diff_log2', 'welch_p',
+                    'diff_log2_P20only', 'welch_p_P20only', 'diff_log2_P16_single', 'naive_minus_rws_log2'])
         w.writerows([r[:6] + tuple(f'{x:.4f}' for x in r[6:]) for r in rows_st])
+
     st = {(r[0], r[2]): r for r in rows_st}
-    print('\nCORTEX  log2(P20/adult) per reading (* p<0.05, ** p<0.01), last column naive-rws under cref:')
-    print(f'  {"area":9s} ' + ' '.join(f'{r:>10s}' for r, _ in READINGS) + f' {"naive-rws":>10s}')
+    print(f'\nCORTEX  log2(young / adult), young = {len(GROUPS["young"])} mice (P20 + P16) vs {len(ADULTS)} adults '
+          '(* p<0.05, ** p<0.01). P20only = without the P16 brain; P16 = that brain alone; naive-rws = the null scale.')
+    print(f'  {"area":9s} ' + ' '.join(f'{r:>10s}' for r, _ in READINGS) + f' {"P20only":>9s} {"P16":>7s} {"naive-rws":>10s}')
     for a in AREAS:
         if a == '|':
-            print('  ' + '-' * 50); continue
-        k = by_acro.get(a)
+            print('  ' + '-' * 60); continue
         cells = []
         for reading, _ in READINGS:
             r = st.get((reading, a))
@@ -151,41 +173,47 @@ def main():
             star = '**' if r[9] < 0.01 else ('*' if r[9] < 0.05 else '')
             cells.append(f'{r[8]:+7.2f}{star:3s}')
         r = st.get(('cref', a))
-        print(f'  {a:9s} ' + ' '.join(cells) + (f' {r[10]:+10.2f}' if r else ''))
+        tail = f'{r[10]:+9.2f} {r[12]:+7.2f} {r[13]:+10.2f}' if r else ''
+        print(f'  {a:9s} ' + ' '.join(cells) + ' ' + tail)
 
     # ------------------------------------------------------- figure
     fig, axes = plt.subplots(len(READINGS), 1, figsize=(15, 3.6 * len(READINGS)), sharex=True)
     xs = [i for i, a in enumerate(AREAS) if a != '|']
     for ax, (reading, title) in zip(axes, READINGS):
-        for cohort in ('naive', 'rws', 'young_P20'):
-            ms = [m for m in mice if cohort_of[m] == cohort]
-            jit = np.linspace(-0.22, 0.22, len(ms)) if cohort != 'young_P20' else np.linspace(-0.12, 0.12, len(ms))
-            xo = 0.28 if cohort == 'young_P20' else -0.1
+        for g in ('naive', 'rws', 'young'):
+            ms = GROUPS[g]
+            jit = np.linspace(-0.22, 0.22, len(ms))
+            xo = 0.28 if g == 'young' else -0.1
             means = []
             for i, a in enumerate(AREAS):
                 if a == '|':
                     means.append(np.nan); continue
                 k = by_acro.get(a); ys = []
                 for j, m in enumerate(ms):
-                    y = value(reading, m, k) if k else None
-                    if y is not None:
-                        ys.append(y); ax.plot(i + jit[j] + xo, y, 'o', ms=4.5, color=COL[cohort], alpha=0.85, mec='none')
+                    y = value(reading, m, k)
+                    if y is None:
+                        continue
+                    ys.append(y)
+                    p16 = m in YOUNG_P16
+                    ax.plot(i + jit[j] + xo, y, 'D' if p16 else 'o', ms=5.5 if p16 else 4.5,
+                            color=COL[g], alpha=0.9, mec='k' if p16 else 'none', mew=0.6 if p16 else 0)
                 means.append(np.mean(ys) if ys else np.nan)
-            ax.plot(np.array(xs) + xo, [means[i] for i in xs], '_', ms=14, mew=2.2, color=COL[cohort], label=LABEL[cohort])
+            ax.plot(np.array(xs) + xo, [means[i] for i in xs], '_', ms=14, mew=2.2, color=COL[g], label=LABEL[g])
+        ax.plot([], [], 'D', ms=5.5, color=COL['young'], mec='k', mew=0.6, label='P16 (MG911)')
         ax.axhline(0, color='k', lw=0.6)
         sep = AREAS.index('|'); ax.axvline(sep, color='k', lw=0.6, ls=':')
         ax.text(sep - 0.5, ax.get_ylim()[1], 'cortex', ha='right', va='top', fontsize=9, color='#333')
         ax.text(sep + 0.5, ax.get_ylim()[1], 'subcortex', ha='left', va='top', fontsize=9, color='#333')
         ax.set_title(title, fontsize=10.5, loc='left'); ax.grid(axis='y', lw=0.3, alpha=0.6)
         ax.set_xlim(-0.8, len(AREAS) - 0.2)
-    axes[0].legend(loc='lower left', fontsize=9, frameon=False, ncol=3)
+    axes[0].legend(loc='lower left', fontsize=9, frameon=False, ncol=4)
     axes[-1].set_xticks(range(len(AREAS)))
     axes[-1].set_xticklabels(['' if a == '|' else a for a in AREAS], rotation=60, ha='right', fontsize=9)
-    fig.suptitle('P20 vs adult, nano channel, per mouse -- v2 tissue masks (auto channel) and background subtraction, '
-                 'each cohort on its own atlas', fontsize=11.5)
+    fig.suptitle('Young vs adult, nano channel, per mouse -- each brain measured on the atlas of its own age, '
+                 'no warping', fontsize=11.5)
     fig.tight_layout()
     fig.savefig(os.path.join(OUT, 'region_plot.png'), dpi=110)
-    print('wrote', os.path.join(OUT, 'region_plot.png'))
+    print('\nwrote', os.path.join(OUT, 'region_plot.png'))
 
 
 if __name__ == '__main__':

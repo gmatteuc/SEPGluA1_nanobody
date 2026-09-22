@@ -437,9 +437,29 @@ function report_suspect_pairs(acp, hcp)
 % Per slice: affine from atlas to histology, reweighted a few times so that
 % outliers stop pulling the fit toward themselves, then list any pair further
 % than 3x the slice's median residual (and at least 30 px) from it.
+%
+% Two failures that test cannot see, both found on MG910:
+%
+%   Points spread over two atlas planes. The GUI pins the plane to the median
+%   of the points already placed, but a slice can still end up with points from
+%   two planes (accept a carried-over proposal, scroll, place more). The
+%   registration then takes the plane of the FIRST point and silently treats
+%   the rest as if they were on it, so part of the slice is annotated against
+%   anatomy 0.2 mm away. Nothing downstream complains.
+%
+%   A slice that is uniformly wrong. The outlier test is relative to the
+%   slice's own median, so when most pairs are bad none of them stands out --
+%   MG910 slice 35 had a median residual of 93 px and was never flagged.
 for k = 1:numel(acp)
     a = acp{k}; h = hcp{k};
     if size(a,1) < 5 || size(a,1) ~= size(h,1), continue, end
+    planes = unique(a(:,1));
+    if numel(planes) > 1
+        n_per = arrayfun(@(pl) nnz(a(:,1) == pl), planes);
+        fprintf(['  CHECK slice %d: points sit on %d different atlas planes (%s, %s points each). ' ...
+                 'Registration uses the first point''s plane for all of them -- clear the slice and ' ...
+                 'redo it on one plane.\n'], k, numel(planes), mat2str(planes'), mat2str(n_per'));
+    end
     src = a(:, [3 2]); dst = h(:, [3 2]);
     w = ones(size(src,1), 1);
     for it = 1:8
@@ -453,6 +473,14 @@ for k = 1:numel(acp)
     if ~isempty(bad)
         fprintf('  CHECK slice %d: pair(s) %s sit %s px off the slice''s own affine (median %.0f). Wrong structure or a left/right swap?\n', ...
             k, mat2str(bad), mat2str(round(r(bad))'), median(r));
+    end
+    % A well annotated slice sits at 5-10 px. Past 20 the slice as a whole does
+    % not fit an affine, which usually means the wrong atlas plane rather than
+    % a few wrong points -- and elastix tends to fail outright on those.
+    if median(r) > 20
+        fprintf(['  CHECK slice %d: the WHOLE slice is off -- median residual %.0f px over %d pairs. ' ...
+                 'Wrong atlas plane, or points placed on two planes? Clear and redo it.\n'], ...
+                 k, median(r), numel(r));
     end
 end
 end

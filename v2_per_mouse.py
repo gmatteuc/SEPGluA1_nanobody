@@ -47,8 +47,13 @@ CSV_MAP = os.path.join(DATA, 'atlas', 'parcellation_to_parcellation_term_members
 MAD_K = 4.0
 
 MICE = {  # mouse -> (cohort, atlas, nano source, auto source, index in 4D stack)
+    # The young brains are read straight from their registered tiffs, each on the
+    # atlas of its own age. MG911 is P16: same recipe, different grid, which is
+    # why nothing here may assume the P20 crop (see atlas_grid).
     **{m: ('young_P20', 'demba_p20', 'tiff', 'tiff', None)
-       for m in ('MG897_SepGluA_P20', 'MG903_SepGluA_P20', 'MG913_SepGluA_P20')},
+       for m in ('MG897_SepGluA_P20', 'MG903_SepGluA_P20', 'MG913_SepGluA_P20',
+                 'MG909_SepGluA_P20', 'MG910_SepGluA_P20')},
+    'MG911_SepGluA_P16': ('young_P16', 'demba_p16', 'tiff', 'tiff', None),
     **{m: ('naive', 'ccf', os.path.join(DATA, 'naive', 'nano_4d.mat'), os.path.join(DATA, 'naive', 'auto_4d.mat'), i)
        for i, m in enumerate(('CGF027_Gria1', 'CGF028_Gria1', 'CGF033_Gria1', 'CGF034_Gria1', 'CGF035_Gria1'))},
     **{m: ('rws', 'ccf', os.path.join(DATA, 'rws', 'nano_4d.mat'), os.path.join(DATA, 'rws', 'auto_4d.mat'), i)
@@ -56,13 +61,32 @@ MICE = {  # mouse -> (cohort, atlas, nano source, auto source, index in 4D stack
 }
 
 
-def annotation_20(atlas_key):
-    """Labels on the 20 um (AP, DV, ML) grid that the 2x2x2 block mean of the registered stack lands on."""
+def atlas_grid(atlas_key):
+    """(annotation folder, AP crop, full AP planes) for an atlas key, read from disk.
+
+    The crop is whatever build_demba_atlas.py measured for that age and wrote to
+    aplims.txt, the same file get_atlas reads in MATLAB, so the Python side can
+    never drift from the atlas a brain was actually registered against.
+    """
     if atlas_key == 'ccf':
-        ann = np.asarray(nib.load(os.path.join(DATA, 'atlas', 'annotation_10.nii.gz')).dataobj)[179:1079]
-        return ann[::2, ::2, ::2]                                        # 450 x 400 x 570
-    ann = np.asarray(nib.load(os.path.join(DATA, 'atlas_demba_p20', 'annotation_10.nii.gz')).dataobj)
-    return ann[62:559]                                                   # 497 x 400 x 570
+        return os.path.join(DATA, 'atlas'), (180, 1079), None
+    d = os.path.join(DATA, 'atlas_' + atlas_key)
+    lo, hi = (int(v) for v in open(os.path.join(d, 'aplims.txt')).read().split())
+    return d, (lo, hi), None
+
+
+def annotation_20(atlas_key):
+    """Labels on the 20 um (AP, DV, ML) grid that the 2x2x2 block mean of the registered stack lands on.
+
+    CCF ships at 10 um and is cropped then halved; the DeMBA atlases already are
+    20 um, so they are only cropped. Either way the result is the grid the
+    registered volumes land on after block-averaging, for that mouse's own age.
+    """
+    d, (lo, hi), _ = atlas_grid(atlas_key)
+    ann = np.asarray(nib.load(os.path.join(d, 'annotation_10.nii.gz')).dataobj)
+    if atlas_key == 'ccf':
+        return ann[lo - 1:hi][::2, ::2, ::2]                             # 450 x 400 x 570
+    return ann[lo - 1:hi]                                                # P20: 497, P16: 478 planes
 
 
 class Source:
@@ -128,10 +152,11 @@ def main(mice):
         sig -= bg_n; aut -= bg_a
         cortex = tissue & np.isin(ann, list(iso))
         cortex_mean = float(sig[cortex].mean())
+        lo, hi = atlas_grid(atlas_key)[1]
         np.savez_compressed(os.path.join(OUT, mouse + '.npz'),
                             sig=sig.astype(np.float16), auto=aut.astype(np.float16), tissue=tissue,
                             reached=reached, bg_nano=bg_n, bg_auto=bg_a, mad_auto=mad_a,
-                            cortex_mean=cortex_mean, cohort=cohort, atlas=atlas_key)
+                            cortex_mean=cortex_mean, cohort=cohort, atlas=atlas_key, aplims=(lo, hi))
         print(f'{mouse:20s} {cohort:10s} bg nano {bg_n:6.0f}  bg auto {bg_a:5.0f} (mad {mad_a:4.0f})  '
               f'tissue {100 * tissue.sum() / brain.sum():5.1f}% of atlas brain, planes reached {reached.sum()}/{n_ap}  '
               f'cortex mean {cortex_mean:6.0f}   {time.time() - t0:.0f} s', flush=True)
