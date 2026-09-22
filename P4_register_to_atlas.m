@@ -58,10 +58,10 @@ paths = get_paths();
 % Cohort selection (mice come from the shared registry get_cohort.m).
 % Set mice_to_process to {} to process every mouse in groups_to_process.
 groups_to_process = {'young'};                  % 'rws' | 'naive' | 'behavior' | 'young'
-mice_to_process   = {'MG913_SepGluA_P20'};   % 'annotate' takes one mouse at a time
+mice_to_process   = {'MG910_SepGluA_P20'};   % 'annotate' takes one mouse at a time
 
 % Which half of the script to run. 'annotate' takes one mouse at a time.
-run_mode = 'angle';                             % 'align' | 'angle' | 'annotate' | 'register'
+run_mode = 'register';                             % 'align' | 'angle' | 'annotate' | 'register'
 
 % How far the atlas shown in the GUI (and used by the registration) extends
 % beyond the slice stack, in slices, on each side. The atlas on screen is
@@ -94,7 +94,7 @@ atlas_extent_slices = 15;
 % the two is fine once that is done -- both annotations are in the same
 % parcellation_index space -- but voxelwise cross-group work would need
 % CCF Translator.
-atlas_key = 'demba_p20';                        % 'ccf' | 'demba_p20'
+atlas_key = 'demba_p20';                        % 'ccf' | 'demba_p20' | 'demba_p16' | any age built
 
 % Choose correction type
 correction_type = 'slicewise';

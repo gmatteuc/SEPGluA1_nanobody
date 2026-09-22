@@ -52,18 +52,49 @@ switch lower(atlas_key)
         atlas.default_aplims  = [180 1079];
         atlas.description     = 'Allen Mouse Brain Common Coordinate Framework v3, 10 um (adult, P56)';
 
-    case 'demba_p20'
-        atlas.key             = 'demba_p20';
-        atlas.dir             = fullfile(p.data, 'atlas_demba_p20');
+    otherwise
+        % Any DeMBA age: 'demba_p16', 'demba_p20', 'demba_p28' ... One entry
+        % rather than one case per age, because the folders are built to a
+        % fixed recipe by build_demba_atlas.py and differ only in the age and
+        % in the AP crop that age measures. An age whose folder has not been
+        % built is an error, not a fall-back onto a neighbouring age.
+        tok = regexp(lower(atlas_key), '^demba_p(\d+)$', 'tokens', 'once');
+        if isempty(tok)
+            error(['get_atlas: unknown atlas key "%s". Known keys: ''ccf'' and ' ...
+                   '''demba_pN'' for any age N built by build_demba_atlas.py.'], atlas_key);
+        end
+        age = str2double(tok{1});
+        atlas.key             = sprintf('demba_p%d', age);
+        atlas.dir             = fullfile(p.data, sprintf('atlas_demba_p%d', age));
         atlas.template_file   = 'average_template_10.nii.gz';
         atlas.annotation_file = 'annotation_10.nii.gz';
         atlas.boundary_file   = '';
         atlas.res_um          = 20;
-        atlas.age_days        = 20;
-        atlas.default_aplims  = [63 559];
-        atlas.description     = 'DeMBA P20 (Carey 2025), Allen CCFv3 labels, 20 um isotropic';
+        atlas.age_days        = age;
+        atlas.description     = sprintf(['DeMBA P%d (Carey 2025), Allen CCFv3 labels, ' ...
+                                         '20 um isotropic'], age);
 
-        % Two things about this entry are deliberate and easy to get wrong:
+        if ~exist(atlas.dir, 'dir')
+            error(['get_atlas: no atlas built for P%d.\n  %s does not exist.\n' ...
+                   'Build it first:  tools\\venv_atlas\\Scripts\\python.exe build_demba_atlas.py %d'], ...
+                   age, atlas.dir, age);
+        end
+        % The AP crop is measured per age when the folder is built (the two
+        % methods are described in build_demba_atlas.py) and stored beside the
+        % volumes, so it cannot drift away from the atlas it belongs to.
+        aplims_file = fullfile(atlas.dir, 'aplims.txt');
+        if ~exist(aplims_file, 'file')
+            error(['get_atlas: %s is missing. Re-run build_demba_atlas.py %d, or write the ' ...
+                   'two AP crop planes into that file.'], aplims_file, age);
+        end
+        lims = sscanf(fileread(aplims_file), '%d')';
+        if numel(lims) ~= 2 || lims(2) <= lims(1)
+            error('get_atlas: %s should hold two increasing plane numbers, found "%s".', ...
+                aplims_file, strtrim(fileread(aplims_file)));
+        end
+        atlas.default_aplims  = lims;
+
+        % Two things about these entries are deliberate and easy to get wrong:
         %
         % The files are named *_10.nii.gz but hold 20 um data. LightSuite finds
         % the atlas with which('average_template_10.nii.gz') in fourteen
@@ -79,11 +110,13 @@ switch lower(atlas_key)
         % ids translated, no labelled voxel lost. The original is kept beside it
         % as annotation_structureids_original.nii.gz.
         %
-        % default_aplims was measured twice, by two independent methods that
-        % agree: matching the brain's AP cross-sectional area profile gives
-        % [63 559], and regressing the AP centre of mass of 678 corresponding
-        % regions gives [62 562] (r = 0.998, residual 0.17 mm). Mapping the
-        % adult crop across by brain fraction had given [97 566], which is wrong.
+        % default_aplims is measured twice per age, by two independent methods
+        % that agreed for P20: matching the brain's AP cross-sectional area
+        % profile gives [63 559], and regressing the AP centre of mass of 678
+        % corresponding regions gives [62 562] (r = 0.998, residual 0.17 mm).
+        % Mapping the adult crop across by brain fraction had given [97 566],
+        % which is wrong. build_demba_atlas.py runs both and writes the first
+        % into aplims.txt, warning if they disagree by more than half a mm.
         %
         % That regression also measures something worth knowing: its slope is
         % 1.797 CCF planes per DeMBA plane, not the 2.000 the voxel sizes imply.
@@ -93,8 +126,6 @@ switch lower(atlas_key)
         % against the CCF therefore under-scales against DeMBA by roughly that
         % much. Reproduced by tmp/remap_demba.py and tmp/check_crop.py.
 
-    otherwise
-        error('get_atlas: unknown atlas key "%s". Known keys: ''ccf'', ''demba_p20''.', atlas_key);
 end
 
 % Fail early and clearly rather than deep inside a registration call
@@ -117,7 +148,16 @@ end
 % 'atlas', so a substring test on the path string reports the adult dir as
 % present whenever the DeMBA one is, and rmpath then warns about a directory
 % that was never there.
-all_atlas_dirs = {p.atlas, fullfile(p.data, 'atlas_demba_p20')};
+% Every built age counts, not just the two that existed when this was written:
+% with P16 and P20 both present, a stale entry for one is exactly how a brain
+% gets registered to the template of the wrong age.
+all_atlas_dirs = {p.atlas};
+demba_dirs = dir(fullfile(p.data, 'atlas_demba_p*'));
+for k = 1:numel(demba_dirs)
+    if demba_dirs(k).isdir
+        all_atlas_dirs{end+1} = fullfile(p.data, demba_dirs(k).name); %#ok<AGROW>
+    end
+end
 path_entries = strsplit(path, pathsep);
 for k = 1:numel(all_atlas_dirs)
     d = all_atlas_dirs{k};
