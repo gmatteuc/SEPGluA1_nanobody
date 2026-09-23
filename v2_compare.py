@@ -26,7 +26,6 @@ Outputs, in data/comparisons_v2/young_vs_adult/:
 import csv
 import os
 import time
-from collections import defaultdict
 
 import numpy as np
 import nibabel as nib
@@ -167,26 +166,44 @@ def main():
                 names[idx] = row['parcellation_term_name']; acro[idx] = row['parcellation_term_acronym']
             elif row['parcellation_term_set_name'] == 'division':
                 divi[idx] = row['parcellation_term_acronym']
-    labs = ann_h[both]
-    sums = defaultdict(lambda: defaultdict(float)); cnt = defaultdict(int); meta = {}
-    for m in MODES:
-        for key_src, tag in ((adult, 'adult'), (young, 'young'), (young_alt, 'young_P20')):
-            vals = key_src[m][both]
-            for lab, v in zip(labs, vals):
-                k = names.get(int(lab), f'id{lab}')
-                sums[k][f'{tag}_{m}'] += v
-    for lab in labs:
-        k = names.get(int(lab), f'id{lab}')
-        cnt[k] += 1
-        meta[k] = (acro.get(int(lab), ''), divi.get(int(lab), ''))
-    rows = []
-    for k, c in cnt.items():
-        if c < 100:
+    # Aggregate per STRUCTURE, not per parcellation_index: in this ontology the
+    # layers of an area are separate indices that share one structure name, and
+    # a table of areas is what anyone reads. A lookup from index to structure
+    # does that grouping once, and bincount then sums 18 million voxels without
+    # a Python loop. A group with no value at a voxel (the P20-only group inside
+    # the pooled group's mask) is left out of its own count rather than
+    # poisoning its mean.
+    struct_of = np.zeros(int(ann_h.max()) + 1, np.int64)
+    struct_names = []
+    seen = {}
+    for idx in np.unique(ann_h):
+        if idx == 0:
             continue
-        r = {'structure': k, 'acronym': meta[k][0], 'division': meta[k][1], 'voxels_20um': c}
+        nm = names.get(int(idx), f'id{idx}')
+        if nm not in seen:
+            seen[nm] = len(struct_names)
+            struct_names.append((nm, acro.get(int(idx), ''), divi.get(int(idx), '')))
+        struct_of[idx] = seen[nm]
+    labs = struct_of[ann_h[both].astype(np.int64)]
+    n_struct = len(struct_names)
+    n_vox = np.bincount(labs, minlength=n_struct)
+    means = {}
+    for m in MODES:
+        for tag, src in (('adult', adult), ('young', young), ('young_P20', young_alt)):
+            v = src[m][both]
+            ok = np.isfinite(v)
+            tot = np.bincount(labs[ok], weights=v[ok], minlength=n_struct)
+            cnt = np.bincount(labs[ok], minlength=n_struct)
+            with np.errstate(invalid='ignore', divide='ignore'):
+                means[(tag, m)] = np.where(cnt > 0, tot / np.maximum(cnt, 1), np.nan)
+
+    rows = []
+    for g in np.nonzero(n_vox >= 100)[0]:
+        nm, ac, dv = struct_names[g]
+        r = {'structure': nm, 'acronym': ac, 'division': dv, 'voxels_20um': int(n_vox[g])}
         for m in MODES:
             for tag in ('adult', 'young', 'young_P20'):
-                r[f'{tag}_{m}'] = sums[k][f'{tag}_{m}'] / c
+                r[f'{tag}_{m}'] = float(means[(tag, m)][g])
             r[f'log2_{m}'] = np.log2(max(r[f'young_{m}'], eps) / max(r[f'adult_{m}'], eps))
             r[f'log2_{m}_P20only'] = np.log2(max(r[f'young_P20_{m}'], eps) / max(r[f'adult_{m}'], eps))
         rows.append(r)

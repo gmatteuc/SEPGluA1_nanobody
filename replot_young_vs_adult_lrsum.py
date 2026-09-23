@@ -1,4 +1,6 @@
 """
+SUPERSEDED with compare_young_vs_adult_lrsum.py; see that file.
+
 Re-draw the P20-vs-adult figure and table from the cached volumes, without
 redoing the five-minute transform. Same conventions as
 compare_young_vs_adult_lrsum.py; see there for what the numbers mean.

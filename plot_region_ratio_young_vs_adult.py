@@ -1,4 +1,7 @@
 """
+SUPERSEDED with region_means_raw_per_mouse.py; the plot it makes is now
+v2_region_plot.py, which also marks the P16 brain and applies FDR.
+
 Per-mouse dot plot of the P20-vs-adult region comparison, for the cortical
 areas that matter to the critical-period question plus the structures that
 dominate the brain-wide picture.

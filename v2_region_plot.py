@@ -12,7 +12,11 @@ carried into the CCF first (v2_to_ccf).
 
 Per mouse and structure: the mean of ratio (sig/auto) and of sig over the
 tissue voxels, then per mouse
-  ratio                       nano per unit autofluorescence, no reference
+  ratio                       nano per unit autofluorescence, no reference.
+                              Not an absolute measure: the young cortex is
+                              2.0 log2 below the adult in nano and 1.0 log2
+                              below it in auto, so the denominator carries its
+                              own age effect (see v2_cohort).
   sig / isocortex mean        share of the cortex
   sig / subcortex-HPF-STR     share of the subcortex without the two
                               structures that dominate the scale
@@ -56,6 +60,27 @@ ADULTS = NAIVE + RWS
 COL = {'young': '#c0392b', 'naive': '#555555', 'rws': '#9a9a9a'}
 LABEL = {'young': f'young P20 (n = {len(YOUNG_P20)})', 'naive': f'adult naive (n = {len(NAIVE)})',
          'rws': f'adult rws (n = {len(RWS)})'}
+
+
+def bh_fdr(p):
+    """Benjamini-Hochberg q-values for one family of tests.
+
+    A few hundred structures are tested per reading, so a handful of p < 0.05
+    is expected from noise alone. The q-value is what should be quoted for
+    anything other than the regions named in advance (SS, VIS, prefrontal).
+    """
+    p = np.asarray(p, float)
+    ok = np.isfinite(p)
+    q = np.full(p.shape, np.nan)
+    if ok.sum() == 0:
+        return q
+    order = np.argsort(p[ok])
+    ranked = p[ok][order]
+    n = len(ranked)
+    adj = np.minimum.accumulate((ranked * n / np.arange(1, n + 1))[::-1])[::-1]
+    out = np.empty(n); out[order] = np.minimum(adj, 1.0)
+    q[ok] = out
+    return q
 
 
 def welch(a, b):
@@ -147,6 +172,15 @@ def main():
                             welch(y20, ad) if len(y20) >= 2 else float('nan'),
                             (p16[0] - np.mean(ad)) if p16 else float('nan'),
                             (np.mean(nv) - np.mean(rw)) if nv and rw else float('nan')))
+    # q-values within each reading, so the brain-wide lists can be read honestly
+    q_of = {}
+    for reading, _ in READINGS:
+        idx = [i for i, r in enumerate(rows_st) if r[0] == reading]
+        q = bh_fdr([rows_st[i][9] for i in idx])
+        for i, qi in zip(idx, q):
+            q_of[i] = qi
+    rows_st = [r[:10] + (q_of[i],) + r[10:] for i, r in enumerate(rows_st)]
+
     with open(os.path.join(OUT, 'region_means_per_mouse.csv'), 'w', newline='', encoding='utf-8') as fh:
         w = csv.writer(fh)
         w.writerow(['reading', 'group', 'cohort', 'mouse', 'structure', 'acronym', 'division', 'n_vox20', 'log2_value'])
@@ -154,13 +188,14 @@ def main():
     with open(os.path.join(OUT, 'region_stats.csv'), 'w', newline='', encoding='utf-8') as fh:
         w = csv.writer(fh)
         w.writerow(['reading', 'structure', 'acronym', 'division', 'n_young', 'n_adult',
-                    'young_mean_log2', 'adult_mean_log2', 'diff_log2', 'welch_p',
+                    'young_mean_log2', 'adult_mean_log2', 'diff_log2', 'welch_p', 'welch_q_BH',
                     'diff_log2_P20only', 'welch_p_P20only', 'diff_log2_P16_single', 'naive_minus_rws_log2'])
         w.writerows([r[:6] + tuple(f'{x:.4f}' for x in r[6:]) for r in rows_st])
 
     st = {(r[0], r[2]): r for r in rows_st}
     print(f'\nCORTEX  log2(young / adult), young = {len(GROUPS["young"])} mice (P20 + P16) vs {len(ADULTS)} adults '
-          '(* p<0.05, ** p<0.01). P20only = without the P16 brain; P16 = that brain alone; naive-rws = the null scale.')
+          '(* q<0.05, ** q<0.01, Benjamini-Hochberg within each reading). '
+          'P20only = without the P16 brain; P16 = that brain alone; naive-rws = the null scale.')
     print(f'  {"area":9s} ' + ' '.join(f'{r:>10s}' for r, _ in READINGS) + f' {"P20only":>9s} {"P16":>7s} {"naive-rws":>10s}')
     for a in AREAS:
         if a == '|':
@@ -170,10 +205,10 @@ def main():
             r = st.get((reading, a))
             if r is None:
                 cells.append(f'{"--":>10s}'); continue
-            star = '**' if r[9] < 0.01 else ('*' if r[9] < 0.05 else '')
+            star = '**' if r[10] < 0.01 else ('*' if r[10] < 0.05 else '')      # q, not p
             cells.append(f'{r[8]:+7.2f}{star:3s}')
         r = st.get(('cref', a))
-        tail = f'{r[10]:+9.2f} {r[12]:+7.2f} {r[13]:+10.2f}' if r else ''
+        tail = f'{r[11]:+9.2f} {r[13]:+7.2f} {r[14]:+10.2f}' if r else ''
         print(f'  {a:9s} ' + ' '.join(cells) + ' ' + tail)
 
     # ------------------------------------------------------- figure

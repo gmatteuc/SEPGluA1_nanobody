@@ -10,8 +10,14 @@ other's deformation field.
 Two readings of the same background-subtracted signal, kept side by side:
   ratio   sig / auto per voxel (auto smoothed by one 20 um voxel so a dark
           voxel cannot blow it up): nano per unit autofluorescence, the
-          internal standard. Absolute-ish across ages, to the extent that
-          autofluorescence is age-stable, which is an assumption.
+          internal standard.
+          Read this one carefully. Measured in the isocortex, the young brains
+          sit 2.0 log2 below the adults in nano and 1.0 log2 below them in
+          auto, so the 1.0 log2 that survives in the ratio is what is left
+          after dividing one age-dependent quantity by another. It is not an
+          absolute measurement: autofluorescence rises with age (lipofuscin,
+          tissue density), so this reading understates a real pup deficit and
+          would overstate a pup excess. Treat it as a bound, not a value.
   cref    sig / (that mouse's isocortex mean of sig, measured natively before
           any warp): a pure scale, so region ratios within a mouse survive
           exactly. Cortex-relative by construction, hence blind to a change

@@ -1,4 +1,8 @@
 """
+SUPERSEDED with region_means_raw_per_mouse.py; see that file. The eight
+reference choices it sweeps are worth reading -- v2_region_plot keeps the
+three that mattered (none, isocortex, subcortex minus HPF and STR).
+
 P20 vs adult, region by region, under several choices of reference and of
 what "signal" means.
 

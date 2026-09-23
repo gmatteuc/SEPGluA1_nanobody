@@ -1,4 +1,11 @@
 """
+SUPERSEDED by v2_to_ccf.py + v2_cohort.py + v2_compare.py (Sep 2026).
+It reads the P8 mean_lr_sum volumes, which carry the P6bis affine map and
+the abs() of it, so its region ratios are distorted; and it warps a cohort
+MEAN into the CCF, which cannot work once the young group spans two ages.
+Kept because the coverage masks and the DeMBA -> CCF call were first
+worked out here, and the numbers in the early notes came from it.
+
 Rapid P20 vs adult comparison of the hemisphere-folded nano LR-sum.
 
 Takes the cohort mean LR-sum volumes P8 writes (mean_lr_sum_*.mat), carries the

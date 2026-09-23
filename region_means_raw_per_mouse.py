@@ -1,4 +1,11 @@
 """
+SUPERSEDED by v2_per_mouse.py + v2_region_plot.py (Sep 2026).
+Same idea -- per-mouse region means from the raw stacks, no P6bis -- but it
+takes tissue from P6bis background masks, which call a partial section all
+background, and it knows only the three P20 brains of the first round.
+v2 takes tissue from the autofluorescence channel instead and handles any
+age. Kept as the record of how the raw-stack route was validated.
+
 Per-mouse, per-region mean of the RAW nano channel, for the young and adult
 cohorts, on each cohort's own atlas.
 
