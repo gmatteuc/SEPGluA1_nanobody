@@ -54,6 +54,7 @@ MICE = {  # mouse -> (cohort, atlas, nano source, auto source, index in 4D stack
        for m in ('MG897_SepGluA_P20', 'MG903_SepGluA_P20', 'MG913_SepGluA_P20',
                  'MG909_SepGluA_P20', 'MG910_SepGluA_P20')},
     'MG911_SepGluA_P16': ('young_P16', 'demba_p16', 'tiff', 'tiff', None),
+    'MG904_SepGluA_P22': ('young_P22', 'demba_p22', 'tiff', 'tiff', None),
     **{m: ('naive', 'ccf', os.path.join(DATA, 'naive', 'nano_4d.mat'), os.path.join(DATA, 'naive', 'auto_4d.mat'), i)
        for i, m in enumerate(('CGF027_Gria1', 'CGF028_Gria1', 'CGF033_Gria1', 'CGF034_Gria1', 'CGF035_Gria1'))},
     **{m: ('rws', 'ccf', os.path.join(DATA, 'rws', 'nano_4d.mat'), os.path.join(DATA, 'rws', 'auto_4d.mat'), i)

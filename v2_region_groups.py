@@ -44,13 +44,13 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from v2_per_mouse import annotation_20, MICE, CSV_MAP, DATA, OUT as PER_MOUSE
-from v2_cohort import RATIO_CLIP, YOUNG_P20, YOUNG_P16, NAIVE, RWS
+from v2_cohort import RATIO_CLIP, YOUNG_P20, YOUNG_P16, YOUNG_P22, NAIVE, RWS
 from v2_region_plot import bh_fdr, mannwhitney, welch, READINGS, NOT_SUBCORTEX, COL
 
 OUT = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult')
-GROUPS = {'young': YOUNG_P20 + YOUNG_P16, 'naive': NAIVE, 'rws': RWS}
+GROUPS = {'young': YOUNG_P20 + YOUNG_P16 + YOUNG_P22, 'naive': NAIVE, 'rws': RWS}
 ADULTS = NAIVE + RWS
-LABEL = {'young': f'young P16-P20 (n = {len(YOUNG_P20) + len(YOUNG_P16)})',
+LABEL = {'young': f'young P16-P22 (n = {len(YOUNG_P20) + len(YOUNG_P16) + len(YOUNG_P22)})',
          'naive': f'adult naive (n = {len(NAIVE)})', 'rws': f'adult rws (n = {len(RWS)})'}
 
 # Cortical systems, split primary vs higher order, which is the distinction the

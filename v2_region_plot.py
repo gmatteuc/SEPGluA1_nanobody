@@ -66,7 +66,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from v2_per_mouse import annotation_20, MICE, CSV_MAP, OUT as PER_MOUSE, DATA
-from v2_cohort import RATIO_CLIP, YOUNG_P20, YOUNG_P16, NAIVE, RWS
+from v2_cohort import RATIO_CLIP, YOUNG_P20, YOUNG_P16, YOUNG_P22, NAIVE, RWS
 
 OUT = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult')
 MIN_VOX = 250      # 20 um voxels = 2 nl, the same volume as the earlier tables
@@ -78,10 +78,10 @@ READINGS = [('ratio', 'nanobody / autofluorescence, both background-subtracted  
             ('cref', 'background-subtracted nanobody, relative to the mouse\'s own isocortex  (log2)'),
             ('subref', 'background-subtracted nanobody, relative to subcortex excluding HPF and STR  (log2)'),
             ('zref', "range-matched: cortex-relative, then centred and scaled by each brain's own spread")]
-GROUPS = {'young': YOUNG_P20 + YOUNG_P16, 'naive': NAIVE, 'rws': RWS}
+GROUPS = {'young': YOUNG_P20 + YOUNG_P16 + YOUNG_P22, 'naive': NAIVE, 'rws': RWS}
 ADULTS = NAIVE + RWS
 COL = {'young': '#c0392b', 'naive': '#555555', 'rws': '#9a9a9a'}
-LABEL = {'young': f'young P16-P20 (n = {len(YOUNG_P20) + len(YOUNG_P16)})',
+LABEL = {'young': f'young P16-P22 (n = {len(YOUNG_P20) + len(YOUNG_P16) + len(YOUNG_P22)})',
          'naive': f'adult naive (n = {len(NAIVE)})', 'rws': f'adult rws (n = {len(RWS)})'}
 
 

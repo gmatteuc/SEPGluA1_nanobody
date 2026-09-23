@@ -40,9 +40,9 @@ Per voxel the cohort gets the mean over the mice that have tissue there, the
 SD and the count. No voxel is required to be covered by every mouse; the n map
 says what each mean rests on and the reader thresholds it.
 
-Cohorts: young (P20 + P16 pooled, the group Sami wants), young_P20 (the
-sensitivity check without the P16 brain), young_P16, naive, rws, and
-adult = naive + rws.
+Cohorts: young (P16 + P20 + P22 pooled, the group Sami wants), young_P20 (the
+sensitivity check with the P20 brains alone), young_P16, young_P22, naive, rws,
+and adult = naive + rws.
 
 Output: data/comparisons_v2/ccf/<cohort>/{ratio,cref}_{mean,sd,n}.npy + mice.txt
 
@@ -67,12 +67,14 @@ NOT_SUBCORTEX = {'Isocortex', 'HPF', 'STR', 'OLF', 'CTXsp', 'fiber tracts', 'VS'
 YOUNG_P20 = ['MG897_SepGluA_P20', 'MG903_SepGluA_P20', 'MG913_SepGluA_P20',
              'MG909_SepGluA_P20', 'MG910_SepGluA_P20']
 YOUNG_P16 = ['MG911_SepGluA_P16']
+YOUNG_P22 = ['MG904_SepGluA_P22']
 NAIVE = ['CGF027_Gria1', 'CGF028_Gria1', 'CGF033_Gria1', 'CGF034_Gria1', 'CGF035_Gria1']
 RWS = ['MG691_Gria1', 'MG692_Gria1', 'MG693_Gria1', 'MG736_Gria1', 'MG737_Gria1']
 COHORTS = {
-    'young': YOUNG_P20 + YOUNG_P16,
+    'young': YOUNG_P20 + YOUNG_P16 + YOUNG_P22,
     'young_P20': YOUNG_P20,
     'young_P16': YOUNG_P16,
+    'young_P22': YOUNG_P22,
     'naive': NAIVE,
     'rws': RWS,
     'adult': NAIVE + RWS,
