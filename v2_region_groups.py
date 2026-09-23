@@ -2,10 +2,12 @@
 The same per-mouse measurements as v2_region_plot, aggregated two ways that
 ask coarser questions than "one area at a time":
 
-  by system    visual, somatosensory, auditory, motor, retrosplenial,
-               prefrontal, lateral/insular, and the subcortical divisions --
-               so a shift that is spread thinly over many small areas is
-               visible instead of being split into non-significant pieces.
+  by system    primary and higher-order visual, somatosensory and auditory,
+               then frontal, motor, retrosplenial, lateral/insular and the
+               subcortical divisions -- so a shift spread thinly over many
+               small areas is visible instead of being split into
+               non-significant pieces, and so the primary/higher-order
+               distinction the critical-period argument rests on is explicit.
   by layer     within each cortical system, supragranular (1, 2/3), granular
                (4) and infragranular (5, 6a, 6b), read from the ontology's
                substructure names. This is the laminar pattern Sami noticed
@@ -51,16 +53,25 @@ ADULTS = NAIVE + RWS
 LABEL = {'young': f'young P16-P20 (n = {len(YOUNG_P20) + len(YOUNG_P16)})',
          'naive': f'adult naive (n = {len(NAIVE)})', 'rws': f'adult rws (n = {len(RWS)})'}
 
-# cortical systems, by the acronym prefix of the STRUCTURE the label belongs to
+# Cortical systems, split primary vs higher order, which is the distinction the
+# critical-period argument rests on: a thalamorecipient primary area and its
+# higher-order neighbours mature on different schedules.
 SYSTEMS = [
-    ('visual', lambda a: a.startswith('VIS') and a not in ('VISC',)),
-    ('somatosensory', lambda a: a.startswith('SS')),
-    ('auditory', lambda a: a.startswith('AUD')),
+    ('primary visual', lambda a: a == 'VISp'),
+    ('higher visual', lambda a: a.startswith('VIS') and a not in ('VISp', 'VISC')),
+    ('primary somatosensory', lambda a: a.startswith('SSp')),
+    ('higher somatosensory', lambda a: a == 'SSs'),
+    ('primary auditory', lambda a: a == 'AUDp'),
+    ('higher auditory', lambda a: a.startswith('AUD') and a != 'AUDp'),
+    ('frontal', lambda a: a.startswith(('ACA', 'ORB')) or a in ('PL', 'ILA', 'FRP', 'DP')),
     ('motor', lambda a: a in ('MOp', 'MOs')),
     ('retrosplenial', lambda a: a.startswith('RSP')),
-    ('prefrontal', lambda a: a.startswith(('ACA', 'ORB')) or a in ('PL', 'ILA', 'FRP', 'DP')),
     ('lateral/insular', lambda a: a.startswith('AI') or a in ('GU', 'VISC', 'TEa', 'PERI', 'ECT')),
 ]
+# the laminar figure would be unreadable with every system on it; these are the
+# ones the layer question is actually about
+LAMINAR_SYSTEMS = ('primary visual', 'higher visual', 'primary somatosensory', 'higher somatosensory',
+                   'primary auditory', 'higher auditory', 'frontal', 'retrosplenial')
 # and the subcortical side, taken straight from the ontology's division
 DIVISIONS = [('thalamus', 'TH'), ('striatum', 'STR'), ('pallidum', 'PAL'), ('hippocampus', 'HPF'),
              ('hypothalamus', 'HY'), ('midbrain', 'MB'), ('olfactory', 'OLF'), ('cortical subplate', 'CTXsp')]
@@ -109,6 +120,8 @@ def main():
     for name, div in DIVISIONS:
         groups[('system', name)] = {i for i in stru if divi.get(i) == div}
     for name, pred in SYSTEMS:
+        if name not in LAMINAR_SYSTEMS:
+            continue
         for lname, tokens in LAYERS:
             groups[('layer', f'{name} {lname}')] = {i for i, a in stru.items()
                                                     if divi.get(i) == 'Isocortex' and pred(a) and layer.get(i) in tokens}
