@@ -32,7 +32,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from scipy.ndimage import center_of_mass
 
 from v2_per_mouse import CSV_MAP, DATA
-from v2_cohort import COHORTS, OUT_ROOT as CCF_ROOT
+from v2_cohort import COHORTS, OUT_ROOT as CCF_ROOT, MODES
 from v2_compare import MIN_N_YOUNG, MIN_N_ADULT, YOUNG, fold, fold_n
 
 OUT = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult')
@@ -59,6 +59,9 @@ def main(readings):
     hot_cut = LinearSegmentedColormap.from_list('hot_cut', hot(np.linspace(0, 0.82, 256)))
     hot_cut.set_bad((0, 0, 0, 0))
     rdbu = plt.get_cmap('RdBu_r').copy(); rdbu.set_bad((0, 0, 0, 0))
+    # purple-orange for zref, which is a position rather than an intensity, so
+    # red-blue means one thing only: a young-minus-adult difference
+    puor = plt.get_cmap('PuOr_r').copy(); puor.set_bad((0, 0, 0, 0))
 
     ann = np.asarray(nib.load(os.path.join(DATA, 'atlas', 'annotation_10.nii.gz')).dataobj)[::2, ::2, ::2]
     ann_h = ann[:, :, :ann.shape[2] // 2]
@@ -83,7 +86,7 @@ def main(readings):
         caxes = [fig.add_axes([0.295 + i * 0.325, 0.12, 0.009, 0.68]) for i in range(3)]
         for k in frames:
             lab = ann_h[k]; inside = lab > 0; bnd = boundaries(lab)
-            cmap_mean = rdbu if signed else hot_cut
+            cmap_mean = puor if signed else hot_cut
             lim_mean = (-MEAN_VMAX[reading], MEAN_VMAX[reading]) if signed else (0, MEAN_VMAX[reading])
             panels = ((np.where(ok_y[k], y[k], np.nan), cmap_mean, lim_mean,
                        f'young (n = {len(COHORTS[YOUNG])})   {reading}'),

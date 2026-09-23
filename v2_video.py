@@ -78,6 +78,7 @@ def main(cohorts):
     hot = plt.get_cmap('hot')
     hot_cut = LinearSegmentedColormap.from_list('hot_cut', hot(np.linspace(0, 0.82, 256)))
     hot_cut.set_bad((0, 0, 0, 0))            # masked = transparent, so the grey/black ground shows through
+    puor = plt.get_cmap('PuOr_r').copy(); puor.set_bad((0, 0, 0, 0))   # zref: a position, not an intensity
     ann = annotation_ccf20()
     ann_h = ann[:, :, :ann.shape[2] // 2]
     for cohort in cohorts:
@@ -86,10 +87,14 @@ def main(cohorts):
             t0 = time.time()
             mean = fold(np.load(os.path.join(CCF_ROOT, cohort, f'{reading}_mean.npy')))
             sd = fold(np.load(os.path.join(CCF_ROOT, cohort, f'{reading}_sd.npy')))
+            signed = reading == 'zref'
             ok = (n_h >= MIN_N[cohort]) & np.isfinite(mean)
             with np.errstate(divide='ignore', invalid='ignore'):
                 tval = np.where(ok & (sd > 0), mean / (sd / np.sqrt(np.maximum(n_h, 1))), np.nan)
-            t_vmax = float(np.nanpercentile(tval[ok & (sd > 0)], T_PCT))
+            t_vmax = float(np.nanpercentile(np.abs(tval[ok & (sd > 0)]) if signed else tval[ok & (sd > 0)], T_PCT))
+            cmap_use = puor if signed else hot_cut
+            lim_mean = (-MEAN_VMAX[reading], MEAN_VMAX[reading]) if signed else (0, MEAN_VMAX[reading])
+            lim_t = (-t_vmax, t_vmax) if signed else (0, t_vmax)
             frames = [k for k in range(ann_h.shape[0]) if ok[k].sum() > 200]
             out = os.path.join(CCF_ROOT, cohort, f'video_{reading}_{cohort}.mp4')
             writer = imageio_ffmpeg.write_frames(out, (1600, 800), fps=FPS, quality=7, macro_block_size=8)
@@ -101,8 +106,10 @@ def main(cohorts):
             for k in frames:
                 lab = ann_h[k]; inside = lab > 0
                 bnd = boundaries(lab)
-                panels = ((np.where(ok[k], mean[k], np.nan), hot_cut, (0, MEAN_VMAX[reading]), f'{title} - mean (hemispheres averaged)'),
-                          (np.where(ok[k], tval[k], np.nan), hot_cut, (0, t_vmax), f'{title} - reliability t = mean/SEM  (range = {T_PCT:.0f}th pct)'))
+                panels = ((np.where(ok[k], mean[k], np.nan), cmap_use, lim_mean,
+                           f'{title} - mean (hemispheres averaged)'),
+                          (np.where(ok[k], tval[k], np.nan), cmap_use, lim_t,
+                           f'{title} - reliability t = mean/SEM  (range = {T_PCT:.0f}th pct)'))
                 for ax, cax, (im, cmap, lim, ttl) in zip(axes, caxes, panels):
                     ax.clear(); cax.clear()
                     # black outside the atlas, grey inside it where there is no data, colour where there is

@@ -41,7 +41,6 @@ OUT = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult')
 CCF_AP0 = 180                        # the adult registered crop, 10 um planes
 MIN_N_YOUNG, MIN_N_ADULT = 2, 5
 SMOOTH = 1.0                         # voxels at 20 um, applied to the log2 map only
-from v2_cohort import MODES
 YOUNG = 'young'                      # pooled P20 + P16
 YOUNG_ALT = 'young_P20'              # sensitivity check
 
@@ -95,6 +94,10 @@ def draw_figures(z, out):
     hot = plt.get_cmap('hot')
     hot_cut = LinearSegmentedColormap.from_list('hot_cut', hot(np.linspace(0, 0.82, 256)))
     hot_cut.set_bad((0, 0, 0, 0))
+    # zref is a position, not an intensity, so it gets its own diverging family
+    # (purple low, orange high, no green) and red-blue stays reserved for the
+    # young-minus-adult panel.
+    puor = plt.get_cmap('PuOr_r').copy(); puor.set_bad((0, 0, 0, 0))
     grey = '#bfbfbf'
     iso_ids = set()
     with open(CSV_MAP, newline='', encoding='utf-8') as fh:
@@ -120,7 +123,7 @@ def draw_figures(z, out):
         fig, axes = plt.subplots(len(planes), 3, figsize=(13.5, 3.9 * len(planes)))
         for i, zc in enumerate(planes):
             shown = both[zc]
-            cmap_mean = 'RdBu_r' if signed else hot_cut
+            cmap_mean = puor if signed else hot_cut
             lim_mean = (-vmax, vmax) if signed else (0, vmax)
             diff_name = 'young - adult' if signed else 'log2( young / adult )'
             panels = ((np.where(inside[zc] & np.isfinite(adult_v[zc]), adult_v[zc], np.nan),
@@ -136,7 +139,8 @@ def draw_figures(z, out):
                 ax.set_title(f'{title}   plane {zc * 2 + CCF_AP0} / 10 um', fontsize=9.5)
                 ax.set_xticks([]); ax.set_yticks([])
                 plt.colorbar(h, ax=ax, fraction=0.035, pad=0.01, extend='max' if j < 2 else 'both')
-        scale_note = (f"diverging scale, 0 = that brain's median structure, +-{vmax:.2f} = its own p10-p90 spread"
+        scale_note = (f"purple-orange scale, 0 = that brain's median structure, +-{vmax:.2f} = its own p10-p90 spread; "
+                      f"red-blue on the right is the young-adult difference"
                       if signed else
                       f'colour range 0 to {vmax:.2f} = 99th percentile of adult isocortex; brighter is yellow, never white')
         fig.suptitle('\n'.join((what[m] + '.',
