@@ -20,6 +20,21 @@ tissue voxels, then per mouse
   sig / isocortex mean        share of the cortex
   sig / subcortex-HPF-STR     share of the subcortex without the two
                               structures that dominate the scale
+  zref                        range-matched: the same cortex-relative values,
+                              minus that brain's median over structures and
+                              divided by its own p90-p10 spread. Every brain
+                              then has the same level AND the same dynamic
+                              range, so the question becomes where a region
+                              sits inside its own brain's range.
+                              Why it is needed: the pup brain is genuinely
+                              flatter, p90-p10 = 0.89 +- 0.25 log2 against
+                              1.79 +- 0.24 in adults, and no single-number
+                              reference can touch that -- dividing by cortex,
+                              by subcortex or by the hippocampus shifts every
+                              point equally and only moves where zero sits.
+                              What it costs: that compression is defined away,
+                              so this reading can show re-ordering but says
+                              nothing about amplitude.
 and per structure a Welch test of young against the ten adults, with the
 naive-vs-rws difference printed beside it as the size of a difference that
 carries no developmental meaning. The young group is P20 + P16 pooled and the
@@ -61,7 +76,8 @@ AREAS = ['VISp', 'VISl', 'VISal', 'VISrl', 'VISpm', 'VISam', 'SSp-bfd', 'SSp-ul'
 NOT_SUBCORTEX = {'Isocortex', 'HPF', 'STR', 'OLF', 'CTXsp', 'fiber tracts', 'VS', 'CB', ''}
 READINGS = [('ratio', 'nanobody / autofluorescence, both background-subtracted  (log2)'),
             ('cref', 'background-subtracted nanobody, relative to the mouse\'s own isocortex  (log2)'),
-            ('subref', 'background-subtracted nanobody, relative to subcortex excluding HPF and STR  (log2)')]
+            ('subref', 'background-subtracted nanobody, relative to subcortex excluding HPF and STR  (log2)'),
+            ('zref', "range-matched: cortex-relative, then centred and scaled by each brain's own spread")]
 GROUPS = {'young': YOUNG_P20 + YOUNG_P16, 'naive': NAIVE, 'rws': RWS}
 ADULTS = NAIVE + RWS
 COL = {'young': '#c0392b', 'naive': '#555555', 'rws': '#9a9a9a'}
@@ -155,13 +171,35 @@ def main():
             if pred(meta.get(k, ('', ''))[1]):
                 s += ms * n; c += n
         return s / c if c else float('nan')
+    # Each reference is a single number per brain, so every reading is a pure
+    # scale and region ratios inside a brain survive it exactly. What changes
+    # between them is only the question being asked -- see the header.
     refs = {m: {'cref': ref(m, lambda d: d == 'Isocortex'),
                 'subref': ref(m, lambda d: d not in NOT_SUBCORTEX)} for m in mice}
+
+    # The range match needs two numbers per brain rather than one, and they have
+    # to come from the same set of structures in every brain or the spread would
+    # depend on which regions a section happened to cover.
+    common = set.intersection(*[set(per[m]) for m in mice])
+    norm = {}
+    for m in mice:
+        v = np.array([math.log2(per[m][k][1] / refs[m]['cref']) for k in sorted(common)
+                      if per[m][k][1] > 0])
+        p10, med, p90 = np.percentile(v, [10, 50, 90])
+        norm[m] = (med, max(p90 - p10, 1e-6))
+    print('dynamic range per brain (p90-p10 of log2 over %d shared structures):' % len(common))
+    for m in mice:
+        print(f'  {m:20s} median {norm[m][0]:+.2f}   spread {norm[m][1]:.2f}')
 
     def value(reading, m, k):
         if k is None or k not in per[m]:
             return None
         n, ms, mr = per[m][k]
+        if reading == 'zref':
+            if ms <= 0:
+                return None
+            med, spread = norm[m]
+            return (math.log2(ms / refs[m]['cref']) - med) / spread
         v = mr if reading == 'ratio' else ms / refs[m][reading]
         return math.log2(v) if v > 0 else None
 
@@ -234,7 +272,7 @@ def main():
     # test that puts the stars on.
     star_of = {(r[0], r[2]): ('**' if r[11] < 0.01 else ('*' if r[11] < 0.05 else '')) for r in rows_st}
     ylab = {'ratio': 'log2  nano / auto', 'cref': 'log2  relative to own isocortex',
-            'subref': 'log2  relative to subcortex'}
+            'subref': 'log2  relative to subcortex', 'zref': 'range-matched (median 0, spread 1)'}
     fig, axes = plt.subplots(len(READINGS), 1, figsize=(15, 3.8 * len(READINGS)), sharex=True)
     xs = [i for i, a in enumerate(AREAS) if a != '|']
     for ax, (reading, title) in zip(axes, READINGS):

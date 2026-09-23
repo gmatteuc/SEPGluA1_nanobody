@@ -15,7 +15,8 @@ Everything is computed on each brain's OWN atlas, no warping: a group mean is
 the voxel-weighted mean over its member labels in that brain. The three
 readings and the references are the ones v2_region_plot uses (ratio = nano per
 autofluorescence; cref = relative to that brain's isocortex; subref = relative
-to the subcortex excluding HPF and STR), and the test is the same Mann-Whitney
+to the subcortex excluding HPF and STR; zref = range-matched to each brain's
+own spread), and the test is the same Mann-Whitney
 of the six young against the ten adults, uncorrected in the figure, with BH
 q-values in the CSV.
 
@@ -100,7 +101,7 @@ def main():
 
     # per mouse: the voxel-weighted mean of sig and of ratio in every group,
     # plus the two references, all on that brain's own atlas
-    anns, per, refs = {}, {}, {}
+    anns, per, refs, struct_mean = {}, {}, {}, {}
     mice = [m for g in GROUPS.values() for m in g]
     for mouse in mice:
         atlas_key = MICE[mouse][1]
@@ -124,13 +125,34 @@ def main():
         sub_ids = [i for i in stru if divi.get(i, '') not in NOT_SUBCORTEX and i < nlab]
         refs[mouse] = {'cref': s_sig[iso].sum() / n[iso].sum(),
                        'subref': s_sig[sub_ids].sum() / n[sub_ids].sum()}
+        # the brain's own distribution over structures, for the range match --
+        # computed at structure level so it does not depend on the grouping
+        by_struct = defaultdict(lambda: [0, 0.0])
+        for i in np.nonzero(n)[0]:
+            if i == 0 or i not in stru:
+                continue
+            by_struct[stru[i]][0] += int(n[i]); by_struct[stru[i]][1] += s_sig[i]
+        struct_mean[mouse] = {k: v[1] / v[0] for k, v in by_struct.items() if v[0] >= 250}
         print(f'{mouse:20s} {sum(v is not None for v in per[mouse].values())}/{len(groups)} groups', flush=True)
+
+    common = set.intersection(*[set(struct_mean[m]) for m in mice])
+    norm = {}
+    for m in mice:
+        v = np.array([math.log2(struct_mean[m][k] / refs[m]['cref']) for k in sorted(common)
+                      if struct_mean[m][k] > 0])
+        p10, med, p90 = np.percentile(v, [10, 50, 90])
+        norm[m] = (med, max(p90 - p10, 1e-6))
 
     def value(reading, mouse, key):
         cell = per[mouse].get(key)
         if cell is None:
             return None
         _, m_sig, m_rat = cell
+        if reading == 'zref':
+            if m_sig <= 0:
+                return None
+            med, spread = norm[mouse]
+            return (math.log2(m_sig / refs[mouse]['cref']) - med) / spread
         v = m_rat if reading == 'ratio' else m_sig / refs[mouse][reading]
         return math.log2(v) if v > 0 else None
 
@@ -200,7 +222,7 @@ def main():
             ax.axhline(0, color='k', lw=0.6)
             ax.set_title(rtitle, fontsize=10.5, loc='left')
             ax.set_ylabel({'ratio': 'log2  nano / auto', 'cref': 'log2  vs own isocortex',
-                           'subref': 'log2  vs subcortex'}[reading], fontsize=10)
+                           'subref': 'log2  vs subcortex', 'zref': 'range-matched'}[reading], fontsize=10)
             ax.grid(axis='y', lw=0.3, alpha=0.6); ax.set_xlim(-0.7, len(keys) - 0.3)
         axes[0].legend(loc='lower left', fontsize=9, frameon=True, framealpha=0.9, edgecolor='none', ncol=3)
         axes[-1].set_xticks(range(len(keys)))
