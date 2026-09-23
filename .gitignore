@@ -79,3 +79,4 @@ matlab_elastix-master/matlab_elastix-master/
 
 # Python env for brainglobe-atlasapi (atlas downloads); not part of the pipeline
 tools/venv_atlas/
+__pycache__/
