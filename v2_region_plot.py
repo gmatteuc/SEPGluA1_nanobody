@@ -22,9 +22,16 @@ tissue voxels, then per mouse
                               structures that dominate the scale
 and per structure a Welch test of young against the ten adults, with the
 naive-vs-rws difference printed beside it as the size of a difference that
-carries no developmental meaning. The young group is P20 + P16 pooled; the
-P20-only contrast is reported next to it, and the P16 brain is drawn as a
-distinct marker, so the pooling never has to be taken on trust.
+carries no developmental meaning. The young group is P20 + P16 pooled and the
+P16 brain is one young mouse like any other -- same marker, counted in the
+median and in the tests. The P20-only contrast stays in the CSV, so what the
+P16 brain does to the answer can still be checked.
+
+The figure marks each region with the Mann-Whitney (rank-sum) test of the six
+young against the ten adults, uncorrected: * p<0.05, ** p<0.01. Ranks rather
+than means because six against ten is small and log ratios are not guaranteed
+normal. region_stats.csv carries the Welch p, the Mann-Whitney p and the
+Benjamini-Hochberg q of each, so a corrected reading is one column away.
 
 Writes region_means_per_mouse.csv, region_stats.csv and region_plot.png into
 data/comparisons_v2/young_vs_adult/.
@@ -58,8 +65,8 @@ READINGS = [('ratio', 'nanobody / autofluorescence, both background-subtracted  
 GROUPS = {'young': YOUNG_P20 + YOUNG_P16, 'naive': NAIVE, 'rws': RWS}
 ADULTS = NAIVE + RWS
 COL = {'young': '#c0392b', 'naive': '#555555', 'rws': '#9a9a9a'}
-LABEL = {'young': f'young P20 (n = {len(YOUNG_P20)})', 'naive': f'adult naive (n = {len(NAIVE)})',
-         'rws': f'adult rws (n = {len(RWS)})'}
+LABEL = {'young': f'young P16-P20 (n = {len(YOUNG_P20) + len(YOUNG_P16)})',
+         'naive': f'adult naive (n = {len(NAIVE)})', 'rws': f'adult rws (n = {len(RWS)})'}
 
 
 def bh_fdr(p):
@@ -81,6 +88,14 @@ def bh_fdr(p):
     out = np.empty(n); out[order] = np.minimum(adj, 1.0)
     q[ok] = out
     return q
+
+
+def mannwhitney(a, b):
+    """Two-sided rank-sum p for two independent samples, or NaN if too small."""
+    if len(a) < 2 or len(b) < 2:
+        return float('nan')
+    from scipy.stats import mannwhitneyu
+    return float(mannwhitneyu(a, b, alternative='two-sided').pvalue)
 
 
 def welch(a, b):
@@ -167,19 +182,20 @@ def main():
             if len(yo) < 2 or len(ad) < 4:
                 continue
             rows_st.append((reading, k, meta[k][0], meta[k][1], len(yo), len(ad),
-                            np.mean(yo), np.mean(ad), np.mean(yo) - np.mean(ad), welch(yo, ad),
+                            np.mean(yo), np.mean(ad), np.mean(yo) - np.mean(ad),
+                            np.median(yo) - np.median(ad), welch(yo, ad), mannwhitney(yo, ad),
                             (np.mean(y20) - np.mean(ad)) if len(y20) >= 2 else float('nan'),
                             welch(y20, ad) if len(y20) >= 2 else float('nan'),
                             (p16[0] - np.mean(ad)) if p16 else float('nan'),
                             (np.mean(nv) - np.mean(rw)) if nv and rw else float('nan')))
     # q-values within each reading, so the brain-wide lists can be read honestly
-    q_of = {}
+    q_welch, q_mw = {}, {}
     for reading, _ in READINGS:
         idx = [i for i, r in enumerate(rows_st) if r[0] == reading]
-        q = bh_fdr([rows_st[i][9] for i in idx])
-        for i, qi in zip(idx, q):
-            q_of[i] = qi
-    rows_st = [r[:10] + (q_of[i],) + r[10:] for i, r in enumerate(rows_st)]
+        for store, col in ((q_welch, 10), (q_mw, 11)):
+            for i, qi in zip(idx, bh_fdr([rows_st[i][col] for i in idx])):
+                store[i] = qi
+    rows_st = [r[:12] + (q_welch[i], q_mw[i]) + r[12:] for i, r in enumerate(rows_st)]
 
     with open(os.path.join(OUT, 'region_means_per_mouse.csv'), 'w', newline='', encoding='utf-8') as fh:
         w = csv.writer(fh)
@@ -188,13 +204,14 @@ def main():
     with open(os.path.join(OUT, 'region_stats.csv'), 'w', newline='', encoding='utf-8') as fh:
         w = csv.writer(fh)
         w.writerow(['reading', 'structure', 'acronym', 'division', 'n_young', 'n_adult',
-                    'young_mean_log2', 'adult_mean_log2', 'diff_log2', 'welch_p', 'welch_q_BH',
+                    'young_mean_log2', 'adult_mean_log2', 'diff_log2', 'diff_median_log2',
+                    'welch_p', 'mannwhitney_p', 'welch_q_BH', 'mannwhitney_q_BH',
                     'diff_log2_P20only', 'welch_p_P20only', 'diff_log2_P16_single', 'naive_minus_rws_log2'])
         w.writerows([r[:6] + tuple(f'{x:.4f}' for x in r[6:]) for r in rows_st])
 
     st = {(r[0], r[2]): r for r in rows_st}
     print(f'\nCORTEX  log2(young / adult), young = {len(GROUPS["young"])} mice (P20 + P16) vs {len(ADULTS)} adults '
-          '(* q<0.05, ** q<0.01, Benjamini-Hochberg within each reading). '
+          '(* p<0.05, ** p<0.01, Mann-Whitney, uncorrected; q in the CSV). '
           'P20only = without the P16 brain; P16 = that brain alone; naive-rws = the null scale.')
     print(f'  {"area":9s} ' + ' '.join(f'{r:>10s}' for r, _ in READINGS) + f' {"P20only":>9s} {"P16":>7s} {"naive-rws":>10s}')
     for a in AREAS:
@@ -205,48 +222,63 @@ def main():
             r = st.get((reading, a))
             if r is None:
                 cells.append(f'{"--":>10s}'); continue
-            star = '**' if r[10] < 0.01 else ('*' if r[10] < 0.05 else '')      # q, not p
+            star = '**' if r[11] < 0.01 else ('*' if r[11] < 0.05 else '')      # rank-sum p
             cells.append(f'{r[8]:+7.2f}{star:3s}')
         r = st.get(('cref', a))
-        tail = f'{r[11]:+9.2f} {r[13]:+7.2f} {r[14]:+10.2f}' if r else ''
+        tail = f'{r[14]:+9.2f} {r[16]:+7.2f} {r[17]:+10.2f}' if r else ''
         print(f'  {a:9s} ' + ' '.join(cells) + ' ' + tail)
 
     # ------------------------------------------------------- figure
-    fig, axes = plt.subplots(len(READINGS), 1, figsize=(15, 3.6 * len(READINGS)), sharex=True)
+    # Every mouse is a dot of the same size, the P16 brain included: it is one
+    # young animal among six. The bar is the group MEDIAN, to match the rank-sum
+    # test that puts the stars on.
+    star_of = {(r[0], r[2]): ('**' if r[11] < 0.01 else ('*' if r[11] < 0.05 else '')) for r in rows_st}
+    ylab = {'ratio': 'log2  nano / auto', 'cref': 'log2  relative to own isocortex',
+            'subref': 'log2  relative to subcortex'}
+    fig, axes = plt.subplots(len(READINGS), 1, figsize=(15, 3.8 * len(READINGS)), sharex=True)
     xs = [i for i, a in enumerate(AREAS) if a != '|']
     for ax, (reading, title) in zip(axes, READINGS):
         for g in ('naive', 'rws', 'young'):
             ms = GROUPS[g]
             jit = np.linspace(-0.22, 0.22, len(ms))
             xo = 0.28 if g == 'young' else -0.1
-            means = []
+            mids = []
             for i, a in enumerate(AREAS):
                 if a == '|':
-                    means.append(np.nan); continue
+                    mids.append(np.nan); continue
                 k = by_acro.get(a); ys = []
                 for j, m in enumerate(ms):
                     y = value(reading, m, k)
                     if y is None:
                         continue
                     ys.append(y)
-                    p16 = m in YOUNG_P16
-                    ax.plot(i + jit[j] + xo, y, 'D' if p16 else 'o', ms=5.5 if p16 else 4.5,
-                            color=COL[g], alpha=0.9, mec='k' if p16 else 'none', mew=0.6 if p16 else 0)
-                means.append(np.mean(ys) if ys else np.nan)
-            ax.plot(np.array(xs) + xo, [means[i] for i in xs], '_', ms=14, mew=2.2, color=COL[g], label=LABEL[g])
-        ax.plot([], [], 'D', ms=5.5, color=COL['young'], mec='k', mew=0.6, label='P16 (MG911)')
+                    ax.plot(i + jit[j] + xo, y, 'o', ms=4.5, color=COL[g], alpha=0.9, mec='none')
+                mids.append(np.median(ys) if ys else np.nan)
+            ax.plot(np.array(xs) + xo, [mids[i] for i in xs], '_', ms=14, mew=2.2, color=COL[g], label=LABEL[g])
+        # stars for the young-vs-adult rank-sum test, just under the top of the panel
+        lo, hi = ax.get_ylim()
+        ax.set_ylim(lo, hi + 0.12 * (hi - lo))
+        lo, hi = ax.get_ylim()
+        for i, a in enumerate(AREAS):
+            st = star_of.get((reading, a), '')
+            if st:
+                ax.text(i, hi - 0.04 * (hi - lo), st, ha='center', va='top', fontsize=11, color=COL['young'])
         ax.axhline(0, color='k', lw=0.6)
         sep = AREAS.index('|'); ax.axvline(sep, color='k', lw=0.6, ls=':')
-        ax.text(sep - 0.5, ax.get_ylim()[1], 'cortex', ha='right', va='top', fontsize=9, color='#333')
-        ax.text(sep + 0.5, ax.get_ylim()[1], 'subcortex', ha='left', va='top', fontsize=9, color='#333')
-        ax.set_title(title, fontsize=10.5, loc='left'); ax.grid(axis='y', lw=0.3, alpha=0.6)
+        box = dict(facecolor='w', edgecolor='none', alpha=0.85, pad=1.5)
+        ax.text(sep - 0.5, lo + 0.02 * (hi - lo), 'cortex', ha='right', va='bottom', fontsize=9, color='#333', bbox=box)
+        ax.text(sep + 0.5, lo + 0.02 * (hi - lo), 'subcortex', ha='left', va='bottom', fontsize=9, color='#333', bbox=box)
+        ax.set_title(title, fontsize=10.5, loc='left')
+        ax.set_ylabel(ylab[reading], fontsize=10)
+        ax.grid(axis='y', lw=0.3, alpha=0.6)
         ax.set_xlim(-0.8, len(AREAS) - 0.2)
-    axes[0].legend(loc='lower left', fontsize=9, frameon=False, ncol=4)
+    axes[0].legend(loc='lower left', fontsize=9, frameon=True, framealpha=0.9, edgecolor='none', ncol=3)
     axes[-1].set_xticks(range(len(AREAS)))
     axes[-1].set_xticklabels(['' if a == '|' else a for a in AREAS], rotation=60, ha='right', fontsize=9)
-    fig.suptitle('Young vs adult, nano channel, per mouse -- each brain measured on the atlas of its own age, '
-                 'no warping', fontsize=11.5)
-    fig.tight_layout()
+    fig.suptitle('Young vs adult, nano channel: one dot per mouse, each brain measured on the atlas of its own age\n'
+                 'Bars are group medians.  * p<0.05, ** p<0.01, Mann-Whitney 6 vs 10, uncorrected',
+                 fontsize=11.5)
+    fig.tight_layout(rect=(0, 0, 1, 0.965))
     fig.savefig(os.path.join(OUT, 'region_plot.png'), dpi=110)
     print('\nwrote', os.path.join(OUT, 'region_plot.png'))
 
