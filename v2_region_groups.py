@@ -262,12 +262,14 @@ def main():
     sys_keys = [k for k in groups if k[0] == 'system']
     dotplot(sys_keys, [k[1] for k in sys_keys], 'group_plot.png',
             'Young vs adult by system, one dot per mouse, each brain on the atlas of its own age\n'
-            'Bars are group medians.  * p<0.05, ** p<0.01 (Mann-Whitney 6 vs 10, uncorrected)')
+            f'Bars are group medians.  * p<0.05, ** p<0.01 '
+            f'(Mann-Whitney {len(GROUPS["young"])} vs {len(ADULTS)}, uncorrected)')
     lay_keys = [k for k in groups if k[0] == 'layer']
     dotplot(lay_keys, [k[1].replace(' supragranular', ' L1-3').replace(' granular', ' L4').replace(' infragranular', ' L5-6')
                        for k in lay_keys], 'laminar_plot.png',
             'Young vs adult by cortical layer within each system (layers from the ontology)\n'
-            'Bars are group medians.  * p<0.05, ** p<0.01 (Mann-Whitney 6 vs 10, uncorrected)')
+            f'Bars are group medians.  * p<0.05, ** p<0.01 '
+            f'(Mann-Whitney {len(GROUPS["young"])} vs {len(ADULTS)}, uncorrected)')
     print('\nwrote group_plot.png, laminar_plot.png, group_stats.csv')
 
 

@@ -329,7 +329,8 @@ def main():
     axes[-1].set_xticks(range(len(AREAS)))
     axes[-1].set_xticklabels(['' if a == '|' else a for a in AREAS], rotation=60, ha='right', fontsize=9)
     fig.suptitle('Young vs adult, nano channel: one dot per mouse, each brain measured on the atlas of its own age\n'
-                 'Bars are group medians.  * p<0.05, ** p<0.01, Mann-Whitney 6 vs 10, uncorrected',
+                 f'Bars are group medians.  * p<0.05, ** p<0.01, Mann-Whitney '
+                 f'{len(GROUPS["young"])} vs {len(ADULTS)}, uncorrected',
                  fontsize=11.5)
     fig.tight_layout(rect=(0, 0, 1, 0.965))
     save_figure(fig, os.path.join(OUT, 'region_plot.png'))

@@ -43,12 +43,17 @@ ADULT = [m for m, v in MICE.items() if v[1] == 'ccf']
 
 
 def show(ax, img, mask=None, p=99.5):
-    """A plane, scaled to its own tissue, with an optional contour."""
-    im = np.asarray(img, float).T
+    """A plane, dorsal up and ventral down, scaled to its own tissue.
+
+    A plane of these volumes is (DV, ML), so it is drawn as it comes: rows run
+    dorsal to ventral, columns left to right. The slice figures elsewhere use
+    the same convention.
+    """
+    im = np.asarray(img, float)
     hi = np.percentile(im[im > 0], p) if (im > 0).any() else 1.0
-    ax.imshow(np.clip(im / hi, 0, 1), cmap='gray')
+    ax.imshow(np.clip(im / hi, 0, 1), cmap='gray', origin='upper')
     if mask is not None:
-        ax.contour(np.asarray(mask, float).T, levels=[0.5], colors='#e74c3c', linewidths=0.9)
+        ax.contour(np.asarray(mask, float), levels=[0.5], colors='#e74c3c', linewidths=0.9)
     ax.axis('off')
 
 
@@ -61,10 +66,10 @@ def sheet_tissue(mouse, ann, z):
     fig, axes = plt.subplots(1, 4, figsize=(19, 5.2))
     for ax, k in zip(axes, planes):
         show(ax, sig[k], tissue[k])
-        ax.contour((ann[k] > 0).astype(float).T, levels=[0.5], colors='#2ecc71', linewidths=0.6)
+        ax.contour((ann[k] > 0).astype(float), levels=[0.5], colors='#3498db', linewidths=0.6)
         ax.set_title(f'plane {k}   tissue {100 * tissue[k][brain[k]].mean():.0f}% of atlas brain', fontsize=10)
     fig.suptitle(f'{mouse}: red = tissue mask (auto channel above background + 4 MAD, and a section reached here), '
-                 f'green = atlas brain.  Background subtracted: nano {float(z["bg_nano"]):.0f}, auto {float(z["bg_auto"]):.0f} counts',
+                 f'blue = atlas brain.  Background subtracted: nano {float(z["bg_nano"]):.0f}, auto {float(z["bg_auto"]):.0f} counts',
                  fontsize=11)
     fig.tight_layout(rect=(0, 0, 1, 0.94))
     fig.savefig(os.path.join(OUT, f'01_tissue_{mouse}.png'), dpi=95); plt.close(fig)
@@ -96,17 +101,24 @@ def sheet_levels(mouse, ann, z):
     fig.savefig(os.path.join(OUT, f'02_levels_{mouse}.png'), dpi=95); plt.close(fig)
 
 
+def line_colours(n):
+    """n distinguishable line colours with no green in them (plasma, trimmed)."""
+    return plt.get_cmap('plasma')(np.linspace(0.0, 0.88, max(n, 2)))
+
+
 def sheet_coverage():
     """03 -- per brain, the fraction of the atlas brain with tissue, plane by plane."""
     fig, axes = plt.subplots(2, 1, figsize=(14, 8))
     for ax, group, label in ((axes[0], YOUNG, 'young, on each brain\'s own atlas'),
                              (axes[1], ADULT, 'adults, on the CCF')):
-        for mouse in group:
+        cols = line_colours(len(group))
+        for ci, mouse in enumerate(group):
             ann = ANN[MICE[mouse][1]]; brain = ann > 0
             t = np.load(os.path.join(PER_MOUSE, mouse + '.npz'))['tissue']
             cov = np.array([t[k][brain[k]].mean() if brain[k].any() else np.nan for k in range(t.shape[0])])
             lo, hi = atlas_grid(MICE[mouse][1])[1]
-            ax.plot(np.arange(len(cov)), 100 * cov, lw=1.1, label=f'{mouse} ({np.nansum(cov > 0.2):.0f} planes)')
+            ax.plot(np.arange(len(cov)), 100 * cov, lw=1.3, color=cols[ci],
+                    label=f'{mouse} ({np.nansum(cov > 0.2):.0f} planes)')
         ax.set_xlabel('atlas plane within the crop'); ax.set_ylabel('% of atlas brain with tissue')
         ax.set_title(label, fontsize=10); ax.grid(lw=0.3, alpha=0.6); ax.legend(fontsize=7, ncol=2)
     fig.suptitle('Coverage: where a cohort mean rests on every brain, and where it rests on one or two', fontsize=11)
@@ -128,9 +140,9 @@ def sheet_warp(mouse):
     for i, f in enumerate((0.3, 0.6)):
         kn = int(cov_n[0] + f * (cov_n[-1] - cov_n[0])); kc = int(cov_c[0] + f * (cov_c[-1] - cov_c[0]))
         ax = fig.add_subplot(1, 3, i + 1)
-        # show() transposes, so stacking along DV puts the two side by side
-        show(ax, np.concatenate([sig_n[kn], sig_c[kc]], axis=0),
-             np.concatenate([t_n[kn], t_c[kc]], axis=0))
+        # both planes are (DV, ML): stacking along ML puts them side by side
+        show(ax, np.concatenate([sig_n[kn], sig_c[kc]], axis=1),
+             np.concatenate([t_n[kn], t_c[kc]], axis=1))
         ax.set_title(f'{int(100 * f)}% through the stack: own atlas (left) | in CCF (right)', fontsize=10)
     ax = fig.add_subplot(1, 3, 3)
     ccf_full = np.zeros(sig_c.shape, ANN['ccf'].dtype); ccf_full[90:540] = ANN['ccf']
@@ -159,7 +171,8 @@ def sheet_cohort_n():
         n = np.load(os.path.join(CCF_ROOT, cohort, 'cref_n.npy'))
         for c, k in enumerate(planes):
             ax = axes[r, c]
-            h = ax.imshow(n[k].T, cmap='viridis', vmin=0, vmax=len(COHORTS[cohort]), interpolation='nearest')
+            h = ax.imshow(n[k], cmap='magma', vmin=0, vmax=len(COHORTS[cohort]),
+                          origin='upper', interpolation='nearest')
             ax.set_title(f'{cohort}  CCF plane {2 * k} / 10 um', fontsize=9); ax.axis('off')
             plt.colorbar(h, ax=ax, fraction=0.03, pad=0.01)
     fig.suptitle('How many brains contribute at each voxel (the n map the comparison thresholds)', fontsize=11)
@@ -254,7 +267,7 @@ def sheet_mask_vs_p6bis():
                 ax = axes[row, col]
                 show(ax, sig[k], mine[k])
                 ax.contour((old > 0.5).astype(float).T, levels=[0.5], colors='#3498db', linewidths=0.9, linestyles='--')
-                ax.contour((ann[k] > 0).astype(float).T, levels=[0.5], colors='#2ecc71', linewidths=0.6)
+                ax.contour((ann[k] > 0).astype(float), levels=[0.5], colors='#3498db', linewidths=0.6)
                 agree = 2 * (mine[k] & (old > 0.5)).sum() / max(mine[k].sum() + (old > 0.5).sum(), 1)
                 ax.set_title(f'{mouse}  plane {k}   Dice {agree:.3f}', fontsize=10)
     fig.suptitle('red = v2 mask (auto channel), blue dashed = P6bis mask (nano channel), green = atlas brain.\n'
@@ -272,7 +285,7 @@ rather than trusted. Regenerate with `v2_diagnostics.py`.
 
 | sheet | what to look for | what would be wrong |
 |---|---|---|
-| `01_tissue_<mouse>.png` | red contour hugs the tissue edge; ventricles and the space around fibre tracts excluded; green atlas outline roughly matches | mask eating into cortex, or spilling into the black surround |
+| `01_tissue_<mouse>.png` | red contour hugs the tissue edge; ventricles and the space around fibre tracts excluded; blue atlas outline roughly matches | mask eating into cortex, or spilling into the black surround |
 | `02_levels_<mouse>.png` | off-tissue and tissue distributions separate at the marked threshold; cortex centred on 1.0 after scaling | the two distributions overlapping at the threshold, or a cortex peak far from 1 |
 | `03_coverage.png` | each brain covers a contiguous run of planes; the group overlaps in the middle | a brain with holes, or a cohort where only one brain covers a whole region |
 | `04_warp_<mouse>.png` | before and after look like the same brain; region means sit on the identity line | points off the line, i.e. the transform moving signal between regions |
