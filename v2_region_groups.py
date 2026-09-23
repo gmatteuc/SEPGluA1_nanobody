@@ -67,6 +67,21 @@ DIVISIONS = [('thalamus', 'TH'), ('striatum', 'STR'), ('pallidum', 'PAL'), ('hip
 LAYERS = [('supragranular', ('1', '2', '3', '2/3')), ('granular', ('4',)), ('infragranular', ('5', '6', '6a', '6b'))]
 
 
+def save_figure(fig, path):
+    """Save, and if the file is open in a viewer say so instead of dying.
+
+    Windows refuses to overwrite a PNG that an image viewer holds open, and a
+    run that writes several figures should not lose the rest because one of
+    them was being looked at.
+    """
+    try:
+        fig.savefig(path, dpi=105)
+    except OSError:
+        alt = path.replace('.png', '_new.png')
+        fig.savefig(alt, dpi=105)
+        print(f'  NOTE: {os.path.basename(path)} is open elsewhere; wrote {os.path.basename(alt)} instead', flush=True)
+
+
 def layer_of(substructure_name):
     """'Primary visual area, layer 2/3' -> '2/3'; anything without a layer -> None."""
     m = re.search(r'layer\s*([0-9]+(?:/[0-9]+)?[ab]?)', substructure_name, re.I)
@@ -229,7 +244,7 @@ def main():
         axes[-1].set_xticklabels(labels, rotation=55, ha='right', fontsize=9)
         fig.suptitle(title, fontsize=11.5)
         fig.tight_layout(rect=(0, 0, 1, 0.965))
-        fig.savefig(os.path.join(OUT, fname), dpi=110); plt.close(fig)
+        save_figure(fig, os.path.join(OUT, fname)); plt.close(fig)
 
     sys_keys = [k for k in groups if k[0] == 'system']
     dotplot(sys_keys, [k[1] for k in sys_keys], 'group_plot.png',

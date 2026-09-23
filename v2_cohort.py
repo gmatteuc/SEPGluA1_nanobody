@@ -7,7 +7,9 @@ transform of its own age, the adults by placement alone. That is what lets a
 pooled young group mix P20 and P16 without either age being carried by the
 other's deformation field.
 
-Two readings of the same background-subtracted signal, kept side by side:
+Four readings of the same background-subtracted signal, the same four the
+region tables carry, so a number in a table and a colour in a map mean the
+same thing:
   ratio   sig / auto per voxel (auto smoothed by one 20 um voxel so a dark
           voxel cannot blow it up): nano per unit autofluorescence, the
           internal standard.
@@ -22,6 +24,17 @@ Two readings of the same background-subtracted signal, kept side by side:
           any warp): a pure scale, so region ratios within a mouse survive
           exactly. Cortex-relative by construction, hence blind to a change
           that moves the whole cortex.
+  subref  sig / (that mouse's subcortex mean, excluding HPF and STR): the same
+          idea with a reference that is neither the cortex nor the two
+          structures that dominate the scale.
+  zref    range-matched: log2(sig / cortex mean), minus that brain's median
+          over structures and divided by its own p90-p10 spread. Level AND
+          dynamic range are then the same in every brain, which matters
+          because the pup brain is genuinely flatter (spread 0.89 +- 0.25 log2
+          against 1.79 +- 0.24). It is the only reading here that is not
+          linear in the signal, so its maps are a position within a range, not
+          an intensity; and the compression it removes may itself be the
+          finding, so it is read beside cref, not instead of it.
 
 Per voxel the cohort gets the mean over the mice that have tissue there, the
 SD and the count. No voxel is required to be covered by every mouse; the n map
@@ -41,12 +54,15 @@ import os
 import numpy as np
 from scipy.ndimage import gaussian_filter
 
-from v2_per_mouse import DATA
+from v2_per_mouse import DATA, annotation_20, MICE, CSV_MAP, OUT as PER_MOUSE
 
 V2 = os.path.join(DATA, 'comparisons_v2')
 PER_MOUSE_CCF = os.path.join(V2, 'per_mouse_ccf')
 OUT_ROOT = os.path.join(V2, 'ccf')
 RATIO_CLIP = 20.0
+Z_FLOOR = 0.02        # of the cortex mean, so log2 stays finite in the dimmest tissue
+MODES = ('ratio', 'cref', 'subref', 'zref')
+NOT_SUBCORTEX = {'Isocortex', 'HPF', 'STR', 'OLF', 'CTXsp', 'fiber tracts', 'VS', 'CB', ''}
 
 YOUNG_P20 = ['MG897_SepGluA_P20', 'MG903_SepGluA_P20', 'MG913_SepGluA_P20',
              'MG909_SepGluA_P20', 'MG910_SepGluA_P20']
@@ -63,15 +79,68 @@ COHORTS = {
 }
 
 
+def mouse_scalars(mouse):
+    """The per-brain numbers every reading divides by, measured on the brain's OWN
+    atlas before any warp, and cached beside the per-mouse file.
+
+    cortex_mean and subcortex_mean are plain means over their labels; z_median
+    and z_spread describe that brain's distribution ACROSS STRUCTURES of
+    log2(structure mean / cortex mean), which is what the range match needs.
+    Structure level, not voxel level, so a large structure cannot set the
+    spread on its own.
+    """
+    cache = os.path.join(PER_MOUSE, mouse + '_scalars.npz')
+    if os.path.exists(cache):
+        z = np.load(cache)
+        return {k: float(z[k]) for k in z.files}
+    import csv as _csv
+    stru, divi = {}, {}
+    with open(CSV_MAP, newline='', encoding='utf-8') as fh:
+        for r in _csv.DictReader(fh):
+            i = int(r['parcellation_index'])
+            if r['parcellation_term_set_name'] == 'structure':
+                stru[i] = r['parcellation_term_acronym']
+            elif r['parcellation_term_set_name'] == 'division':
+                divi[i] = r['parcellation_term_acronym']
+    ann = annotation_20(MICE[mouse][1])
+    z = np.load(os.path.join(PER_MOUSE, mouse + '.npz'))
+    sig = z['sig'].astype(np.float32); tissue = z['tissue']
+    lab = ann[tissue]; nlab = int(ann.max()) + 1
+    n = np.bincount(lab, minlength=nlab)
+    tot = np.bincount(lab, weights=sig[tissue], minlength=nlab)
+    iso = [i for i in stru if divi.get(i) == 'Isocortex' and i < nlab]
+    sub = [i for i in stru if divi.get(i, '') not in NOT_SUBCORTEX and i < nlab]
+    cortex_mean = tot[iso].sum() / n[iso].sum()
+    sub_mean = tot[sub].sum() / n[sub].sum()
+    per_struct = {}
+    for i in np.nonzero(n)[0]:
+        if i == 0 or i not in stru:
+            continue
+        a, b = per_struct.get(stru[i], (0, 0.0))
+        per_struct[stru[i]] = (a + int(n[i]), b + tot[i])
+    vals = np.array([np.log2(t / c / cortex_mean) for c, t in per_struct.values()
+                     if c >= 250 and t > 0])
+    p10, med, p90 = np.percentile(vals, [10, 50, 90])
+    out = dict(cortex_mean=float(cortex_mean), subcortex_mean=float(sub_mean),
+               z_median=float(med), z_spread=float(max(p90 - p10, 1e-6)))
+    np.savez(cache, **out)
+    return out
+
+
 def mouse_modes(mouse):
     """(dict of mode -> volume with NaN off tissue, tissue mask) for one brain in CCF."""
     z = np.load(os.path.join(PER_MOUSE_CCF, mouse + '.npz'))
     sig = z['sig'].astype(np.float32); auto = z['auto'].astype(np.float32); tissue = z['tissue']
+    sc = mouse_scalars(mouse)
     auto_s = gaussian_filter(np.where(tissue, auto, 0), 1.0) / np.maximum(gaussian_filter(tissue.astype(np.float32), 1.0), 1e-3)
     ratio = np.where(tissue & (auto_s > 0), sig / np.maximum(auto_s, 1e-3), np.nan)
     ratio = np.clip(ratio, -RATIO_CLIP, RATIO_CLIP)
-    cref = np.where(tissue, sig / float(z['cortex_mean']), np.nan)
-    return {'ratio': ratio.astype(np.float32), 'cref': cref.astype(np.float32)}, tissue
+    cref = np.where(tissue, sig / sc['cortex_mean'], np.nan)
+    subref = np.where(tissue, sig / sc['subcortex_mean'], np.nan)
+    floored = np.maximum(sig / sc['cortex_mean'], Z_FLOOR)
+    zref = np.where(tissue, (np.log2(floored) - sc['z_median']) / sc['z_spread'], np.nan)
+    return ({'ratio': ratio.astype(np.float32), 'cref': cref.astype(np.float32),
+             'subref': subref.astype(np.float32), 'zref': zref.astype(np.float32)}, tissue)
 
 
 def main():

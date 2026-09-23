@@ -35,15 +35,30 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from v2_per_mouse import DATA, CSV_MAP
-from v2_cohort import OUT_ROOT as CCF_ROOT, COHORTS
+from v2_cohort import OUT_ROOT as CCF_ROOT, COHORTS, MODES
 
 OUT = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult')
 CCF_AP0 = 180                        # the adult registered crop, 10 um planes
 MIN_N_YOUNG, MIN_N_ADULT = 2, 5
 SMOOTH = 1.0                         # voxels at 20 um, applied to the log2 map only
-MODES = ('ratio', 'cref')
+from v2_cohort import MODES
 YOUNG = 'young'                      # pooled P20 + P16
 YOUNG_ALT = 'young_P20'              # sensitivity check
+
+
+def save_figure(fig, path):
+    """Save, and if the file is open in a viewer say so instead of dying.
+
+    Windows refuses to overwrite a PNG that an image viewer holds open, and a
+    run that writes several figures should not lose the rest because one of
+    them was being looked at.
+    """
+    try:
+        fig.savefig(path, dpi=105)
+    except OSError:
+        alt = path.replace('.png', '_new.png')
+        fig.savefig(alt, dpi=105)
+        print(f'  NOTE: {os.path.basename(path)} is open elsewhere; wrote {os.path.basename(alt)} instead', flush=True)
 
 
 def fold(v):
@@ -91,19 +106,27 @@ def draw_figures(z, out):
     ok = np.nonzero(cov > 0.5 * cov.max())[0]
     planes = [int(v) for v in np.linspace(ok[0], ok[-1], 6).round()]
     what = {'ratio': 'nano / autofluorescence, both background-subtracted',
-            'cref': "background-subtracted nano relative to each mouse's isocortex mean"}
+            'cref': "background-subtracted nano relative to each mouse's isocortex mean",
+            'subref': 'background-subtracted nano relative to the subcortex, excluding HPF and STR',
+            'zref': "range-matched: position within each brain's own distribution "
+                    '(median 0, p90-p10 = 1), so level and dynamic range are equal across brains'}
     n_young = int(z['n_young_mice']); n_adult = int(z['n_adult_mice'])
     for m in MODES:
         adult_v, young_v, log2_v = z[f'adult_{m}'], z[f'young_{m}'], z[f'log2_{m}']
-        vmax = float(np.nanpercentile(adult_v[iso], 99))
+        signed = m == 'zref'
+        vmax = float(np.nanpercentile(adult_v[iso], 99)) if not signed else \
+            float(np.nanpercentile(np.abs(adult_v[both]), 98))
         lim2 = float(np.nanpercentile(np.abs(log2_v[both]), 98))
         fig, axes = plt.subplots(len(planes), 3, figsize=(13.5, 3.9 * len(planes)))
         for i, zc in enumerate(planes):
             shown = both[zc]
+            cmap_mean = 'RdBu_r' if signed else hot_cut
+            lim_mean = (-vmax, vmax) if signed else (0, vmax)
+            diff_name = 'young - adult' if signed else 'log2( young / adult )'
             panels = ((np.where(inside[zc] & np.isfinite(adult_v[zc]), adult_v[zc], np.nan),
-                       f'adult (n = {n_adult})  {m}', hot_cut, (0, vmax)),
-                      (np.where(shown, young_v[zc], np.nan), f'young (n = {n_young})  {m}', hot_cut, (0, vmax)),
-                      (np.where(shown, log2_v[zc], np.nan), 'log2( young / adult )', 'RdBu_r', (-lim2, lim2)))
+                       f'adult (n = {n_adult})  {m}', cmap_mean, lim_mean),
+                      (np.where(shown, young_v[zc], np.nan), f'young (n = {n_young})  {m}', cmap_mean, lim_mean),
+                      (np.where(shown, log2_v[zc], np.nan), diff_name, 'RdBu_r', (-lim2, lim2)))
             for j, (im, title, cmap, lim) in enumerate(panels):
                 ax = axes[i, j]
                 bg = np.zeros(inside[zc].shape + (4,)); bg[inside[zc]] = matplotlib.colors.to_rgba(grey)
@@ -113,12 +136,15 @@ def draw_figures(z, out):
                 ax.set_title(f'{title}   plane {zc * 2 + CCF_AP0} / 10 um', fontsize=9.5)
                 ax.set_xticks([]); ax.set_yticks([])
                 plt.colorbar(h, ax=ax, fraction=0.035, pad=0.01, extend='max' if j < 2 else 'both')
-        fig.suptitle(f'{what[m]}.  Hemispheres averaged; every brain carried into the adult CCF individually.\n'
-                     f'Grey = no data (fewer than {MIN_N_YOUNG} young or {MIN_N_ADULT} adults with tissue).  '
-                     f'Colour range 0 to {vmax:.2f} = 99th percentile of adult isocortex; above that is bright '
-                     f'yellow, never white.', fontsize=10)
+        scale_note = (f"diverging scale, 0 = that brain's median structure, +-{vmax:.2f} = its own p10-p90 spread"
+                      if signed else
+                      f'colour range 0 to {vmax:.2f} = 99th percentile of adult isocortex; brighter is yellow, never white')
+        fig.suptitle('\n'.join((what[m] + '.',
+                                'Hemispheres averaged; every brain carried into the adult CCF individually.  '
+                                f'Grey = no data (fewer than {MIN_N_YOUNG} young or {MIN_N_ADULT} adults with tissue).',
+                                scale_note)), fontsize=10)
         fig.tight_layout(rect=(0, 0, 1, 0.975))
-        fig.savefig(os.path.join(out, f'slices_{m}.png'), dpi=105)
+        save_figure(fig, os.path.join(out, f'slices_{m}.png'))
         plt.close(fig)
 
 
@@ -144,7 +170,9 @@ def main():
     for m in MODES:
         for src, dst in ((young, log2), (young_alt, log2_alt)):
             a = np.where(both, adult[m], np.nan); p = np.where(both, src[m], np.nan)
-            r = np.log2(np.maximum(p, eps) / np.maximum(a, eps))
+            # zref is already a log-scale position, so the two groups are
+            # compared by difference; everything else by log2 ratio
+            r = (p - a) if m == 'zref' else np.log2(np.maximum(p, eps) / np.maximum(a, eps))
             w = both.astype(np.float32)
             num = gaussian_filter(np.nan_to_num(r) * w, SMOOTH); den = gaussian_filter(w, SMOOTH)
             dst[m] = np.where(both, num / np.maximum(den, 1e-3), np.nan).astype(np.float32)
@@ -204,8 +232,12 @@ def main():
         for m in MODES:
             for tag in ('adult', 'young', 'young_P20'):
                 r[f'{tag}_{m}'] = float(means[(tag, m)][g])
-            r[f'log2_{m}'] = np.log2(max(r[f'young_{m}'], eps) / max(r[f'adult_{m}'], eps))
-            r[f'log2_{m}_P20only'] = np.log2(max(r[f'young_P20_{m}'], eps) / max(r[f'adult_{m}'], eps))
+            if m == 'zref':
+                r[f'log2_{m}'] = r[f'young_{m}'] - r[f'adult_{m}']
+                r[f'log2_{m}_P20only'] = r[f'young_P20_{m}'] - r[f'adult_{m}']
+            else:
+                r[f'log2_{m}'] = np.log2(max(r[f'young_{m}'], eps) / max(r[f'adult_{m}'], eps))
+                r[f'log2_{m}_P20only'] = np.log2(max(r[f'young_P20_{m}'], eps) / max(r[f'adult_{m}'], eps))
         rows.append(r)
     rows.sort(key=lambda r: (r['division'], r['acronym']))
     with open(os.path.join(OUT, 'region_table.csv'), 'w', newline='', encoding='utf-8') as fh:
@@ -214,11 +246,11 @@ def main():
             w.writerow({k: (f'{v:.4f}' if isinstance(v, float) else v) for k, v in r.items()})
 
     cortex = sorted([r for r in rows if r['division'] == 'Isocortex'], key=lambda r: -r['log2_cref'])
-    lines = [f'{"area":9s} {"structure":34s} {"log2 ratio":>10s} {"log2 cref":>10s} {"cref P20 only":>14s}']
+    lines = [f'{"area":9s} {"structure":34s} ' + ' '.join(f'{m:>10s}' for m in MODES)]
     for r in cortex:
         tag = '  <-- visual' if r['acronym'].startswith('VIS') else ('  <-- somatosensory' if r['acronym'].startswith('SS') else '')
-        lines.append(f'{r["acronym"]:9s} {r["structure"][:34]:34s} {r["log2_ratio"]:+10.2f} {r["log2_cref"]:+10.2f} '
-                     f'{r["log2_cref_P20only"]:+14.2f}{tag}')
+        lines.append(f'{r["acronym"]:9s} {r["structure"][:34]:34s} '
+                     + ' '.join(f'{r[f"log2_{m}"]:+10.2f}' for m in MODES) + tag)
     with open(os.path.join(OUT, 'cortex_table.txt'), 'w') as fh:
         fh.write('\n'.join(lines) + '\n')
     print('\n'.join(lines))

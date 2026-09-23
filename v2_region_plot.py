@@ -85,6 +85,21 @@ LABEL = {'young': f'young P16-P20 (n = {len(YOUNG_P20) + len(YOUNG_P16)})',
          'naive': f'adult naive (n = {len(NAIVE)})', 'rws': f'adult rws (n = {len(RWS)})'}
 
 
+def save_figure(fig, path):
+    """Save, and if the file is open in a viewer say so instead of dying.
+
+    Windows refuses to overwrite a PNG that an image viewer holds open, and a
+    run that writes several figures should not lose the rest because one of
+    them was being looked at.
+    """
+    try:
+        fig.savefig(path, dpi=105)
+    except OSError:
+        alt = path.replace('.png', '_new.png')
+        fig.savefig(alt, dpi=105)
+        print(f'  NOTE: {os.path.basename(path)} is open elsewhere; wrote {os.path.basename(alt)} instead', flush=True)
+
+
 def bh_fdr(p):
     """Benjamini-Hochberg q-values for one family of tests.
 
@@ -317,7 +332,7 @@ def main():
                  'Bars are group medians.  * p<0.05, ** p<0.01, Mann-Whitney 6 vs 10, uncorrected',
                  fontsize=11.5)
     fig.tight_layout(rect=(0, 0, 1, 0.965))
-    fig.savefig(os.path.join(OUT, 'region_plot.png'), dpi=110)
+    save_figure(fig, os.path.join(OUT, 'region_plot.png'))
     print('\nwrote', os.path.join(OUT, 'region_plot.png'))
 
 

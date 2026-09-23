@@ -9,8 +9,10 @@ builds the cohort volumes -- the young brains having been carried there one by
 one (v2_to_ccf), which is what lets the pooled young group mix P20 and P16.
 
   cohorts   young (P20 + P16 pooled), young_P20, adult, naive, rws
-  readings  cref (nano relative to the mouse's own isocortex mean) and
-            ratio (nano per unit autofluorescence)
+  readings  the same four the region tables carry: ratio (per unit
+            autofluorescence), cref (relative to the brain's own isocortex),
+            subref (relative to the subcortex without HPF and STR) and zref
+            (range-matched; a signed position, not an intensity)
 
 Colour range of the mean panel is fixed per reading so cohorts can be compared
 by eye; the t panel runs to that cohort's 95th percentile. Grey = fewer than
@@ -36,9 +38,9 @@ from matplotlib.colors import LinearSegmentedColormap
 from scipy.ndimage import center_of_mass
 
 from v2_per_mouse import CSV_MAP, DATA
-from v2_cohort import OUT_ROOT as CCF_ROOT, COHORTS
+from v2_cohort import OUT_ROOT as CCF_ROOT, COHORTS, MODES
 
-MEAN_VMAX = {'cref': 2.0, 'ratio': 2.0}   # cortex sits near 1 in both readings; HPF saturates by design
+MEAN_VMAX = {'cref': 2.0, 'ratio': 2.0, 'subref': 2.0, 'zref': 2.0}   # cortex sits near 1 in both readings; HPF saturates by design
 T_PCT = 95.0                              # t panel range: 0 .. this percentile of t over the cohort's voxels
 MIN_N = {'young': 2, 'young_P20': 2, 'young_P16': 1, 'naive': 3, 'rws': 3, 'adult': 5}
 FPS = 12
@@ -80,7 +82,7 @@ def main(cohorts):
     ann_h = ann[:, :, :ann.shape[2] // 2]
     for cohort in cohorts:
         n_h = fold_n(np.load(os.path.join(CCF_ROOT, cohort, 'cref_n.npy')))
-        for reading in ('cref', 'ratio'):
+        for reading in MODES:
             t0 = time.time()
             mean = fold(np.load(os.path.join(CCF_ROOT, cohort, f'{reading}_mean.npy')))
             sd = fold(np.load(os.path.join(CCF_ROOT, cohort, f'{reading}_sd.npy')))
