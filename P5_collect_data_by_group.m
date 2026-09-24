@@ -152,6 +152,18 @@ for mousetype_idx = 1:numel(mousetypes_list)
     % subset_tag is empty for a whole group, so the adult cohorts keep writing
     % plain nano_4d.mat exactly as before; an age-filtered run lands beside it
     % as e.g. nano_4d_P20.mat instead of overwriting it.
+    %
+    % CAREFUL, and the reason the v2 route stopped reading these files at all.
+    % Only nano_4d is still written; every line below it is commented out. So a
+    % re-run refreshes nano and leaves whatever auto_4d.mat, mask_4d.mat and the
+    % averages happen to be on disk, however old. That is what happened to the
+    % adults: the brains were re-registered and P5 re-run on 2025-11-27, which
+    % rewrote nano_4d.mat, while auto_4d.mat stayed at its 2025-11-19 version,
+    % from the registration before. Nano and auto on disk then belonged to two
+    % different registrations of the same brain, about two 10 um voxels apart
+    % (r 0.94-0.99 plane by plane, every adult), and anything dividing one by
+    % the other was quietly mixing them. Uncomment the saves before trusting a
+    % file here, or read the registered tiffs directly, as v2_per_mouse does.
     base_dir = fullfile(paths.data, current_mouse_type);
     save(fullfile(base_dir, ['nano_4d' subset_tag '.mat']), 'nano_4d', '-v7.3');
     % save(fullfile(base_dir, ['auto_4d' subset_tag '.mat']), 'auto_4d', '-v7.3');

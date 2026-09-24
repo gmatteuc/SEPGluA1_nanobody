@@ -7,9 +7,10 @@ transform of its own age, the adults by placement alone. That is what lets a
 pooled young group mix P20 and P16 without either age being carried by the
 other's deformation field.
 
-Four readings of the same background-subtracted signal, the same four the
+Five readings of the same background-subtracted signal, the same five the
 region tables carry, so a number in a table and a colour in a map mean the
-same thing:
+same thing. Two divide by a CHANNEL, voxel by voxel; three divide by a NUMBER
+measured on the brain itself:
   ratio   sig / auto per voxel (auto smoothed by one 20 um voxel so a dark
           voxel cannot blow it up): nano per unit autofluorescence, the
           internal standard.
@@ -20,6 +21,15 @@ same thing:
           absolute measurement: autofluorescence rises with age (lipofuscin,
           tissue density), so this reading understates a real pup deficit and
           would overstate a pup excess. Treat it as a bound, not a value.
+  sepratio
+          sig / SEP per voxel, the same arithmetic with the green channel as
+          the denominator. SEP is the tag on GluA1 itself, so this one reads as
+          receptor on the membrane per unit receptor expressed -- a quantity
+          with a meaning, where nano/auto is only nano per unit tissue. It has
+          its own weakness, though, and the opposite one: if expression itself
+          changes with age, this reading divides the effect out. Between the
+          two, ratio is blind to expression and sepratio is blind to a common
+          scaling of both pools; they are kept side by side for that reason.
   cref    sig / (that mouse's isocortex mean of sig, measured natively before
           any warp): a pure scale, so region ratios within a mouse survive
           exactly. Cortex-relative by construction, hence blind to a change
@@ -61,7 +71,7 @@ PER_MOUSE_CCF = os.path.join(V2, 'per_mouse_ccf')
 OUT_ROOT = os.path.join(V2, 'ccf')
 RATIO_CLIP = 20.0
 Z_FLOOR = 0.02        # of the cortex mean, so log2 stays finite in the dimmest tissue
-MODES = ('ratio', 'cref', 'subref', 'zref')
+MODES = ('ratio', 'sepratio', 'cref', 'subref', 'zref')
 NOT_SUBCORTEX = {'Isocortex', 'HPF', 'STR', 'OLF', 'CTXsp', 'fiber tracts', 'VS', 'CB', ''}
 
 YOUNG_P20 = ['MG897_SepGluA_P20', 'MG903_SepGluA_P20', 'MG913_SepGluA_P20',
@@ -91,10 +101,16 @@ def mouse_scalars(mouse):
     Structure level, not voxel level, so a large structure cannot set the
     spread on its own.
     """
+    src = os.path.join(PER_MOUSE, mouse + '.npz')
     cache = os.path.join(PER_MOUSE, mouse + '_scalars.npz')
+    # The cache carries the modification time of the file it was computed from,
+    # so re-running v2_per_mouse silently invalidates it. Without that a changed
+    # tissue mask would go on being divided by the old cortex mean, and nothing
+    # on screen would say so.
     if os.path.exists(cache):
         z = np.load(cache)
-        return {k: float(z[k]) for k in z.files}
+        if 'src_mtime' in z.files and float(z['src_mtime']) == os.path.getmtime(src):
+            return {k: float(z[k]) for k in z.files if k != 'src_mtime'}
     import csv as _csv
     stru, divi = {}, {}
     with open(CSV_MAP, newline='', encoding='utf-8') as fh:
@@ -125,7 +141,7 @@ def mouse_scalars(mouse):
     p10, med, p90 = np.percentile(vals, [10, 50, 90])
     out = dict(cortex_mean=float(cortex_mean), subcortex_mean=float(sub_mean),
                z_median=float(med), z_spread=float(max(p90 - p10, 1e-6)))
-    np.savez(cache, **out)
+    np.savez(cache, src_mtime=os.path.getmtime(src), **out)
     return out
 
 
@@ -133,16 +149,32 @@ def mouse_modes(mouse):
     """(dict of mode -> volume with NaN off tissue, tissue mask) for one brain in CCF."""
     z = np.load(os.path.join(PER_MOUSE_CCF, mouse + '.npz'))
     sig = z['sig'].astype(np.float32); auto = z['auto'].astype(np.float32); tissue = z['tissue']
+    if 'sep' not in z.files:
+        raise SystemExit(f'{mouse}: no SEP channel in its per-mouse CCF file. Run\n'
+                         f'  P4bis_add_sep_channel.m for this brain, then v2_per_mouse.py and v2_to_ccf.py.')
+    sep = z['sep'].astype(np.float32)
     sc = mouse_scalars(mouse)
-    auto_s = gaussian_filter(np.where(tissue, auto, 0), 1.0) / np.maximum(gaussian_filter(tissue.astype(np.float32), 1.0), 1e-3)
-    ratio = np.where(tissue & (auto_s > 0), sig / np.maximum(auto_s, 1e-3), np.nan)
-    ratio = np.clip(ratio, -RATIO_CLIP, RATIO_CLIP)
+
+    def per_unit(ref):
+        """sig divided by a reference CHANNEL, voxel by voxel.
+
+        The denominator is smoothed by one 20 um voxel first, so a single dark
+        voxel in the reference cannot blow the ratio up; the smoothing is
+        normalised by the mask, so tissue at the edge is not divided by the
+        black outside it.
+        """
+        ref_s = gaussian_filter(np.where(tissue, ref, 0), 1.0) / np.maximum(
+            gaussian_filter(tissue.astype(np.float32), 1.0), 1e-3)
+        r = np.where(tissue & (ref_s > 0), sig / np.maximum(ref_s, 1e-3), np.nan)
+        return np.clip(r, -RATIO_CLIP, RATIO_CLIP).astype(np.float32)
+
     cref = np.where(tissue, sig / sc['cortex_mean'], np.nan)
     subref = np.where(tissue, sig / sc['subcortex_mean'], np.nan)
     floored = np.maximum(sig / sc['cortex_mean'], Z_FLOOR)
     zref = np.where(tissue, (np.log2(floored) - sc['z_median']) / sc['z_spread'], np.nan)
-    return ({'ratio': ratio.astype(np.float32), 'cref': cref.astype(np.float32),
-             'subref': subref.astype(np.float32), 'zref': zref.astype(np.float32)}, tissue)
+    return ({'ratio': per_unit(auto), 'sepratio': per_unit(sep),
+             'cref': cref.astype(np.float32), 'subref': subref.astype(np.float32),
+             'zref': zref.astype(np.float32)}, tissue)
 
 
 def main():

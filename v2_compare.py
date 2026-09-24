@@ -109,6 +109,7 @@ def draw_figures(z, out):
     ok = np.nonzero(cov > 0.5 * cov.max())[0]
     planes = [int(v) for v in np.linspace(ok[0], ok[-1], 6).round()]
     what = {'ratio': 'nano / autofluorescence, both background-subtracted',
+            'sepratio': 'nano / SEP, both background-subtracted: surface receptor per unit receptor expressed',
             'cref': "background-subtracted nano relative to each mouse's isocortex mean",
             'subref': 'background-subtracted nano relative to the subcortex, excluding HPF and STR',
             'zref': "range-matched: position within each brain's own distribution "

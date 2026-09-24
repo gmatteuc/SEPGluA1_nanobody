@@ -42,6 +42,19 @@ YOUNG = [m for m, v in MICE.items() if v[1] != 'ccf']
 ADULT = [m for m, v in MICE.items() if v[1] == 'ccf']
 
 
+def save_figure(fig, path, dpi=95):
+    """Save, and if the file is open in a viewer say so instead of dying.
+
+    A sheet being looked at should not cost the rest of the run.
+    """
+    try:
+        fig.savefig(path, dpi=dpi)
+    except OSError:
+        alt = path.replace('.png', '_new.png')
+        fig.savefig(alt, dpi=dpi)
+        print(f'  NOTE: {os.path.basename(path)} is open elsewhere; wrote {os.path.basename(alt)} instead', flush=True)
+
+
 def show(ax, img, mask=None, p=99.5):
     """A plane, dorsal up and ventral down, scaled to its own tissue.
 
@@ -72,7 +85,7 @@ def sheet_tissue(mouse, ann, z):
                  f'blue = atlas brain.  Background subtracted: nano {float(z["bg_nano"]):.0f}, auto {float(z["bg_auto"]):.0f} counts',
                  fontsize=11)
     fig.tight_layout(rect=(0, 0, 1, 0.94))
-    fig.savefig(os.path.join(OUT, f'01_tissue_{mouse}.png'), dpi=95); plt.close(fig)
+    save_figure(fig, os.path.join(OUT, f'01_tissue_{mouse}.png'), dpi=95); plt.close(fig)
 
 
 def sheet_levels(mouse, ann, z):
@@ -98,7 +111,7 @@ def sheet_levels(mouse, ann, z):
     ax.set_title(f'cortex after scaling (mean {float(z["cortex_mean"]):.0f} counts -> 1.0)', fontsize=10)
     fig.suptitle(f'{mouse}: what the background subtraction and the mask threshold actually separate', fontsize=11)
     fig.tight_layout(rect=(0, 0, 1, 0.93))
-    fig.savefig(os.path.join(OUT, f'02_levels_{mouse}.png'), dpi=95); plt.close(fig)
+    save_figure(fig, os.path.join(OUT, f'02_levels_{mouse}.png'), dpi=95); plt.close(fig)
 
 
 def line_colours(n):
@@ -123,7 +136,7 @@ def sheet_coverage():
         ax.set_title(label, fontsize=10); ax.grid(lw=0.3, alpha=0.6); ax.legend(fontsize=7, ncol=2)
     fig.suptitle('Coverage: where a cohort mean rests on every brain, and where it rests on one or two', fontsize=11)
     fig.tight_layout(rect=(0, 0, 1, 0.95))
-    fig.savefig(os.path.join(OUT, '03_coverage.png'), dpi=95); plt.close(fig)
+    save_figure(fig, os.path.join(OUT, '03_coverage.png'), dpi=95); plt.close(fig)
 
 
 def sheet_warp(mouse):
@@ -159,7 +172,7 @@ def sheet_warp(mouse):
     ax.set_title(f'{len(a)} regions, median |log2 change| {np.median(np.abs(np.log2(b / a))):.3f}', fontsize=10)
     fig.suptitle(f'{mouse}: what the DeMBA -> CCF transform does (adults are placed, not warped)', fontsize=11)
     fig.tight_layout(rect=(0, 0, 1, 0.93))
-    fig.savefig(os.path.join(OUT, f'04_warp_{mouse}.png'), dpi=95); plt.close(fig)
+    save_figure(fig, os.path.join(OUT, f'04_warp_{mouse}.png'), dpi=95); plt.close(fig)
 
 
 def sheet_cohort_n():
@@ -177,7 +190,7 @@ def sheet_cohort_n():
             plt.colorbar(h, ax=ax, fraction=0.03, pad=0.01)
     fig.suptitle('How many brains contribute at each voxel (the n map the comparison thresholds)', fontsize=11)
     fig.tight_layout(rect=(0, 0, 1, 0.95))
-    fig.savefig(os.path.join(OUT, '05_cohort_n.png'), dpi=95); plt.close(fig)
+    save_figure(fig, os.path.join(OUT, '05_cohort_n.png'), dpi=95); plt.close(fig)
 
 
 def sheet_scaling():
@@ -209,7 +222,7 @@ def sheet_scaling():
     fig.suptitle('Per-brain levels: what the background subtraction removes, and what the cortex scaling divides by\n'
                  'The 4x spread among adults is why no analysis uses raw counts', fontsize=11)
     fig.tight_layout(rect=(0, 0, 1, 0.9))
-    fig.savefig(os.path.join(OUT, '06_scaling.png'), dpi=95); plt.close(fig)
+    save_figure(fig, os.path.join(OUT, '06_scaling.png'), dpi=95); plt.close(fig)
 
 
 def sheet_route_agreement():
@@ -235,7 +248,7 @@ def sheet_route_agreement():
                  f'median {np.median(np.abs(x[iso] - y[iso])):.3f}', fontsize=10)
     ax.legend(fontsize=9); ax.grid(lw=0.3, alpha=0.6)
     fig.tight_layout()
-    fig.savefig(os.path.join(OUT, '07_route_agreement.png'), dpi=110); plt.close(fig)
+    save_figure(fig, os.path.join(OUT, '07_route_agreement.png'), dpi=110); plt.close(fig)
 
 
 def sheet_mask_vs_p6bis():
@@ -273,7 +286,80 @@ def sheet_mask_vs_p6bis():
     fig.suptitle('red = v2 mask (auto channel), blue dashed = P6bis mask (nano channel), green = atlas brain.\n'
                  'Swapping one for the other moves every cortical result by at most 0.02 log2', fontsize=11)
     fig.tight_layout(rect=(0, 0, 1, 0.94))
-    fig.savefig(os.path.join(OUT, '08_mask_vs_p6bis.png'), dpi=95); plt.close(fig)
+    save_figure(fig, os.path.join(OUT, '08_mask_vs_p6bis.png'), dpi=95); plt.close(fig)
+
+
+def sheet_denominators():
+    """09 -- the two reference channels side by side, and whether the answer moves."""
+    rows = []
+    for mouse in list(MICE):
+        z = np.load(os.path.join(PER_MOUSE, mouse + '.npz'))
+        if 'sep' not in z.files:
+            continue
+        ann = ANN[MICE[mouse][1]]
+        iso = z['tissue'] & np.isin(ann, ISO)
+        rows.append((mouse, MICE[mouse][0],
+                     float(z['cortex_mean']),
+                     float(z['auto'].astype(np.float32)[iso].mean()),
+                     float(z['sep'].astype(np.float32)[iso].mean())))
+    if not rows:
+        print('09 skipped: no brain carries a SEP channel yet', flush=True)
+        return
+    young = [r for r in rows if r[1].startswith('young')]
+    adult = [r for r in rows if not r[1].startswith('young')]
+    order = young + adult
+
+    fig, axes = plt.subplots(1, 3, figsize=(17, 4.8))
+
+    # what each denominator does with age, in the cortex, per brain
+    ax = axes[0]
+    for i, r in enumerate(order):
+        col = '#c0392b' if r[1].startswith('young') else '#555555'
+        ax.plot(i, r[3], 'o', color=col, mfc='none', label='auto' if i == 0 else None)
+        ax.plot(i, r[4], 's', color=col, label='SEP' if i == 0 else None)
+    ax.set_xticks(range(len(order)))
+    ax.set_xticklabels([r[0].split('_')[0] for r in order], rotation=70, fontsize=7)
+    ax.axvline(len(young) - 0.5, color='k', lw=0.6, ls=':')
+    ax.set_ylabel('isocortex mean, raw counts'); ax.legend(fontsize=8)
+    ax.set_title('the two denominators (open = auto, filled = SEP)', fontsize=10)
+    ax.grid(lw=0.3, alpha=0.6)
+
+    # how much of the nano difference each one would absorb
+    ax = axes[1]
+    for grp, col, lbl in ((young, '#c0392b', 'young'), (adult, '#555555', 'adult')):
+        ax.plot([r[2] for r in grp], [r[4] for r in grp], 'o', color=col, label=lbl)
+    ax.set_xlabel('isocortex mean, nano'); ax.set_ylabel('isocortex mean, SEP')
+    ax.set_title('nano against SEP across brains', fontsize=10)
+    ax.legend(fontsize=8); ax.grid(lw=0.3, alpha=0.6)
+
+    # the part that matters: does the young-adult difference survive the swap
+    ax = axes[2]
+    stats = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult', 'region_stats.csv')
+    pairs = {}
+    if os.path.exists(stats):
+        for r in csv.DictReader(open(stats, encoding='utf-8')):
+            if r['reading'] in ('ratio', 'sepratio'):
+                pairs.setdefault(r['acronym'], {})[r['reading']] = float(r['diff_log2'])
+    keys = [k for k, v in pairs.items() if len(v) == 2]
+    if keys:
+        x = np.array([pairs[k]['ratio'] for k in keys])
+        y = np.array([pairs[k]['sepratio'] for k in keys])
+        lim = float(max(np.abs(np.concatenate([x, y])).max(), 0.1)) * 1.1
+        ax.plot([-lim, lim], [-lim, lim], '-', color='#bbbbbb', lw=1)
+        ax.axhline(0, color='#dddddd', lw=0.8); ax.axvline(0, color='#dddddd', lw=0.8)
+        ax.plot(x, y, 'o', ms=4, color='#c0392b')
+        ax.set_xlim(-lim, lim); ax.set_ylim(-lim, lim)
+        ax.set_title(f'young - adult, {len(keys)} structures (r = {np.corrcoef(x, y)[0, 1]:.2f})', fontsize=10)
+    else:
+        ax.text(0.5, 0.5, 'run v2_region_plot.py first', ha='center', va='center', transform=ax.transAxes)
+        ax.set_title('young - adult per structure', fontsize=10)
+    ax.set_xlabel('log2 difference, nano / auto'); ax.set_ylabel('log2 difference, nano / SEP')
+    ax.grid(lw=0.3, alpha=0.6)
+
+    fig.suptitle('Choosing the reference channel: autofluorescence measures tissue, SEP measures the receptor itself.\n'
+                 'Points off the identity line on the right are structures whose answer depends on that choice', fontsize=11)
+    fig.tight_layout(rect=(0, 0, 1, 0.9))
+    save_figure(fig, os.path.join(OUT, '09_denominators.png'), dpi=95); plt.close(fig)
 
 
 def write_index():
@@ -293,6 +379,8 @@ rather than trusted. Regenerate with `v2_diagnostics.py`.
 | `06_scaling.png` | backgrounds similar across brains; cortex means spread widely; the two channels track each other | a background far from the others (a brain imaged differently) |
 | `07_route_agreement.png` | points on the identity line | a systematic offset, i.e. the warp biasing the comparison |
 | `08_mask_vs_p6bis.png` | red and blue contours on top of each other | the new mask cutting into tissue, or reaching into the surround, where the old one does not |
+| `09_denominators.png` | the two reference channels behave alike across brains; structures sit on the identity line | a structure whose young-adult difference flips sign with the denominator -- that result belongs to the denominator, not to the biology |
+| `sep_channel/<mouse>.png` | written by `P4bis_add_sep_channel.m`: every slice recovered at r = 1.00000, and the registered DAPI of that run on top of the one P4 wrote | a slice below r = 0.99, or a residual shift above a fraction of a pixel: the SEP channel would not be sitting where NANO and AUTO sit |
 
 The numbers behind these are in `../young_vs_adult/region_stats.csv` and
 `../README.md`.
@@ -319,5 +407,5 @@ if __name__ == '__main__':
         print(f'{mouse:20s} sheets written', flush=True)
     if not sys.argv[1:]:
         sheet_coverage(); sheet_cohort_n(); sheet_scaling(); sheet_route_agreement()
-        sheet_mask_vs_p6bis(); write_index()
+        sheet_mask_vs_p6bis(); sheet_denominators(); write_index()
         print('cohort-level sheets and index written')

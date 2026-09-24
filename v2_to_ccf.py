@@ -12,7 +12,7 @@ deformation field.
   young   block-averaged registered volume -> placed back into its age's full
           DeMBA canvas -> brainglobe_ccf_translator from age_PND to P56 in
           allen_mouse -> 660 x 400 x 570 at 20 um. About 2.5 min per volume,
-          three volumes per mouse (sig, auto, tissue).
+          four volumes per mouse where SEP is there (sig, auto, sep, tissue).
   adults  already registered to the CCF crop [180 1079] at 10 um, i.e. exactly
           planes 90..539 of the same 20 um CCF grid, so they are only placed,
           never warped. Warping them would blur them for nothing.
@@ -20,9 +20,11 @@ deformation field.
 The tissue mask travels as a mask (nearest neighbour) and is re-thresholded
 after the transform, so a warped voxel is tissue only if it came from tissue.
 
-Output: data/comparisons_v2/per_mouse_ccf/<mouse>.npz with sig, auto (float16)
-and tissue (bool) on the 660 x 400 x 570 CCF grid at 20 um, plus the scalars
-the per-mouse file carried (backgrounds, cortex mean, cohort, age).
+Output: data/comparisons_v2/per_mouse_ccf/<mouse>.npz with sig, auto and sep
+(float16) and tissue (bool) on the 660 x 400 x 570 CCF grid at 20 um, plus the
+scalars the per-mouse file carried (backgrounds, cortex mean, cohort, age).
+SEP rides exactly the channels it will be divided into, through the same
+transform in the same call, so nothing can drift between them.
 
   D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_to_ccf.py [mouse ...]
 """
@@ -63,12 +65,15 @@ def main(mice):
         cohort, atlas_key = MICE[mouse][:2]
         z = np.load(os.path.join(PER_MOUSE, mouse + '.npz'))
         sig = z['sig'].astype(np.float32); auto = z['auto'].astype(np.float32); tissue = z['tissue']
+        chans = [('sig', sig), ('auto', auto)]
+        if 'sep' in z.files:
+            chans.append(('sep', z['sep'].astype(np.float32)))
         lo, hi = atlas_grid(atlas_key)[1]
 
         if atlas_key == 'ccf':
             # no warp: drop the adult crop into the full CCF grid at 20 um
             out = {}
-            for name, arr, fill in (('sig', sig, 0.0), ('auto', auto, 0.0), ('tissue', tissue, False)):
+            for name, arr, fill in [(n, a, 0.0) for n, a in chans] + [('tissue', tissue, False)]:
                 full = np.full(CCF_SHAPE, fill, arr.dtype)
                 full[CCF_CROP[0]:CCF_CROP[1]] = arr
                 out[name] = full
@@ -76,20 +81,20 @@ def main(mice):
         else:
             age = int(re.search(r'p(\d+)$', atlas_key).group(1))
             out = {}
-            for name, arr, is_mask in (('sig', sig, False), ('auto', auto, False), ('tissue', tissue, True)):
+            for name, arr, is_mask in [(n, a, False) for n, a in chans] + [('tissue', tissue, True)]:
                 full = np.zeros(DEMBA_SHAPE, np.float32)
                 full[lo - 1:hi] = np.where(tissue, arr, 0) if name != 'tissue' else tissue.astype(np.float32)
                 out[name] = to_ccf(full, age, is_mask=is_mask)
                 print(f'  {mouse} {name} warped P{age} -> CCF   {time.time() - t0:.0f} s', flush=True)
             out['tissue'] = out['tissue'] > 0.5
             # a warped value only counts where the warped mask says tissue
-            for name in ('sig', 'auto'):
+            for name, _ in chans:
                 out[name] = np.where(out['tissue'], out[name], 0.0)
 
         np.savez_compressed(os.path.join(OUT, mouse + '.npz'),
-                            sig=out['sig'].astype(np.float16), auto=out['auto'].astype(np.float16),
                             tissue=out['tissue'], cohort=cohort, atlas=atlas_key, age=age,
-                            bg_nano=z['bg_nano'], bg_auto=z['bg_auto'], cortex_mean=z['cortex_mean'])
+                            bg_nano=z['bg_nano'], bg_auto=z['bg_auto'], cortex_mean=z['cortex_mean'],
+                            **{n: out[n].astype(np.float16) for n, _ in chans})
         print(f'{mouse:20s} {cohort:10s} P{age:<3d} tissue {int(out["tissue"].sum()):>10,d} voxels in CCF   '
               f'{time.time() - t0:.0f} s', flush=True)
 

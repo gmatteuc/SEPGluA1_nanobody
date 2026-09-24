@@ -40,7 +40,7 @@ from scipy.ndimage import center_of_mass
 from v2_per_mouse import CSV_MAP, DATA
 from v2_cohort import OUT_ROOT as CCF_ROOT, COHORTS, MODES
 
-MEAN_VMAX = {'cref': 2.0, 'ratio': 2.0, 'subref': 2.0, 'zref': 2.0}   # cortex sits near 1 in both readings; HPF saturates by design
+MEAN_VMAX = {'ratio': 2.0, 'sepratio': 0.6, 'cref': 2.0, 'subref': 2.0, 'zref': 2.0}   # each scaled so cortex sits near half: cref is 1 by construction, adult cortex is 1.01 in ratio and 0.29 in sepratio; HPF saturates by design
 T_PCT = 95.0                              # t panel range: 0 .. this percentile of t over the cohort's voxels
 MIN_N = {'young': 2, 'young_P20': 2, 'young_P16': 1, 'naive': 3, 'rws': 3, 'adult': 5}
 FPS = 12

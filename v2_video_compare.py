@@ -36,7 +36,7 @@ from v2_cohort import COHORTS, OUT_ROOT as CCF_ROOT, MODES
 from v2_compare import MIN_N_YOUNG, MIN_N_ADULT, YOUNG, fold, fold_n
 
 OUT = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult')
-MEAN_VMAX = {'cref': 2.0, 'ratio': 2.0, 'subref': 2.0, 'zref': 2.0}
+MEAN_VMAX = {'ratio': 2.0, 'sepratio': 0.6, 'cref': 2.0, 'subref': 2.0, 'zref': 2.0}
 LOG2_LIM = 1.5
 FPS = 12
 MIN_LABEL_AREA = 150

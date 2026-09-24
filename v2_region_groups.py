@@ -17,7 +17,8 @@ Everything is computed on each brain's OWN atlas, no warping: a group mean is
 the voxel-weighted mean over its member labels in that brain. The three
 readings and the references are the ones v2_region_plot uses (ratio = nano per
 autofluorescence; cref = relative to that brain's isocortex; subref = relative
-to the subcortex excluding HPF and STR; zref = range-matched to each brain's
+to the subcortex excluding HPF and STR; sepratio = nano per unit SEP, i.e.
+surface receptor per unit receptor expressed; zref = range-matched to each brain's
 own spread), and the test is the same Mann-Whitney
 of the six young against the ten adults, uncorrected in the figure, with BH
 q-values in the CSV.
@@ -138,17 +139,30 @@ def main():
         ann = anns[atlas_key]
         z = np.load(os.path.join(PER_MOUSE, mouse + '.npz'))
         sig = z['sig'].astype(np.float32); auto = z['auto'].astype(np.float32); tissue = z['tissue']
-        auto_s = gaussian_filter(np.where(tissue, auto, 0), 1.0) / np.maximum(gaussian_filter(tissue.astype(np.float32), 1.0), 1e-3)
-        ratio = np.clip(np.where(auto_s > 0, sig / np.maximum(auto_s, 1e-3), 0), -RATIO_CLIP, RATIO_CLIP)
+        if 'sep' not in z.files:
+            raise SystemExit(f'{mouse}: no SEP channel in its per-mouse file. Run\n'
+                             f'  P4bis_add_sep_channel.m for this brain, then v2_per_mouse.py.')
+
+        # sig per unit of a reference CHANNEL, the denominator smoothed by one
+        # 20 um voxel and mask-normalised, as in v2_cohort and v2_region_plot
+        def per_unit(ref):
+            ref_s = gaussian_filter(np.where(tissue, ref, 0), 1.0) / np.maximum(
+                gaussian_filter(tissue.astype(np.float32), 1.0), 1e-3)
+            return np.clip(np.where(ref_s > 0, sig / np.maximum(ref_s, 1e-3), 0), -RATIO_CLIP, RATIO_CLIP)
+
+        ratio = per_unit(auto)
+        sepratio = per_unit(z['sep'].astype(np.float32))
         lab = ann[tissue]; nlab = int(ann.max()) + 1
         n = np.bincount(lab, minlength=nlab)
         s_sig = np.bincount(lab, weights=sig[tissue], minlength=nlab)
         s_rat = np.bincount(lab, weights=ratio[tissue], minlength=nlab)
+        s_sep = np.bincount(lab, weights=sepratio[tissue], minlength=nlab)
         per[mouse] = {}
         for key, ids in groups.items():
             ids = [i for i in ids if i < nlab]
             c = n[ids].sum()
-            per[mouse][key] = (int(c), s_sig[ids].sum() / c, s_rat[ids].sum() / c) if c >= 250 else None
+            per[mouse][key] = (int(c), s_sig[ids].sum() / c, s_rat[ids].sum() / c,
+                               s_sep[ids].sum() / c) if c >= 250 else None
         iso = [i for i in stru if divi.get(i) == 'Isocortex' and i < nlab]
         sub_ids = [i for i in stru if divi.get(i, '') not in NOT_SUBCORTEX and i < nlab]
         refs[mouse] = {'cref': s_sig[iso].sum() / n[iso].sum(),
@@ -175,13 +189,16 @@ def main():
         cell = per[mouse].get(key)
         if cell is None:
             return None
-        _, m_sig, m_rat = cell
+        _, m_sig, m_rat, m_sep = cell
         if reading == 'zref':
             if m_sig <= 0:
                 return None
             med, spread = norm[mouse]
             return (math.log2(m_sig / refs[mouse]['cref']) - med) / spread
-        v = m_rat if reading == 'ratio' else m_sig / refs[mouse][reading]
+        if reading in ('ratio', 'sepratio'):
+            v = m_rat if reading == 'ratio' else m_sep
+        else:
+            v = m_sig / refs[mouse][reading]
         return math.log2(v) if v > 0 else None
 
     # ------------------------------------------------------------- stats
@@ -249,8 +266,9 @@ def main():
                     ax.text(i, hi - 0.04 * (hi - lo), st, ha='center', va='top', fontsize=12, color=COL['young'])
             ax.axhline(0, color='k', lw=0.6)
             ax.set_title(rtitle, fontsize=10.5, loc='left')
-            ax.set_ylabel({'ratio': 'log2  nano / auto', 'cref': 'log2  vs own isocortex',
-                           'subref': 'log2  vs subcortex', 'zref': 'range-matched'}[reading], fontsize=10)
+            ax.set_ylabel({'ratio': 'log2  nano / auto', 'sepratio': 'log2  nano / SEP',
+                           'cref': 'log2  vs own isocortex', 'subref': 'log2  vs subcortex',
+                           'zref': 'range-matched'}[reading], fontsize=10)
             ax.grid(axis='y', lw=0.3, alpha=0.6); ax.set_xlim(-0.7, len(keys) - 0.3)
         axes[0].legend(loc='lower left', fontsize=9, frameon=True, framealpha=0.9, edgecolor='none', ncol=3)
         axes[-1].set_xticks(range(len(keys)))

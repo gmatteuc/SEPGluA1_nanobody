@@ -31,6 +31,7 @@ Scripts run in order; each stage writes into `D:\sep_histology\data\`.
 | P2bis | `P2bis_nano_correction_analysis.m` | Nano-channel correction |
 | P3 | `P3_annotate_artifacts.m` | **Manual** artifact annotation (`ArtifactAnnotator.m`) |
 | P4 | `P4_register_to_atlas.m` | Register to Allen CCF (elastix, affine + B-spline) |
+| P4bis | `P4bis_add_sep_channel.m` | Carry the SEP (green) channel into registered space by **re-applying** the saved transforms — adds `volume_registered_sep\`, changes nothing that exists |
 | P5 | `P5_collect_data_by_group.m` | Assemble per-group 4D volumes across mice |
 | P6bis | `P6bis_analyze_group_averages_and_normalize.m` | Per-mouse equalisation + normalisation |
 | P7bis | `P7bis_analyze_group_differences.m` | Group-difference analyses |
@@ -40,6 +41,32 @@ Scripts run in order; each stage writes into `D:\sep_histology\data\`.
 
 `P6bis` / `P7bis` / `P8` / `P9` take a `channel` parameter (`'nano'` | `'auto'`) at the
 top of the script; the channel is rolled into output folder names so runs never collide.
+
+## The v2 route (young vs adult)
+
+P5–P8 were built for adults on one atlas, and reused across ages they answer the
+wrong question (details in `data\comparisons_v2\README.md`). The cross-age
+comparison runs on a separate chain of Python scripts, which reads the registered
+volumes directly and writes only under `data\comparisons_v2\`:
+
+| Script | Purpose |
+|---|---|
+| `v2_per_mouse.py` | per brain, on the atlas of **its own age**: tissue mask, background-subtracted nano, auto and SEP |
+| `v2_to_ccf.py` | each young brain carried DeMBA → CCF at its own age; adults are placed, not warped |
+| `v2_cohort.py` | per-voxel cohort mean, SD and n, in the adult CCF |
+| `v2_compare.py` | young against adult: maps, the per-structure table |
+| `v2_region_plot.py` | the statistics, per-mouse region means with **no warping anywhere** |
+| `v2_region_groups.py` | the same by system (primary vs higher sensory, frontal…) and by cortical layer |
+| `v2_video.py`, `v2_video_compare.py` | plane-by-plane videos, per cohort and young beside adult |
+| `v2_diagnostics.py` | the sheets that make each step checkable by eye |
+
+Five readings run through all of it, and none of them replaces another: `ratio`
+(nano per unit autofluorescence), `sepratio` (nano per unit SEP, i.e. surface
+receptor per unit receptor expressed), `cref` and `subref` (relative to the
+brain's own isocortex / subcortex) and `zref` (range-matched).
+
+Run them with the project venv:
+`tools\venv_atlas\Scripts\python.exe v2_per_mouse.py`
 
 ### Important caveat on what the pipeline measures
 

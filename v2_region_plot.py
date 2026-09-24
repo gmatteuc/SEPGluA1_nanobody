@@ -10,13 +10,19 @@ the resulting per-mouse means are compared. Pooling ages is therefore clean
 here in a way it is not for a voxelwise map, where the young brains have to be
 carried into the CCF first (v2_to_ccf).
 
-Per mouse and structure: the mean of ratio (sig/auto) and of sig over the
+Per mouse and structure: the mean of sig, of sig/auto and of sig/SEP over the
 tissue voxels, then per mouse
   ratio                       nano per unit autofluorescence, no reference.
                               Not an absolute measure: the young cortex is
                               2.0 log2 below the adult in nano and 1.0 log2
                               below it in auto, so the denominator carries its
                               own age effect (see v2_cohort).
+  sepratio                    nano per unit SEP, i.e. receptor on the membrane
+                              per unit receptor expressed, SEP being the tag on
+                              GluA1 itself. A better-posed denominator than
+                              autofluorescence and a differently blind one: it
+                              divides out any change in expression, which may
+                              be part of what is being looked for.
   sig / isocortex mean        share of the cortex
   sig / subcortex-HPF-STR     share of the subcortex without the two
                               structures that dominate the scale
@@ -75,6 +81,7 @@ AREAS = ['VISp', 'VISl', 'VISal', 'VISrl', 'VISpm', 'VISam', 'SSp-bfd', 'SSp-ul'
          '|', 'VPM', 'VPL', 'LGd', 'LP', 'CP', 'ACB', 'CA1', 'CA3', 'DG', 'GPe', 'PVH', 'ZI']
 NOT_SUBCORTEX = {'Isocortex', 'HPF', 'STR', 'OLF', 'CTXsp', 'fiber tracts', 'VS', 'CB', ''}
 READINGS = [('ratio', 'nanobody / autofluorescence, both background-subtracted  (log2)'),
+            ('sepratio', 'nanobody / SEP, i.e. surface receptor per unit receptor expressed  (log2)'),
             ('cref', 'background-subtracted nanobody, relative to the mouse\'s own isocortex  (log2)'),
             ('subref', 'background-subtracted nanobody, relative to subcortex excluding HPF and STR  (log2)'),
             ('zref', "range-matched: cortex-relative, then centred and scaled by each brain's own spread")]
@@ -161,19 +168,34 @@ def main():
         ann = anns[atlas_key]
         z = np.load(os.path.join(PER_MOUSE, mouse + '.npz'))
         sig = z['sig'].astype(np.float32); auto = z['auto'].astype(np.float32); tissue = z['tissue']
-        auto_s = gaussian_filter(np.where(tissue, auto, 0), 1.0) / np.maximum(gaussian_filter(tissue.astype(np.float32), 1.0), 1e-3)
-        ratio = np.clip(np.where(auto_s > 0, sig / np.maximum(auto_s, 1e-3), 0), -RATIO_CLIP, RATIO_CLIP)
+        if 'sep' not in z.files:
+            raise SystemExit(f'{mouse}: no SEP channel in its per-mouse file. Run\n'
+                             f'  P4bis_add_sep_channel.m for this brain, then v2_per_mouse.py.')
+
+        # sig divided by a reference CHANNEL, voxel by voxel: the denominator is
+        # smoothed by one 20 um voxel and mask-normalised, exactly as v2_cohort
+        # does it, so a region mean here and a voxel there mean the same thing.
+        def per_unit(ref):
+            ref_s = gaussian_filter(np.where(tissue, ref, 0), 1.0) / np.maximum(
+                gaussian_filter(tissue.astype(np.float32), 1.0), 1e-3)
+            return np.clip(np.where(ref_s > 0, sig / np.maximum(ref_s, 1e-3), 0), -RATIO_CLIP, RATIO_CLIP)
+
+        ratio = per_unit(auto)
+        sepratio = per_unit(z['sep'].astype(np.float32))
         lab = ann[tissue]; nlab = int(ann.max()) + 1
         n = np.bincount(lab, minlength=nlab)
         s_sig = np.bincount(lab, weights=sig[tissue], minlength=nlab)
         s_rat = np.bincount(lab, weights=ratio[tissue], minlength=nlab)
-        d = defaultdict(lambda: [0, 0.0, 0.0])
+        s_sep = np.bincount(lab, weights=sepratio[tissue], minlength=nlab)
+        d = defaultdict(lambda: [0, 0.0, 0.0, 0.0])
         for idx in np.nonzero(n)[0]:
             if idx == 0:
                 continue
             key = names.get(int(idx), f'id{idx}')
-            d[key][0] += int(n[idx]); d[key][1] += s_sig[idx]; d[key][2] += s_rat[idx]
-        per[mouse] = {k: (v[0], v[1] / v[0], v[2] / v[0]) for k, v in d.items() if v[0] >= MIN_VOX}
+            d[key][0] += int(n[idx]); d[key][1] += s_sig[idx]
+            d[key][2] += s_rat[idx]; d[key][3] += s_sep[idx]
+        per[mouse] = {k: (v[0], v[1] / v[0], v[2] / v[0], v[3] / v[0])
+                      for k, v in d.items() if v[0] >= MIN_VOX}
         print(f'{mouse:20s} {atlas_key:10s} {len(per[mouse])} structures', flush=True)
 
     meta = {nm: (acro[idx], divi.get(idx, '')) for idx, nm in names.items()}
@@ -182,7 +204,7 @@ def main():
 
     def ref(m, pred):
         s = c = 0.0
-        for k, (n, ms, _) in per[m].items():
+        for k, (n, ms, _, _) in per[m].items():
             if pred(meta.get(k, ('', ''))[1]):
                 s += ms * n; c += n
         return s / c if c else float('nan')
@@ -209,13 +231,18 @@ def main():
     def value(reading, m, k):
         if k is None or k not in per[m]:
             return None
-        n, ms, mr = per[m][k]
+        n, ms, mr, msep = per[m][k]
         if reading == 'zref':
             if ms <= 0:
                 return None
             med, spread = norm[m]
             return (math.log2(ms / refs[m]['cref']) - med) / spread
-        v = mr if reading == 'ratio' else ms / refs[m][reading]
+        # ratio and sepratio are already ratios, taken voxel by voxel against a
+        # channel; the rest divide sig by a single number measured on this brain
+        if reading in ('ratio', 'sepratio'):
+            v = mr if reading == 'ratio' else msep
+        else:
+            v = ms / refs[m][reading]
         return math.log2(v) if v > 0 else None
 
     # ------------------------------------------------------- tables
@@ -286,7 +313,8 @@ def main():
     # young animal among six. The bar is the group MEDIAN, to match the rank-sum
     # test that puts the stars on.
     star_of = {(r[0], r[2]): ('**' if r[11] < 0.01 else ('*' if r[11] < 0.05 else '')) for r in rows_st}
-    ylab = {'ratio': 'log2  nano / auto', 'cref': 'log2  relative to own isocortex',
+    ylab = {'ratio': 'log2  nano / auto', 'sepratio': 'log2  nano / SEP',
+            'cref': 'log2  relative to own isocortex',
             'subref': 'log2  relative to subcortex', 'zref': 'range-matched (median 0, spread 1)'}
     fig, axes = plt.subplots(len(READINGS), 1, figsize=(15, 3.8 * len(READINGS)), sharex=True)
     xs = [i for i, a in enumerate(AREAS) if a != '|']
