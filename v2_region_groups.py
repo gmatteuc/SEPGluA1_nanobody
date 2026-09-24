@@ -151,7 +151,7 @@ def main():
             return np.clip(np.where(ref_s > 0, sig / np.maximum(ref_s, 1e-3), 0), -RATIO_CLIP, RATIO_CLIP)
 
         ratio = per_unit(auto)
-        sepratio = per_unit(z['sep'].astype(np.float32))
+        sepratio = per_unit(z['sep'].astype(np.float32)) if 'sep' in z.files else np.zeros_like(sig)
         lab = ann[tissue]; nlab = int(ann.max()) + 1
         n = np.bincount(lab, minlength=nlab)
         s_sig = np.bincount(lab, weights=sig[tissue], minlength=nlab)

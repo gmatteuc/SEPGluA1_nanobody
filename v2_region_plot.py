@@ -72,7 +72,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from v2_per_mouse import annotation_20, MICE, CSV_MAP, OUT as PER_MOUSE, DATA
-from v2_cohort import RATIO_CLIP, YOUNG_P20, YOUNG_P16, YOUNG_P22, NAIVE, RWS
+from v2_cohort import RATIO_CLIP, YOUNG_P20, YOUNG_P16, YOUNG_P22, NAIVE, RWS, MODES
 
 OUT = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult')
 MIN_VOX = 250      # 20 um voxels = 2 nl, the same volume as the earlier tables
@@ -85,6 +85,10 @@ READINGS = [('ratio', 'nanobody / autofluorescence, both background-subtracted  
             ('cref', 'background-subtracted nanobody, relative to the mouse\'s own isocortex  (log2)'),
             ('subref', 'background-subtracted nanobody, relative to subcortex excluding HPF and STR  (log2)'),
             ('zref', "range-matched: cortex-relative, then centred and scaled by each brain's own spread")]
+# V2_READINGS (see v2_cohort) drops a reading from the tables and figures as
+# well, so one variable covers the whole chain. v2_region_groups imports this
+# list and follows it.
+READINGS = [r for r in READINGS if r[0] in MODES]
 GROUPS = {'young': YOUNG_P20 + YOUNG_P16 + YOUNG_P22, 'naive': NAIVE, 'rws': RWS}
 ADULTS = NAIVE + RWS
 COL = {'young': '#c0392b', 'naive': '#555555', 'rws': '#9a9a9a'}
@@ -181,7 +185,7 @@ def main():
             return np.clip(np.where(ref_s > 0, sig / np.maximum(ref_s, 1e-3), 0), -RATIO_CLIP, RATIO_CLIP)
 
         ratio = per_unit(auto)
-        sepratio = per_unit(z['sep'].astype(np.float32))
+        sepratio = per_unit(z['sep'].astype(np.float32)) if 'sep' in z.files else np.zeros_like(sig)
         lab = ann[tissue]; nlab = int(ann.max()) + 1
         n = np.bincount(lab, minlength=nlab)
         s_sig = np.bincount(lab, weights=sig[tissue], minlength=nlab)

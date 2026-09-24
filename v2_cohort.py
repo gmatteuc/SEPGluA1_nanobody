@@ -72,6 +72,23 @@ OUT_ROOT = os.path.join(V2, 'ccf')
 RATIO_CLIP = 20.0
 Z_FLOOR = 0.02        # of the cortex mean, so log2 stays finite in the dimmest tissue
 MODES = ('ratio', 'sepratio', 'cref', 'subref', 'zref')
+
+# Any reading can be dropped from every figure, table and video without touching
+# the data: set V2_READINGS to a comma-separated subset. The readings are
+# computed independently of one another, so whatever is already on disk stays
+# valid and only the scripts that draw have to be re-run.
+#
+#   $env:V2_READINGS = 'ratio,cref,subref,zref'     (PowerShell)
+#
+# v2_region_plot filters its READINGS by this, and v2_region_groups follows it,
+# so one variable covers the whole chain.
+_want = os.environ.get('V2_READINGS', '').strip()
+if _want:
+    chosen = tuple(s.strip() for s in _want.split(',') if s.strip())
+    unknown = [c for c in chosen if c not in MODES]
+    if unknown:
+        raise SystemExit(f'V2_READINGS: no such reading {unknown}; choose from {list(MODES)}')
+    MODES = chosen
 NOT_SUBCORTEX = {'Isocortex', 'HPF', 'STR', 'OLF', 'CTXsp', 'fiber tracts', 'VS', 'CB', ''}
 
 YOUNG_P20 = ['MG897_SepGluA_P20', 'MG903_SepGluA_P20', 'MG913_SepGluA_P20',
@@ -149,10 +166,12 @@ def mouse_modes(mouse):
     """(dict of mode -> volume with NaN off tissue, tissue mask) for one brain in CCF."""
     z = np.load(os.path.join(PER_MOUSE_CCF, mouse + '.npz'))
     sig = z['sig'].astype(np.float32); auto = z['auto'].astype(np.float32); tissue = z['tissue']
-    if 'sep' not in z.files:
+    # Only the reading that needs SEP requires the channel to be there, so the
+    # chain still runs on a brain P4bis has not reached yet.
+    if 'sepratio' in MODES and 'sep' not in z.files:
         raise SystemExit(f'{mouse}: no SEP channel in its per-mouse CCF file. Run\n'
-                         f'  P4bis_add_sep_channel.m for this brain, then v2_per_mouse.py and v2_to_ccf.py.')
-    sep = z['sep'].astype(np.float32)
+                         f'  P4bis_add_sep_channel.m for this brain, then v2_per_mouse.py and v2_to_ccf.py,\n'
+                         f'  or drop the reading with V2_READINGS.')
     sc = mouse_scalars(mouse)
 
     def per_unit(ref):
@@ -172,9 +191,12 @@ def mouse_modes(mouse):
     subref = np.where(tissue, sig / sc['subcortex_mean'], np.nan)
     floored = np.maximum(sig / sc['cortex_mean'], Z_FLOOR)
     zref = np.where(tissue, (np.log2(floored) - sc['z_median']) / sc['z_spread'], np.nan)
-    return ({'ratio': per_unit(auto), 'sepratio': per_unit(sep),
-             'cref': cref.astype(np.float32), 'subref': subref.astype(np.float32),
-             'zref': zref.astype(np.float32)}, tissue)
+    out = {'ratio': lambda: per_unit(auto),
+           'sepratio': lambda: per_unit(z['sep'].astype(np.float32)),
+           'cref': lambda: cref.astype(np.float32),
+           'subref': lambda: subref.astype(np.float32),
+           'zref': lambda: zref.astype(np.float32)}
+    return ({k: out[k]() for k in MODES}, tissue)
 
 
 def main():

@@ -279,11 +279,14 @@ def sheet_mask_vs_p6bis():
                     old[:, j] = q.reshape(mine.shape[1], 2).mean(axis=1)
                 ax = axes[row, col]
                 show(ax, sig[k], mine[k])
-                ax.contour((old > 0.5).astype(float).T, levels=[0.5], colors='#3498db', linewidths=0.9, linestyles='--')
-                ax.contour((ann[k] > 0).astype(float), levels=[0.5], colors='#3498db', linewidths=0.6)
+                # Both are (DV, ML) like the plane underneath them, so neither is
+                # transposed. The .T that used to be here belonged to the days
+                # when show() turned the plane on its side.
+                ax.contour((old > 0.5).astype(float), levels=[0.5], colors='#3498db', linewidths=0.9, linestyles='--')
+                ax.contour((ann[k] > 0).astype(float), levels=[0.5], colors='#cccccc', linewidths=0.6)
                 agree = 2 * (mine[k] & (old > 0.5)).sum() / max(mine[k].sum() + (old > 0.5).sum(), 1)
                 ax.set_title(f'{mouse}  plane {k}   Dice {agree:.3f}', fontsize=10)
-    fig.suptitle('red = v2 mask (auto channel), blue dashed = P6bis mask (nano channel), green = atlas brain.\n'
+    fig.suptitle('red = v2 mask (auto channel), blue dashed = P6bis mask (nano channel), grey = atlas brain.\n'
                  'Swapping one for the other moves every cortical result by at most 0.02 log2', fontsize=11)
     fig.tight_layout(rect=(0, 0, 1, 0.94))
     save_figure(fig, os.path.join(OUT, '08_mask_vs_p6bis.png'), dpi=95); plt.close(fig)
