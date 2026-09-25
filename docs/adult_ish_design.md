@@ -186,6 +186,74 @@ interval width; treat q as a tie-breaker between features of similar size.
 strip most of the annotation off the less-studied genes and quietly bias the comparison
 towards genes somebody has already studied by hand.
 
+## Membrane pool or total receptor — and why the SEP arm cannot answer it (26 Sep 2026)
+
+Giulio's objection, and it is correct: Gria1, Cacng8, Dlg2 and Grip1 are **all** postsynaptic,
+so the postsynaptic-versus-presynaptic result above separates compartments but says nothing
+about surface pool versus total receptor. No gene grouping can — SynGO included — because
+both hypotheses predict a postsynaptic map. The discriminating axis is between **channels**.
+
+`v2_adult_arms.py` puts three on one footing, per adult per structure, checked against
+`v2_region_plot` on the two arms they share (max difference 5e-5, which is half the last
+digit that table stores):
+
+| arm | meaning it was supposed to have |
+|---|---|
+| `sepauto` = SEP / auto | total receptor |
+| `ratio` = nano / auto | surface receptor |
+| `sepratio` = nano / SEP | the surface fraction |
+
+**It failed, and the failure is the result.** `SEP / auto` correlates with Gria1 expression
+at **−0.11**, where plain nano manages +0.62. That sent us to the channels themselves, with
+no denominators anywhere — `v2_sep_channel_check.py`, figure `sep_channel_check.png`:
+
+| measured on structure means, 10 adults | |
+|---|---|
+| dynamic range (p90−p10, log2): nano / autofluo / **SEP** | 1.93 ± 0.26 / 1.07 ± 0.16 / **0.95 ± 0.16** |
+| SEP ~ autofluorescence | **+0.791 ± 0.036** |
+| SEP ~ nano | +0.487 ± 0.105 |
+| nano ~ autofluorescence | +0.257 ± 0.110 |
+| against Gria1: nano / autofluo / SEP / SEP−autofluo | +0.604 / +0.232 / +0.299 / +0.120 |
+
+**In this fixed, cleared tissue the green channel is mostly autofluorescence.** It varies
+less across the brain than the autofluorescence channel does, and it tracks it at 0.79 in
+every one of the ten brains while nano tracks it at 0.26. Subtracting the autofluorescence
+component linearly leaves a residual that correlates with Gria1 at only +0.12.
+
+Three consequences, and they reach backwards through the project:
+
+1. **`sepratio` is not a surface fraction.** It is nano divided by a second
+   autofluorescence-like channel, which is exactly why it tracks `ratio` at ρ 0.89–0.97
+   within every mouse and why it never sharpened the Gria1 dissociation. Wherever
+   `nano/SEP` is described as "receptor on the membrane per unit receptor expressed" —
+   including in `v2_cohort`'s own header and in the young-vs-adult README — that reading
+   needs the caveat.
+2. **The three-arm validation cannot be run on this data.** It is not a coding problem and
+   no reanalysis fixes it; it needs a channel that actually reports total receptor.
+3. **What survives is the partial correlation**, which never used the green channel:
+
+**Test 2 — Gria1 partialled out of the nano map.** Even a perfect surface map correlates
+with Gria1, because there is no surface receptor where there is no receptor. So: what does
+the nano map still explain once Gria1 expression is removed? Over 33 auxiliary /
+trafficking / scaffold genes, on ranks:
+
+| arm | machinery median partial ρ | positive |
+|---|---|---|
+| `ratio` (nano / auto) | **+0.116** | 20 / 33 |
+| `sepratio` | +0.138 | 21 / 33 |
+| `sepauto` | −0.054 | 12 / 33 |
+
+with Cacng8 **+0.539**, Cnih2 +0.497, Dlg2 +0.412, Grm5 +0.378 in the `ratio` arm. So the
+nano map carries spatial structure that AMPAR anchoring and trafficking genes predict and
+that GluA1 mRNA does not account for. That is the strongest version of the argument the
+current data supports — and it is suggestive, not decisive, because mRNA is not protein:
+a regional translation or turnover gradient would look the same.
+
+**What would settle it,** in order of how decisive: a total-GluA1 antibody stain (or
+autoradiography) on a subset of the same brains, giving a genuine total-receptor channel
+and with it the three-arm figure; or a knockout / no-primary control, which tests specificity
+rather than surface-versus-total. Both are wet-lab asks, not analysis.
+
 ## Decisions and why
 
 **D1 — Region-level correlation.** Voxel-level stays out of the core; it can be a

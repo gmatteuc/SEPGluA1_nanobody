@@ -23,13 +23,16 @@ measured on the brain itself:
           would overstate a pup excess. Treat it as a bound, not a value.
   sepratio
           sig / SEP per voxel, the same arithmetic with the green channel as
-          the denominator. SEP is the tag on GluA1 itself, so this one reads as
-          receptor on the membrane per unit receptor expressed -- a quantity
-          with a meaning, where nano/auto is only nano per unit tissue. It has
-          its own weakness, though, and the opposite one: if expression itself
-          changes with age, this reading divides the effect out. Between the
-          two, ratio is blind to expression and sepratio is blind to a common
-          scaling of both pools; they are kept side by side for that reason.
+          the denominator. **It does not mean what it was built to mean.** SEP
+          is the tag on GluA1 itself, so this was meant to read as receptor on
+          the membrane per unit receptor expressed. Measured directly, the green
+          channel in this fixed, cleared tissue is mostly autofluorescence --
+          rho 0.79 +- 0.04 against the autofluorescence channel in all ten
+          adults, dynamic range 0.95 log2 against autofluo's 1.07 and nano's
+          1.93 (v2_sep_channel_check.py). So this reading is nano over a second
+          autofluorescence-like channel and tracks `ratio` at rho 0.89 to 0.97
+          within every mouse. Kept, because it is what established that and
+          because the maps are already made, but it is not a surface fraction.
   cref    sig / (that mouse's isocortex mean of sig, measured natively before
           any warp): a pure scale, so region ratios within a mouse survive
           exactly. Cortex-relative by construction, hence blind to a change

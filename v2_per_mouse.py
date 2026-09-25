@@ -19,10 +19,12 @@ registered 10 um-equivalent grid):
   sig      nano minus the mouse's scalar off-tissue background (raw counts)
   auto     auto minus its own off-tissue background
   sep      the SEP (green) channel, same treatment, where P4bis has carried it
-           into registered space. It is the tagged receptor itself, so nano/sep
-           reads as surface per unit receptor expressed, against nano/auto's
-           surface per unit tissue. Both are kept: which one answers the
-           question better is something only the finished maps can say.
+           into registered space. It was carried across so that nano/sep could
+           read as surface per unit receptor expressed, against nano/auto's
+           surface per unit tissue. It does not: v2_sep_channel_check.py finds
+           this channel dominated by autofluorescence in fixed, cleared tissue.
+           Kept because it is a real measurement and the check needs it, but do
+           not read nano/sep as a surface fraction.
   plus two scalars: the isocortex mean of sig (the pure-scale cortex
   reference for the 'cref' mode downstream) and the backgrounds.
 

@@ -62,8 +62,9 @@ volumes directly and writes only under `data\comparisons_v2\`:
 | `v2_diagnostics.py` | the sheets that make each step checkable by eye |
 
 Five readings run through all of it, and none of them replaces another: `ratio`
-(nano per unit autofluorescence), `sepratio` (nano per unit SEP, i.e. surface
-receptor per unit receptor expressed), `cref` and `subref` (relative to the
+(nano per unit autofluorescence), `sepratio` (nano per unit SEP — intended as
+surface receptor per unit receptor expressed, but see `v2_sep_channel_check.py`:
+the green channel is mostly autofluorescence here, so it is not), `cref` and `subref` (relative to the
 brain's own isocortex / subcortex) and `zref` (range-matched).
 
 Run them with the project venv:

@@ -17,11 +17,15 @@ tissue voxels, then per mouse
                               2.0 log2 below the adult in nano and 1.0 log2
                               below it in auto, so the denominator carries its
                               own age effect (see v2_cohort).
-  sepratio                    nano per unit SEP, i.e. receptor on the membrane
-                              per unit receptor expressed, SEP being the tag on
-                              GluA1 itself. A better-posed denominator than
-                              autofluorescence and a differently blind one: it
-                              divides out any change in expression, which may
+  sepratio                    nano per unit SEP. This was meant to be receptor
+                              on the membrane per unit receptor expressed, SEP
+                              being the tag on GluA1 itself, and it is not:
+                              v2_sep_channel_check.py finds the green channel
+                              dominated by autofluorescence in this tissue, so
+                              the reading behaves as a second nano/autofluo.
+                              The description that follows is what it was
+                              intended to be, kept because the reading is still
+                              computed and plotted: it
                               be part of what is being looked for.
   sig / isocortex mean        share of the cortex
   sig / subcortex-HPF-STR     share of the subcortex without the two
@@ -82,7 +86,7 @@ AREAS = ['VISp', 'VISl', 'VISal', 'VISrl', 'VISpm', 'VISam', 'SSp-bfd', 'SSp-ul'
          '|', 'VPM', 'VPL', 'LGd', 'LP', 'CP', 'ACB', 'CA1', 'CA3', 'DG', 'GPe', 'PVH', 'ZI']
 NOT_SUBCORTEX = {'Isocortex', 'HPF', 'STR', 'OLF', 'CTXsp', 'fiber tracts', 'VS', 'CB', ''}
 READINGS = [('ratio', 'nanobody / autofluorescence, both background-subtracted  (log2)'),
-            ('sepratio', 'nanobody / SEP, i.e. surface receptor per unit receptor expressed  (log2)'),
+            ('sepratio', 'nanobody / SEP  -  NOT a surface fraction: SEP is mostly autofluorescence here  (log2)'),
             ('cref', 'background-subtracted nanobody, relative to the mouse\'s own isocortex  (log2)'),
             ('subref', 'background-subtracted nanobody, relative to subcortex excluding HPF and STR  (log2)'),
             ('zref', "range-matched: cortex-relative, then centred and scaled by each brain's own spread")]

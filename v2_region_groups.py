@@ -17,8 +17,9 @@ Everything is computed on each brain's OWN atlas, no warping: a group mean is
 the voxel-weighted mean over its member labels in that brain. The three
 readings and the references are the ones v2_region_plot uses (ratio = nano per
 autofluorescence; cref = relative to that brain's isocortex; subref = relative
-to the subcortex excluding HPF and STR; sepratio = nano per unit SEP, i.e.
-surface receptor per unit receptor expressed; zref = range-matched to each brain's
+to the subcortex excluding HPF and STR; sepratio = nano per unit SEP, which was
+meant to be surface receptor per unit receptor expressed and is not -- the green
+channel is mostly autofluorescence here, see v2_sep_channel_check.py; zref = range-matched to each brain's
 own spread), and the test is the same Mann-Whitney
 of the young group against the adults, uncorrected in the figure, with BH
 q-values in the CSV.
