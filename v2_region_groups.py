@@ -58,17 +58,17 @@ LABEL = {'young': f'young P16-P22 (n = {len(YOUNG_P20) + len(YOUNG_P16) + len(YO
 # critical-period argument rests on: a thalamorecipient primary area and its
 # higher-order neighbours mature on different schedules.
 SYSTEMS = [
-    ('primary visual', lambda a: a == 'VISp'),
+    ('primary visual (VISp)', lambda a: a == 'VISp'),
     # RL and AL stand apart from the rest of the higher visual belt: they sit on
     # the visual-somatosensory border and are the ones that look modulated in
     # the maps, so Sami asked for them as a group of their own rather than
     # averaged into the belt that surrounds them.
     ('associative VT (RL+AL)', lambda a: a in ('VISrl', 'VISal')),
-    ('higher visual', lambda a: a.startswith('VIS') and a not in ('VISp', 'VISC', 'VISrl', 'VISal')),
-    ('primary somatosensory', lambda a: a.startswith('SSp')),
-    ('higher somatosensory', lambda a: a == 'SSs'),
-    ('primary auditory', lambda a: a == 'AUDp'),
-    ('higher auditory', lambda a: a.startswith('AUD') and a != 'AUDp'),
+    ('higher visual (all other)', lambda a: a.startswith('VIS') and a not in ('VISp', 'VISC', 'VISrl', 'VISal')),
+    ('primary somatosensory (SSp)', lambda a: a.startswith('SSp')),
+    ('higher somatosensory (SSs)', lambda a: a == 'SSs'),
+    ('primary auditory (AUDp)', lambda a: a == 'AUDp'),
+    ('higher auditory (AUDd/po/v)', lambda a: a.startswith('AUD') and a != 'AUDp'),
     ('frontal', lambda a: a.startswith(('ACA', 'ORB')) or a in ('PL', 'ILA', 'FRP', 'DP')),
     ('motor', lambda a: a in ('MOp', 'MOs')),
     ('retrosplenial', lambda a: a.startswith('RSP')),
@@ -76,9 +76,11 @@ SYSTEMS = [
 ]
 # the laminar figure would be unreadable with every system on it; these are the
 # ones the layer question is actually about
-LAMINAR_SYSTEMS = ('primary visual', 'associative VT (RL+AL)', 'higher visual',
-                   'primary somatosensory', 'higher somatosensory',
-                   'primary auditory', 'higher auditory', 'frontal', 'retrosplenial')
+# Naming: every sensory system says in brackets what it contains, so a reader
+# never has to guess whether RL and AL are also inside 'higher visual'.
+LAMINAR_SYSTEMS = ('primary visual (VISp)', 'associative VT (RL+AL)', 'higher visual (all other)',
+                   'primary somatosensory (SSp)', 'higher somatosensory (SSs)',
+                   'primary auditory (AUDp)', 'higher auditory (AUDd/po/v)', 'frontal', 'retrosplenial')
 # and the subcortical side, taken straight from the ontology's division
 DIVISIONS = [('thalamus', 'TH'), ('striatum', 'STR'), ('pallidum', 'PAL'), ('hippocampus', 'HPF'),
              ('hypothalamus', 'HY'), ('midbrain', 'MB'), ('olfactory', 'OLF'), ('cortical subplate', 'CTXsp')]
