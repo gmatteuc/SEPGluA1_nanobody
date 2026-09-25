@@ -83,7 +83,7 @@ LOG2_FLOOR = 0.02
 # reading is a position within a brain's own range: compared by difference,
 # drawn diverging, scaled -v..+v.
 SIGNED_READINGS = ('zref',)
-VMAX = {'zref': 1.0, 'cref': 2.0, 'subref': 2.0, 'ratio': 2.0, 'sepratio': 0.6}
+VMAX = {'zref': 0.9, 'cref': 2.0, 'subref': 2.0, 'ratio': 2.0, 'sepratio': 0.6}
 DLIM = {'zref': 0.5, 'cref': 1.0, 'subref': 1.0, 'ratio': 1.0, 'sepratio': 1.0}
 PLANE = 790                              # CCF plane at 10 um, where RL and AL are cut
 # Sigma in 20 um voxels, along (AP, DV, ML). Anisotropic on purpose: the
@@ -118,6 +118,21 @@ def save_figure(fig, path, dpi):
         alt = path.replace('.png', '_new.png')
         fig.savefig(alt, dpi=dpi, facecolor='k')
         print(f'  NOTE: {os.path.basename(path)} is open elsewhere; wrote {os.path.basename(alt)}', flush=True)
+
+    # An EPS beside it, because that is what goes into a figure. PostScript has
+    # no transparency, so the image layers are rasterised and composited by Agg
+    # first -- otherwise a no-data region, which is transparent here, would come
+    # out opaque black instead of showing the ground beneath it. Text, lines and
+    # axes stay vector, which is the part that has to be editable.
+    eps = os.path.splitext(path)[0] + '.eps'
+    for ax in fig.axes:
+        for im in ax.images:
+            im.set_rasterized(True)
+    try:
+        fig.savefig(eps, dpi=dpi, facecolor=fig.get_facecolor(), format='eps')
+    except OSError:
+        print(f'  NOTE: {os.path.basename(eps)} is open elsewhere; the PNG was still written', flush=True)
+
 
 
 def cohort_size(cohort):
@@ -187,7 +202,7 @@ def boundaries(lab):
     return b & (lab > 0)
 
 
-def coronal_frame(fig, axes, caxes, k, panels, ann_h, acro, header):
+def coronal_frame(fig, axes, caxes, k, panels, ann_h, acro, header, vector_outline=False):
     lab = ann_h[k]; inside = lab > 0; bnd = boundaries(lab)
     for ax, cax, (im, cmap, lim, ttl) in zip(axes, caxes, panels):
         ax.clear(); cax.clear()
@@ -195,8 +210,16 @@ def coronal_frame(fig, axes, caxes, k, panels, ann_h, acro, header):
         ax.imshow(bg, origin='upper', interpolation='nearest', aspect='equal')
         h = ax.imshow(np.ma.masked_invalid(np.where(inside, im, np.nan)), cmap=cmap,
                       vmin=lim[0], vmax=lim[1], origin='upper', interpolation='nearest', aspect='equal')
-        ov = np.zeros(lab.shape + (4,)); ov[bnd] = (0.75, 0.75, 0.75, 0.9)
-        ax.imshow(ov, origin='upper', interpolation='nearest', aspect='equal')
+        if vector_outline:
+            # Real lines rather than a pixel overlay, so the atlas survives into
+            # the EPS as its own editable layer instead of being baked into the
+            # image -- it can then be restyled or removed in Illustrator. It
+            # costs about a second per panel, which is fine for a still and not
+            # for the hundreds of frames of a video.
+            ax.contour(bnd.astype(float), levels=[0.5], colors='#bfbfbf', linewidths=0.3)
+        else:
+            ov = np.zeros(lab.shape + (4,)); ov[bnd] = (0.75, 0.75, 0.75, 0.9)
+            ax.imshow(ov, origin='upper', interpolation='nearest', aspect='equal')
         for idx in np.unique(lab):
             if idx == 0:
                 continue
@@ -237,7 +260,7 @@ def coronal(reading, vals, diff, both, plane, lim_mean, cmaps, sigma_txt, want_v
                 f'{sigma_txt}, colour range tightened for cortex')
 
     k = plane // 2
-    coronal_frame(fig, axes, caxes, k, panels_at(k), ann_h, acro, header_at(k))
+    coronal_frame(fig, axes, caxes, k, panels_at(k), ann_h, acro, header_at(k), vector_outline=True)
     out = os.path.join(OUT, f'detail_plane{plane}_{reading}.png')
     save_figure(fig, out, 100)
     print(f'  wrote {os.path.basename(out)}', flush=True)

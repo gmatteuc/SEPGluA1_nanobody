@@ -111,6 +111,21 @@ def save_figure(fig, path):
         fig.savefig(alt, dpi=105)
         print(f'  NOTE: {os.path.basename(path)} is open elsewhere; wrote {os.path.basename(alt)} instead', flush=True)
 
+    # An EPS beside it, because that is what goes into a figure. PostScript has
+    # no transparency, so the image layers are rasterised and composited by Agg
+    # first -- otherwise a no-data region, which is transparent here, would come
+    # out opaque black instead of showing the ground beneath it. Text, lines and
+    # axes stay vector, which is the part that has to be editable.
+    eps = os.path.splitext(path)[0] + '.eps'
+    for ax in fig.axes:
+        for im in ax.images:
+            im.set_rasterized(True)
+    try:
+        fig.savefig(eps, dpi=105, facecolor=fig.get_facecolor(), format='eps')
+    except OSError:
+        print(f'  NOTE: {os.path.basename(eps)} is open elsewhere; the PNG was still written', flush=True)
+
+
 
 def bh_fdr(p):
     """Benjamini-Hochberg q-values for one family of tests.
