@@ -8,7 +8,7 @@ Everything is drawn in the adult CCF, because that is where v2_cohort now
 builds the cohort volumes -- the young brains having been carried there one by
 one (v2_to_ccf), which is what lets the pooled young group mix P20 and P16.
 
-  cohorts   young (P20 + P16 pooled), young_P20, adult, naive, rws
+  cohorts   young (every registered young brain), young_P20, adult, naive, rws
   readings  the same four the region tables carry: ratio (per unit
             autofluorescence), cref (relative to the brain's own isocortex),
             subref (relative to the subcortex without HPF and STR) and zref
@@ -38,7 +38,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from scipy.ndimage import center_of_mass
 
 from v2_per_mouse import CSV_MAP, DATA
-from v2_cohort import OUT_ROOT as CCF_ROOT, COHORTS, MODES
+from v2_cohort import OUT_ROOT as CCF_ROOT, COHORTS, MODES, SIGNED_READINGS
 
 MEAN_VMAX = {'ratio': 2.0, 'sepratio': 0.6, 'cref': 2.0, 'subref': 2.0, 'zref': 2.0}   # each scaled so cortex sits near half: cref is 1 by construction, adult cortex is 1.01 in ratio and 0.29 in sepratio; HPF saturates by design
 T_PCT = 95.0                              # t panel range: 0 .. this percentile of t over the cohort's voxels
@@ -87,7 +87,7 @@ def main(cohorts):
             t0 = time.time()
             mean = fold(np.load(os.path.join(CCF_ROOT, cohort, f'{reading}_mean.npy')))
             sd = fold(np.load(os.path.join(CCF_ROOT, cohort, f'{reading}_sd.npy')))
-            signed = reading == 'zref'
+            signed = reading in SIGNED_READINGS
             ok = (n_h >= MIN_N[cohort]) & np.isfinite(mean)
             with np.errstate(divide='ignore', invalid='ignore'):
                 tval = np.where(ok & (sd > 0), mean / (sd / np.sqrt(np.maximum(n_h, 1))), np.nan)

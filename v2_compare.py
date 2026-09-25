@@ -9,7 +9,7 @@ folds the hemispheres, compares, and writes the maps and tables.
   ratio   log2( young nano/auto  /  adult nano/auto )        absolute-ish
   cref    log2( young cortex-relative / adult cortex-relative )  distribution
 
-The young group is P20 + P16 pooled (YOUNG below); young_P20 is written too, as
+The young group pools every registered young brain (YOUNG below); young_P20 is written too, as
 the sensitivity check for what the single P16 brain does to the answer. A voxel
 enters the comparison only where at least MIN_N_YOUNG young and MIN_N_ADULT
 adult brains have tissue; the rest is grey in the figures.
@@ -35,7 +35,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from v2_per_mouse import DATA, CSV_MAP
-from v2_cohort import OUT_ROOT as CCF_ROOT, COHORTS, MODES
+from v2_cohort import OUT_ROOT as CCF_ROOT, COHORTS, MODES, SIGNED_READINGS, Z_FLOOR
 
 OUT = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult')
 CCF_AP0 = 180                        # the adult registered crop, 10 um planes
@@ -117,7 +117,7 @@ def draw_figures(z, out):
     n_young = int(z['n_young_mice']); n_adult = int(z['n_adult_mice'])
     for m in MODES:
         adult_v, young_v, log2_v = z[f'adult_{m}'], z[f'young_{m}'], z[f'log2_{m}']
-        signed = m == 'zref'
+        signed = m in SIGNED_READINGS
         vmax = float(np.nanpercentile(adult_v[iso], 99)) if not signed else \
             float(np.nanpercentile(np.abs(adult_v[both]), 98))
         lim2 = float(np.nanpercentile(np.abs(log2_v[both]), 98))
@@ -170,14 +170,14 @@ def main():
           f'(young n>={MIN_N_YOUNG}: {(inside & (young_n >= MIN_N_YOUNG)).sum():,}; '
           f'adult n>={MIN_N_ADULT}: {(inside & (adult_n >= MIN_N_ADULT)).sum():,})   {time.time() - t0:.0f} s', flush=True)
 
-    eps = 0.02
+    eps = Z_FLOOR      # the same floor v2_cohort applies, so a map and a table agree
     log2, log2_alt = {}, {}
     for m in MODES:
         for src, dst in ((young, log2), (young_alt, log2_alt)):
             a = np.where(both, adult[m], np.nan); p = np.where(both, src[m], np.nan)
             # zref is already a log-scale position, so the two groups are
             # compared by difference; everything else by log2 ratio
-            r = (p - a) if m == 'zref' else np.log2(np.maximum(p, eps) / np.maximum(a, eps))
+            r = (p - a) if m in SIGNED_READINGS else np.log2(np.maximum(p, eps) / np.maximum(a, eps))
             w = both.astype(np.float32)
             num = gaussian_filter(np.nan_to_num(r) * w, SMOOTH); den = gaussian_filter(w, SMOOTH)
             dst[m] = np.where(both, num / np.maximum(den, 1e-3), np.nan).astype(np.float32)
@@ -237,7 +237,7 @@ def main():
         for m in MODES:
             for tag in ('adult', 'young', 'young_P20'):
                 r[f'{tag}_{m}'] = float(means[(tag, m)][g])
-            if m == 'zref':
+            if m in SIGNED_READINGS:
                 r[f'log2_{m}'] = r[f'young_{m}'] - r[f'adult_{m}']
                 r[f'log2_{m}_P20only'] = r[f'young_P20_{m}'] - r[f'adult_{m}']
             else:

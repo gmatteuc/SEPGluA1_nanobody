@@ -41,17 +41,18 @@ tissue voxels, then per mouse
                               What it costs: that compression is defined away,
                               so this reading can show re-ordering but says
                               nothing about amplitude.
-and per structure a Welch test of young against the ten adults, with the
+and per structure a Welch test of the young group against the adults, with the
 naive-vs-rws difference printed beside it as the size of a difference that
-carries no developmental meaning. The young group is P20 + P16 pooled and the
-P16 brain is one young mouse like any other -- same marker, counted in the
-median and in the tests. The P20-only contrast stays in the CSV, so what the
-P16 brain does to the answer can still be checked.
+carries no developmental meaning. The young group pools every registered
+young brain whatever its age, and each is one mouse like any other -- same
+marker, counted in the median and in the tests. The P20-only contrast stays in
+the CSV, so what the off-age brains do to the answer can still be checked.
 
-The figure marks each region with the Mann-Whitney (rank-sum) test of the six
-young against the ten adults, uncorrected: * p<0.05, ** p<0.01. Ranks rather
-than means because six against ten is small and log ratios are not guaranteed
-normal. region_stats.csv carries the Welch p, the Mann-Whitney p and the
+The figure marks each region with the Mann-Whitney (rank-sum) test of the
+young group against the adults, uncorrected: * p<0.05, ** p<0.01. Ranks rather
+than means because the samples are small and log ratios are not guaranteed
+normal. Every count in the figure is computed from the cohort lists, never
+written into a caption. region_stats.csv carries the Welch p, the Mann-Whitney p and the
 Benjamini-Hochberg q of each, so a corrected reading is one column away.
 
 Writes region_means_per_mouse.csv, region_stats.csv and region_plot.png into
@@ -72,7 +73,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from v2_per_mouse import annotation_20, MICE, CSV_MAP, OUT as PER_MOUSE, DATA
-from v2_cohort import RATIO_CLIP, YOUNG_P20, YOUNG_P16, YOUNG_P22, NAIVE, RWS, MODES
+from v2_cohort import RATIO_CLIP, YOUNG_P20, YOUNG_P16, YOUNG_P22, NAIVE, RWS, MODES, SIGNED_READINGS
 
 OUT = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult')
 MIN_VOX = 250      # 20 um voxels = 2 nl, the same volume as the earlier tables
@@ -237,7 +238,7 @@ def main():
         if k is None or k not in per[m]:
             return None
         n, ms, mr, msep = per[m][k]
-        if reading == 'zref':
+        if reading in SIGNED_READINGS:
             if ms <= 0:
                 return None
             med, spread = norm[m]

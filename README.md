@@ -58,6 +58,7 @@ volumes directly and writes only under `data\comparisons_v2\`:
 | `v2_region_plot.py` | the statistics, per-mouse region means with **no warping anywhere** |
 | `v2_region_groups.py` | the same by system (primary vs higher sensory, frontal…) and by cortical layer |
 | `v2_video.py`, `v2_video_compare.py` | plane-by-plane videos, per cohort and young beside adult |
+| `v2_inspect.py` | one reading looked at closely: a coronal plane, its video and the cortical flatmaps (whole depth and by layer), all from one set of volumes. Runs in `tools\venv_flat` — see its docstring |
 | `v2_diagnostics.py` | the sheets that make each step checkable by eye |
 
 Five readings run through all of it, and none of them replaces another: `ratio`

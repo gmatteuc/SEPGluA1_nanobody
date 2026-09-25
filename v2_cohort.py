@@ -73,6 +73,14 @@ RATIO_CLIP = 20.0
 Z_FLOOR = 0.02        # of the cortex mean, so log2 stays finite in the dimmest tissue
 MODES = ('ratio', 'sepratio', 'cref', 'subref', 'zref')
 
+# Which readings are a SIGNED position rather than an intensity. It decides
+# three things at once, everywhere: young and adult are compared by difference
+# and not by log2 ratio, the maps are drawn on a diverging colour scale centred
+# on zero, and the scale runs -v..+v instead of 0..v. It lives here because
+# getting it right in five scripts and wrong in the sixth would not look like a
+# bug, it would look like a result.
+SIGNED_READINGS = ('zref',)
+
 # Any reading can be dropped from every figure, table and video without touching
 # the data: set V2_READINGS to a comma-separated subset. The readings are
 # computed independently of one another, so whatever is already on disk stays

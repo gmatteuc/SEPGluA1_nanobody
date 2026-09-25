@@ -22,16 +22,33 @@ touches the statistics -- the region tables and tests read the unsmoothed
 per-mouse volumes and know nothing about this script. What it removes is
 sampling, not signal: sections sit ~150 um apart and the registered volumes
 interpolate between them, which leaves faint coronal banding, and the flatmap
-samples one streamline at a time, which leaves fine radial streaks. The default sigma is 3 x 1 x 1 voxels, i.e. 60 um along AP and 20 um across:
-anisotropic because the banding is, and far below the size of any area.
+samples one streamline at a time, which leaves fine radial streaks. The default
+sigma is 3 x 1 x 1 voxels, i.e. 60 um along AP and 20 um across -- anisotropic
+because the banding is, and far below the size of any area.
 
   tools\\venv_flat\\Scripts\\python.exe v2_inspect.py [reading ...]
         [--plane 790] [--vmax 1.0] [--dlim 0.5] [--smooth 3,1,1] [--no-video] [--no-flatmap]
 
 `--smooth` takes one number or three, comma separated, as sigma in 20 um voxels
-along (AP, DV, ML); 0 turns it off. This runs in tools\\venv_flat because the
-flatmaps need ccf_streamlines; see v2_flatmap's note in the git history for the
-assets and where they come from.
+along (AP, DV, ML); 0 turns it off.
+
+The flatmaps need ccf_streamlines, which brings its own numpy and scikit-image,
+so this script runs in its own environment, tools\\venv_flat, rather than the
+analysis one:
+
+  py -m venv tools\\venv_flat
+  tools\\venv_flat\\Scripts\\python.exe -m pip install ccf-streamlines matplotlib nibabel imageio-ffmpeg
+
+Its assets go in data\\atlas_flatmap, about 0.6 GB, fetched once from
+https://download.alleninstitute.org/informatics-archive/current-release/
+mouse_ccf/cortical_coordinates/ccf_2017/ccf_streamlines_assets/ :
+
+  streamlines/surface_paths_10_v3.h5        where each streamline runs (0.5 GB)
+  view_lookup/flatmap_butterfly.h5          which streamline lands on which pixel
+  master_updated/flatmap_butterfly.nrrd     the areas, for their borders
+  master_updated/labelDescription_ITKSNAPColor.txt   and their names
+  cortical_metrics/avg_layer_depths.json    where the layers sit
+  cortical_metrics/cortical_layers_10_v2.h5 and where they sit per streamline
 """
 
 import csv
@@ -57,8 +74,15 @@ OUT = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult')
 CSV_MAP = os.path.join(DATA, 'atlas', 'parcellation_to_parcellation_term_membership.csv')
 
 YOUNG, ADULT = 'young', 'adult'
-N_YOUNG, N_ADULT = 7, 10
 MIN_N_YOUNG, MIN_N_ADULT = 2, 5          # as in v2_compare, so the maps agree
+# The floor that keeps log2 finite where a reading is near zero, the same value
+# v2_cohort uses. It bites only the readings compared as a ratio, never zref.
+LOG2_FLOOR = 0.02
+# Kept in step with v2_cohort.SIGNED_READINGS by hand, because this script runs
+# in the flatmap environment and cannot import the analysis chain. A signed
+# reading is a position within a brain's own range: compared by difference,
+# drawn diverging, scaled -v..+v.
+SIGNED_READINGS = ('zref',)
 VMAX = {'zref': 1.0, 'cref': 2.0, 'subref': 2.0, 'ratio': 2.0, 'sepratio': 0.6}
 DLIM = {'zref': 0.5, 'cref': 1.0, 'subref': 1.0, 'ratio': 1.0, 'sepratio': 1.0}
 PLANE = 790                              # CCF plane at 10 um, where RL and AL are cut
@@ -96,12 +120,24 @@ def save_figure(fig, path, dpi):
         print(f'  NOTE: {os.path.basename(path)} is open elsewhere; wrote {os.path.basename(alt)}', flush=True)
 
 
+def cohort_size(cohort):
+    """How many brains are behind a cohort, read from the list v2_cohort wrote.
+
+    Never a literal: a hardcoded 'n = 6' once survived into figures built from
+    seven brains, and a caption that cannot go stale is worth four lines.
+    """
+    with open(os.path.join(CCF_ROOT, cohort, 'mice.txt'), encoding='utf-8') as fh:
+        return sum(1 for line in fh if line.strip())
+
+
 def fold(v):
+    """Average the two hemispheres of an (AP, DV, ML) volume, NaN-aware."""
     h = v.shape[2] // 2
     return np.nanmean(np.stack([v[:, :, :h], v[:, :, v.shape[2] - h:][:, :, ::-1]]), axis=0)
 
 
 def fold_n(n):
+    """The same fold for an n map: a voxel counts if either hemisphere had it."""
     h = n.shape[2] // 2
     return np.maximum(n[:, :, :h], n[:, :, n.shape[2] - h:][:, :, ::-1])
 
@@ -129,7 +165,7 @@ def prepare(reading, sigma):
 def difference(vals, signed):
     y, a = vals[YOUNG], vals[ADULT]
     both = (y[1] > 0) & (a[1] > 0)
-    d = (y[0] - a[0]) if signed else np.log2(np.maximum(y[0], 0.02) / np.maximum(a[0], 0.02))
+    d = (y[0] - a[0]) if signed else np.log2(np.maximum(y[0], LOG2_FLOOR) / np.maximum(a[0], LOG2_FLOOR))
     return np.where(both, d, np.nan), both
 
 
@@ -178,7 +214,7 @@ def coronal_frame(fig, axes, caxes, k, panels, ann_h, acro, header):
     fig.text(0.5, 0.93, header, color='w', fontsize=12, ha='center')
 
 
-def coronal(reading, vals, diff, both, plane, lim_mean, cmaps, sigma_txt, want_video):
+def coronal(reading, vals, diff, both, plane, lim_mean, cmaps, sigma_txt, want_video, n, signed):
     ann_h = annotation_half()
     acro = {}
     with open(CSV_MAP, newline='', encoding='utf-8') as fh:
@@ -186,19 +222,18 @@ def coronal(reading, vals, diff, both, plane, lim_mean, cmaps, sigma_txt, want_v
             if row['parcellation_term_set_name'] == 'structure':
                 acro[int(row['parcellation_index'])] = row['parcellation_term_acronym']
     cmap_mean, rdbu = cmaps
-    signed = reading == 'zref'
 
     fig = plt.figure(figsize=(19.2, 7.6), dpi=100, facecolor='k')
     axes = [fig.add_axes([0.02 + i * 0.325, 0.05, 0.27, 0.82]) for i in range(3)]
     caxes = [fig.add_axes([0.295 + i * 0.325, 0.12, 0.009, 0.68]) for i in range(3)]
 
     def panels_at(k):
-        return ((shown(vals[YOUNG][0][k], vals[YOUNG][1][k]), cmap_mean, lim_mean[0], f'young (n = {N_YOUNG})   {reading}'),
-                (shown(vals[ADULT][0][k], vals[ADULT][1][k]), cmap_mean, lim_mean[0], f'adult (n = {N_ADULT})   {reading}'),
+        return ((shown(vals[YOUNG][0][k], vals[YOUNG][1][k]), cmap_mean, lim_mean[0], f'young (n = {n[YOUNG]})   {reading}'),
+                (shown(vals[ADULT][0][k], vals[ADULT][1][k]), cmap_mean, lim_mean[0], f'adult (n = {n[ADULT]})   {reading}'),
                 (diff[k], rdbu, lim_mean[1], 'young - adult' if signed else 'log2( young / adult )'))
 
     def header_at(k):
-        return (f'CCF plane {2 * k} / 10 um    young {N_YOUNG} brains, adult {N_ADULT} brains    '
+        return (f'CCF plane {2 * k} / 10 um    young {n[YOUNG]} brains, adult {n[ADULT]} brains    '
                 f'{sigma_txt}, colour range tightened for cortex')
 
     k = plane // 2
@@ -224,22 +259,40 @@ def coronal(reading, vals, diff, both, plane, lim_mean, cmaps, sigma_txt, want_v
 
 # ---------------------------------------------------------------- flatmap
 
-def layer_thickness_and_edges():
-    """Per-layer thickness in um, and the depth bins each layer occupies in the slab."""
+def layer_thicknesses():
+    """Thickness of each cortical layer in um, from the Allen's average depths.
+
+    The file gives the depth of each layer's lower border below the pia, so the
+    thicknesses are the differences between them.
+    """
     d = json.load(open(os.path.join(ASSETS, 'avg_layer_depths.json')))
     names = ['Isocortex layer 1', 'Isocortex layer 2/3', 'Isocortex layer 4',
              'Isocortex layer 5', 'Isocortex layer 6a', 'Isocortex layer 6b']
-    lowers = [d['2/3'], d['4'], d['5'], d['6a'], d['6b'], d['wm']]
     thick, prev = {}, 0.0
-    for name, low in zip(names, lowers):
+    for name, low in zip(names, [d['2/3'], d['4'], d['5'], d['6a'], d['6b'], d['wm']]):
         thick[name] = low - prev
         prev = low
+    return thick
+
+
+def band_edges(p3, slab_depth):
+    """First and last depth bin of each layer, as the projector actually built them.
+
+    Ask the projector, never recompute. The slab does NOT have one bin per 10 um:
+    it has one per sample along a streamline -- 200 of them -- and the layers are
+    given bins in proportion to their thickness. Deriving the edges here from the
+    layer depths instead put 96 bins where there are 200, which silently labelled
+    the middle of layer 2/3 as layer 4 and layer 4 as layer 6.
+    """
+    bins = p3.reference_layer_thicknesses_in_voxels()
     edges, at = {}, 0
-    for name in names:
-        n = int(round(thick[name] / 10))
-        edges[name] = (at, at + n)
-        at += n
-    return thick, edges
+    for name in p3.ISOCORTEX_LAYER_KEYS:
+        edges[name] = (at, at + bins[name])
+        at += bins[name]
+    if at != slab_depth:
+        raise SystemExit(f'layer bins sum to {at} but the slab is {slab_depth} deep; '
+                         f'the band edges cannot be trusted.')
+    return edges
 
 
 def draw_flat(ax, img, cmap, lim, title, border_sets, label_xy):
@@ -266,7 +319,7 @@ def draw_flat(ax, img, cmap, lim, title, border_sets, label_xy):
     return h
 
 
-def flatmaps(reading, vals, signed, lim_mean, cmaps, sigma_txt):
+def flatmaps(reading, vals, signed, lim_mean, cmaps, sigma_txt, n):
     from ccf_streamlines.projection import Isocortex2dProjector, Isocortex3dProjector, BoundaryFinder
     cmap_mean, rdbu = cmaps
     proj_file = os.path.join(ASSETS, 'flatmap_butterfly.h5')
@@ -279,11 +332,10 @@ def flatmaps(reading, vals, signed, lim_mean, cmaps, sigma_txt):
         hemisphere='right_for_both', view_space_for_other_hemisphere='flatmap_butterfly').items() if len(v)}
     label_xy = {a: left[a].mean(axis=0) for a in LABEL_AREAS if a in left}
 
-    thick, edges = layer_thickness_and_edges()
     p2 = Isocortex2dProjector(proj_file, path_file, hemisphere='both',
                               view_space_for_other_hemisphere='flatmap_butterfly')
     p3 = Isocortex3dProjector(proj_file, path_file, thickness_type='normalized_layers',
-                              layer_thicknesses=thick,
+                              layer_thicknesses=layer_thicknesses(),
                               streamline_layer_thickness_file=os.path.join(ASSETS, 'cortical_layers_10_v2.h5'),
                               hemisphere='both', view_space_for_other_hemisphere='flatmap_butterfly')
 
@@ -301,13 +353,14 @@ def flatmaps(reading, vals, signed, lim_mean, cmaps, sigma_txt):
         flat[cohort] = np.where(s_m > 0, s_v / np.maximum(s_m, 1e-6), np.nan)
         slab[cohort] = (p3.project_volume(v10).swapaxes(0, 1), p3.project_volume(m10).swapaxes(0, 1))
         del v10, m10
+    edges = band_edges(p3, slab[YOUNG][0].shape[2])
 
     def diff_of(y, a):
-        return (y - a) if signed else np.log2(np.maximum(y, 0.02) / np.maximum(a, 0.02))
+        return (y - a) if signed else np.log2(np.maximum(y, LOG2_FLOOR) / np.maximum(a, LOG2_FLOOR))
 
     fig, axes = plt.subplots(1, 3, figsize=(19, 5.2), facecolor='k')
-    panels = ((flat[YOUNG], cmap_mean, lim_mean[0], f'young (n = {N_YOUNG})   {reading}'),
-              (flat[ADULT], cmap_mean, lim_mean[0], f'adult (n = {N_ADULT})   {reading}'),
+    panels = ((flat[YOUNG], cmap_mean, lim_mean[0], f'young (n = {n[YOUNG]})   {reading}'),
+              (flat[ADULT], cmap_mean, lim_mean[0], f'adult (n = {n[ADULT]})   {reading}'),
               (diff_of(flat[YOUNG], flat[ADULT]), rdbu, lim_mean[1], 'young - adult' if signed else 'log2( young / adult )'))
     for ax, (im, cm, lim, ttl) in zip(axes, panels):
         h = draw_flat(ax, im, cm, lim, ttl, (left, right), label_xy)
@@ -354,9 +407,10 @@ def main(readings, plane, vmax, dlim, sigma, want_video, want_flatmap):
     sigma_txt = ('no smoothing' if not np.any(sig)
                  else 'smoothed sigma ' + ' x '.join(f'{v * 20:.0f}' for v in (sig if sig.size > 1 else np.repeat(sig, 3)))
                       + ' um (AP x DV x ML)')
+    n = {c: cohort_size(c) for c in (YOUNG, ADULT)}
     for reading in readings:
         t0 = time.time()
-        signed = reading == 'zref'
+        signed = reading in SIGNED_READINGS
         vm = VMAX[reading] if vmax is None else vmax
         dl = DLIM[reading] if dlim is None else dlim
         lim_mean = ((-vm, vm) if signed else (0, vm), (-dl, dl))
@@ -366,9 +420,9 @@ def main(readings, plane, vmax, dlim, sigma, want_video, want_flatmap):
         vals = prepare(reading, sigma)
         diff, both = difference(vals, signed)
 
-        coronal(reading, vals, diff, both, plane, lim_mean, cmaps, sigma_txt, want_video)
+        coronal(reading, vals, diff, both, plane, lim_mean, cmaps, sigma_txt, want_video, n, signed)
         if want_flatmap:
-            flatmaps(reading, vals, signed, lim_mean, cmaps, sigma_txt)
+            flatmaps(reading, vals, signed, lim_mean, cmaps, sigma_txt, n)
         print(f'{reading}: done in {time.time() - t0:.0f} s', flush=True)
 
 

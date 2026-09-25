@@ -19,6 +19,12 @@ data/comparisons_v2/processing_diagnostics/, with an index README beside them:
                               warped), structure by structure
   08_mask_vs_p6bis.png        the v2 tissue mask against the P6bis/P2bis one
                               that was debugged by eye, where the latter works
+  09_denominators.png         autofluorescence and SEP as reference channels,
+                              and whether a structure's answer depends on which
+                              one is used
+
+The per-brain sheets P4bis writes when it carries the SEP channel into
+registered space sit beside these, in processing_diagnostics/sep_channel/.
 
 Run it after a full pass, or with mouse names to refresh a few sheets:
 
@@ -35,7 +41,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from v2_per_mouse import annotation_20, atlas_grid, MICE, CSV_MAP, DATA, OUT as PER_MOUSE
-from v2_cohort import COHORTS, OUT_ROOT as CCF_ROOT, PER_MOUSE_CCF, RATIO_CLIP
+from v2_cohort import COHORTS, OUT_ROOT as CCF_ROOT, PER_MOUSE_CCF
 
 OUT = os.path.join(DATA, 'comparisons_v2', 'processing_diagnostics')
 YOUNG = [m for m, v in MICE.items() if v[1] != 'ccf']

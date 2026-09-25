@@ -39,7 +39,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from scipy.ndimage import center_of_mass
 
 from v2_per_mouse import CSV_MAP, DATA
-from v2_cohort import COHORTS, OUT_ROOT as CCF_ROOT, MODES
+from v2_cohort import COHORTS, OUT_ROOT as CCF_ROOT, MODES, SIGNED_READINGS
 from v2_compare import MIN_N_YOUNG, MIN_N_ADULT, YOUNG, fold, fold_n
 
 OUT = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult')
@@ -82,7 +82,7 @@ def main(readings, plane=None, vmax=None, dlim=None):
         ok_y = (y_n >= MIN_N_YOUNG) & np.isfinite(y)
         ok_a = (a_n >= MIN_N_ADULT) & np.isfinite(a)
         both = ok_y & ok_a & (ann_h > 0)
-        signed = reading == 'zref'
+        signed = reading in SIGNED_READINGS
         log2 = np.where(both, (y - a) if signed else np.log2(np.maximum(y, 0.02) / np.maximum(a, 0.02)), np.nan)
         v_mean = MEAN_VMAX[reading] if vmax is None else vmax
         v_diff = LOG2_LIM if dlim is None else dlim

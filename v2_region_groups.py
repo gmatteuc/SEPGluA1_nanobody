@@ -20,7 +20,7 @@ autofluorescence; cref = relative to that brain's isocortex; subref = relative
 to the subcortex excluding HPF and STR; sepratio = nano per unit SEP, i.e.
 surface receptor per unit receptor expressed; zref = range-matched to each brain's
 own spread), and the test is the same Mann-Whitney
-of the six young against the ten adults, uncorrected in the figure, with BH
+of the young group against the adults, uncorrected in the figure, with BH
 q-values in the CSV.
 
 Writes into data/comparisons_v2/young_vs_adult/:
@@ -45,7 +45,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from v2_per_mouse import annotation_20, MICE, CSV_MAP, DATA, OUT as PER_MOUSE
-from v2_cohort import RATIO_CLIP, YOUNG_P20, YOUNG_P16, YOUNG_P22, NAIVE, RWS
+from v2_cohort import RATIO_CLIP, YOUNG_P20, YOUNG_P16, YOUNG_P22, NAIVE, RWS, SIGNED_READINGS
 from v2_region_plot import bh_fdr, mannwhitney, welch, READINGS, NOT_SUBCORTEX, COL
 
 OUT = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult')
@@ -199,7 +199,7 @@ def main():
         if cell is None:
             return None
         _, m_sig, m_rat, m_sep = cell
-        if reading == 'zref':
+        if reading in SIGNED_READINGS:
             if m_sig <= 0:
                 return None
             med, spread = norm[mouse]
