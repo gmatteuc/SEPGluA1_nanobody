@@ -32,6 +32,12 @@ because the banding is, and far below the size of any area.
 `--smooth` takes one number or three, comma separated, as sigma in 20 um voxels
 along (AP, DV, ML); 0 turns it off.
 
+`--cmap NAME` draws the MEAN panels with another matplotlib colormap and writes
+the whole set into a subfolder of that name, leaving the default set alone --
+`--cmap jet` for someone who wants to see it in rainbow. The difference panel
+keeps red-blue whatever happens: it is a signed quantity read against zero, and
+a rainbow has no neutral middle to read zero against.
+
 The flatmaps need ccf_streamlines, which brings its own numpy and scikit-image,
 so this script runs in its own environment, tools\\venv_flat, rather than the
 analysis one:
@@ -237,7 +243,7 @@ def coronal_frame(fig, axes, caxes, k, panels, ann_h, acro, header, vector_outli
     fig.text(0.5, 0.93, header, color='w', fontsize=12, ha='center')
 
 
-def coronal(reading, vals, diff, both, plane, lim_mean, cmaps, sigma_txt, want_video, n, signed):
+def coronal(reading, vals, diff, both, plane, lim_mean, cmaps, sigma_txt, want_video, n, signed, out_dir):
     ann_h = annotation_half()
     acro = {}
     with open(CSV_MAP, newline='', encoding='utf-8') as fh:
@@ -261,14 +267,14 @@ def coronal(reading, vals, diff, both, plane, lim_mean, cmaps, sigma_txt, want_v
 
     k = plane // 2
     coronal_frame(fig, axes, caxes, k, panels_at(k), ann_h, acro, header_at(k), vector_outline=True)
-    out = os.path.join(OUT, f'detail_plane{plane}_{reading}.png')
+    out = os.path.join(out_dir, f'detail_plane{plane}_{reading}.png')
     save_figure(fig, out, 100)
     print(f'  wrote {os.path.basename(out)}', flush=True)
 
     if want_video:
         t0 = time.time()
         frames = [i for i in range(ann_h.shape[0]) if both[i].sum() > 200]
-        out = os.path.join(OUT, f'detail_video_{reading}.mp4')
+        out = os.path.join(out_dir, f'detail_video_{reading}.mp4')
         writer = imageio_ffmpeg.write_frames(out, (1920, 760), fps=FPS, quality=7, macro_block_size=8)
         writer.send(None)
         for i in frames:
@@ -342,7 +348,7 @@ def draw_flat(ax, img, cmap, lim, title, border_sets, label_xy):
     return h
 
 
-def flatmaps(reading, vals, signed, lim_mean, cmaps, sigma_txt, n):
+def flatmaps(reading, vals, signed, lim_mean, cmaps, sigma_txt, n, out_dir):
     from ccf_streamlines.projection import Isocortex2dProjector, Isocortex3dProjector, BoundaryFinder
     cmap_mean, rdbu = cmaps
     proj_file = os.path.join(ASSETS, 'flatmap_butterfly.h5')
@@ -392,7 +398,7 @@ def flatmaps(reading, vals, signed, lim_mean, cmaps, sigma_txt, n):
     fig.suptitle(f'Cortical flatmap, averaged through the full depth  -  {reading}, {sigma_txt}',
                  color='w', fontsize=12)
     fig.tight_layout(rect=(0, 0, 1, 0.94))
-    save_figure(fig, os.path.join(OUT, f'detail_flatmap_{reading}.png'), 110)
+    save_figure(fig, os.path.join(out_dir, f'detail_flatmap_{reading}.png'), 110)
     plt.close(fig)
 
     fig, axes = plt.subplots(3, 3, figsize=(19, 13), facecolor='k')
@@ -414,12 +420,17 @@ def flatmaps(reading, vals, signed, lim_mean, cmaps, sigma_txt, n):
     fig.suptitle(f'Cortical flatmap by layer, depth normalised per streamline  -  {reading}, {sigma_txt}',
                  color='w', fontsize=12)
     fig.tight_layout(rect=(0, 0, 1, 0.97))
-    save_figure(fig, os.path.join(OUT, f'detail_flatmap_layers_{reading}.png'), 110)
+    save_figure(fig, os.path.join(out_dir, f'detail_flatmap_layers_{reading}.png'), 110)
     plt.close(fig)
     print(f'  wrote detail_flatmap_{reading}.png and detail_flatmap_layers_{reading}.png', flush=True)
 
 
-def main(readings, plane, vmax, dlim, sigma, want_video, want_flatmap):
+def main(readings, plane, vmax, dlim, sigma, want_video, want_flatmap, cmap_name=None):
+    # A named colormap sends the whole set to its own subfolder, so the default
+    # figures are never overwritten by an experiment with the colours.
+    out_dir = OUT if cmap_name is None else os.path.join(OUT, cmap_name)
+    os.makedirs(out_dir, exist_ok=True)
+
     hot = plt.get_cmap('hot')
     hot_cut = LinearSegmentedColormap.from_list('hot_cut', hot(np.linspace(0, 0.82, 256)))
     hot_cut.set_bad((0, 0, 0, 0))
@@ -427,9 +438,10 @@ def main(readings, plane, vmax, dlim, sigma, want_video, want_flatmap):
     rdbu = plt.get_cmap('RdBu_r').copy(); rdbu.set_bad((0, 0, 0, 0))
 
     sig = np.atleast_1d(sigma).astype(float)
+    cmap_txt = '' if cmap_name is None else f', {cmap_name} colormap'
     sigma_txt = ('no smoothing' if not np.any(sig)
                  else 'smoothed sigma ' + ' x '.join(f'{v * 20:.0f}' for v in (sig if sig.size > 1 else np.repeat(sig, 3)))
-                      + ' um (AP x DV x ML)')
+                      + ' um (AP x DV x ML)') + cmap_txt
     n = {c: cohort_size(c) for c in (YOUNG, ADULT)}
     for reading in readings:
         t0 = time.time()
@@ -437,15 +449,19 @@ def main(readings, plane, vmax, dlim, sigma, want_video, want_flatmap):
         vm = VMAX[reading] if vmax is None else vmax
         dl = DLIM[reading] if dlim is None else dlim
         lim_mean = ((-vm, vm) if signed else (0, vm), (-dl, dl))
-        cmaps = (puor if signed else hot_cut, rdbu)
+        if cmap_name is None:
+            cmap_mean = puor if signed else hot_cut
+        else:
+            cmap_mean = plt.get_cmap(cmap_name).copy(); cmap_mean.set_bad((0, 0, 0, 0))
+        cmaps = (cmap_mean, rdbu)
 
         print(f'{reading}: preparing volumes ({sigma_txt})', flush=True)
         vals = prepare(reading, sigma)
         diff, both = difference(vals, signed)
 
-        coronal(reading, vals, diff, both, plane, lim_mean, cmaps, sigma_txt, want_video, n, signed)
+        coronal(reading, vals, diff, both, plane, lim_mean, cmaps, sigma_txt, want_video, n, signed, out_dir)
         if want_flatmap:
-            flatmaps(reading, vals, signed, lim_mean, cmaps, sigma_txt, n)
+            flatmaps(reading, vals, signed, lim_mean, cmaps, sigma_txt, n, out_dir)
         print(f'{reading}: done in {time.time() - t0:.0f} s', flush=True)
 
 
@@ -453,7 +469,7 @@ if __name__ == '__main__':
     argv, readings, opts, flags = sys.argv[1:], [], {}, set()
     i = 0
     while i < len(argv):
-        if argv[i] in ('--plane', '--vmax', '--dlim', '--smooth'):
+        if argv[i] in ('--plane', '--vmax', '--dlim', '--smooth', '--cmap'):
             opts[argv[i][2:]] = argv[i + 1]; i += 2
         elif argv[i] in ('--no-video', '--no-flatmap'):
             flags.add(argv[i]); i += 1
@@ -466,4 +482,5 @@ if __name__ == '__main__':
          dlim=float(opts['dlim']) if 'dlim' in opts else None,
          sigma=(s[0] if len(s) == 1 else s),
          want_video='--no-video' not in flags,
-         want_flatmap='--no-flatmap' not in flags)
+         want_flatmap='--no-flatmap' not in flags,
+         cmap_name=opts.get('cmap'))
