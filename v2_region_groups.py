@@ -59,7 +59,12 @@ LABEL = {'young': f'young P16-P22 (n = {len(YOUNG_P20) + len(YOUNG_P16) + len(YO
 # higher-order neighbours mature on different schedules.
 SYSTEMS = [
     ('primary visual', lambda a: a == 'VISp'),
-    ('higher visual', lambda a: a.startswith('VIS') and a not in ('VISp', 'VISC')),
+    # RL and AL stand apart from the rest of the higher visual belt: they sit on
+    # the visual-somatosensory border and are the ones that look modulated in
+    # the maps, so Sami asked for them as a group of their own rather than
+    # averaged into the belt that surrounds them.
+    ('associative VT (RL+AL)', lambda a: a in ('VISrl', 'VISal')),
+    ('higher visual', lambda a: a.startswith('VIS') and a not in ('VISp', 'VISC', 'VISrl', 'VISal')),
     ('primary somatosensory', lambda a: a.startswith('SSp')),
     ('higher somatosensory', lambda a: a == 'SSs'),
     ('primary auditory', lambda a: a == 'AUDp'),
@@ -71,7 +76,8 @@ SYSTEMS = [
 ]
 # the laminar figure would be unreadable with every system on it; these are the
 # ones the layer question is actually about
-LAMINAR_SYSTEMS = ('primary visual', 'higher visual', 'primary somatosensory', 'higher somatosensory',
+LAMINAR_SYSTEMS = ('primary visual', 'associative VT (RL+AL)', 'higher visual',
+                   'primary somatosensory', 'higher somatosensory',
                    'primary auditory', 'higher auditory', 'frontal', 'retrosplenial')
 # and the subcortical side, taken straight from the ontology's division
 DIVISIONS = [('thalamus', 'TH'), ('striatum', 'STR'), ('pallidum', 'PAL'), ('hippocampus', 'HPF'),
@@ -139,9 +145,10 @@ def main():
         ann = anns[atlas_key]
         z = np.load(os.path.join(PER_MOUSE, mouse + '.npz'))
         sig = z['sig'].astype(np.float32); auto = z['auto'].astype(np.float32); tissue = z['tissue']
-        if 'sep' not in z.files:
+        if any(r == 'sepratio' for r, _ in READINGS) and 'sep' not in z.files:
             raise SystemExit(f'{mouse}: no SEP channel in its per-mouse file. Run\n'
-                             f'  P4bis_add_sep_channel.m for this brain, then v2_per_mouse.py.')
+                             f'  P4bis_add_sep_channel.m for this brain, then v2_per_mouse.py,\n'
+                             f'  or drop the reading with V2_READINGS.')
 
         # sig per unit of a reference CHANNEL, the denominator smoothed by one
         # 20 um voxel and mask-normalised, as in v2_cohort and v2_region_plot

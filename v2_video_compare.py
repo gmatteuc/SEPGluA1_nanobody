@@ -14,7 +14,14 @@ it is linear and the third panel is a log2 ratio, for zref the means are a
 signed position within each brain's range and the third panel is their
 difference.
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_video_compare.py [reading ...]
+One plane can be drawn on its own instead, which is how a still for a talk or a
+message gets made, and the colour range can be tightened for that run only --
+the cortex occupies a fraction of the range the hippocampus needs, so saturating
+the extremes is usually the only way to see it:
+
+  v2_video_compare.py [reading ...] [--plane <CCF plane, 10 um>] [--vmax V] [--dlim D]
+
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_video_compare.py zref --plane 790 --vmax 1.0
 """
 
 import csv
@@ -49,7 +56,7 @@ def boundaries(lab):
     return b & (lab > 0)
 
 
-def main(readings):
+def main(readings, plane=None, vmax=None, dlim=None):
     acro = {}
     with open(CSV_MAP, newline='', encoding='utf-8') as fh:
         for row in csv.DictReader(fh):
@@ -77,22 +84,30 @@ def main(readings):
         both = ok_y & ok_a & (ann_h > 0)
         signed = reading == 'zref'
         log2 = np.where(both, (y - a) if signed else np.log2(np.maximum(y, 0.02) / np.maximum(a, 0.02)), np.nan)
-        frames = [k for k in range(ann_h.shape[0]) if both[k].sum() > 200]
-        out = os.path.join(OUT, f'video_side_by_side_{reading}.mp4')
-        writer = imageio_ffmpeg.write_frames(out, (1920, 760), fps=FPS, quality=7, macro_block_size=8)
-        writer.send(None)
+        v_mean = MEAN_VMAX[reading] if vmax is None else vmax
+        v_diff = LOG2_LIM if dlim is None else dlim
+        # a CCF plane is quoted at 10 um in every caption; the volumes are 20 um
+        frames = [plane // 2] if plane is not None else [k for k in range(ann_h.shape[0]) if both[k].sum() > 200]
+        tag = '' if vmax is None else f'_vmax{v_mean:g}'
+        if plane is None:
+            out = os.path.join(OUT, f'video_side_by_side_{reading}{tag}.mp4')
+            writer = imageio_ffmpeg.write_frames(out, (1920, 760), fps=FPS, quality=7, macro_block_size=8)
+            writer.send(None)
+        else:
+            out = os.path.join(OUT, f'plane{plane}_side_by_side_{reading}{tag}.png')
+            writer = None
         fig = plt.figure(figsize=(19.2, 7.6), dpi=100, facecolor='k')
         axes = [fig.add_axes([0.02 + i * 0.325, 0.05, 0.27, 0.82]) for i in range(3)]
         caxes = [fig.add_axes([0.295 + i * 0.325, 0.12, 0.009, 0.68]) for i in range(3)]
         for k in frames:
             lab = ann_h[k]; inside = lab > 0; bnd = boundaries(lab)
             cmap_mean = puor if signed else hot_cut
-            lim_mean = (-MEAN_VMAX[reading], MEAN_VMAX[reading]) if signed else (0, MEAN_VMAX[reading])
+            lim_mean = (-v_mean, v_mean) if signed else (0, v_mean)
             panels = ((np.where(ok_y[k], y[k], np.nan), cmap_mean, lim_mean,
                        f'young (n = {len(COHORTS[YOUNG])})   {reading}'),
                       (np.where(ok_a[k], a[k], np.nan), cmap_mean, lim_mean,
                        f'adult (n = {len(COHORTS["adult"])})   {reading}'),
-                      (log2[k], rdbu, (-LOG2_LIM, LOG2_LIM),
+                      (log2[k], rdbu, (-v_diff, v_diff),
                        'young - adult' if signed else 'log2( young / adult )'))
             for ax, cax, (im, cmap, lim, ttl) in zip(axes, caxes, panels):
                 ax.clear(); cax.clear()
@@ -122,10 +137,27 @@ def main(readings):
                                    if signed else '(means on a linear scale, shared range; only the right panel is log2)'),
                      color='w', fontsize=12, ha='center')
             fig.canvas.draw()
-            writer.send(np.ascontiguousarray(np.asarray(fig.canvas.buffer_rgba())[:, :, :3]))
-        writer.close(); plt.close(fig)
-        print(f'{reading:6s} {len(frames)} frames -> {out}   {time.time() - t0:.0f} s', flush=True)
+            if writer is not None:
+                writer.send(np.ascontiguousarray(np.asarray(fig.canvas.buffer_rgba())[:, :, :3]))
+            else:
+                fig.savefig(out, dpi=100, facecolor='k')
+        if writer is not None:
+            writer.close()
+        plt.close(fig)
+        print(f'{reading:8s} {len(frames)} frame(s) -> {out}   {time.time() - t0:.0f} s', flush=True)
 
 
 if __name__ == '__main__':
-    main(sys.argv[1:] or list(MODES))
+    argv, readings, opts = sys.argv[1:], [], {}
+    i = 0
+    while i < len(argv):
+        if argv[i] in ('--plane', '--vmax', '--dlim'):
+            opts[argv[i][2:]] = argv[i + 1]
+            i += 2
+        else:
+            readings.append(argv[i])
+            i += 1
+    main(readings or list(MODES),
+         plane=int(opts['plane']) if 'plane' in opts else None,
+         vmax=float(opts['vmax']) if 'vmax' in opts else None,
+         dlim=float(opts['dlim']) if 'dlim' in opts else None)

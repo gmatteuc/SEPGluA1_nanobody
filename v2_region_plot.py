@@ -172,9 +172,10 @@ def main():
         ann = anns[atlas_key]
         z = np.load(os.path.join(PER_MOUSE, mouse + '.npz'))
         sig = z['sig'].astype(np.float32); auto = z['auto'].astype(np.float32); tissue = z['tissue']
-        if 'sep' not in z.files:
+        if 'sepratio' in MODES and 'sep' not in z.files:
             raise SystemExit(f'{mouse}: no SEP channel in its per-mouse file. Run\n'
-                             f'  P4bis_add_sep_channel.m for this brain, then v2_per_mouse.py.')
+                             f'  P4bis_add_sep_channel.m for this brain, then v2_per_mouse.py,\n'
+                             f'  or drop the reading with V2_READINGS.')
 
         # sig divided by a reference CHANNEL, voxel by voxel: the denominator is
         # smoothed by one 20 um voxel and mask-normalised, exactly as v2_cohort
