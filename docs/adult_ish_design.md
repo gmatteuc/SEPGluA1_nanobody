@@ -62,6 +62,12 @@ code answering a different question, converging on one codebase.
                            . rank; summarise by the existing category column
                          -> adult_v2/ish/
 
+  v2_ish_words.py        what KIND of gene is at the top
+                           . GO terms per gene from mygene.info, cached
+                           . features = whole GO terms, and words from them
+                           . per feature: Mann-Whitney on rho, bootstrap interval, BH q
+                         -> adult_v2/ish/feature_enrichment.csv
+
   diagnostics live beside each step, as in v2 -> adult_v2/processing_diagnostics/
 ```
 
@@ -130,6 +136,55 @@ against the atlas; cropping them to fit would assign every voxel to the wrong st
 without complaining. Both genes have other experiments in the Allen collection, so the
 panel can be repaired by choosing different ids — a curation decision, deliberately not
 made silently in code.
+
+## What kind of gene is at the top — annotation, not our own labels (26 Sep 2026)
+
+`v2_ish_words.py`. The hand-written `category` column cannot answer this honestly: we
+wrote it while choosing the genes, so explaining the ranking with it is close to circular,
+and it is coarse anyway ("trafficking" holds Cacng8 beside the presynaptic Bsn and Syn1).
+So the grouping comes from GO terms pulled per gene from mygene.info and cached, and two
+feature sets are tested against each gene's rho: whole GO terms, and single words taken
+from those terms and from the gene name. Figure: `ish_word_enrichment.png`.
+
+**The predicted contrast, named in advance** (point 3 of the validation strategy — "a
+generic synaptic marker, or a SynGO presynaptic set that should NOT win, separates the two
+readings"), under `zref`:
+
+| word | genes | gap in median rho | BH q |
+|---|---|---|---|
+| **postsynaptic** | 68 | **+0.339** | 0.009 |
+| glutamatergic | 64 | +0.358 | 0.009 |
+| spine | 31 | +0.238 | 0.096 |
+| dendritic | 38 | +0.219 | 0.165 |
+| vesicle | 47 | +0.208 | 0.361 |
+| **presynaptic** | 49 | **+0.042** | 0.723 |
+| axon | 47 | +0.009 | 0.983 |
+| inhibitory | 16 | −0.055 | 0.852 |
+| gabaergic | 9 | −0.065 | 0.870 |
+
+This is the useful shape of the result. Both compartments are well represented — 68
+postsynaptic genes against 49 presynaptic — so the split is **not** forced by how the
+panel was built, and it is a within-panel contrast, which is the only kind this design
+supports. The genes that track the adult nano map are the postsynaptic glutamatergic ones;
+the presynaptic and axonal vocabulary is flat. That is what the nanobody is supposed to be
+reporting.
+
+Top discovered features tell the same story from the other end: "glutamatergic synapse"
+(61 genes, +0.356), "dendritic spine" (24, +0.298), "postsynaptic density", "neuron spine",
+"positive regulation of ampa receptor activity".
+
+**How to read the figure, and how not to.** Bars are ordered by effect size, which puts
+five-gene groups on top for free — "asymmetric synapse", "temperature", "sleep", "early".
+The 95% bootstrap whisker is there so that is visible rather than buried: those intervals
+run from about −0.6 to +0.5, while `postsynaptic` sits at [+0.17, +0.54]. And the q values
+are anticonservative throughout, by exactly the mechanism in Fulcher 2021 — genes sharing
+a GO term are co-expressed, so their rho values are not independent. Read effect size and
+interval width; treat q as a tie-breaker between features of similar size.
+
+**D7 — annotation comes from outside, and is cached.** mygene.info, one JSON per gene in
+`adult_v2/ish/annotation/`, evidence codes kept but not filtered on: dropping IEA would
+strip most of the annotation off the less-studied genes and quietly bias the comparison
+towards genes somebody has already studied by hand.
 
 ## Decisions and why
 
