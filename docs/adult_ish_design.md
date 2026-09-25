@@ -254,6 +254,68 @@ autoradiography) on a subset of the same brains, giving a genuine total-receptor
 and with it the three-arm figure; or a knockout / no-primary control, which tests specificity
 rather than surface-versus-total. Both are wet-lab asks, not analysis.
 
+## Subunit against localisation — the contrast that *does* discriminate (26 Sep 2026)
+
+An earlier version of this document said no gene annotation could separate surface pool
+from total receptor. **That was too strong and Giulio was right to push back.** What cannot
+discriminate is the *compartment* axis — pre- versus postsynaptic — because both hypotheses
+predict a postsynaptic map. The axis that can is **function**: what sets receptor
+ABUNDANCE against what sets its LOCALISATION, and both sides of that line are postsynaptic.
+
+| | under "nano = total receptor" | under "nano = surface receptor" |
+|---|---|---|
+| subunit genes Gria1–4 | carry the map | carry part of it |
+| TARPs, PSD scaffolds, NSF | add nothing beyond the subunits | explain variance the subunits do not |
+
+`v2_ish_roles.py`. The existing `category` column cannot express this — it puts the
+metabotropic receptors Grm1–5 in "auxiliary" beside the TARPs and fills "trafficking"
+mostly with presynaptic vesicle machinery — so the roles are re-curated by protein
+function, written to `gene_roles.csv` so they can be argued with. No ρ value was consulted
+in drawing them, though they were drawn after the per-gene ranking had been seen.
+
+**Result: the direction is as predicted, and there is no evidence for it.** Both halves
+matter.
+
+| | |
+|---|---|
+| subunit composite alone | R² = 0.327 |
+| localisation composite alone | R² = 0.427 |
+| both | R² = 0.441 |
+| **unique to subunits** | **+0.014** |
+| **unique to localisation** | **+0.114** |
+| shared | +0.312 (the two composites correlate at ρ +0.735) |
+
+So the subunits add almost nothing once the localisation genes are in, which is what
+hypothesis B says. But the two sets differ in size as well as in meaning, and a 15-gene
+composite is less noisy than a 4-gene one. The test that separates those is a **within-family
+permutation**: split the same 19 genes into 4 and 15 every possible way — 3,876 of them —
+and recompute. The functional split lands at **p = 0.4877**, the median of that
+distribution. Splitting those genes by function is no better than splitting them at random.
+
+Sensitivity, because the objection is obvious: the localisation set carries passengers —
+Cacng5, Cacng7 and Grip2 are close to absent from the forebrain. Filtering the family on
+**expression only** (median energy at or above the family median, applied to both sides,
+never looking at a ρ) leaves 10 genes, and sharpens the asymmetry — unique to subunits
++0.000, unique to localisation +0.131 — while the permutation still gives **p = 0.3128**.
+
+**Specificity control**: presynaptic vesicle machinery, which is membrane trafficking of a
+completely different kind, correlates at median +0.363 against localisation's +0.385. If
+the map preferred AMPAR localisation specifically, it should not.
+
+**And note what this does to the earlier headline.** Cacng8 +0.80 against Gria1 +0.66 is a
+single-gene comparison that does *not* generalise to its category: the subunit median
+(+0.582, with Gria1 +0.66, Gria3 +0.65, Gria2 +0.51, Gria4 −0.02) is *above* the
+localisation median (+0.385, spanning Cacng8 +0.80 down to Cacng7 −0.26). Quote Cacng8 as
+one gene, never as evidence about trafficking genes in general.
+
+**This is "no evidence", not "evidence of no effect", and the test is weak.** There are
+only four AMPAR subunits and one of them is anti-correlated, so the surrogate distribution
+is wide: its p95 is +0.44 against an observed +0.10, meaning only an effect roughly four
+times larger could have been detected. What would give it power: a much larger panel so
+the composites are built from tens of genes rather than four; a finer parcellation or
+voxel-level maps for more independent observations; and — still the only thing that settles
+the question rather than sharpening it — a real total-receptor channel.
+
 ## Decisions and why
 
 **D1 — Region-level correlation.** Voxel-level stays out of the core; it can be a
