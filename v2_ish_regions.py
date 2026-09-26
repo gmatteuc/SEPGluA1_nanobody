@@ -59,9 +59,17 @@ from scipy.ndimage import binary_erosion
 
 DATA = r'D:\sep_histology\data'
 ISH_DIR = os.path.join(DATA, 'atlas_ish')
-PANEL = os.path.join(DATA, 'gene_targets.csv')
 CSV_MAP = os.path.join(DATA, 'atlas', 'parcellation_to_parcellation_term_membership.csv')
 OUT = os.path.join(DATA, 'adult_v2', 'ish')
+
+# Which panel to run, and what to call the table. The defaults are the original
+# 100-gene panel; the larger ontology-defined one from v2_panel_build is run by
+# pointing these at it, which keeps one audited copy of the aggregation instead
+# of a second script that drifts:
+#   $env:V2_ISH_PANEL = 'D:\sep_histology\data\adult_v2\panel\panel_v2.csv'
+#   $env:V2_ISH_TABLE = 'gene_region_table_panel.csv'
+PANEL = os.environ.get('V2_ISH_PANEL') or os.path.join(DATA, 'gene_targets.csv')
+TABLE = os.environ.get('V2_ISH_TABLE') or 'gene_region_table.csv'
 
 GRID_UM = 200
 MISSING = -1.0          # the Allen flag for "no data here"
@@ -181,20 +189,22 @@ def main(only=None):
         rm = region_means(vol, ann_full, names, eroded)
         for name, (full, ero, n, ntot) in rm.items():
             rows.append(dict(symbol=sym, experiment_id=eid, category=gene['category'],
+                             plane=gene.get('plane', ''),
                              structure=name, ish_mean=f'{full:.6g}',
                              ish_mean_eroded=('' if np.isnan(ero) else f'{ero:.6g}'),
                              n_voxels=n, n_voxels_structure=ntot,
                              coverage=f'{n / max(ntot, 1):.3f}'))
         print(f'{i:3d}/{len(panel)} {sym:10s} {len(rm):3d} structures   {time.time() - t0:.1f} s', flush=True)
 
-    path = os.path.join(OUT, 'gene_region_table.csv')
+    path = os.path.join(OUT, TABLE)
     with open(path, 'w', newline='', encoding='utf-8') as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
         w.writeheader(); w.writerows(rows)
-    print(f'\n{len(rows):,} rows, {len(panel) - len(dropped)} genes -> {path}',
-          flush=True)
+    n_genes = len({r['symbol'] for r in rows})
+    print(f'\n{len(rows):,} rows, {len(panel) - len(dropped)} experiments, '
+          f'{n_genes} genes -> {path}', flush=True)
 
-    path = os.path.join(OUT, 'gene_drops.csv')
+    path = os.path.join(OUT, TABLE.replace('.csv', '') + '_drops.csv')
     with open(path, 'w', newline='', encoding='utf-8') as fh:
         w = csv.DictWriter(fh, fieldnames=['symbol', 'experiment_id', 'reason'])
         w.writeheader(); w.writerows(dropped)
