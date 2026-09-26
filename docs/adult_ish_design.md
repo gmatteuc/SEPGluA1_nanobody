@@ -316,6 +316,111 @@ the composites are built from tens of genes rather than four; a finer parcellati
 voxel-level maps for more independent observations; and — still the only thing that settles
 the question rather than sharpening it — a real total-receptor channel.
 
+## The powered version of the test — built, run, and negative (26 Sep 2026)
+
+The previous section ended with "no evidence, and the test is weak". This builds the panel
+that could carry it and runs it properly. Scripts, in order: `v2_panel_build.py`,
+`v2_panel_fetch.py`, `v2_ish_regions.py` (same code, new panel via `V2_ISH_PANEL`),
+`v2_ish_reliability.py`, `v2_ish_panel_test.py`.
+
+### The panel comes from the ontology, not from us
+
+Gene Ontology terms queried through mygene.info and cached; every gene in
+`panel_genes.csv` carries the term ids that placed it, so the panel is arguable term by
+term rather than gene by gene.
+
+| set | terms | genes |
+|---|---|---|
+| subunit | GO:0004971 ∩ GO:0032281 | 4 |
+| localisation | GO:0099072, GO:0099645, GO:0097113, GO:0098970, plus GO:0032281 minus the subunits | 84 |
+| control_psd | GO:0014069 postsynaptic density, minus the above | 300 |
+
+**One hand-made decision in the whole panel, and it is written into the code as
+`OVERRIDE`:** GO annotates the delta receptors Grid1 and Grid2 to both AMPA terms. They
+are a different receptor family and their transcript level does not set how much AMPA
+receptor a region has, so they get their own role instead of counting as subunits. They
+stay in the panel so the test can be run either way.
+
+**Both planes of section**, where the old panel was coronal only: 390 genes have at least
+one experiment, 669 experiments in all, 667 downloaded (two pre-2005 experiments ship a zip
+with no energy grid; both genes have others). 479 MB.
+
+### One Allen map is more reliable than we assumed — including Gria1's
+
+218 genes have more than one experiment, so their map can be correlated against itself:
+
+| | |
+|---|---|
+| reliability, median over 218 genes | **+0.691**, quartiles [+0.519, +0.770] |
+| coronal against sagittal (n = 261 pairs) | +0.689 |
+| same plane (n = 80 pairs) | +0.567 |
+| genes below 0.3 | 22 |
+
+**Gria1's own map scores 0.91**, Gria2 0.90, Gria3 0.81, Gria4 0.57; Cacng8 0.91, Dlg2
+0.91, Dlg4 0.76, Nsf 0.66. That closes a caveat open since April: Gria1 ranking below the
+trafficking genes is **not** an artefact of a bad Gria1 experiment. Replicates are merged
+on ranks (expression energy carries an arbitrary per-experiment scale) into
+`gene_region_table_merged.csv`, which every test below uses.
+
+### The statistic had to change too
+
+Comparing a 4-gene composite with a 15-gene one confounds meaning with noise, and no panel
+fixes it because the mouse has four AMPA subunit genes. So the question is asked per gene:
+
+> for every non-subunit gene, how much of the map does it explain **once the subunit
+> composite is removed** — `partial ρ(map, gene | subunits)` — and do localisation genes
+> retain more than other postsynaptic genes?
+
+Both sides are now large, and the subunit composite enters once as a covariate where its
+noise costs both sides equally. Controls are matched one-to-one to localisation genes on
+median expression energy, because reliability rises steeply with expression and an
+unmatched comparison would partly measure which set contains louder genes.
+
+### Result: no difference, and this time that means something
+
+| contrast (zref) | localisation | control | difference | p |
+|---|---|---|---|---|
+| partial ρ, expression-matched | +0.139 (84) | +0.149 (84) | **−0.010** | 0.74 |
+| partial ρ, all controls | +0.139 (84) | +0.123 (300) | +0.016 | 0.65 |
+| plain ρ, before partialling | +0.390 | +0.379 | +0.011 | 0.89 |
+| partial ρ, reliability ≥ 0.3 only | 45 genes | 39 genes | −0.004 | 0.91 |
+
+**Sensitivity, so the null is interpretable**: a difference of **±0.062** would have been
+detected at p < 0.05; the observed is 0.16 of that. **Positive control**: the same
+machinery, on control genes split at their median reliability, finds |ρ| 0.509 against
+0.354 — difference **+0.155, p = 0.0007**. So the test detects a real effect of that size
+with these sample sizes and does not detect this one.
+
+**AMPAR localisation genes, as a class, explain no more of the adult nano map than
+expression-matched postsynaptic genes do, once receptor abundance is taken out.**
+
+### What the map actually tracks
+
+The top of the control list answers that, and it is not a list of hidden TARPs: Arpc5
++0.602, Cdk5r1 +0.560, Ptk2b +0.552, Slc8a2 +0.547, Rgs14 +0.513, Cap2 +0.512, Baiap2
++0.501, Grin2a +0.499. General postsynaptic signalling and cytoskeletal genes of forebrain
+excitatory neurons. Cacng8 is still first overall at partial +0.695, with Dlg2 +0.546 and
+Igsf11 +0.558 — but Arpc5 and Cdk5r1 sit in the same band, and they have nothing to do with
+AMPA receptor trafficking.
+
+So the honest reading of the whole ISH arm: **the adult nano map is predicted about equally
+well by any well-measured forebrain postsynaptic gene.** Cacng8 topping the ranking is real
+and reproducible, and it is not evidence that the map is about trafficking, because the
+class it belongs to carries no more signal than the neighbours.
+
+### What is left
+
+Three things, none of them another gene panel:
+
+1. **A real total-receptor channel** — a total-GluA1 antibody stain or autoradiography on a
+   subset of the same brains. Still the only thing that settles surface-versus-total rather
+   than sharpening it.
+2. **A spatial null** (Fulcher SBP-spatial), which would tell us how much of the +0.39
+   baseline correlation shared by *every* postsynaptic gene is simply "everything is high in
+   cortex and hippocampus".
+3. Accepting the descriptive result as descriptive, and not building the paper's
+   measurement-validation argument on it.
+
 ## Decisions and why
 
 **D1 — Region-level correlation.** Voxel-level stays out of the core; it can be a
