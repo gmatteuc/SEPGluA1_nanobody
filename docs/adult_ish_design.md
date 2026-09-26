@@ -423,93 +423,99 @@ Three things, none of them another gene panel:
 
 ## Is the map just abundance, or just synaptic density? **Neither** (26 Sep 2026)
 
-The two things a reader will say the nano map is. Ranking genes cannot answer either —
-and the flat ranking in the previous section is exactly what you would expect if the map
-were only tracking how much synapse a region has. So the question is asked the other way
-round: **take both explanations out, and ask whether what is left is signal or noise.**
+The two things a reader will say the nano map is. Ranking genes cannot answer either — and
+the flat ranking in the previous section is exactly what you would expect if the map were
+only tracking how much synapse a region has. So the question is turned around: **take both
+explanations out, and ask whether what is left is signal or noise.**
 
-    nano zref  ~  AMPA abundance  +  synaptic density   ->   residual
-    does the residual survive splitting the cohort in half?
+    nano zref  ~  receptor abundance + synaptic density   ->   residual
+    does the residual come out the same in two independent halves of the cohort?
 
-That last line is the whole argument. A residual is always non-zero; what makes it
-interesting is whether two halves of the cohort produce the *same* one. `v2_beyond_density.py`,
-figure `beyond_density.png`, 152 structures measured in every mouse and every covariate.
+A residual is never zero; what makes one interesting is reproducibility, because noise
+cannot replicate across independent animals. Two scripts: `v2_beyond_density.py` does the
+analysis in four numbered steps with a figure each, and **`v2_beyond_controls.py` exists to
+break it** — seven named ways the claim could be wrong, each with the number that decides.
 
-### The ceiling first
+### Step 0 — which structures, decided by rule before any fitting
 
-Splitting ten adults into two fives every possible way (126 splits), the two half-maps
-correlate at **ρ = 0.975**; Spearman-Brown gives a full-cohort reliability of **0.987**. So
-**97.4% of the variance in this map is explainable in principle** — an unusually high
-ceiling, and the honest denominator for everything below.
+Grey matter only (by division), and no `..., unassigned` entries — those are voxels the
+atlas could not place, not structures, and what lands in them depends on how each brain
+registered. This matters: in the first run "brain, unassigned" (+57 ranks) and "cerebrum
+related" (+49) sat near the top of the residual. **125 structures** survive the rule;
+`structures_used.csv` lists every one kept and dropped with the reason, and `fig0` draws it.
 
-### What each explanation actually accounts for
+### Step 1 — the ceiling
 
-| covariate | ρ with the map | R² | share of the ceiling |
-|---|---|---|---|
-| AMPA abundance (Gria1–4) | +0.555 | 0.315 | 32.4% |
-| synaptic markers (Syp, Syn1, Vamp2, Bsn, Syt1, Dlg4, Homer1, Shank2/3, Nlgn1, Camk2a) | +0.535 | 0.271 | 27.8% |
-| psd_pc1 (first PC of 300 postsynaptic-density genes) | +0.636 | 0.385 | 39.5% |
-| autofluorescence, same brains | +0.007 | 0.000 | 0.0% |
-| **all four together** | | **0.509** | **52.3%** |
+Over all 126 five-against-five splits of the ten adults, the half-cohort maps agree at
+**ρ = 0.974**; Spearman-Brown gives **0.987** for the full cohort. So **97.4% of this map's
+variance is explainable in principle**. Every R² below is quoted against that, not against
+1.0.
 
-**Half the reliable variance in the nano map is not accounted for by receptor abundance,
-synaptic markers, the dominant axis of postsynaptic gene expression, or tissue
-autofluorescence.**
+### Step 2 — what the explanations buy
 
-*(Honest footnote on autofluorescence: across all 234 structures it correlates +0.201 with
-the map; across the 152 that also have full ISH coverage, +0.007. Restricting to
-ISH-covered structures removes it, so "tissue density explains nothing" holds on this
-structure set and not in general.)*
+Scored by cross-validation on held-out structures, because a model with more terms always
+fits better on the data it was fitted to:
 
-### And the leftover is not noise
+| model | CV R² | of the ceiling |
+|---|---|---|
+| abundance (Gria1–4) | 0.253 | 26% |
+| synaptic markers (Syp, Syn1, Vamp2, Bsn, Syt1, Dlg4, Homer1, Shank2/3, Nlgn1, Camk2a) | 0.148 | 15% |
+| psd_pc1 (first PC of 188 postsynaptic-density genes) | 0.262 | 27% |
+| autofluorescence, same brains | −0.043 | 0% |
+| all four, straight lines | 0.416 | 43% |
+| **all four, allowed to bend** | **0.597** | **61%** |
 
-Residualising each half-cohort map on all four covariates and correlating the two
-residuals, over the same 126 splits: **ρ = 0.955**, Spearman-Brown **0.977**. The leftover
-is very nearly as reproducible across independent animals as the map itself (0.975 /
-0.987). It is real spatial structure, not measurement error.
+The last row is the one to quote — it is the covariates' best shot. **It leaves 39% of the
+explainable variance unaccounted for.**
 
-### Could better covariates close the gap? No
+### Step 3 — and the leftover replicates
 
-The obvious objection is that the covariates are noisy — a predictor measured badly cannot
-remove the variance it should. The replicate experiments answer it. Building each composite
-twice, from different Allen experiments of the same genes:
+Residualise each half-cohort map on that bending model and compare the two leftovers:
+**ρ = 0.934**, Spearman-Brown **0.966**, against the map's own 0.974 / 0.987. The leftover
+is very nearly as reproducible as the map itself.
 
-| composite | its own reliability | ρ observed | ρ corrected for noise in both | R² observed → corrected |
-|---|---|---|---|---|
-| abundance | 0.968 (4 of 4 genes) | +0.555 | +0.568 | 0.315 → **0.323** |
-| markers | 0.981 (8 of 11 genes) | +0.535 | +0.543 | 0.271 → **0.295** |
+### Step 4 — where it lives
 
-Measurement noise in the covariates is worth about **one to three percentage points**, not
-the forty-eight that are missing.
+Medial geniculate +48 ranks, subthalamic nucleus +44, ventral LGN +38, lateral habenula
++38, septofimbrial +35, VISal +32, CA3 +31, subiculum +30. Against VPM −49, VPL −47, RSPd
+−46, posterior complex −43. No single gene of the 390 accounts for it (best: Cacng8 +0.301).
 
-### Where the leftover lives
+### The controls — and the one that failed
 
-More surface GluA1 than abundance, density and tissue predict — subiculum **+73 ranks**,
-medial geniculate +70, CA2 +61, prosubiculum +57, subthalamic nucleus +55, septofimbrial
-+55, CA1 +51. Less — arcuate hypothalamic −70, visceral area −58, VPM −56, nucleus of
-reuniens −53, VPL −51, posterior complex −50.
+| | control | result |
+|---|---|---|
+| A | smooth spatial gradient (clearing/illumination artefact) | quadratic in AP/DV/ML explains R² 0.18; with position as a covariate the leftover still replicates at 0.934 — **pass** |
+| B | small or noisy structures | ρ with log volume −0.116 — **pass** |
+| C | one or two odd animals | every pair of mice agrees, median 0.780, worst 0.595 — **pass** |
+| D | the whisker manipulation | naive leftover vs RWS leftover ρ +0.884 — **pass** |
+| E | curvature modelled away as a straight line | **FAILED FIRST TIME** — see below |
+| F | our choice of covariates | 20 components of the whole 390-gene space reach CV R² 0.826 (85% of the ceiling), and their leftover *still* replicates at 0.879 — **pass** |
+| G | specific to zref | every reading gives the same picture; leftover replicates 0.912–0.936 — **pass** |
 
-A coherent axis: **hippocampal formation and subiculum are enriched, thalamic relay nuclei
-are depleted**, beyond what either explanation predicts. No single gene in the 390-gene
-panel accounts for it — the best correlates of the residual are Nos1 +0.471, Gphn +0.390,
-Gria4 −0.383, Eps8 +0.379, Cacng8 +0.366.
+**Control E failed, and the analysis changed rather than the wording.** Fitted as straight
+lines, the covariates reached CV R² 0.416; allowed squares and cubes, 0.597. A fifth of the
+map was being credited to the leftover that the covariates could in fact explain. So the
+headline model now bends, the claim moved from "half the explainable variance" to **39%**,
+and E now asks the follow-up instead: going further, to fifth powers, buys 0.602 against
+0.597 — the model is bent enough.
 
-### What this does and does not establish
+That is the whole reason for the controls, and it is worth saying plainly: the first
+version of this result was too generous to us by about ten points.
 
-**It does** answer both of Giulio's questions, and they are the interesting ones. The nano
-map is not a restatement of where AMPA receptor is expressed (that buys a third of the
-explainable variance), and it is not a restatement of synaptic density on any of three
-proxies (together with abundance, barely half). What is left over is reproducible at 0.977
-and anatomically organised. This is the strongest positive result the ISH arm has produced
-and it does not depend on the gene ranking at all.
+### What to claim, and what not to
 
-**It does not** show that the leftover *is* the surface fraction. A residual is only ever
-"not explained by the things we put in": mRNA is an imperfect proxy for protein, and
-anything spatially organised that was left out of the model lands in it — regional
-differences in translation, turnover, receptor subunit composition, or nanobody access to
-tissue. Ruling those in or out is what the total-receptor channel is for. The claim to make
-is the careful one: **the adult surface-GluA1 map carries substantial, reproducible spatial
-structure that receptor abundance and synaptic density do not explain.**
+**Claim:** *about 40% of the explainable variance of the adult surface-GluA1 map is not
+accounted for by receptor abundance or synaptic density, even when those are given a
+flexible relationship and the whole cohort's own autofluorescence, and what remains
+replicates across independent animals at 0.97. A twenty-component model of the entire
+390-gene panel — far richer than either explanation — still leaves a remainder that
+replicates at 0.88.*
+
+**Do not claim** that the leftover *is* the surface fraction. A residual is only ever "not
+explained by what we put in": mRNA is an imperfect proxy for protein, and anything
+spatially organised that was left out lands in it — regional differences in translation,
+turnover, subunit composition, or nanobody access to tissue. Separating those is what a
+real total-receptor channel is for.
 
 ## Decisions and why
 
