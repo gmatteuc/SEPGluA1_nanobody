@@ -50,6 +50,50 @@ THE FOUR STEPS
 Each step prints its numbers and draws its own figure, so the argument can be
 checked one piece at a time rather than taken whole.
 
+HOW "EXPLAINED" AND "UNEXPLAINED" ARE COUNTED
+---------------------------------------------
+All of it is one number per structure, 125 of them, and all of it is on ranks.
+
+  what is predicted   y = the ten adults' mean zref in each structure, turned
+                      into ranks 1..125. So "variance" here is variance of the
+                      ORDERING of structures, not variance in log2 units, and
+                      R2 means "how much of the ordering can be reproduced".
+  what predicts it    four vectors, also one value per structure, also ranks:
+                      the Gria1-4 composite, the 11-marker composite, the first
+                      component of 188 postsynaptic-density genes, and the
+                      cohort's mean autofluorescence. Each enters as x, x^2 and
+                      x^3, because the rank relationships are curved (control E).
+  R2                  least squares of y on those columns plus an intercept,
+                      then R2 = 1 - var(y - prediction) / var(y). Nothing exotic.
+  CROSS-VALIDATED R2  the same, except the prediction for each structure comes
+                      from a fit that never saw it: the 125 are shuffled once
+                      with a fixed seed, cut into five folds, and each fold
+                      predicted from the other four. This is the number quoted,
+                      because adding terms always improves the in-sample fit --
+                      here 0.706 fitted against 0.597 predicted, and that gap is
+                      exactly the overfitting that the honest number removes.
+
+Then the denominator, which is the part most people skip. Variance can only be
+explained insofar as it is real, so the cohort is split into two fives every
+possible way (126 splits), the two half-maps correlated (mean rho 0.974), and
+Spearman-Brown applied to get what the full ten animals are worth: 0.987. Square
+it and 0.974 of the map's variance is reproducible; the remaining 0.026 is noise
+and nobody could ever predict it.
+
+  explained     0.597 of total variance   (cross-validated)
+  reproducible  0.974 of total variance   (the ceiling)
+  so the share of the EXPLAINABLE variance that the covariates reach is
+      0.597 / 0.974 = 61.3%
+  and what is left unexplained but still real is
+      (0.974 - 0.597) / 0.974 = 38.7%
+
+That last figure is the "about 40%" in the claim. It is deliberately not
+1 - 0.597 = 40.3%, which would be counting the 2.6% of pure noise as something
+the explanations failed to account for.
+
+Intervals on all of these come from resampling the 125 structures with
+replacement 2000 times and recomputing; see v2_beyond_figures.py.
+
 CHOICES, AND WHY
 ----------------
 *Structures, not voxels.* The gene side exists only at 200 um and only in a
