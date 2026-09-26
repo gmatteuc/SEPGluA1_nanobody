@@ -67,6 +67,14 @@ from v2_beyond_figures import RED, DARK, LIGHT, BLUE, FIGS, save
 # is where the residual is largest in both directions.
 PLANES = (215, 265, 315)
 
+# The brain sits on black, as the young-versus-adult detail figures do. That
+# matters more here than it looks: `hot` ends in white, so on a white page the
+# brightest structures disappear into the background. It also BEGINS in black,
+# though, so the floor is dropped below the data before drawing -- rank 1 then
+# lands around a tenth of the way up the colormap, a dark red that still reads
+# against the background instead of vanishing into it at the other end.
+FLOOR = 0.12
+
 
 def paint(plane, value_by_name, names):
     """One coronal slice with each structure filled by its value, NaN elsewhere."""
@@ -140,13 +148,14 @@ def panel_f(observed, predicted, res, structures):
             img = paint(plane, values, names)
             ax = axes[r, c]
             if span is None:
-                im = ax.imshow(img, cmap=cmap, vmin=1, vmax=len(structures),
+                lo = 1 - FLOOR * (len(structures) - 1)
+                im = ax.imshow(img, cmap=cmap, vmin=lo, vmax=len(structures),
                                interpolation='nearest')
             else:
                 im = ax.imshow(img, cmap=cmap, vmin=-span, vmax=span,
                                interpolation='nearest')
             im.set_rasterized(True)          # EPS keeps the text vector, not this
-            ax.set_facecolor('white')
+            ax.set_facecolor('black')        # NaN is transparent, so this is the ground
             ax.set_xticks([]); ax.set_yticks([])
             for side in ax.spines.values():
                 side.set_visible(False)
@@ -160,10 +169,15 @@ def panel_f(observed, predicted, res, structures):
                 cb.ax.tick_params(labelsize=6.5)
                 cb.set_label('rank among structures' if span is None
                              else 'observed minus predicted (ranks)', fontsize=7)
+                if span is None:
+                    # the floor sits below rank 1 so that nothing draws as black;
+                    # the ticks should still stop at the real range
+                    cb.set_ticks([1, 25, 50, 75, 100, len(structures)])
 
-    fig.suptitle('F.  The same three quantities on the brain.  Red in the third column '
-                 'is more surface GluA1\nthan abundance and density predict, blue is '
-                 'less.', fontsize=10)
+    fig.suptitle('F.  The same three quantities on the brain.  Red in the third column is '
+                 'more surface GluA1 than\nabundance and density predict, blue is less.  '
+                 'Black is outside the brain, or a structure the\nanalysis excludes: '
+                 'fibre tracts, ventricles and unassigned voxels.', fontsize=10)
     fig.tight_layout(rect=(0, 0, 1, 0.94))
     save(fig, 'F_maps')
 
