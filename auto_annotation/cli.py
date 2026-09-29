@@ -21,6 +21,10 @@ The automatic annotation, from MATLAB: one process per call.
       proposed section is changed by hand. Writes atlas, hist (n x 2, 1-based
       y x) and low (n,) to <response.mat>.
 
+  python cli.py sections <lightsuite folder> <request.mat> <response.mat>
+      several sections at once (request: slices, planes, 1-based), for the GUI's
+      U after an anchor was corrected. Response: atlas, hist, low as cells.
+
 Planes between anchors are interpolated linearly, and extrapolated past the
 end ones, as registerSlicesToAtlas does for sections without points.
 """
@@ -120,9 +124,30 @@ def section(folder, slice_1b, plane_1b, response):
                        'low': r['low'].astype(np.uint8)})
 
 
+def sections(folder, request, response):
+    """Several slices at given planes (the GUI's U): request holds slices, planes (1-based)."""
+    q = loadmat(request, squeeze_me=True)
+    slices = np.atleast_1d(q['slices']).astype(int)
+    planes = np.atleast_1d(q['planes']).astype(int)
+    vol = read_sections(folder)
+    tv = read_atlas(folder)
+    lnet, mnet = core.load_models(os.path.join(WEIGHTS, 'landmark.pt'), os.path.join(WEIGHTS, 'matcher.pt'))
+    res = core.propose([vol[s - 1] for s in slices], [tv[p - 1] for p in planes], lnet, mnet)
+    atl = np.empty((len(res), 1), object); hist = np.empty((len(res), 1), object)
+    low = np.empty((len(res), 1), object)
+    for k, r in enumerate(res):
+        atl[k, 0] = r['atlas'] + 1; hist[k, 0] = r['hist'] + 1; low[k, 0] = r['low'].astype(np.uint8).reshape(-1, 1)
+    savemat(response, {'ok': 1, 'message': '', 'atlas': atl, 'hist': hist, 'low': low})
+
+
 def main(argv):
     if len(argv) >= 2 and argv[0] == 'propose':
         propose(argv[1])
+    elif len(argv) >= 4 and argv[0] == 'sections':
+        try:
+            sections(argv[1], argv[2], argv[3])
+        except Exception as err:                                   # the GUI shows the message
+            savemat(argv[3], {'ok': 0, 'message': f'{type(err).__name__}: {err}'})
     elif len(argv) >= 5 and argv[0] == 'section':
         try:
             section(argv[1], int(argv[2]), int(argv[3]), argv[4])

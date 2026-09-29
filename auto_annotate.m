@@ -12,6 +12,10 @@ function out = auto_annotate(mode, procpath, slice, plane)
 %   section's plane is changed by hand. out.atlas and out.hist are n x 2
 %   [y x], out.low marks the least confident points.
 %
+%   out = AUTO_ANNOTATE('sections', procpath, slices, planes) proposes several
+%   slices at once, each at its plane (vectors, 1-based), for the GUI's U.
+%   out.atlas, out.hist and out.low are cells, one per slice.
+%
 %   out.ok is false, with out.message saying why, on any failure -- a missing
 %   interpreter, a missing file, a Python error. Callers check it.
 %
@@ -60,8 +64,28 @@ switch mode
             out.low   = logical(r.low(:));
         end
 
+    case 'sections'
+        % here slice and plane are vectors: every orange slice, at its plane
+        reqf    = [tempname '_req.mat'];
+        respf   = [tempname '_resp.mat'];
+        cleaner = onCleanup(@() delete_quiet({reqf, respf}));
+        slices = round(slice(:)); planes = round(plane(:));   % saved by name below
+        save(reqf, 'slices', 'planes', '-v7');
+        cmd = sprintf('"%s" "%s" sections "%s" "%s" "%s"', py, cli, procpath, reqf, respf);
+        [status, log] = system(cmd);
+        if ~exist(respf, 'file')
+            out.message = sprintf('python produced no response (status %d):\n%s', status, strtrim(log));
+            return
+        end
+        r = load(respf);
+        out.ok      = logical(r.ok);
+        out.message = strtrim(char(r.message));
+        if out.ok
+            out.atlas = r.atlas;  out.hist = r.hist;  out.low = r.low;
+        end
+
     otherwise
-        out.message = sprintf('unknown mode ''%s'' (propose | section)', mode);
+        out.message = sprintf('unknown mode ''%s'' (propose | section | sections)', mode);
 end
 end
 
@@ -82,5 +106,8 @@ end
 
 
 function delete_quiet(f)
-if exist(f, 'file'), delete(f); end
+if ischar(f), f = {f}; end
+for k = 1:numel(f)
+    if exist(f{k}, 'file'), delete(f{k}); end
+end
 end
