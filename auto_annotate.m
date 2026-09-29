@@ -1,0 +1,86 @@
+function out = auto_annotate(mode, procpath, slice, plane)
+%AUTO_ANNOTATE  Automatic control points for one brain, from Python.
+%   out = AUTO_ANNOTATE('propose', procpath) runs the whole brain: it reads the
+%   sections, the GUI's warped atlas (auto_atlas_planes.mat) and the anchor
+%   planes (plane_anchors.mat) from the lightsuite folder, and writes
+%   auto_proposal_controlpoints.mat and auto_proposal_info.mat there. Never
+%   atlas2histology_tform.mat: the GUI loads the proposal for review, and only
+%   what is accepted there is saved as the annotation.
+%
+%   out = AUTO_ANNOTATE('section', procpath, slice, plane) proposes one section
+%   at the given atlas plane (both 1-based), for the GUI when a proposed
+%   section's plane is changed by hand. out.atlas and out.hist are n x 2
+%   [y x], out.low marks the least confident points.
+%
+%   out.ok is false, with out.message saying why, on any failure -- a missing
+%   interpreter, a missing file, a Python error. Callers check it.
+%
+%   The Python side lives in auto_annotation/ next to this file and runs in its
+%   own virtual environment; run setup_auto_annotation.ps1 once per machine,
+%   or point AUTO_ANNOTATION_PYTHON at an interpreter that has torch.
+
+out = struct('ok', false, 'message', '');
+
+here  = fileparts(mfilename('fullpath'));
+pydir = fullfile(here, 'auto_annotation');
+py    = auto_annotation_python(pydir);
+if isempty(py)
+    out.message = ['no Python interpreter found: run setup_auto_annotation.ps1 or set ' ...
+                   'AUTO_ANNOTATION_PYTHON'];
+    return
+end
+cli = fullfile(pydir, 'cli.py');
+
+switch mode
+    case 'propose'
+        cmd = sprintf('"%s" "%s" propose "%s"', py, cli, procpath);
+        [status, log] = system(cmd, '-echo');
+        if status ~= 0 || ~exist(fullfile(procpath, 'auto_proposal_controlpoints.mat'), 'file')
+            out.message = sprintf('python failed (status %d):\n%s', status, strtrim(log));
+            return
+        end
+        out.ok = true;
+
+    case 'section'
+        respf   = [tempname '_resp.mat'];
+        cleaner = onCleanup(@() delete_quiet(respf));
+        cmd = sprintf('"%s" "%s" section "%s" %d %d "%s"', py, cli, procpath, ...
+                      round(slice), round(plane), respf);
+        [status, log] = system(cmd);
+        if ~exist(respf, 'file')
+            out.message = sprintf('python produced no response (status %d):\n%s', status, strtrim(log));
+            return
+        end
+        r = load(respf);
+        out.ok      = logical(r.ok);
+        out.message = strtrim(char(r.message));
+        if out.ok
+            out.atlas = double(r.atlas);
+            out.hist  = double(r.hist);
+            out.low   = logical(r.low(:));
+        end
+
+    otherwise
+        out.message = sprintf('unknown mode ''%s'' (propose | section)', mode);
+end
+end
+
+
+function py = auto_annotation_python(pydir)
+% The interpreter: an explicit override, else the venv setup_auto_annotation.ps1
+% creates next to the package -- relative to the code folder, so it moves with it.
+cands = { getenv('AUTO_ANNOTATION_PYTHON'), ...
+          fullfile(pydir, '.venv', 'Scripts', 'python.exe') };
+py = '';
+for k = 1:numel(cands)
+    if ~isempty(cands{k}) && exist(cands{k}, 'file')
+        py = cands{k};
+        return
+    end
+end
+end
+
+
+function delete_quiet(f)
+if exist(f, 'file'), delete(f); end
+end

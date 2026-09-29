@@ -41,6 +41,22 @@ clc
 %                                   never saved unless touched. Needs the Python
 %                                   side once per machine: setup_landmark_refine.ps1.
 %                                   Writes atlas2histology_tform.mat.
+%
+%                                   AUTOMATIC ALTERNATIVE, in three steps:
+%                                   1 'annotate': only set the atlas plane on the
+%                                     suggested anchor slices (j jumps between
+%                                     them, a fixes the plane on screen), save (s).
+%                                   2 'autoannotate' (below) proposes every slice.
+%                                   3 'annotate' again: the proposal loads orange,
+%                                     least confident points marked ?; k accepts a
+%                                     slice, u re-proposes it at the plane on
+%                                     screen, the usual tools fix points. Only
+%                                     accepted or touched slices are saved.
+%   run_mode = 'autoannotate' (auto) the automatic control points, from the anchor
+%                                   planes: auto_proposal_controlpoints.mat, never
+%                                   atlas2histology_tform.mat itself. Needs the
+%                                   Python side once per machine:
+%                                   setup_auto_annotation.ps1 (a GPU makes it minutes).
 %   run_mode = 'register'  (auto)   elastix refinement and the registered volumes.
 %                                   Picks up the control points if they exist.
 %
@@ -61,7 +77,7 @@ groups_to_process = {'young'};                  % 'rws' | 'naive' | 'behavior' |
 mice_to_process   = {'MG904_SepGluA_P22'};   % 'annotate' takes one mouse at a time
 
 % Which half of the script to run. 'annotate' takes one mouse at a time.
-run_mode = 'register';                             % 'align' | 'angle' | 'annotate' | 'register'
+run_mode = 'register';                             % 'align' | 'angle' | 'annotate' | 'autoannotate' | 'register'
 
 % How far the atlas shown in the GUI (and used by the registration) extends
 % beyond the slice stack, in slices, on each side. The atlas on screen is
@@ -130,8 +146,8 @@ else
 end
 % Catch a mistyped mode here rather than letting it fall through to 'align' and
 % quietly redo an hour of bridging nobody asked for.
-if ~ismember(run_mode, {'align', 'angle', 'annotate', 'register'})
-    error('P4: unknown run_mode ''%s'' (use ''align'', ''angle'', ''annotate'' or ''register'').', run_mode);
+if ~ismember(run_mode, {'align', 'angle', 'annotate', 'autoannotate', 'register'})
+    error('P4: unknown run_mode ''%s'' (use ''align'', ''angle'', ''annotate'', ''autoannotate'' or ''register'').', run_mode);
 end
 
 fprintf('P4: %d mouse/mice selected, mode ''%s'', atlas ''%s''.\n', ...
@@ -201,7 +217,7 @@ for mouse_idx = 1:numel(cohort)
 
     % 'annotate' and 'register' both work off what 'align' already wrote, so
     % they skip the expensive bridging below and go straight to their step.
-    if ismember(run_mode, {'angle', 'annotate', 'register'})
+    if ismember(run_mode, {'angle', 'annotate', 'autoannotate', 'register'})
 
         regopts_name = fullfile(mouse_dir, 'regopts.mat');
         if ~exist(regopts_name, 'file')
@@ -284,6 +300,30 @@ for mouse_idx = 1:numel(cohort)
                 fprintf('  opening the control-point GUI against atlas ''%s''.\n', atlas.key);
                 fprintf('  place points on every slice, then SAVE and CLOSE, and re-run with run_mode = ''register''.\n');
                 matchControlPointsInSlices(opts);
+
+            case 'autoannotate'
+                % The automatic control points, proposed from the anchor planes
+                % set in the GUI. Writes a PROPOSAL next to the annotation; the
+                % GUI loads it for review, and only what is accepted there is
+                % ever saved as atlas2histology_tform.mat.
+                for f = {'plane_anchors.mat', 'auto_atlas_planes.mat'}
+                    if ~exist(fullfile(mouse_dir, f{1}), 'file')
+                        error(['P4: no %s for %s.\n' ...
+                               'Open run_mode = ''annotate'', set the plane on the suggested anchor\n' ...
+                               'slices (j jumps between them, a fixes the plane), save with s, then re-run.'], ...
+                               f{1}, mouse_name);
+                    end
+                end
+                if exist(fullfile(mouse_dir, 'auto_proposal_controlpoints.mat'), 'file')
+                    fprintf('  NOTE: a previous proposal will be replaced (accepted slices are in the annotation, not there).\n');
+                end
+                fprintf('  proposing control points for every slice from the anchor planes...\n');
+                out = auto_annotate('propose', mouse_dir);
+                if ~out.ok
+                    error('P4: the automatic annotation failed for %s:\n%s', mouse_name, out.message);
+                end
+                fprintf(['  done. Review it: run_mode = ''annotate'' (k accepts a slice, u re-proposes it),\n' ...
+                         '  then run_mode = ''register''.\n']);
 
             case 'register'
                 % LightSuite does not register well from image information
