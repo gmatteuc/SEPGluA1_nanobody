@@ -142,6 +142,91 @@ gui_data.atlas_labels = gobjects(0);
 % Drawn with a ? while the slice is provisional; meaningless once touched.
 gui_data.uncertain    = cell(gui_data.Nslices, 1);
 
+% Automatic annotation (auto_annotate.m). Two things feed it from here, and
+% neither changes anything for a brain that has never used it:
+%
+%   anchors    a slice's atlas plane fixed by hand without placing points
+%              ('a'). They join the slices with points in the plane
+%              interpolation below, so four of them spread along the stack
+%              put every slice within about a section of the right plane.
+%              Saved to plane_anchors.mat, with the plane the interpolation
+%              gives every slice -- the automatic step uses exactly those.
+%   proposal   auto_proposal_controlpoints.mat, written by P4 'autoannotate'.
+%              Every slice still empty in the saved annotation is filled from
+%              it as PROVISIONAL (orange, not saved until accepted with 'k' or
+%              touched), its least confident points marked ?.
+gui_data.plane_anchors     = nan(gui_data.Nslices, 1);
+gui_data.suggested_anchors = unique(round(linspace(1, gui_data.Nslices, 4)));
+anchor_fn = fullfile(gui_data.save_path, 'plane_anchors.mat');
+if exist(anchor_fn, 'file')
+    A = load(anchor_fn, 'anchor_slices', 'anchor_planes');
+    gui_data.plane_anchors(A.anchor_slices(:)) = A.anchor_planes(:);
+    fprintf('Loaded %d plane anchor(s) from %s\n', numel(A.anchor_slices), anchor_fn);
+end
+
+gui_data.proposal     = [];
+gui_data.proposal_low = {};
+% the plane each slice's CURRENT proposal was made at (u and U update it), so
+% "plane changed" means scrolled since the last proposal, not since the first
+gui_data.proposed_plane = nan(gui_data.Nslices, 1);
+proposal_fn = fullfile(gui_data.save_path, 'auto_proposal_controlpoints.mat');
+if exist(proposal_fn, 'file')
+    P = load(proposal_fn);
+    info_fn = fullfile(gui_data.save_path, 'auto_proposal_info.mat');
+    low = cell(gui_data.Nslices, 1);
+    if exist(info_fn, 'file')
+        I = load(info_fn, 'low_confidence');
+        low(1:numel(I.low_confidence)) = I.low_confidence(:);
+    end
+    % Slices re-proposed in an earlier session (u, U) carry their LATEST
+    % proposal in annotation_provenance.mat: that, not the P4 file, is what
+    % was accepted there, so it is what flags and provenance refer to.
+    prov_fn = fullfile(gui_data.save_path, 'annotation_provenance.mat');
+    if exist(prov_fn, 'file')
+        L = load(prov_fn);
+        if isfield(L, 'latest_histology')
+            for k = 1:min(numel(L.latest_histology), numel(P.histology_control_points))
+                if ~isempty(L.latest_histology{k})
+                    P.histology_control_points{k} = L.latest_histology{k};
+                    P.atlas_control_points{k}     = L.latest_atlas{k};
+                    low{k} = L.latest_low{k};
+                end
+            end
+        end
+    end
+    n_filled = 0;
+    for k = 1:min(gui_data.Nslices, numel(P.histology_control_points))
+        if isempty(gui_data.histology_control_points{k}) && isempty(gui_data.atlas_control_points{k}) ...
+                && ~isempty(P.histology_control_points{k})
+            gui_data.histology_control_points{k} = P.histology_control_points{k};
+            gui_data.atlas_control_points{k}     = P.atlas_control_points{k};
+            gui_data.provisional(k) = true;
+            gui_data.proposed_plane(k) = P.atlas_control_points{k}(1, 1);
+            if k <= numel(low), gui_data.uncertain{k} = logical(low{k}(:)); end
+            n_filled = n_filled + 1;
+        elseif ~isempty(gui_data.histology_control_points{k}) && k <= numel(low) && ...
+                ~isempty(P.histology_control_points{k})
+            % an accepted slice from an earlier session: its unchanged
+            % proposal points keep their ? (a point moved since cannot be
+            % recognised, so it loses it)
+            h  = gui_data.histology_control_points{k};
+            ph = P.histology_control_points{k};
+            lk = logical(low{k}(:));
+            f  = false(size(h, 1), 1);
+            for r = 1:size(h, 1)
+                hit = find(all(abs(ph(:, 1:3) - h(r, 1:3)) < 1e-6, 2), 1);
+                if ~isempty(hit) && hit <= numel(lk), f(r) = lk(hit); end
+            end
+            gui_data.uncertain{k} = f;
+        end
+    end
+    gui_data.proposal     = P;       % the latest proposal per slice; u and U update it
+    gui_data.proposal_low = low;
+    fprintf(['Loaded the automatic proposal onto %d slice(s), provisional (orange).\n' ...
+             '  k accepts a slice as it is, u re-proposes it at the plane on screen,\n' ...
+             '  and only accepted or touched slices are saved.\n'], n_filled);
+end
+
 % Create figure, set button functions
 screen_size_px = get(0,'screensize');
 gui_aspect_ratio = 1.7; % width/length
@@ -240,8 +325,23 @@ guidata(gui_fig,gui_data);
 % Initialize alignment - FIX!!!
 align_ccf_to_histology(gui_fig);
 
+% The line above only computes the overlay: slice 1's points are not drawn and
+% its plane is not taken from them until the first key press, so a proposal's
+% first slice looked accepted (default colours) once the wheel drew its atlas
+% points. With anchors or a proposal in play, draw it properly from the start.
+% A brain without them opens exactly as before.
+if any(~isnan(gui_data.plane_anchors)) || any(gui_data.provisional)
+    update_slice(gui_fig);
+end
+
 % Print controls
 show_controls(gui_fig);
+
+% Anchors or a proposal to review: say so in the title bar from the start
+if any(~isnan(gui_data.plane_anchors)) || any(gui_data.provisional) || ...
+        all(cellfun(@isempty, gui_data.histology_control_points))
+    update_window_title(gui_fig);
+end
 
 end
 
@@ -263,60 +363,77 @@ if isfield(gui_data, 'controls_fig') && ~isempty(gui_data.controls_fig) && ...
     return
 end
 
-CreateStruct.Interpreter = 'tex';
-CreateStruct.WindowStyle = 'non-modal';
+% Two columns in a fixed-width font, so keys and meanings line up and the whole
+% list fits on a laptop screen. (A single-column msgbox grew taller than the
+% screen once the automatic-annotation keys were added.)
+left = { ...
+    'NAVIGATE', ...
+    '  left / right   switch slice', ...
+    '  scroll wheel   change atlas plane', ...
+    '  1 2 3 / 0      channels (0 = all)', ...
+    '  space          overlay on / off', ...
+    '  g              grid on / off', ...
+    '  h              show this window', ...
+    '', ...
+    'PLACE', ...
+    '  click          add a point (3 per slice min)', ...
+    '  ctrl + z       undo the last one', ...
+    '', ...
+    'EDIT  [ e ]', ...
+    '  click + drag   grab nearest point, move it', ...
+    '  d              delete it, and its pair', ...
+    '  esc            let go', ...
+    '  A held point rings its partner on the', ...
+    '  other panel; a ring on one side only', ...
+    '  means it has no partner.', ...
+    '', ...
+    'FINISH', ...
+    '  c              clear every point here', ...
+    '  s              save'};
+right = { ...
+    'AUTOMATIC ANNOTATION  (two GUI sessions)', ...
+    '', ...
+    'Session 1, new brain: fix 4 atlas planes', ...
+    '  j              go to next suggested slice', ...
+    '  wheel          find its atlas plane', ...
+    '  a              fix that plane (again: undo)', ...
+    '  s              save, close the window', ...
+    '  then run P4 with run_mode ''autoannotate''', ...
+    '', ...
+    'Session 2: review, every slice starts orange', ...
+    '  k              looks right: accept, next', ...
+    '  K              accept ALL orange slices (asks)', ...
+    '  e + drag       a point is off: move it', ...
+    '  wheel, then u  wrong plane: re-propose here', ...
+    '  a, then U      anchor wrong: fix it, re-propose', ...
+    '                 all orange slices (k first the', ...
+    '                 ones to keep)', ...
+    '  n?             least sure: look there first', ...
+    '  s              save; orange slices are NOT', ...
+    '                 saved', ...
+    '', ...
+    'PROPOSE FROM THE NEIGHBOUR  [ r ]', ...
+    '  scroll to the best plane, then r: the', ...
+    '  neighbouring slice''s points, refined', ...
+    '  by the image matcher, placed orange.', ...
+    '  t              same, a plain copy', ...
+    '', ...
+    'CARRY FORWARD  [ p ]', ...
+    '  an empty slice inherits the previous', ...
+    '  one''s points, orange; the wheel still', ...
+    '  moves them. Touching one commits the', ...
+    '  slice. Slices left orange are NOT saved.'};
 
-% Keys in one column and meanings in another, with every line short enough to
-% fit: msgbox sizes itself to the longest line, so one long sentence stretches
-% the whole window and then wraps anyway.
-gui_data.controls_fig = msgbox( ...
-    {'\fontsize{11}' ...
-    '\bf NAVIGATE\rm', ...
-    '   left / right      switch slice', ...
-    '   scroll wheel      change atlas plane', ...
-    '   1 2 3 / 0         channels  (0 = all)', ...
-    '   space             overlay on / off', ...
-    '   g                 grid on / off', ...
-    '   h                 show this window', ...
-    ' ', ...
-    '\bf PLACE\rm', ...
-    '   click             add a point', ...
-    '                     (3 per slice minimum)', ...
-    '   ctrl + z          undo the last one', ...
-    ' ', ...
-    '\bf EDIT   [ e ]\rm', ...
-    '   click + drag      grab nearest point, move it', ...
-    '   d                 delete it, and its pair', ...
-    '   esc               let go', ...
-    ' ', ...
-    '   a held point also rings its partner', ...
-    '   on the other panel. A ring on one', ...
-    '   side only means it has no partner.', ...
-    ' ', ...
-    '\bf CARRY FORWARD   [ p ]\rm', ...
-    '   an empty slice inherits a copy of', ...
-    '   the one before it, as hollow orange', ...
-    '   circles. The wheel still scrolls them', ...
-    '   while orange. Touching one commits', ...
-    '   the slice and locks the plane.', ...
-    '   Slices left orange are NOT saved.', ...
-    ' ', ...
-    '\bf PROPOSE   [ r ]\rm', ...
-    '   scroll to the best-matching atlas', ...
-    '   plane, then r: the neighbouring', ...
-    '   slice''s points are refined against', ...
-    '   this plane by the image matcher and', ...
-    '   placed here, orange. A few seconds.', ...
-    '   Never overwrites hand-placed points.', ...
-    '   A ? after a number = the matcher was', ...
-    '   unsure there; check those first.', ...
-    '   t                 same, but a plain copy:', ...
-    '                     no matcher, instant', ...
-    ' ', ...
-    '\bf FINISH\rm', ...
-    '   c                 clear every point here', ...
-    '   s                 save'}, ...
-    'Controls',CreateStruct);
+fig = figure('Name', 'Controls', 'NumberTitle', 'off', 'MenuBar', 'none', ...
+    'ToolBar', 'none', 'Color', 'w', 'Units', 'pixels', 'Position', [60 60 900 560], ...
+    'HandleVisibility', 'off');
+uicontrol(fig, 'Style', 'text', 'String', left, 'Units', 'normalized', ...
+    'Position', [0.02 0.02 0.47 0.96], 'HorizontalAlignment', 'left', ...
+    'FontName', 'Consolas', 'FontSize', 10, 'BackgroundColor', 'w');
+uicontrol(fig, 'Style', 'text', 'String', right, 'Units', 'normalized', ...
+    'Position', [0.51 0.02 0.47 0.96], 'HorizontalAlignment', 'left', ...
+    'FontName', 'Consolas', 'FontSize', 10, 'BackgroundColor', 'w');
+gui_data.controls_fig = fig;
 
 guidata(gui_fig, gui_data);
 
@@ -378,6 +495,10 @@ switch eventdata.Key
             % dropping one alone would re-pair every later point.
             if size(h,1) >= idx, h(idx,:) = []; end
             if size(a,1) >= idx, a(idx,:) = []; end
+            % the confidence flags are per row too
+            if numel(gui_data.uncertain{gui_data.curr_slice}) >= idx
+                gui_data.uncertain{gui_data.curr_slice}(idx) = [];
+            end
             gui_data.histology_control_points{gui_data.curr_slice} = h;
             gui_data.atlas_control_points{gui_data.curr_slice}     = a;
             gui_data.sel_side = '';
@@ -500,6 +621,163 @@ switch eventdata.Key
             end
         end
 
+    % a: fix this slice's atlas plane, as shown, as an anchor for the
+    % automatic annotation -- or, pressed again on the same plane, remove it.
+    % Slices with points of their own already fix their plane; an anchor is
+    % for the slices without.
+    case 'a'
+        sl    = gui_data.curr_slice;
+        plane = round(gui_data.atlas_slice);
+        if ~isempty(gui_data.atlas_control_points{sl}) && ~gui_data.provisional(sl)
+            disp('This slice has points, which already fix its plane.');
+        elseif gui_data.plane_anchors(sl) == plane
+            gui_data.plane_anchors(sl) = nan;
+            fprintf('Anchor removed from slice %d.\n', sl);
+        else
+            gui_data.plane_anchors(sl) = plane;
+            fprintf('Slice %d anchored at atlas plane %d (%d anchor(s) set).\n', ...
+                sl, plane, nnz(~isnan(gui_data.plane_anchors)));
+        end
+        guidata(gui_fig, gui_data);
+        update_window_title(gui_fig);
+        update_slice(gui_fig);
+
+    % j: jump to the next suggested anchor slice (first, last, two between)
+    case 'j'
+        sug  = gui_data.suggested_anchors;
+        nxt  = sug(find(sug > gui_data.curr_slice, 1));
+        if isempty(nxt), nxt = sug(1); end
+        gui_data.curr_slice = nxt;
+        gui_data.sel_side = '';
+        gui_data.sel_idx  = 0;
+        guidata(gui_fig, gui_data);
+        update_slice(gui_fig);
+
+    % k: keep this slice's proposed points exactly as they are, then move on
+    case 'k'
+        sl = gui_data.curr_slice;
+        if any(strcmp(eventdata.Modifier, 'shift'))
+            % K: accept every orange slice as it stands, after a confirmation --
+            % for a proposal already checked by eye, or trusted as is.
+            prov = find(gui_data.provisional(:)' & ...
+                        ~cellfun(@isempty, gui_data.histology_control_points(:)'));
+            if isempty(prov)
+                disp('No orange slice left to accept.');
+                return
+            end
+            answer = questdlg(sprintf('Accept all %d orange slice(s) as proposed?', numel(prov)), ...
+                'Accept all', 'Accept all', 'Cancel', 'Cancel');
+            if strcmp(answer, 'Accept all')
+                gui_data.provisional(prov) = false;
+                fprintf('Accepted %d slice(s) as proposed: %s. Save with s.\n', numel(prov), mat2str(prov));
+                guidata(gui_fig, gui_data);
+                update_slice(gui_fig);
+            end
+            return
+        end
+        if gui_data.provisional(sl) && ~isempty(gui_data.histology_control_points{sl})
+            gui_data.provisional(sl) = false;
+            fprintf('Slice %d accepted (%d point(s)); %d provisional slice(s) left.\n', ...
+                sl, size(gui_data.histology_control_points{sl}, 1), nnz(gui_data.provisional));
+            gui_data = step_slice(gui_data, +1);
+            guidata(gui_fig, gui_data);
+            update_window_title(gui_fig);
+            update_slice(gui_fig);
+        else
+            disp('Nothing provisional to accept on this slice.');
+        end
+
+    % u: ask the automatic annotation for THIS slice at the plane on screen --
+    % after scrolling a proposed slice to a better plane, or on an empty one.
+    % Never overwrites points placed or accepted by hand.
+    case 'u'
+        sl = gui_data.curr_slice;
+        if any(strcmp(eventdata.Modifier, 'shift'))
+            % U: re-propose EVERY orange slice, each at the plane that the
+            % anchors and the accepted slices give it -- how a corrected
+            % anchor takes effect without leaving the GUI. Accepted slices
+            % are never touched; an orange slice worth keeping is accepted
+            % (k) first.
+            prov = find(gui_data.provisional(:))';
+            if isempty(prov)
+                disp('No orange slice left to re-propose.');
+                return
+            end
+            known = nan(gui_data.Nslices, 1);
+            for k = 1:gui_data.Nslices
+                if ~gui_data.provisional(k) && ~isempty(gui_data.atlas_control_points{k})
+                    known(k) = gui_data.atlas_control_points{k}(1, 1);
+                end
+            end
+            use_anchor = isnan(known) & ~isnan(gui_data.plane_anchors);
+            known(use_anchor) = gui_data.plane_anchors(use_anchor);
+            if nnz(~isnan(known)) < 2
+                disp('Need at least two anchors or accepted slices to place the planes.');
+                return
+            end
+            planes = predict_planes(gui_data, known);
+            fprintf('Re-proposing %d orange slice(s) from %d anchor(s) / accepted slice(s)...\n', ...
+                numel(prov), nnz(~isnan(known)));
+            if ~exist(fullfile(gui_data.save_path, 'auto_atlas_planes.mat'), 'file')
+                write_atlas_planes(gui_data);
+            end
+            try
+                out = auto_annotate('sections', gui_data.save_path, prov, planes(prov));
+            catch err
+                out = struct('ok', false, 'message', err.message);
+            end
+            if ~out.ok
+                fprintf('Proposal failed: %s\n', out.message);
+                return
+            end
+            for j = 1:numel(prov)
+                k = prov(j); n = size(out.atlas{j}, 1);
+                gui_data.histology_control_points{k} = [repmat(k, n, 1),         out.hist{j},  zeros(n, 1)];
+                gui_data.atlas_control_points{k}     = [repmat(planes(k), n, 1), out.atlas{j}, zeros(n, 1)];
+                gui_data.uncertain{k} = logical(out.low{j}(:));
+                gui_data.proposed_plane(k) = planes(k);
+                gui_data = remember_proposal(gui_data, k);
+            end
+            gui_data.sel_side = '';
+            gui_data.sel_idx  = 0;
+            fprintf('Done: %d slice(s) re-proposed, still orange.\n', numel(prov));
+            guidata(gui_fig, gui_data);
+            update_slice(gui_fig);
+            return
+        end
+        if ~isempty(gui_data.histology_control_points{sl}) && ~gui_data.provisional(sl)
+            disp('This slice has hand-placed or accepted points. Press c to clear them first.');
+        else
+            plane = round(gui_data.atlas_slice);
+            fprintf('Proposing slice %d at atlas plane %d...\n', sl, plane);
+            if ~exist(fullfile(gui_data.save_path, 'auto_atlas_planes.mat'), 'file')
+                write_atlas_planes(gui_data);       % the engine reads the atlas from here
+            end
+            try
+                out = auto_annotate('section', gui_data.save_path, sl, plane);
+            catch err
+                out = struct('ok', false, 'message', err.message);
+            end
+            if out.ok && ~isempty(out.atlas)
+                n = size(out.atlas, 1);
+                gui_data.histology_control_points{sl} = [repmat(sl, n, 1),    out.hist,  zeros(n, 1)];
+                gui_data.atlas_control_points{sl}     = [repmat(plane, n, 1), out.atlas, zeros(n, 1)];
+                gui_data.provisional(sl) = true;
+                gui_data.uncertain{sl}   = out.low(:);
+                gui_data.proposed_plane(sl) = plane;
+                gui_data = remember_proposal(gui_data, sl);
+                gui_data.sel_side = '';
+                gui_data.sel_idx  = 0;
+                fprintf('Proposed %d point(s), %d marked ?. k to accept.\n', n, nnz(out.low));
+                guidata(gui_fig, gui_data);
+                update_slice(gui_fig);
+            elseif out.ok
+                disp('No landmarks found on this plane.');
+            else
+                fprintf('Proposal failed: %s\n', out.message);
+            end
+        end
+
     % ctrl+z: take back the last point placed on this slice
     case 'z'
         if any(strcmp(eventdata.Modifier, 'control'))
@@ -521,10 +799,18 @@ switch eventdata.Key
     case 's'
         [histology_control_points, atlas_control_points] = points_for_saving(gui_data);
         save_fn = fullfile(gui_data.save_path,'atlas2histology_tform.mat');
-        save(save_fn,'atlas_control_points', 'histology_control_points');
-        fprintf('Saved %d annotated slice(s) to %s\n', ...
-            nnz(~cellfun(@isempty, histology_control_points)), save_fn);
-        
+        if any(~cellfun(@isempty, histology_control_points)) || exist(save_fn, 'file')
+            save(save_fn,'atlas_control_points', 'histology_control_points');
+            fprintf('Saved %d annotated slice(s) to %s\n', ...
+                nnz(~cellfun(@isempty, histology_control_points)), save_fn);
+        else
+            % Session 1 of the automatic annotation saves anchors only. An
+            % empty annotation file would let 'register' run from images
+            % alone instead of stopping, so none is written.
+            disp('No points yet: nothing written to atlas2histology_tform.mat.');
+        end
+        save_auto_files(gui_fig, histology_control_points, atlas_control_points);
+
 end
 
 end
@@ -628,6 +914,15 @@ cptshistology = cptshistology(:, [3 2]);
 currim        = squeeze(gui_data.av(idatlas, :, :));
 
 tstrcurr      = sprintf('Slice %d/%d', gui_data.curr_slice, gui_data.Nslices);
+% Where this slice stands in a review of the automatic proposal, in words:
+% after k the view moves on, and colour alone is easy to misread.
+if ~isempty(gui_data.proposal) && ~isempty(gui_data.histology_control_points{gui_data.curr_slice})
+    if gui_data.provisional(gui_data.curr_slice)
+        tstrcurr = sprintf('%s  PROPOSED (orange, not saved: k accepts)', tstrcurr);
+    else
+        tstrcurr = sprintf('%s  ACCEPTED', tstrcurr);
+    end
+end
 
 % Second title line: which atlas plane this slice sits on, and whether that is
 % its own or borrowed. A slice carrying points is ANCHORED there and stays put;
@@ -635,9 +930,23 @@ tstrcurr      = sprintf('Slice %d/%d', gui_data.curr_slice, gui_data.Nslices);
 % currently puts it, and will move as neighbours get annotated. Same units as
 % the atlas panel, so the two read against each other directly.
 anchorpts = gui_data.atlas_control_points{gui_data.curr_slice};
+sl_now    = gui_data.curr_slice;
 if ~isempty(anchorpts)
     anchorstr = sprintf('anchored at atlas %2.2f h-slice widths', ...
         median(anchorpts(:,1))/gui_data.slicewidth);
+    % A proposed slice whose plane was scrolled away from the one it was
+    % proposed on: the points came along, but they were made for the other
+    % plane.
+    if gui_data.provisional(sl_now) && ~isnan(gui_data.proposed_plane(sl_now)) && ...
+            anchorpts(1,1) ~= gui_data.proposed_plane(sl_now)
+        anchorstr = sprintf('%s -- plane changed, press u to re-propose here', anchorstr);
+    end
+elseif ~isnan(gui_data.plane_anchors(sl_now))
+    anchorstr = sprintf('PLANE ANCHOR at atlas %2.2f h-slice widths (a to move it here / remove)', ...
+        gui_data.plane_anchors(sl_now)/gui_data.slicewidth);
+elseif ismember(sl_now, gui_data.suggested_anchors) && isfield(gui_data, 'atlasindsuse')
+    anchorstr = sprintf('SUGGESTED ANCHOR: scroll to the right plane, press a (now %2.2f)', ...
+        gui_data.atlasindsuse(sl_now)/gui_data.slicewidth);
 elseif isfield(gui_data, 'atlasindsuse')
     anchorstr = sprintf('not anchored, predicted atlas %2.2f h-slice widths', ...
         gui_data.atlasindsuse(gui_data.curr_slice)/gui_data.slicewidth);
@@ -716,7 +1025,15 @@ gui_data = guidata(gui_fig);
 
 atlas_cpoints    = gui_data.atlas_control_points;
 hascp            = ~cellfun(@isempty,   atlas_cpoints);
-useratlasinds    = cellfun(@(x) x(1,1), atlas_cpoints(hascp));
+% Plane anchors ('a') count like a slice with points: a slice's own points
+% win, an anchor stands in where there are none. With no anchors set this is
+% exactly the original rule.
+planes_known     = nan(gui_data.Nslices, 1);
+planes_known(hascp) = cellfun(@(x) x(1,1), atlas_cpoints(hascp));
+anchored_only    = ~hascp & ~isnan(gui_data.plane_anchors);
+planes_known(anchored_only) = gui_data.plane_anchors(anchored_only);
+hascp            = ~isnan(planes_known);
+useratlasinds    = planes_known(hascp);
 replaceinds      = gui_data.atlasinds;
 
 % How many atlas planes one sample slice is worth. This is fixed by the
@@ -853,6 +1170,8 @@ align_ccf_to_histology(gui_fig)
 % Keep the edit-mode highlight in step with whatever is on screen
 draw_selection(gui_fig)
 draw_point_numbers(gui_fig)
+% the title bar's counts (slices left to review) change as slices are touched
+update_window_title(gui_fig)
 
 if ~sliceonly
 
@@ -930,9 +1249,14 @@ switch user_confirm
         [histology_control_points, atlas_control_points] = points_for_saving(gui_data);
         save_fn = fullfile(gui_data.save_path,'atlas2histology_tform.mat');
 
-        save(save_fn,'atlas2histology_tform', 'atlas_control_points', 'histology_control_points');
-        fprintf('Saved %d annotated slice(s) to %s\n', ...
-            nnz(~cellfun(@isempty, histology_control_points)), save_fn);
+        if any(~cellfun(@isempty, histology_control_points)) || exist(save_fn, 'file')
+            save(save_fn,'atlas2histology_tform', 'atlas_control_points', 'histology_control_points');
+            fprintf('Saved %d annotated slice(s) to %s\n', ...
+                nnz(~cellfun(@isempty, histology_control_points)), save_fn);
+        else
+            disp('No points yet: nothing written to atlas2histology_tform.mat.');   % see 's'
+        end
+        save_auto_files(gui_fig, histology_control_points, atlas_control_points);
         delete(gui_fig);
 
     case 'No'
@@ -1215,12 +1539,134 @@ for k = prov
 end
 
 if ~isempty(prov)
-    fprintf(['NOTE: %d slice(s) hold carried, untouched points and were NOT saved:\n' ...
+    fprintf(['NOTE: %d slice(s) are still orange (proposed or carried, not accepted) and were NOT saved:\n' ...
              '      %s\n' ...
-             '      Grab any point on one to accept it as it stands.\n'], ...
+             '      k accepts one as it stands (K all of them), as does grabbing any of its points.\n'], ...
         numel(prov), mat2str(prov));
 end
 
+end
+
+
+function save_auto_files(gui_fig, hpts, apts)
+% What the automatic annotation needs next to the annotation, written with it.
+%
+%   plane_anchors.mat      the anchors, and the plane the interpolation gives
+%                          EVERY slice -- the automatic step proposes on exactly
+%                          these, so the GUI and it can never disagree
+%   auto_atlas_planes.mat  the warped atlas exactly as this window draws it
+%   annotation_provenance.mat   only when a proposal was loaded: per slice, how
+%                          many saved pairs are the proposal's, unchanged
+%
+% None of these end in tform.mat, which registerSlicesToAtlas globs for.
+
+gui_data = guidata(gui_fig);
+anchor_fn = fullfile(gui_data.save_path, 'plane_anchors.mat');
+has_anchor = ~isnan(gui_data.plane_anchors);
+if any(has_anchor) || exist(anchor_fn, 'file')
+    % the interpolation is refreshed on every redraw; make sure the planes
+    % written below already include the latest anchor
+    update_slice(gui_fig);
+    gui_data = guidata(gui_fig);
+    anchor_slices = find(has_anchor);
+    anchor_planes = gui_data.plane_anchors(has_anchor);
+    planes        = round(gui_data.atlasindsuse(:));
+    save(anchor_fn, 'anchor_slices', 'anchor_planes', 'planes');
+    fprintf('Saved %d plane anchor(s) to %s\n', numel(anchor_slices), anchor_fn);
+    write_atlas_planes(gui_data);
+end
+
+if ~isempty(gui_data.proposal)
+    P = gui_data.proposal;
+    n_points = zeros(gui_data.Nslices, 1);
+    n_auto_unchanged = zeros(gui_data.Nslices, 1);
+    for k = 1:gui_data.Nslices
+        h = hpts{k}; a = apts{k};
+        n_points(k) = size(h, 1);
+        if isempty(h) || k > numel(P.histology_control_points) || isempty(P.histology_control_points{k})
+            continue
+        end
+        ph = P.histology_control_points{k}; pa = P.atlas_control_points{k};
+        for r = 1:size(h, 1)
+            same = all(abs(ph(:, 1:3) - h(r, 1:3)) < 1e-6, 2) & all(abs(pa(:, 1:3) - a(r, 1:3)) < 1e-6, 2);
+            n_auto_unchanged(k) = n_auto_unchanged(k) + any(same);
+        end
+    end
+    model_version = '';
+    info_fn = fullfile(gui_data.save_path, 'auto_proposal_info.mat');
+    if exist(info_fn, 'file')
+        I = load(info_fn, 'model_version');
+        model_version = strtrim(char(I.model_version));
+    end
+    saved = char(datetime('now', 'Format', 'yyyy-MM-dd HH:mm:ss'));
+    % the latest proposal of every slice (after any u / U), so the next
+    % session compares and restores ? flags against what was actually shown
+    latest_histology = P.histology_control_points;
+    latest_atlas     = P.atlas_control_points;
+    latest_low       = gui_data.proposal_low;
+    save(fullfile(gui_data.save_path, 'annotation_provenance.mat'), ...
+        'n_points', 'n_auto_unchanged', 'model_version', 'saved', ...
+        'latest_histology', 'latest_atlas', 'latest_low');
+    fprintf('Provenance: %d of %d saved pair(s) are the automatic proposal, unchanged.\n', ...
+        sum(n_auto_unchanged), sum(n_points));
+end
+end
+
+
+function gui_data = remember_proposal(gui_data, k)
+% Keep slice k's newest proposal (from u or U) as ITS proposal: provenance and
+% the ? flags of a later session refer to what was shown and accepted.
+if isempty(gui_data.proposal)
+    gui_data.proposal = struct('histology_control_points', {cell(gui_data.Nslices, 1)}, ...
+                               'atlas_control_points',     {cell(gui_data.Nslices, 1)});
+    gui_data.proposal_low = cell(gui_data.Nslices, 1);
+end
+gui_data.proposal.histology_control_points{k} = gui_data.histology_control_points{k};
+gui_data.proposal.atlas_control_points{k}     = gui_data.atlas_control_points{k};
+gui_data.proposal_low{k} = uint8(gui_data.uncertain{k}(:));
+end
+
+
+function planes = predict_planes(gui_data, known)
+% A plane for every slice from the slices whose plane is known (NaN
+% elsewhere), by the same rule update_slice draws with: linear between the
+% known slices, and beyond the outermost ones at the step the section
+% spacing fixes. Used by U, where only anchors and accepted slices count.
+kn   = find(~isnan(known));
+allsl = (1:gui_data.Nslices)';
+step = (gui_data.atlasinds(end) - gui_data.atlasinds(1)) / max(1, gui_data.Nslices - 1);
+planes = nan(gui_data.Nslices, 1);
+inside = allsl >= kn(1) & allsl <= kn(end);
+planes(inside) = interp1(kn, known(kn), allsl(inside), 'linear');
+before = allsl < kn(1);
+planes(before) = known(kn(1))   + (allsl(before) - kn(1))   * step;
+after  = allsl > kn(end);
+planes(after)  = known(kn(end)) + (allsl(after)  - kn(end)) * step;
+planes = min(max(round(planes), 1), size(gui_data.tv, 1));
+end
+
+
+function write_atlas_planes(gui_data)
+% The warped atlas this window draws, for the automatic annotation. Rewritten
+% only when missing or older than what it is built from (the rigid alignment
+% and the cutting angle), since it is tens of MB.
+fn  = fullfile(gui_data.save_path, 'auto_atlas_planes.mat');
+src = {fullfile(gui_data.save_path, 'regopts.mat'), fullfile(gui_data.save_path, 'cutting_angle_data.mat')};
+stale = ~exist(fn, 'file');
+if ~stale
+    d_out = dir(fn);
+    for k = 1:numel(src)
+        d_src = dir(src{k});
+        if ~isempty(d_src) && d_src.datenum > d_out.datenum
+            stale = true;
+        end
+    end
+end
+if stale
+    tv = gui_data.tv;           % planes x H x W, uint8
+    save(fn, 'tv', '-v7');
+    fprintf('Saved the atlas as drawn here to %s\n', fn);
+end
 end
 
 
@@ -1317,6 +1763,26 @@ if gui_data.edit_mode
 end
 if gui_data.carry_forward
     modes{end+1} = 'CARRY FORWARD';
+end
+
+% Where the automatic annotation stands, as the next thing to do. Only once it
+% is in play (anchors, a proposal) or on a brain with no points at all, so a
+% brain annotated by hand looks exactly as it did.
+n_anch  = nnz(~isnan(gui_data.plane_anchors));
+n_sugg  = nnz(~isnan(gui_data.plane_anchors(gui_data.suggested_anchors)));
+n_rev   = nnz(gui_data.provisional);
+no_pts  = all(cellfun(@isempty, gui_data.histology_control_points));
+if ~isempty(gui_data.proposal) && n_rev > 0
+    modes{end+1} = sprintf('STEP 3 REVIEW: %d slice(s) left, k accepts, u re-proposes', n_rev);
+elseif ~isempty(gui_data.proposal)
+    modes{end+1} = 'REVIEW DONE: s to save, then P4 ''register''';
+elseif n_anch > 0 && n_sugg < numel(gui_data.suggested_anchors)
+    modes{end+1} = sprintf('STEP 1 ANCHORS: %d of %d suggested set (j, scroll, a)', ...
+        n_sugg, numel(gui_data.suggested_anchors));
+elseif n_anch > 0
+    modes{end+1} = sprintf('STEP 1 DONE (%d anchors): s to save, then P4 ''autoannotate''', n_anch);
+elseif no_pts
+    modes{end+1} = 'NO POINTS YET: click to annotate, or j + a to set anchors for the automatic one';
 end
 
 % The controls window is easy to close and easy to lose behind this one, so
@@ -1418,26 +1884,36 @@ if gui_data.provisional(sl)
 else
     col = [1 1 1];
 end
-% A ? after the number where the matcher's two estimates disagreed -- only
-% while the slice is still provisional, and only if the flags still line up
-% with the points (a deletion in between makes them meaningless).
-unc = false(size(h,1), 1);
-if gui_data.provisional(sl) && numel(gui_data.uncertain{sl}) == size(h,1)
-    unc = logical(gui_data.uncertain{sl}(:));
+% A ? after the number where the proposal was least sure (the matcher's two
+% estimates disagreed, or the automatic annotation's confidence was in the
+% lowest quarter). Kept after the slice is accepted or edited -- reviewing
+% a flagged point should not make the flag vanish -- in red while provisional
+% and yellow once committed. The flags are one per ROW: 'd' removes the
+% deleted row's flag, and a point added or undone at the end is matched by
+% padding or truncating here.
+flags = logical(gui_data.uncertain{sl}(:));
+unc   = false(size(h,1), 1);
+m     = min(numel(flags), size(h,1));
+unc(1:m) = flags(1:m);
+if gui_data.provisional(sl)
+    qcol = [1 0.35 0.35];
+else
+    qcol = [1 0.85 0.1];
 end
-gui_data.hist_labels  = label_points(gui_data.histology_ax, h, col, unc);
-gui_data.atlas_labels = label_points(gui_data.atlas_ax,     a, col, unc);
+gui_data.hist_labels  = label_points(gui_data.histology_ax, h, col, unc, qcol);
+gui_data.atlas_labels = label_points(gui_data.atlas_ax,     a, col, unc, qcol);
 guidata(gui_fig, gui_data);
 end
 
 
-function t = label_points(ax, pts, col, unc)
+function t = label_points(ax, pts, col, unc, qcol)
 % Text objects cannot be given PickableParts none through the plot call, so
 % they are created one by one and told not to catch the mouse.
+if nargin < 5, qcol = [1 0.35 0.35]; end
 t = gobjects(size(pts,1), 1);
 for k = 1:size(pts,1)
     if k <= numel(unc) && unc(k)
-        lab = sprintf('%d?', k);  c = [1 0.35 0.35];  fs = 9;
+        lab = sprintf('%d?', k);  c = qcol;  fs = 9;
     else
         lab = sprintf('%d', k);   c = col;            fs = 8;
     end
