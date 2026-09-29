@@ -165,6 +165,9 @@ if exist(anchor_fn, 'file')
 end
 
 gui_data.proposal = [];
+% the plane each slice's CURRENT proposal was made at (u and U update it), so
+% "plane changed" means scrolled since the last proposal, not since the first
+gui_data.proposed_plane = nan(gui_data.Nslices, 1);
 proposal_fn = fullfile(gui_data.save_path, 'auto_proposal_controlpoints.mat');
 if exist(proposal_fn, 'file')
     P = load(proposal_fn);
@@ -181,6 +184,7 @@ if exist(proposal_fn, 'file')
             gui_data.histology_control_points{k} = P.histology_control_points{k};
             gui_data.atlas_control_points{k}     = P.atlas_control_points{k};
             gui_data.provisional(k) = true;
+            gui_data.proposed_plane(k) = P.atlas_control_points{k}(1, 1);
             if k <= numel(low), gui_data.uncertain{k} = logical(low{k}(:)); end
             n_filled = n_filled + 1;
         elseif ~isempty(gui_data.histology_control_points{k}) && k <= numel(low) && ...
@@ -693,6 +697,7 @@ switch eventdata.Key
                 gui_data.histology_control_points{k} = [repmat(k, n, 1),         out.hist{j},  zeros(n, 1)];
                 gui_data.atlas_control_points{k}     = [repmat(planes(k), n, 1), out.atlas{j}, zeros(n, 1)];
                 gui_data.uncertain{k} = logical(out.low{j}(:));
+                gui_data.proposed_plane(k) = planes(k);
             end
             gui_data.sel_side = '';
             gui_data.sel_idx  = 0;
@@ -720,6 +725,7 @@ switch eventdata.Key
                 gui_data.atlas_control_points{sl}     = [repmat(plane, n, 1), out.atlas, zeros(n, 1)];
                 gui_data.provisional(sl) = true;
                 gui_data.uncertain{sl}   = out.low(:);
+                gui_data.proposed_plane(sl) = plane;
                 gui_data.sel_side = '';
                 gui_data.sel_idx  = 0;
                 fprintf('Proposed %d point(s), %d marked ?. k to accept.\n', n, nnz(out.low));
@@ -884,10 +890,8 @@ if ~isempty(anchorpts)
     % A proposed slice whose plane was scrolled away from the one it was
     % proposed on: the points came along, but they were made for the other
     % plane.
-    if gui_data.provisional(sl_now) && ~isempty(gui_data.proposal) && ...
-            sl_now <= numel(gui_data.proposal.atlas_control_points) && ...
-            ~isempty(gui_data.proposal.atlas_control_points{sl_now}) && ...
-            anchorpts(1,1) ~= gui_data.proposal.atlas_control_points{sl_now}(1,1)
+    if gui_data.provisional(sl_now) && ~isnan(gui_data.proposed_plane(sl_now)) && ...
+            anchorpts(1,1) ~= gui_data.proposed_plane(sl_now)
         anchorstr = sprintf('%s -- plane changed, press u to re-propose here', anchorstr);
     end
 elseif ~isnan(gui_data.plane_anchors(sl_now))
