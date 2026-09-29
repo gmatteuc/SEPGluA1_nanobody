@@ -799,9 +799,16 @@ switch eventdata.Key
     case 's'
         [histology_control_points, atlas_control_points] = points_for_saving(gui_data);
         save_fn = fullfile(gui_data.save_path,'atlas2histology_tform.mat');
-        save(save_fn,'atlas_control_points', 'histology_control_points');
-        fprintf('Saved %d annotated slice(s) to %s\n', ...
-            nnz(~cellfun(@isempty, histology_control_points)), save_fn);
+        if any(~cellfun(@isempty, histology_control_points)) || exist(save_fn, 'file')
+            save(save_fn,'atlas_control_points', 'histology_control_points');
+            fprintf('Saved %d annotated slice(s) to %s\n', ...
+                nnz(~cellfun(@isempty, histology_control_points)), save_fn);
+        else
+            % Session 1 of the automatic annotation saves anchors only. An
+            % empty annotation file would let 'register' run from images
+            % alone instead of stopping, so none is written.
+            disp('No points yet: nothing written to atlas2histology_tform.mat.');
+        end
         save_auto_files(gui_fig, histology_control_points, atlas_control_points);
 
 end
@@ -1242,9 +1249,13 @@ switch user_confirm
         [histology_control_points, atlas_control_points] = points_for_saving(gui_data);
         save_fn = fullfile(gui_data.save_path,'atlas2histology_tform.mat');
 
-        save(save_fn,'atlas2histology_tform', 'atlas_control_points', 'histology_control_points');
-        fprintf('Saved %d annotated slice(s) to %s\n', ...
-            nnz(~cellfun(@isempty, histology_control_points)), save_fn);
+        if any(~cellfun(@isempty, histology_control_points)) || exist(save_fn, 'file')
+            save(save_fn,'atlas2histology_tform', 'atlas_control_points', 'histology_control_points');
+            fprintf('Saved %d annotated slice(s) to %s\n', ...
+                nnz(~cellfun(@isempty, histology_control_points)), save_fn);
+        else
+            disp('No points yet: nothing written to atlas2histology_tform.mat.');   % see 's'
+        end
         save_auto_files(gui_fig, histology_control_points, atlas_control_points);
         delete(gui_fig);
 
