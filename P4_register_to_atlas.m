@@ -77,6 +77,14 @@ groups_to_process = {'young'};                  % 'rws' | 'naive' | 'behavior' |
 mice_to_process   = {'MG904_SepGluA_P22'};   % 'annotate' takes one mouse at a time
 
 % Which half of the script to run. 'annotate' takes one mouse at a time.
+% After 'align' (and optionally 'angle'), the control points can be made in
+% two ways; both end in the same atlas2histology_tform.mat and 'register':
+%   manual     'annotate' (click the points on every slice) -> 'register'
+%   automatic  'annotate'     set the plane on 4 suggested slices (j, wheel, a), s
+%              'autoannotate' proposes every slice (~30 s on a GPU)
+%              'annotate'     review: k / K accept, u / U re-propose, fix points, s
+%              'register'
+% Details in the header above and in auto_annotation/README.md.
 run_mode = 'register';                             % 'align' | 'angle' | 'annotate' | 'autoannotate' | 'register'
 
 % How far the atlas shown in the GUI (and used by the registration) extends
