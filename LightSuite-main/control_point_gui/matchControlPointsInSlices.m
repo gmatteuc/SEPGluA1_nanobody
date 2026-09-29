@@ -164,7 +164,8 @@ if exist(anchor_fn, 'file')
     fprintf('Loaded %d plane anchor(s) from %s\n', numel(A.anchor_slices), anchor_fn);
 end
 
-gui_data.proposal = [];
+gui_data.proposal     = [];
+gui_data.proposal_low = {};
 % the plane each slice's CURRENT proposal was made at (u and U update it), so
 % "plane changed" means scrolled since the last proposal, not since the first
 gui_data.proposed_plane = nan(gui_data.Nslices, 1);
@@ -172,10 +173,26 @@ proposal_fn = fullfile(gui_data.save_path, 'auto_proposal_controlpoints.mat');
 if exist(proposal_fn, 'file')
     P = load(proposal_fn);
     info_fn = fullfile(gui_data.save_path, 'auto_proposal_info.mat');
-    low = {};
+    low = cell(gui_data.Nslices, 1);
     if exist(info_fn, 'file')
         I = load(info_fn, 'low_confidence');
-        low = I.low_confidence;
+        low(1:numel(I.low_confidence)) = I.low_confidence(:);
+    end
+    % Slices re-proposed in an earlier session (u, U) carry their LATEST
+    % proposal in annotation_provenance.mat: that, not the P4 file, is what
+    % was accepted there, so it is what flags and provenance refer to.
+    prov_fn = fullfile(gui_data.save_path, 'annotation_provenance.mat');
+    if exist(prov_fn, 'file')
+        L = load(prov_fn);
+        if isfield(L, 'latest_histology')
+            for k = 1:min(numel(L.latest_histology), numel(P.histology_control_points))
+                if ~isempty(L.latest_histology{k})
+                    P.histology_control_points{k} = L.latest_histology{k};
+                    P.atlas_control_points{k}     = L.latest_atlas{k};
+                    low{k} = L.latest_low{k};
+                end
+            end
+        end
     end
     n_filled = 0;
     for k = 1:min(gui_data.Nslices, numel(P.histology_control_points))
@@ -203,7 +220,8 @@ if exist(proposal_fn, 'file')
             gui_data.uncertain{k} = f;
         end
     end
-    gui_data.proposal = P;
+    gui_data.proposal     = P;       % the latest proposal per slice; u and U update it
+    gui_data.proposal_low = low;
     fprintf(['Loaded the automatic proposal onto %d slice(s), provisional (orange).\n' ...
              '  k accepts a slice as it is, u re-proposes it at the plane on screen,\n' ...
              '  and only accepted or touched slices are saved.\n'], n_filled);
@@ -718,6 +736,7 @@ switch eventdata.Key
                 gui_data.atlas_control_points{k}     = [repmat(planes(k), n, 1), out.atlas{j}, zeros(n, 1)];
                 gui_data.uncertain{k} = logical(out.low{j}(:));
                 gui_data.proposed_plane(k) = planes(k);
+                gui_data = remember_proposal(gui_data, k);
             end
             gui_data.sel_side = '';
             gui_data.sel_idx  = 0;
@@ -746,6 +765,7 @@ switch eventdata.Key
                 gui_data.provisional(sl) = true;
                 gui_data.uncertain{sl}   = out.low(:);
                 gui_data.proposed_plane(sl) = plane;
+                gui_data = remember_proposal(gui_data, sl);
                 gui_data.sel_side = '';
                 gui_data.sel_idx  = 0;
                 fprintf('Proposed %d point(s), %d marked ?. k to accept.\n', n, nnz(out.low));
@@ -1508,9 +1528,9 @@ for k = prov
 end
 
 if ~isempty(prov)
-    fprintf(['NOTE: %d slice(s) hold carried, untouched points and were NOT saved:\n' ...
+    fprintf(['NOTE: %d slice(s) are still orange (proposed or carried, not accepted) and were NOT saved:\n' ...
              '      %s\n' ...
-             '      Grab any point on one to accept it as it stands.\n'], ...
+             '      k accepts one as it stands (K all of them), as does grabbing any of its points.\n'], ...
         numel(prov), mat2str(prov));
 end
 
@@ -1568,11 +1588,31 @@ if ~isempty(gui_data.proposal)
         model_version = strtrim(char(I.model_version));
     end
     saved = char(datetime('now', 'Format', 'yyyy-MM-dd HH:mm:ss'));
+    % the latest proposal of every slice (after any u / U), so the next
+    % session compares and restores ? flags against what was actually shown
+    latest_histology = P.histology_control_points;
+    latest_atlas     = P.atlas_control_points;
+    latest_low       = gui_data.proposal_low;
     save(fullfile(gui_data.save_path, 'annotation_provenance.mat'), ...
-        'n_points', 'n_auto_unchanged', 'model_version', 'saved');
+        'n_points', 'n_auto_unchanged', 'model_version', 'saved', ...
+        'latest_histology', 'latest_atlas', 'latest_low');
     fprintf('Provenance: %d of %d saved pair(s) are the automatic proposal, unchanged.\n', ...
         sum(n_auto_unchanged), sum(n_points));
 end
+end
+
+
+function gui_data = remember_proposal(gui_data, k)
+% Keep slice k's newest proposal (from u or U) as ITS proposal: provenance and
+% the ? flags of a later session refer to what was shown and accepted.
+if isempty(gui_data.proposal)
+    gui_data.proposal = struct('histology_control_points', {cell(gui_data.Nslices, 1)}, ...
+                               'atlas_control_points',     {cell(gui_data.Nslices, 1)});
+    gui_data.proposal_low = cell(gui_data.Nslices, 1);
+end
+gui_data.proposal.histology_control_points{k} = gui_data.histology_control_points{k};
+gui_data.proposal.atlas_control_points{k}     = gui_data.atlas_control_points{k};
+gui_data.proposal_low{k} = uint8(gui_data.uncertain{k}(:));
 end
 
 
