@@ -15,8 +15,10 @@ error.
 
 Every file must be accounted for: a new file with no reference file, and a
 reference file that no new file was compared with, are failures, so a moved
-file cannot pass uncompared. Hidden folders (git's folder, worktrees, the
-environments), __pycache__ and venv* are skipped on both sides.
+file cannot pass uncompared. Two folders with no .py file at all are an error,
+since an empty comparison would pass without checking anything. Hidden folders
+(git's folder, worktrees, the environments), __pycache__ and venv* are skipped
+on both sides.
 
 Prints one line per file, then a summary. Statuses: "same code", and
 "added (listed)" or "removed (listed)" for files the map lists; the failures
@@ -38,7 +40,7 @@ _SKIPPED = ("__pycache__",)
 
 def is_skipped(name):
     """Folders that hold no code of ours: git, worktrees, caches, environments."""
-    return name in _SKIPPED or name.startswith(".") or name.startswith("venv")
+    return name in _SKIPPED or name.startswith((".", "venv"))
 
 
 def python_files(root):
@@ -121,6 +123,10 @@ def main(new_dir, ref_dir, map_file=None):
     new_files = python_files(new_dir)
     ref_files = python_files(ref_dir)
     name_map = read_name_map(map_file)
+
+    # an empty comparison would pass without checking anything
+    if not new_files and not ref_files:
+        raise FileNotFoundError(f"no .py files to compare in {new_dir} and {ref_dir}")
 
     # every map entry must name a file that exists: a typo would otherwise leave
     # the file it meant uncompared

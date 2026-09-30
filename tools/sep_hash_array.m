@@ -1,13 +1,23 @@
 function h = sep_hash_array(x)
 %SEP_HASH_ARRAY  MD5 hash of a numeric, logical or char array.
-%   h = SEP_HASH_ARRAY(x) returns 'class:[size]:md5' as a char array. Two
-%   arrays get the same hash only if class, size and every value are the same
-%   (NaN included).
+%   h = SEP_HASH_ARRAY(x) returns 'class:[size]:md5' as a char array, with
+%   the class and size of x as given ('double complex' for a complex array).
+%   Two arrays get the same hash only if class, size and every value are the
+%   same (NaN included).
 
 if isempty(x)
     h = sprintf('empty:%s:%s', class(x), mat2str(size(x)));
     return
 end
+
+% class and size of the input itself, before the conversions below: a
+% logical and a uint8 array (or a char and a uint16 array) with the same
+% values have the same bytes, and a complex array loses its shape
+kind = class(x);
+if isnumeric(x) && ~isreal(x)
+    kind = [kind ' complex'];
+end
+shape = mat2str(size(x));
 
 % bytes of logical and char arrays via a numeric type
 if islogical(x)
@@ -31,5 +41,5 @@ for i0 = 1:chunk:n
     md.update(typecast(part(:), 'uint8'));
 end
 digest = typecast(md.digest(), 'uint8');
-h = sprintf('%s:%s:%s', class(x), mat2str(size(x)), sprintf('%02x', digest));
+h = sprintf('%s:%s:%s', kind, shape, sprintf('%02x', digest));
 end

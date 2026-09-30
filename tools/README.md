@@ -56,9 +56,10 @@ python tools\check_code_identity.py NEW_DIR REF_DIR [--map name_map.csv]
 Every `.m` (or `.py`) file is parsed and compared without comments and layout
 (and, for Python, docstrings). A changed file fails, and so do a file that
 does not parse, a new file with no counterpart and a reference file nothing
-was compared with. Files that were moved or renamed are paired
-through the name map, one table for both languages (the names below only
-show the format):
+was compared with. Two folders with no file of the language stop the check,
+since an empty comparison would pass. Files that were moved or renamed are
+paired through the name map, one table for both languages (the names below
+only show the format):
 
 ```
 old_path,new_path
@@ -121,10 +122,16 @@ rewrote its outputs, and for a fix, the old code fails the same test.
   in `-CodeDir`.
 - **clear all.** Drivers start with it. `sep_run_driver_copy` runs the copy in
   a workspace of its own, so the variable it restores afterwards survives.
-- **Renderer noise.** Figures can differ on a few pixels between sessions
-  (`same render`); `sep_compare_outputs` lets ink move by 2 pixels, so a
-  change of a single pixel passes too, and its detail gives the count.
-  `compare_outputs.py` tolerates 1 grey level on under 0.1% of the pixels.
+- **Renderer noise.** Anti-aliasing can put an edge or a glyph a fraction of
+  a pixel elsewhere, which changes the pixels along it. `sep_compare_outputs`
+  calls such an image `same render` only if every changed pixel, in each
+  colour channel, is a mix of the original's colours within 1 pixel (to 8
+  levels of 255); anything else is `DIFFERENT`: a colour changed at the same
+  brightness, a changed digit, an image of another size. Every `same render`
+  is listed with its count of changed pixels. A change confined to the
+  anti-aliased rim of ink passes, and JPEG compression error is no mix, so
+  compare figures saved as PNG. `compare_outputs.py` tolerates 1 level on
+  under 0.1% of the pixels.
 - **Dates inside files.** `.mat`, `.fig`, `.eps` and videos hold the time they
   were written, so their bytes always differ; the tools compare their
   contents. `compare_outputs.py` reads none of MATLAB's formats: `.mat`,

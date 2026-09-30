@@ -11,12 +11,12 @@ function T = sep_compare_outputs(ref_dir, new_dir, opts)
 %     .fig        the plotted data: data, limits and text of every graphics
 %                 object (the file itself holds its creation date)
 %     .csv .tsv   table contents, column by column
-%     .png .jpg   bytes, then pixels, then sep_compare_figure_images (a
-%                 figure that differs only by rendering counts as
-%                 'same render'). That lets ink move by 2 pixels, so a
-%                 change of a few pixels also passes: the detail gives the
-%                 number of changed pixels for every image that is not
-%                 'same'
+%     .png .jpg   bytes, then pixels (with the colour map of an indexed
+%                 image), then sep_compare_figure_images: 'same render' if
+%                 every changed pixel, channel by channel, is a mix of the
+%                 original's colours within 1 px (anti-aliasing), else
+%                 'DIFFERENT', as is an image of another size. The detail
+%                 gives the number of changed pixels
 %     .eps        text, without the creation date and title lines
 %     .tif .tiff  pixels, every page of a stack
 %     .avi .mp4   per-frame hashes
@@ -29,7 +29,8 @@ function T = sep_compare_outputs(ref_dir, new_dir, opts)
 %
 %   T is a table with one row per file: file, result, detail. Results are
 %   'same', 'same render', 'DIFFERENT', 'only in ref', 'only in new',
-%   'NOT REWRITTEN', 'compare failed'. A summary is printed.
+%   'NOT REWRITTEN', 'compare failed'. A summary is printed, then every file
+%   that is not 'same', 'same render' included.
 %
 %   Options (opts):
 %     ignore_files   regexps of relative paths to skip
@@ -128,8 +129,9 @@ for i = 1:numel(kinds)
 end
 fprintf('\n');
 
-% list the files that are not the same
-flagged = ~ismember(result, {'same', 'same render'});
+% list the files that are not the same: 'same render' too, since its count of
+% changed pixels is worth a look
+flagged = ~strcmp(result, 'same');
 if any(flagged)
     disp(T(flagged, :));
 end
@@ -196,28 +198,31 @@ if isequal(file_bytes(ref), file_bytes(new))
     result = 'same';
     return
 end
-image_ref = imread(ref);
-image_new = imread(new);
-if isequal(image_ref, image_new)
+
+% same pixels, of the same class, and for an indexed image the same colour
+% map (the pixels are then only indices into it)
+[image_ref, map_ref] = imread(ref);
+[image_new, map_new] = imread(new);
+if isequal(image_ref, image_new) && strcmp(class(image_ref), class(image_new)) ...
+        && isequal(map_ref, map_new)
     result = 'same';
     return
 end
 
-% otherwise, compare as figures. The numbers are kept for 'same render' too:
-% a change smaller than the slack (a few pixels) passes as rendering
+% otherwise, compare as figures
 R = sep_compare_figure_images(ref, new);
-if strcmp(R.verdict, 'MATCH')
+if R.ok
     result = 'same render';
 else
     result = 'DIFFERENT';
 end
-n_changed = NaN;
-if isequal(size(image_ref), size(image_new))
-    n_changed = nnz(any(image_ref ~= image_new, 3));
+if ~strcmp(R.size_a, R.size_b)
+    detail = sprintf('size %s vs %s', R.size_a, R.size_b);
+else
+    detail = sprintf(['%d pixels changed, %d of them not a mix of the original''s ' ...
+        'colours within 1 px (largest distance from a mix %.0f of 255)'], ...
+        R.n_changed, R.n_real, R.max_dist);
 end
-detail = sprintf(['%s: %d pixels changed; with the slack, %.4f%% of flat pixels ' ...
-    'differ (by up to %d grey levels), %.4f%% of edge pixels'], R.verdict, n_changed, ...
-    R.flat_pct, round(R.flat_max), R.edge_pct);
 end
 
 function d = value_differences(a, b, path, d)

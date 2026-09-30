@@ -18,7 +18,8 @@ function [T, ok] = sep_check_code_identity(new_dir, ref_dir, name_map)
 %
 %   Every file must be accounted for: a new file with no reference file, and
 %   a reference file that no new file was compared with, are failures, so a
-%   moved file cannot pass uncompared.
+%   moved file cannot pass uncompared. Two folders with no .m file at all are
+%   an error, since an empty comparison would pass without checking anything.
 %
 %   Skipped on both sides: hidden folders (git's folder, worktrees, the
 %   environments), __pycache__, and venv*.
@@ -42,6 +43,12 @@ name_map = read_name_map(name_map);
 % relative paths with forward slashes
 new_files = list_m_files(new_dir);
 ref_files = list_m_files(ref_dir);
+
+% an empty comparison would pass without checking anything
+if isempty(new_files) && isempty(ref_files)
+    error('sep_check_code_identity: no .m files to compare in\n  %s\n  %s', ...
+        new_dir, ref_dir);
+end
 
 % every map entry must name a file that exists: a typo would otherwise leave
 % the file it meant uncompared

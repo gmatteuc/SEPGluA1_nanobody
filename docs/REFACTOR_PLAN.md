@@ -1,6 +1,6 @@
 # Repository refactor plan
 
-Draft 5, 30 Sep 2026, agreed with Giulio. Step 0 starts on 30 Sep.
+Draft 6, 30 Sep 2026, agreed with Giulio (checks made proportionate). Step 0 committed on 30 Sep (6a29c37).
 
 The project is to be handed over, and this refactor consolidates it: code
 another scientist can pick up and run, documents that say what it is for, and
@@ -131,8 +131,9 @@ Decided on 30 Sep (Giulio):
   files go to `archive/`, the r key's code leaves LightSuite's GUI, and
   PATCHES.md records it.
 - **L4.** P2's `global` correction variant is archived; `slicewise` stays.
-- **L5.** The reference adult for the registration check is CGF027_Gria1
-  (naive, CCF, hand-annotated, with its SEP channel).
+- **L5.** The reference adult is CGF027_Gria1 (naive, CCF, hand-annotated,
+  with its SEP channel); with the lighter checks it is part of the small
+  reference set, and the registration check uses MG914 alone.
 - **L6.** No licence file for now. (The grant commits to releasing the analysis
   code on publication: the licence, and the GPL obligations of our modified
   LightSuite, come back then.)
@@ -161,9 +162,12 @@ Decided on 30 Sep (Giulio):
   MG705, MG709, MG716, MG718 (of the 7 in the registry; MG709 has no tissue at
   slab 565, which is probably why P7bis's comment speaks of three mice). This
   is exactly what the code selects today, so the settings stay as they are,
-  and the comment is corrected (Fixes). Ideally these outputs stay unchanged:
-  step 3 compares the fresh run of today's code with them (see What is
-  compared with what).
+  and the comment is corrected (Fixes). Whether today's code still shows the
+  S1 increase is checked once, for information: today's P7bis on the
+  preserved inputs of that run (the normalised volumes of 26 and 27 Nov 2025,
+  `nano_4d_normalized_bk.mat`), the result noted in `docs/ROADMAP.md`. It is
+  not a gate: the old code changed a lot, and reproducing old outputs
+  exactly is not the goal.
 - **S1 to S5** as recommended below, with two amendments: Benjamini-Hochberg
   is reported beside the uncorrected p values, and if it leaves nothing
   standing the correction is reconsidered together (for example a declared set
@@ -458,101 +462,90 @@ The list goes into `docs/ROADMAP.md` and the final report.
 
 ## Verification design
 
-The study found the first design unsafe; this replaces it.
+Proportionate, not exhaustive (Giulio, 30 Sep): the MATLAB code is old, it
+changed a lot over time, and its runs are long. The checks prove that the
+refactor changes nothing with as little running as possible, and comparisons
+with historical outputs inform rather than decide.
+
+### Two questions, kept apart
+
+1. **Does the refactor change anything?** The new code must behave as the code
+   at `refactor-start` does. Most steps (moves, comments, layout) are proven
+   without running anything, by comparing the code's parse trees. Runs are
+   needed only where the structure of the code changes (scripts into
+   functions, the big files split, the Python package), and they use a small
+   reference set.
+2. **Do today's results still look like the old ones?** Informative only: one
+   run of today's P7bis on the preserved inputs of the approved December 2025
+   comparison (S6), noted in `docs/ROADMAP.md`. Old outputs, old names and old
+   defects are not chased.
 
 ### Where checks run
 
-- **Check trees on G:** (1.24 TB free), each with its own code copy inside it,
-  next to its data copy, so the data root a copy derives from its own location
-  is the copy's:
+- **Two small check trees on G:**, each with its own code copy inside it, next
+  to its data copy, so the data root a copy derives from its own location is
+  the copy's:
 
   ```
-  G:\sep_refactor\ref\code        worktree at tag refactor-start (the old code)
-  G:\sep_refactor\ref\data        inputs + the reference outputs, read-only after step 3
-  G:\sep_refactor\ref_run1\       the first old run's outputs, kept until shown
-                                  identical to the second
-  G:\sep_refactor\check\code      the refactor branch
-  G:\sep_refactor\check\data      inputs restored from ref before each pipeline
-  G:\sep_refactor\reg\old\        code (refactor-start) and data for the
-                                  registration checks, a small separate tree
-  G:\sep_refactor\reg\old_run1\   the first old registration run's outputs
-  G:\sep_refactor\reg\new\        code (the branch) and data, inputs restored
-                                  from reg\old before each run
+  G:\sep_refactor\ref\code      worktree at tag refactor-start (the old code)
+  G:\sep_refactor\ref\data      the small input set and the reference outputs,
+                                read-only after step 3
+  G:\sep_refactor\check\code    the refactor branch
+  G:\sep_refactor\check\data    inputs restored from ref before each run
   ```
 
+  Tens of GB in all.
 - **Guards**, committed on `main` in step 0 so the tag carries them:
-  `get_paths.m` and the Python data root refuse a production data folder
-  (`D:\sep_histology\data`) when the code folder is not the production one
-  (`D:\sep_histology\code`), and refuse any data root inside the G: snapshot.
+  `get_paths.m` and the Python data root refuse the production data (and any
+  folder inside it) when the code folder is not the production one, a data
+  root inside the code folder, and any data root inside the G: snapshot.
   `SEP_DATA_ROOT` overrides the derived root, for runs that need it.
-- **Sizes.** Cohort tree inputs are about 115 GB (the registered volumes of
-  every brain, the SEP volumes, the atlases and ISH grids); its outputs about
-  190 GB (the cohort files of P5 and P6bis, the P7bis folders, the Python
-  route's outputs). The registration tree is about 45 GB plus its reruns. Worst
-  case, with both old runs kept, about 0.9 TB; about 0.7 TB once the two old
-  runs are shown identical.
 - **Inputs are listed, not guessed.** Each tree's input list is built from what
-  the drivers read (for P4, MG914's `lightsuite\` holds regopts.mat,
-  correction_output\, volume_aligned\, atlas2histology_tform.mat,
-  local_settings.txt ...), and a missing input stops the run. Also copied: the
-  frozen P9 summary, `gene_targets.csv`, and the downloaded caches (Allen,
-  ontology, gene annotations), byte-identical. The network steps
-  (`v2_panel_build`, `v2_panel_fetch`) run from cache only.
+  the drivers read, and a missing input stops the run. Also copied: the frozen
+  P9 summary, `gene_targets.csv`, and the downloaded caches (Allen, ontology,
+  gene annotations), byte-identical. The network steps (`v2_panel_build`,
+  `v2_panel_fetch`) run from cache only.
+
+### The small reference set
+
+- **Plasticity chain** (P5, P6bis, P7bis): 2 naive (CGF027, CGF028), 2 RWS
+  (MG691, MG692) and 2 behavior mice (MG705, MG716); P7bis once per
+  comparison; videos off (the t-score and surprise videos off together, since
+  one sets a limit the other uses).
+- **Python route:** the per-mouse steps (`v2_per_mouse`, `v2_to_ccf`,
+  `v2_cohort` and what reads their outputs) on 2 adults and 2 young brains of
+  two ages (CGF027, MG691, MG903 at P20, MG911 at P16), so the atlas handling
+  of each age is exercised; the table-level analyses (region statistics, both
+  ISH passes, the beyond-abundance analysis, the SEP-channel check) on the
+  existing full tables, since they are fast.
+- **Registration:** P4 `register` and P4bis on a copy of MG914's folder, run
+  twice with the old code to measure elastix's unseeded variability; P4
+  `autoannotate` on MG914 once the GPU is free. Align is never rerun (the
+  step 0 guard refuses).
+- **Preprocessing** (P1 to P3): the moves are proven by code identity; if P2 or
+  P2bis is restructured, it is run on MG914 alone, old against new on the same
+  input (P2bis's result depends on which mice run together, so it will not
+  match production, and does not need to).
+- The settings of each run are in `docs/production_settings.md`; settings
+  without an environment variable are edited in the check copy, and the edit
+  is saved as a patch beside the outputs.
 
 ### What is compared with what
 
-- **The reference is a fresh run of the old code**, not the files on disk,
-  with the settings of `docs/production_settings.md`: P5 adults with no age
-  filter, P6bis including behavior (S6), P7bis once per comparison, the Python
-  route on the 17 brains of `v2_cohort.py` at `refactor-start` with both ISH
-  passes spelled out (the second with `V2_ISH_PANEL` and `V2_ISH_TABLE` set,
-  `V2_READINGS` unset). MG914 and the other new young brains join after the
-  merge: adding a young brain moves every adult's zref until A1.
-- **Order of a cohort run:** P5, P6bis, P7bis, then the Python route (sheet 08
-  of the diagnostics reads P6bis's masks).
-- **Run twice.** The old code runs twice on the reference tree, the first
-  run's outputs moved to `ref_run1\` before the second. Most of the cohort
-  chain is deterministic, so the two should be identical; if they are,
-  `ref_run1\` is deleted.
-- **Pass criterion.** Where the old code is deterministic, new must equal old
-  (tables and `.mat` values exactly; figures up to renderer noise). Where it is
-  not (registration), the new-against-old difference must be no larger than
-  the old-against-old one, on named measures: voxelwise correlation of the
-  registered volumes per channel, `errall`, region means, the P7bis statistics.
-  Unseeded today: elastix's sampler (`bsplineRegisterSlice.m:15`) and the random
-  point subsampling in extraction and align (`extractBrainLimits3.m:35`,
-  `alignSliceVolume.m:73`). P2's `randn` only jitters dots in a figure.
-- **Quick and full checks.** Step 3 records each pipeline's run time. During
-  steps 5 to 8 a quick check runs after each commit (one brain registered; P5
-  to P7bis without videos; the Python route without videos); the full rerun
-  runs at the end of each step.
+- **Pass criterion.** Where the old code is deterministic, new must equal old:
+  tables and `.mat` values exactly, figures up to renderer noise. Registration
+  is not deterministic (elastix's sampler, `bsplineRegisterSlice.m:15`): new
+  against old must differ no more than old against old, on the voxelwise
+  correlation of the registered volumes per channel and on `errall`.
+- **Quick and full checks.** A quick check after each commit (the plasticity
+  chain on the small set without videos, one brain through the Python
+  per-mouse steps); the full small-set check at the end of each step, a few
+  hours.
 - **Caches.** Computed caches (`*_scalars.npz`, the ISH tables
-  `gene_region_table*.csv`) are deleted in every tree before each run, the
-  reference and old-against-old runs included; file
+  `gene_region_table*.csv`) are deleted in every tree before each run; file
   dates are checked after it, so a check that rewrote nothing cannot pass.
-
-### The registration checks (small tree)
-
-MG914 is already annotated, and its manual steps cannot be repeated
-identically, so it is checked in stages, with its saved manual outputs copied
-in unchanged (slice-order decisions, artifact masks, cutting angle, anchors,
-control points):
-
-1. P1, P2 and P2bis from its raw `.czi`, each in a fresh session, compared
-   with its production outputs (voxelwise correlation of `volume_centered`
-   and of the corrected volumes, the per-slice slopes of P2) within the
-   tolerance of an old-against-old pair. If extraction differs, the
-   position-indexed artifact masks no longer fit, and that is recorded rather
-   than forced.
-2. P4 `register` and P4bis from its saved align outputs and control points,
-   compared within tolerance (old against old sets the tolerance).
-3. P4 `autoannotate` from the saved anchors and planes, its proposals compared
-   with the saved ones.
-4. Align is never rerun on it (the step 0 guard refuses), and the manual GUIs
-   are not rerun or compared; the GUI has its own check (step 6).
-
-The reference adult (L5) gets stage 2 only. None of this runs in the cohort
-tree, so the cohort chain reads the production registrations unchanged.
+- **Order of a run:** P5, P6bis, P7bis, then the Python route (sheet 08 of the
+  diagnostics reads P6bis's masks).
 
 ### Sessions, tools, environments
 
@@ -567,10 +560,9 @@ tree, so the cohort chain reads the production registrations unchanged.
 - **Verification tools.** The MATLAB ones come from the imaging repository's
   `tools/`, copied with a `sep_` prefix (the shadowing risk is MATLAB's); the
   two Python ones (`check_code_identity.py`, `compare_outputs.py`) come from
-  the refactor template and keep their names. All are adapted: the redirect goes through `SEP_DATA_ROOT` (inputs and
-  outputs), and the identity check takes an old-to-new name map, so a moved
-  file cannot pass uncompared. Tried once on a one-brain, one-driver tree
-  before step 3.
+  the refactor template and keep their names. All are adapted: the redirect
+  goes through `SEP_DATA_ROOT` (inputs and outputs), and the identity check
+  takes an old-to-new name map, so a moved file cannot pass uncompared.
 - **Code identity** is compared through the parse tree, never byte by byte
   (line endings differ between the working tree and a checkout). The baseline
   for the style pass is taken after the moves and splits.
@@ -578,7 +570,8 @@ tree, so the cohort chain reads the production registrations unchanged.
   called as `python -m pip`), never recreated during the refactor, and never
   given an editable install. `venv_atlas` holds 4.7 GB of DeMBA-to-CCF
   deformation fields downloaded in September: they are copied, with a file
-  list and hashes, to `data\atlas\ccf_translator_fields\` and to G:, and the
+  list and hashes, to `data\atlas\ccf_translator_fields\` (the snapshot
+  refresh takes them to G:), and the
   README says how to restore them after a reinstall. pytest and ruff go into a
   separate `tools\venv_dev`, so the analysis environments do not change. Runs
   from a check tree set `AUTO_ANNOTATION_PYTHON` to `main`'s engine
@@ -640,18 +633,14 @@ trees.
 
 ### 3. Reference capture
 
-Build the trees, run the old code as described in Verification design, keep
-every output and log, record run times. Run it when the machine is free:
-the cohort files are tens of GB each, and another heavy process would slow
-the runs, skew the run times and could exhaust memory mid-run (it would
-not change the results).
+Build the two small trees, run the old code on the small reference set as
+described in Verification design (MG914's registration twice), keep every
+output and log, record run times. Run it when the machine is free: another
+heavy process would not change the results, but both would slow down.
 
-Then compare the fresh run with the plasticity outputs Sami approved (5 Dec
-2025, S6): the t maps and surprise masks of the slab figures, read from the
-`.fig` files, and the region bars. The inputs were renormalised since (rws on
-1 May 2026, naive on 4 Sep 2026, after the raw-zero fix), so they may differ.
-Any difference is explained, and the reference agreed with Giulio, before
-step 4: the refactor then keeps whatever is agreed exactly.
+Then the informative run of S6: today's P7bis on the preserved December 2025
+inputs, compared by eye and by the `.fig` data with the approved figures; the
+outcome goes into `docs/ROADMAP.md` and does not hold up step 4.
 
 ### 4. Organise
 
@@ -687,7 +676,7 @@ The annotation GUI: the automatic-annotation layer moves out of LightSuite's
 file into `registration/annotation_gui/` as a plugin behind one generic hook
 (LS7), and the r key goes (L3). Checked with the sandbox's GUI drive scripts
 pointed at the branch, the engine's self-test, and a checklist Giulio runs on
-MG914 in the registration tree (keys a, j, k, K, u, U, save; with nothing
+MG914 in the check tree (keys a, j, k, K, u, U, save; with nothing
 edited, `atlas2histology_tform.mat`, `plane_anchors.mat`,
 `auto_atlas_planes.mat` and `annotation_provenance.mat` come out identical),
 plus one opening with no engine installed.
