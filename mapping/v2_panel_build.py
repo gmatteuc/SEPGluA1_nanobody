@@ -53,7 +53,7 @@ Outputs, under data\\adult_v2\\panel:
   panel_genes.csv     one row per gene, with every term that claimed it
   cache\\*.json        every API response, so a re-run asks nothing twice
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_panel_build.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_panel_build.py
 """
 
 import csv

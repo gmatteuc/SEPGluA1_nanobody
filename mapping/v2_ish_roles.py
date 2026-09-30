@@ -64,7 +64,7 @@ Outputs, under data\\adult_v2\\ish:
   role_summary.csv      per role and reading: n, median rho, quartiles
   ish_roles.png         the three panels above, for zref
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_ish_roles.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_ish_roles.py
 """
 
 import csv

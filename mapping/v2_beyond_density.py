@@ -133,7 +133,7 @@ covariates could have explained. Letting them bend took the model from 0.42 to
 0.60 cross-validated, and the headline from "half" to 39%. The claim survived,
 smaller. That is what the controls are for.
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_beyond_density.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_beyond_density.py
 """
 
 import csv

@@ -1,0 +1,11 @@
+repository   https://github.com/dimokaramanlis/LightSuite
+base commit  2f16206 (29 Oct 2025, "removed unused code")
+vendored as  a GitHub download of the main branch (a zip, not a clone), unpacked
+             as LightSuite-main/ and committed with this project's first commit
+             (b9f2343, 6 Aug 2026); moved to third_party/LightSuite/ in the
+             refactor (step 4 of docs/REFACTOR_PLAN.md)
+how known    the download carries no commit id; the base was found by comparing
+             the files: at b9f2343, 151 of the 153 files are identical to
+             upstream 2f16206, and the other two hold edits made before that
+             first commit (both listed in PATCHES.md)
+changes      every change made since is listed in PATCHES.md, next to this file

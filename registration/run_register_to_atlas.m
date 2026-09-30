@@ -29,8 +29,8 @@ clc
 %                                   channel, 0 all. Closing the window writes
 %                                   cutting_angle_data.mat. Must come BEFORE
 %                                   annotate: it changes the atlas block the
-%                                   control points are counted in, so P4 refuses
-%                                   it once a mouse has points.
+%                                   control points are counted in, so this
+%                                   script refuses it once a mouse has points.
 %   run_mode = 'annotate'  (MANUAL) open the control-point GUI on one mouse.
 %                                   Besides placing points by hand, r proposes
 %                                   points for the slice at the atlas plane on
@@ -56,7 +56,8 @@ clc
 %                                   planes: auto_proposal_controlpoints.mat, never
 %                                   atlas2histology_tform.mat itself. Needs the
 %                                   Python side once per machine:
-%                                   setup_auto_annotation.ps1 (a GPU makes it minutes).
+%                                   registration\auto_annotation\setup.ps1 (a GPU
+%                                   makes it minutes).
 %   run_mode = 'register'  (auto)   elastix refinement and the registered volumes.
 %                                   Picks up the control points if they exist.
 %
@@ -64,6 +65,8 @@ clc
 % uncommented by hand. Every one of them has control points on every slice, so
 % a young brain registered without them is not being treated the same way --
 % see the note on 'annotate' below.
+%
+% Run sep_setup_paths first, once per MATLAB session.
 
 %% User-defined parameters
 
@@ -84,7 +87,7 @@ mice_to_process   = {'MG904_SepGluA_P22'};   % 'annotate' takes one mouse at a t
 %              'autoannotate' proposes every slice (~30 s on a GPU)
 %              'annotate'     review: k / K accept, u / U re-propose, fix points, s
 %              'register'
-% Details in the header above and in auto_annotation/README.md.
+% Details in the header above and in registration/auto_annotation/README.md.
 run_mode = 'register';                             % 'align' | 'angle' | 'annotate' | 'autoannotate' | 'register'
 
 % How far the atlas shown in the GUI (and used by the registration) extends
@@ -95,8 +98,9 @@ run_mode = 'register';                             % 'align' | 'angle' | 'annota
 % cannot reach it (MG912: slice 1 needed ~7 slices beyond LightSuite's 6).
 % Widening it costs nothing but memory. It must not change once a mouse has
 % control points, because the saved atlas planes are counted from the start
-% of this range -- P4 leaves such a mouse at the margin it was annotated
-% with. The three P20 mice registered before this existed keep LightSuite's 6.
+% of this range -- this script leaves such a mouse at the margin it was
+% annotated with. The three P20 mice registered before this existed keep
+% LightSuite's 6.
 atlas_extent_slices = 15;
 
 % Reference atlas.
@@ -112,12 +116,12 @@ atlas_extent_slices = 15;
 %
 % Consequence to remember: the two cohorts then live on different grids.
 % Registered volumes come out at twice the registration grid, so adults land
-% on [900 800 1140] and the young on [994 800 1140]. P5 onward still assume
-% the adult atlas and crop everywhere, so they must be made atlas-aware per
-% cohort before any young data reaches them. Region-level comparison across
-% the two is fine once that is done -- both annotations are in the same
-% parcellation_index space -- but voxelwise cross-group work would need
-% CCF Translator.
+% on [900 800 1140] and the young on [994 800 1140]. run_collect_by_group
+% onward still assume the adult atlas and crop everywhere, so they must be made
+% atlas-aware per cohort before any young data reaches them. Region-level
+% comparison across the two is fine once that is done -- both annotations are
+% in the same parcellation_index space -- but voxelwise cross-group work would
+% need CCF Translator.
 atlas_key = 'demba_p22';                        % 'ccf' | 'demba_p20' | 'demba_p16' | any age built
 
 % Choose correction type
@@ -136,13 +140,8 @@ allow_image_only_registration = false;
 % get_atlas puts the chosen atlas dir on the path and takes the other one off,
 % which matters because every atlas dir holds files with identical names and
 % LightSuite finds them with which(). Do not addpath an atlas dir by hand.
+% The toolboxes are on the path from sep_setup_paths.
 atlas = get_atlas(atlas_key);
-lightsuiteDir = paths.lightsuite;
-yamlDir = paths.yaml;
-elastixDir = paths.elastix;
-addpath(genpath(lightsuiteDir))
-addpath(genpath(yamlDir))
-addpath(genpath(elastixDir))
 
 %% Resolve cohort
 
@@ -155,10 +154,10 @@ end
 % Catch a mistyped mode here rather than letting it fall through to 'align' and
 % quietly redo an hour of bridging nobody asked for.
 if ~ismember(run_mode, {'align', 'angle', 'annotate', 'autoannotate', 'register'})
-    error('P4: unknown run_mode ''%s'' (use ''align'', ''angle'', ''annotate'', ''autoannotate'' or ''register'').', run_mode);
+    error('run_register_to_atlas: unknown run_mode ''%s'' (use ''align'', ''angle'', ''annotate'', ''autoannotate'' or ''register'').', run_mode);
 end
 
-fprintf('P4: %d mouse/mice selected, mode ''%s'', atlas ''%s''.\n', ...
+fprintf('run_register_to_atlas: %d mouse/mice selected, mode ''%s'', atlas ''%s''.\n', ...
     numel(cohort), run_mode, atlas.key);
 
 % Registering against the wrong atlas produces a perfectly plausible-looking
@@ -172,13 +171,13 @@ for k = 1:numel(cohort)
         mouse_age = 56;     % the adult cohorts are not dated individually
     end
     if mouse_age ~= atlas.age_days
-        error(['P4: %s is P%g but atlas ''%s'' represents P%g.\n' ...
+        error(['run_register_to_atlas: %s is P%g but atlas ''%s'' represents P%g.\n' ...
                'Register each brain to the atlas for its own age, or add an\n' ...
                'entry for P%g to get_atlas.'], ...
                cohort(k).name, mouse_age, atlas.key, atlas.age_days, mouse_age);
     end
 end
-fprintf('P4: all selected mice are P%g, matching atlas ''%s''.\n', ...
+fprintf('run_register_to_atlas: all selected mice are P%g, matching atlas ''%s''.\n', ...
     atlas.age_days, atlas.key);
 
 % The atlas resolution has to agree with what each mouse's local_settings.txt
@@ -195,12 +194,12 @@ for k = 1:numel(cohort)
     txt = fileread(settings_name);
     tok = regexp(txt, 'px_atlas\s*=\s*([\d.]+)', 'tokens', 'once');
     if ~isempty(tok) && str2double(tok{1}) ~= atlas.res_um
-        error(['P4: %s has px_atlas = %s but atlas ''%s'' is %g um.\n' ...
+        error(['run_register_to_atlas: %s has px_atlas = %s but atlas ''%s'' is %g um.\n' ...
                'Fix px_atlas (and atlasaplims) in\n  %s'], ...
                cohort(k).name, tok{1}, atlas.key, atlas.res_um, settings_name);
     end
 end
-fprintf('P4: atlas resolution agrees with local_settings for all selected mice.\n');
+fprintf('run_register_to_atlas: atlas resolution agrees with local_settings for all selected mice.\n');
 
 % Aligning again rewrites the atlas block that control points, anchors and
 % proposals are counted in, so an annotated brain would silently lose its
@@ -218,7 +217,7 @@ if strcmp(run_mode, 'align')
         end
     end
     if ~isempty(annotated)
-        error(['P4: these mice already have an annotation, which aligning again would ' ...
+        error(['run_register_to_atlas: these mice already have an annotation, which aligning again would ' ...
                'invalidate:\n%s\nMove those files aside first if you really want to redo ' ...
                'both.'], strjoin(annotated, '\n'));
     end
@@ -251,7 +250,7 @@ for mouse_idx = 1:numel(cohort)
 
         regopts_name = fullfile(mouse_dir, 'regopts.mat');
         if ~exist(regopts_name, 'file')
-            error(['P4: no regopts.mat for %s:\n  %s\n' ...
+            error(['run_register_to_atlas: no regopts.mat for %s:\n  %s\n' ...
                    'Run this script with run_mode = ''align'' for this mouse first.'], ...
                    mouse_name, regopts_name);
         end
@@ -290,10 +289,10 @@ for mouse_idx = 1:numel(cohort)
 
             case 'angle'
                 if numel(cohort) > 1
-                    error('P4: run_mode ''angle'' opens one GUI at a time; select a single mouse.');
+                    error('run_register_to_atlas: run_mode ''angle'' opens one GUI at a time; select a single mouse.');
                 end
                 if exist(fullfile(mouse_dir, 'atlas2histology_tform.mat'), 'file')
-                    error(['P4: %s already has control points. The cutting angle changes the atlas ' ...
+                    error(['run_register_to_atlas: %s already has control points. The cutting angle changes the atlas ' ...
                            'block those points are counted in, so it has to be set before annotating. ' ...
                            'Move atlas2histology_tform.mat aside first if you really want to redo both.'], ...
                            mouse_name);
@@ -311,7 +310,7 @@ for mouse_idx = 1:numel(cohort)
                 % One GUI at a time, or the control points get placed in the
                 % wrong mouse's file.
                 if numel(cohort) > 1
-                    error('P4: run_mode ''annotate'' opens one GUI at a time; select a single mouse.');
+                    error('run_register_to_atlas: run_mode ''annotate'' opens one GUI at a time; select a single mouse.');
                 end
                 tform_name = fullfile(mouse_dir, 'atlas2histology_tform.mat');
                 if exist(tform_name, 'file')
@@ -338,7 +337,7 @@ for mouse_idx = 1:numel(cohort)
                 % ever saved as atlas2histology_tform.mat.
                 for f = {'plane_anchors.mat', 'auto_atlas_planes.mat'}
                     if ~exist(fullfile(mouse_dir, f{1}), 'file')
-                        error(['P4: no %s for %s.\n' ...
+                        error(['run_register_to_atlas: no %s for %s.\n' ...
                                'Open run_mode = ''annotate'', set the plane on the suggested anchor\n' ...
                                'slices (j jumps between them, a fixes the plane), save with s, then re-run.'], ...
                                f{1}, mouse_name);
@@ -350,7 +349,7 @@ for mouse_idx = 1:numel(cohort)
                 fprintf('  proposing control points for every slice from the anchor planes...\n');
                 out = auto_annotate('propose', mouse_dir);
                 if ~out.ok
-                    error('P4: the automatic annotation failed for %s:\n%s', mouse_name, out.message);
+                    error('run_register_to_atlas: the automatic annotation failed for %s:\n%s', mouse_name, out.message);
                 end
                 fprintf(['  done. Review it: run_mode = ''annotate'' (k accepts a slice, u re-proposes it),\n' ...
                          '  then run_mode = ''register''.\n']);
@@ -374,7 +373,7 @@ for mouse_idx = 1:numel(cohort)
                     % find out when it reached that slice, an hour in. Say so now.
                     bad = find(n_cp(:) ~= n_at(:))';
                     if ~isempty(bad)
-                        error(['P4: slice(s) %s have different numbers of histology and atlas points.\n' ...
+                        error(['run_register_to_atlas: slice(s) %s have different numbers of histology and atlas points.\n' ...
                                'Open run_mode = ''annotate'', go to each, and delete the unpaired point(s)\n' ...
                                '(edit mode, d) or press c and re-place them.'], mat2str(bad));
                     end
@@ -396,7 +395,7 @@ for mouse_idx = 1:numel(cohort)
                              '  Registering from image information alone -- diagnostic only,\n' ...
                              '  do not compare the result against the adults.\n']);
                 else
-                    error(['P4: no control points for %s:\n  %s\n' ...
+                    error(['run_register_to_atlas: no control points for %s:\n  %s\n' ...
                            'LightSuite needs the manual points to register properly, and all 17\n' ...
                            'adults have them on every slice. Run this script with\n' ...
                            'run_mode = ''annotate'' for this mouse first.\n' ...
@@ -475,8 +474,9 @@ for mouse_idx = 1:numel(cohort)
     % never defined in this script -- it resolved to MATLAB's own builtin, so
     % the line quietly copied the matlab/database/parallel setting groups into
     % sliceinfo and refreshed nothing. The values actually used for alignment
-    % stayed frozen at whatever P1 baked into sliceinfo.mat, which means editing
-    % local_settings.txt had no effect at all. Re-read the file properly.
+    % stayed frozen at whatever run_extract_and_center baked into sliceinfo.mat,
+    % which means editing local_settings.txt had no effect at all. Re-read the
+    % file properly.
     settings_name = fullfile(base_dir, mouse_name, 'local_settings.txt');
     if ~exist(settings_name, 'file')
         settings_name = fullfile(mouse_dir, 'local_settings.txt');

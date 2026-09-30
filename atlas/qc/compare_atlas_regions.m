@@ -21,6 +21,8 @@ clc
 % age-matched atlas buys little and the simpler single-atlas option is
 % defensible. If cortex or ventricles are systematically off, it earns its keep.
 
+% Run sep_setup_paths first, once per MATLAB session.
+
 %% User-defined parameters
 
 % Where the project lives. Derived from the location of the code rather than

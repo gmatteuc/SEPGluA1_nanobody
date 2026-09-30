@@ -3,7 +3,8 @@ clear all
 clc
 
 % /// Pipeline script #1bis: MANUAL slice reorder / flip / discard ///
-% Entry point for the one manual step between P1 and P2. Two modes:
+% Entry point for the one manual step between run_extract_and_center and
+% run_residual_correction. Two modes:
 %
 %   run_mode = 'edit'   opens SliceOrderEditor on the selected mouse's
 %                       volume_for_ordering.tiff. Reorder, flip and mark
@@ -16,16 +17,15 @@ clc
 %                       volume_ordered.tiff from the decisions file
 %
 % Typical use: run with 'edit', curate, close the GUI, switch to 'apply',
-% run again. Then continue with P2.
+% run again. Then continue with run_residual_correction.
 %
-% This exists so the manual step does not require re-running P1's ~10 min
-% extraction just to reach the (previously commented-out) GUI call.
+% This exists so the manual step does not require re-running
+% run_extract_and_center's ~10 min extraction just to reach the (previously
+% commented-out) GUI call.
+%
+% Run sep_setup_paths first, once per MATLAB session.
 
 %% User-defined parameters
-
-% Where the project lives. Derived from the location of the code rather than
-% written out, so the tree can be moved or copied to another drive as is.
-paths = get_paths();
 
 % Cohort selection (mice come from the shared registry get_cohort.m).
 % The GUI is per-mouse, so give exactly one name when run_mode = 'edit'.
@@ -59,13 +59,6 @@ mice_to_process = {'MG913_SepGluA_P20'};   % 42 sections
 % 'edit' = open the GUI, 'apply' = rebuild volume_ordered.tiff from decisions
 run_mode = 'edit';
 
-%% Add paths
-
-lightsuiteDir = paths.lightsuite;
-yamlDir = paths.yaml;
-addpath(genpath(lightsuiteDir))
-addpath(genpath(yamlDir))
-
 %% Resolve cohort
 
 get_cohort('verify');
@@ -83,7 +76,7 @@ for mouse_idx = 1:numel(cohort)
     fprintf('\n=== %s (group %s) ===\n', mousename, cohort(mouse_idx).group);
 
     if ~exist(volorder, 'file')
-        error('Ordering volume not found:\n  %s\nRun P1 for this mouse first.', volorder);
+        error('Ordering volume not found:\n  %s\nRun run_extract_and_center for this mouse first.', volorder);
     end
 
     switch lower(run_mode)
@@ -106,7 +99,7 @@ for mouse_idx = 1:numel(cohort)
             end
             sliceinfo_name = fullfile(procpath, 'sliceinfo.mat');
             if ~exist(sliceinfo_name, 'file')
-                error('sliceinfo.mat not found:\n  %s\nRun P1 for this mouse first.', sliceinfo_name);
+                error('sliceinfo.mat not found:\n  %s\nRun run_extract_and_center for this mouse first.', sliceinfo_name);
             end
             S = load(sliceinfo_name);
             sliceinfo = S.sliceinfo;

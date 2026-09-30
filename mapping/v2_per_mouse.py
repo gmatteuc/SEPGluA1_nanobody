@@ -1,7 +1,7 @@
 """
 v2 normalisation, step 1: per mouse, from the raw registered stacks.
 
-What was wrong with the P6bis -> P8 route for a cross-age question, in order
+What was wrong with the run_normalise_groups -> P8 route for a cross-age question, in order
 of damage:
   - the tissue mask came from the nano intensity (select_background_pixels),
     which flags a whole plane as background when a section covers only part
@@ -18,7 +18,7 @@ registered 10 um-equivalent grid):
            intensity never enters the mask.
   sig      nano minus the mouse's scalar off-tissue background (raw counts)
   auto     auto minus its own off-tissue background
-  sep      the SEP (green) channel, same treatment, where P4bis has carried it
+  sep      the SEP (green) channel, same treatment, where run_add_sep_channel has carried it
            into registered space. It was carried across so that nano/sep could
            read as surface per unit receptor expressed, against nano/auto's
            surface per unit tissue. It does not: v2_sep_channel_check.py finds
@@ -36,7 +36,7 @@ cannot pollute them.
 Output: data/comparisons_v2/per_mouse/<mouse>.npz  (sig, auto, sep: float16;
 tissue: bool; scalars). Nothing under data/comparisons is touched.
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_per_mouse.py [mouse ...]
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_per_mouse.py [mouse ...]
 """
 
 import csv
@@ -129,7 +129,7 @@ def channel_path(mouse, group, chan):
 
 
 def has_sep(mouse):
-    """Whether P4bis has carried this brain's SEP channel into registered space."""
+    """Whether run_add_sep_channel has carried this brain's SEP channel into registered space."""
     return os.path.exists(channel_path(mouse, MICE[mouse][2], 'sep'))
 
 

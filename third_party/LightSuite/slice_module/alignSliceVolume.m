@@ -2,6 +2,8 @@ function [slicevol, regopts] = alignSliceVolume(slicevol, sliceinfo)
 %ALIGNSLICEVOLUME Summary of this function goes here
 %   Detailed explanation goes here
 %--------------------------------------------------------------------------
+
+% Modified for the SEP-GluA1 project; see third_party/LightSuite/PATCHES.md.
 fprintf('Loading data in memory... '); tic;
 orderfile = fullfile(sliceinfo.procpath, 'volume_for_ordering_processing_decisions.txt');
 if ~isnumeric(slicevol)

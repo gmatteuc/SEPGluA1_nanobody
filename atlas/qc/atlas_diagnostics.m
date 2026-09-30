@@ -21,6 +21,8 @@ clc
 % both annotation volumes); turn it off with do_region_regression to get just
 % the geometry and the note.
 
+% Run sep_setup_paths first, once per MATLAB session.
+
 %% User-defined parameters
 
 % Where the project lives. Derived from the location of the code rather than

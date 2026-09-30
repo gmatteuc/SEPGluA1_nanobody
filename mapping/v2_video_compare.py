@@ -21,7 +21,7 @@ the extremes is usually the only way to see it:
 
   v2_video_compare.py [reading ...] [--plane <CCF plane, 10 um>] [--vmax V] [--dlim D]
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_video_compare.py zref --plane 790 --vmax 1.0
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_video_compare.py zref --plane 790 --vmax 1.0
 """
 
 import csv

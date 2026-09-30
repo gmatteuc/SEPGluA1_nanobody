@@ -63,7 +63,7 @@ Outputs, under data\\adult_v2\\arms:
   arm_gene_correlations.csv     arm x gene, plain and partial-on-Gria1
   arms_vs_genes.png             the two tests, drawn
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_ish_arms.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_ish_arms.py
 """
 
 import csv

@@ -36,7 +36,7 @@ Outputs, under data\\adult_v2\\ish:
   gene_region_table_merged.csv  one profile per gene, replicates averaged
   ish_reliability.png           the distribution, and what it depends on
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_ish_reliability.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_ish_reliability.py
 """
 
 import csv

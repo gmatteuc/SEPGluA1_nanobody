@@ -18,12 +18,10 @@ clc
 % Mice come from the shared registry get_cohort.m rather than a hardcoded
 % list, so every cohort (rws / naive / behavior / young) runs through the
 % identical code path.
+%
+% Run sep_setup_paths first, once per MATLAB session.
 
 %% User-defined parameters
-
-% Where the project lives. Derived from the location of the code rather than
-% written out, so the tree can be moved or copied to another drive as is.
-paths = get_paths();
 
 % Cohort selection. Set mice_to_process to {} to process every mouse in
 % groups_to_process; give explicit names to process just those.
@@ -38,22 +36,13 @@ atlas_key = 'ccf';
 
 %% Add paths
 
-% Define paths
+% The toolboxes are on the path from sep_setup_paths: LightSuite, yamlmatlab,
+% matlab_elastix, and the reader for the raw .czi (BioformatsImage class +
+% bundled bfmatlab) that getSliceInfo/generateSliceVolume need. Only the atlas
+% folder is added here.
 atlas = get_atlas(atlas_key);
 allenDir = atlas.dir;
-lightsuiteDir = paths.lightsuite;
-yamlDir = paths.yaml;
-elastixDir = paths.elastix;
-% Reader for the raw .czi (BioformatsImage class + bundled bfmatlab).
-% Needed by getSliceInfo/generateSliceVolume; no P script added it before,
-% so P1 only ever ran interactively with the path already set.
-bioformatsDir = paths.bioformats;
-% Add defined paths
 addpath(allenDir)
-addpath(genpath(lightsuiteDir))
-addpath(genpath(yamlDir))
-addpath(genpath(elastixDir))
-addpath(genpath(bioformatsDir))
 
 %% Resolve cohort
 
@@ -63,7 +52,7 @@ if isempty(mice_to_process)
 else
     cohort = get_cohort('names', mice_to_process);
 end
-fprintf('P1: %d mouse/mice selected.\n', numel(cohort));
+fprintf('run_extract_and_center: %d mouse/mice selected.\n', numel(cohort));
 
 %% Loop over mice
 
@@ -118,7 +107,7 @@ for mouse_idx = 1:numel(cohort)
         % before curation; re-run afterwards to apply the decisions.
         %
         % The MANUAL reorder/flip/discard step is NOT here: it lives in
-        % P1bis_order_slices.m. It used to be a commented-out SliceOrderEditor call
+        % run_order_slices.m. It used to be a commented-out SliceOrderEditor call
         % at this spot, which was misleading -- the GUI is non-blocking, so inside
         % this loop it would open one window per mouse at once, and it sat *after*
         % generateReordedVolume so its output was never consumed in the same pass.

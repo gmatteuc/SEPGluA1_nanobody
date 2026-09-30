@@ -59,7 +59,7 @@ and adult = naive + rws.
 
 Output: data/comparisons_v2/ccf/<cohort>/{ratio,cref}_{mean,sd,n}.npy + mice.txt
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_cohort.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_cohort.py
 """
 
 import os
@@ -178,10 +178,10 @@ def mouse_modes(mouse):
     z = np.load(os.path.join(PER_MOUSE_CCF, mouse + '.npz'))
     sig = z['sig'].astype(np.float32); auto = z['auto'].astype(np.float32); tissue = z['tissue']
     # Only the reading that needs SEP requires the channel to be there, so the
-    # chain still runs on a brain P4bis has not reached yet.
+    # chain still runs on a brain run_add_sep_channel has not reached yet.
     if 'sepratio' in MODES and 'sep' not in z.files:
         raise SystemExit(f'{mouse}: no SEP channel in its per-mouse CCF file. Run\n'
-                         f'  P4bis_add_sep_channel.m for this brain, then v2_per_mouse.py and v2_to_ccf.py,\n'
+                         f'  run_add_sep_channel.m for this brain, then v2_per_mouse.py and v2_to_ccf.py,\n'
                          f'  or drop the reading with V2_READINGS.')
     sc = mouse_scalars(mouse)
 

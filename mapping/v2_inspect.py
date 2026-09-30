@@ -26,7 +26,7 @@ samples one streamline at a time, which leaves fine radial streaks. The default
 sigma is 3 x 1 x 1 voxels, i.e. 60 um along AP and 20 um across -- anisotropic
 because the banding is, and far below the size of any area.
 
-  tools\\venv_flat\\Scripts\\python.exe v2_inspect.py [reading ...]
+  tools\\venv_flat\\Scripts\\python.exe mapping\\v2_inspect.py [reading ...]
         [--plane 790] [--vmax 1.0] [--dlim 0.5] [--smooth 3,1,1] [--no-video] [--no-flatmap]
 
 `--smooth` takes one number or three, comma separated, as sigma in 20 um voxels

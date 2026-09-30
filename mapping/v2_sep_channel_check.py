@@ -35,7 +35,7 @@ Outputs, under data\\adult_v2\\arms:
   sep_channel_check.csv     the per-mouse numbers behind the figure
   sep_channel_check.png     the figure
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_sep_channel_check.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_sep_channel_check.py
 """
 
 import csv

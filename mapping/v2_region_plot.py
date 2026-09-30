@@ -62,7 +62,7 @@ Benjamini-Hochberg q of each, so a corrected reading is one column away.
 Writes region_means_per_mouse.csv, region_stats.csv and region_plot.png into
 data/comparisons_v2/young_vs_adult/.
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_region_plot.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_region_plot.py
 """
 
 import csv
@@ -194,7 +194,7 @@ def main():
         sig = z['sig'].astype(np.float32); auto = z['auto'].astype(np.float32); tissue = z['tissue']
         if 'sepratio' in MODES and 'sep' not in z.files:
             raise SystemExit(f'{mouse}: no SEP channel in its per-mouse file. Run\n'
-                             f'  P4bis_add_sep_channel.m for this brain, then v2_per_mouse.py,\n'
+                             f'  run_add_sep_channel.m for this brain, then v2_per_mouse.py,\n'
                              f'  or drop the reading with V2_READINGS.')
 
         # sig divided by a reference CHANNEL, voxel by voxel: the denominator is

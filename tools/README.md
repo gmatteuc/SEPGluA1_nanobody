@@ -23,7 +23,7 @@ anything runs.
 ## Long runs: run_matlab_detached.ps1
 
 ```
-powershell -File tools\run_matlab_detached.ps1 -Script P5_collect_data_by_group -CodeDir D:\sep_histology\code -DataRoot D:\sep_histology\data -LogDir D:\sep_histology\data\young
+powershell -File tools\run_matlab_detached.ps1 -Script run_collect_by_group -CodeDir D:\sep_histology\code -DataRoot D:\sep_histology\data -LogDir D:\sep_histology\data\young
 ```
 
 `-CodeDir`, `-DataRoot` and `-LogDir` have no defaults. The runner passes the
@@ -63,8 +63,8 @@ only show the format):
 
 ```
 old_path,new_path
-P5_collect_data_by_group.m,plasticity/pipeline/collect_data_by_group.m
-,plasticity/run_collect_data_by_group.m
+P5_collect_data_by_group.m,group_comparison/run_collect_by_group.m
+,tests/sep_test_path.m
 landmark_refine.m,
 ```
 
@@ -79,7 +79,7 @@ on purpose; a path in the map that does not exist stops the check.
    change a driver's settings without editing it, run a copy of it:
 
    ```
-   powershell -File tools\run_matlab_detached.ps1 -CodeDir G:\sep_refactor\check\code -DataRoot G:\sep_refactor\check\data -LogDir G:\sep_refactor\check\logs -Script "addpath('tools'); sep_run_driver_copy('P7bis_analyze_group_differences', 'G:\sep_refactor\check\data', struct('exp_type', '''rws''', 'generate_diff_videos', 'false'))"
+   powershell -File tools\run_matlab_detached.ps1 -CodeDir G:\sep_refactor\check\code -DataRoot G:\sep_refactor\check\data -LogDir G:\sep_refactor\check\logs -Script "addpath('tools'); sep_run_driver_copy('run_group_differences', 'G:\sep_refactor\check\data', struct('exp_type', '''rws''', 'generate_diff_videos', 'false'))"
    ```
 
    Each field of the struct replaces the assignment to that setting (the

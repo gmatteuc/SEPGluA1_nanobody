@@ -6,7 +6,7 @@
 # which run the old and the new code on copies of the data
 # (docs/REFACTOR_PLAN.md, Verification design).
 #
-#   powershell -NonInteractive -File run_matlab_detached.ps1 -Script P5_collect_data_by_group -CodeDir D:\sep_histology\code -DataRoot D:\sep_histology\data -LogDir D:\sep_histology\data\young
+#   powershell -NonInteractive -File run_matlab_detached.ps1 -Script run_collect_by_group -CodeDir D:\sep_histology\code -DataRoot D:\sep_histology\data -LogDir D:\sep_histology\data\young
 #
 # -NonInteractive makes a forgotten parameter an error instead of a prompt
 # that a detached launch would wait on forever.
@@ -20,7 +20,7 @@
 # before running anything.
 #
 # A stage can be a script name or a call, such as
-# "addpath('tools'); sep_run_driver_copy('P5_collect_data_by_group', 'G:\sep_refactor\check\data')".
+# "addpath('tools'); sep_run_driver_copy('run_collect_by_group', 'G:\sep_refactor\check\data')".
 # Use single quotes inside it: double quotes do not survive the hand-over to
 # matlab.exe.
 #

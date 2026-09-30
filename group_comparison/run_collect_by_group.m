@@ -3,6 +3,7 @@ close all
 clc
 
 % /// Pipeline script #5: load output of registartion for all mice and assemble 4D volumes stording data from all mice of each group /// 
+% Run sep_setup_paths first, once per MATLAB session.
 
 %% User-defined parameters
 
@@ -19,9 +20,9 @@ mousetypes_list = {'young'};                    % 'rws' | 'naive' | 'behavior' |
 % assembled separately rather than diluting it with the P32/P36 brains.
 age_filter = [20];                              % [] = whole group, e.g. [20] or [16 20 22]
 
-% Only mice that actually reached the end of P4 can be collected here; the rest
-% are skipped with a warning rather than killing the run, so the aggregate can
-% be rebuilt as more brains finish registering.
+% Only mice that actually reached the end of run_register_to_atlas can be
+% collected here; the rest are skipped with a warning rather than killing the
+% run, so the aggregate can be rebuilt as more brains finish registering.
 skip_missing = true;
 
 % Choose correction type
@@ -29,24 +30,18 @@ correction_type = 'slicewise';
 
 %% Add paths
 
-% Define paths
+% The toolboxes are on the path from sep_setup_paths; only the atlas folder
+% is added here.
 allenDir = paths.atlas;
-lightsuiteDir = paths.lightsuite;
-yamlDir = paths.yaml;
-elastixDir = paths.elastix;
-% Add defined paths
 addpath(allenDir)
-addpath(genpath(lightsuiteDir))
-addpath(genpath(yamlDir))
-addpath(genpath(elastixDir))
 
 %% Atlas
 
-% Nothing below uses the atlas -- the block that used to load and crop the
-% adult annotation here fed nothing. What matters is that every registered
-% volume of a cohort sits on the same grid, which is what makes cat(4, ...)
-% legal: the adults on the CCF (900 x 800 x 1140), the P20 brains on DeMBA
-% (994 x 800 x 1140). get_atlas_crop is where that grid lives, and P6bis and
+% Nothing below uses the atlas -- the block that used to load and crop the adult
+% annotation here fed nothing. What matters is that every registered volume of a
+% cohort sits on the same grid, which is what makes cat(4, ...) legal: the
+% adults on the CCF (900 x 800 x 1140), the P20 brains on DeMBA (994 x 800 x
+% 1140). get_atlas_crop is where that grid lives, and run_normalise_groups and
 % P8 take it from there.
 
 %% Process per mouse type
@@ -78,7 +73,7 @@ for mousetype_idx = 1:numel(mousetypes_list)
                   'lightsuite', 'volume_registered', 'chan02_NANO.tiff'), 'file') == 2, ...
                   current_mice);
         if any(~has_reg)
-            fprintf('P5: %s — skipping %d not-yet-registered mouse/mice: %s\n', ...
+            fprintf('run_collect_by_group: %s — skipping %d not-yet-registered mouse/mice: %s\n', ...
                 current_mouse_type, nnz(~has_reg), strjoin(current_mice(~has_reg), ', '));
         end
         current_mice = current_mice(has_reg);
@@ -86,11 +81,11 @@ for mousetype_idx = 1:numel(mousetypes_list)
 
     num_current = numel(current_mice);
     if num_current == 0
-        warning('P5: no registered mice for group %s%s, nothing to collect.', ...
+        warning('run_collect_by_group: no registered mice for group %s%s, nothing to collect.', ...
             current_mouse_type, subset_tag);
         continue
     end
-    fprintf('P5: %s%s — collecting %d mouse/mice: %s\n', ...
+    fprintf('run_collect_by_group: %s%s — collecting %d mouse/mice: %s\n', ...
         current_mouse_type, subset_tag, num_current, strjoin(current_mice, ', '));
 
     % Initialize cells for volumes of this type
@@ -157,13 +152,14 @@ for mousetype_idx = 1:numel(mousetypes_list)
     % Only nano_4d is still written; every line below it is commented out. So a
     % re-run refreshes nano and leaves whatever auto_4d.mat, mask_4d.mat and the
     % averages happen to be on disk, however old. That is what happened to the
-    % adults: the brains were re-registered and P5 re-run on 2025-11-27, which
-    % rewrote nano_4d.mat, while auto_4d.mat stayed at its 2025-11-19 version,
-    % from the registration before. Nano and auto on disk then belonged to two
-    % different registrations of the same brain, about two 10 um voxels apart
-    % (r 0.94-0.99 plane by plane, every adult), and anything dividing one by
-    % the other was quietly mixing them. Uncomment the saves before trusting a
-    % file here, or read the registered tiffs directly, as v2_per_mouse does.
+    % adults: the brains were re-registered and run_collect_by_group re-run on
+    % 2025-11-27, which rewrote nano_4d.mat, while auto_4d.mat stayed at its
+    % 2025-11-19 version, from the registration before. Nano and auto on disk
+    % then belonged to two different registrations of the same brain, about two
+    % 10 um voxels apart (r 0.94-0.99 plane by plane, every adult), and anything
+    % dividing one by the other was quietly mixing them. Uncomment the saves
+    % before trusting a file here, or read the registered tiffs directly, as
+    % v2_per_mouse does.
     base_dir = fullfile(paths.data, current_mouse_type);
     save(fullfile(base_dir, ['nano_4d' subset_tag '.mat']), 'nano_4d', '-v7.3');
     % save(fullfile(base_dir, ['auto_4d' subset_tag '.mat']), 'auto_4d', '-v7.3');

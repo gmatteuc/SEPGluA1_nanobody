@@ -26,7 +26,7 @@ scalars the per-mouse file carried (backgrounds, cortex mean, cohort, age).
 SEP rides exactly the channels it will be divided into, through the same
 transform in the same call, so nothing can drift between them.
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_to_ccf.py [mouse ...]
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_to_ccf.py [mouse ...]
 """
 
 import os

@@ -2,6 +2,8 @@ function SliceOrderEditor(optionalVolumePath)
 % Interactively reorders slices using a direct "Move to Position" workflow.
 % This is the final, redesigned version for clarity and ease of use.
 
+% Modified for the SEP-GluA1 project; see third_party/LightSuite/PATCHES.md.
+
     % --- Initial Setup & GUI Creation (No changes here) ---
     inputFileFullPath = '';
     if nargin > 0 && ~isempty(optionalVolumePath) && exist(optionalVolumePath, 'file')

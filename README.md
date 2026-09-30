@@ -92,3 +92,21 @@ Each retains its upstream `LICENSE`.
 
 MATLAB (Image Processing + Statistics toolboxes), plus `elastix`/`transformix` binaries
 available to the elastix wrapper. Java is required for the Bio-Formats reader.
+
+### Installing elastix 5.1.0
+
+LightSuite calls elastix from the command line, so the elastix and transformix
+executables must be reachable from anywhere. The recipe used here (it was kept in
+`bk/LightSuite.txt`, now `archive/bk/LightSuite.txt`):
+
+1. Download the elastix 5.1.0 executables and unzip the archive to a permanent
+   place on the computer (for example `C:\elastix`, or `/opt/elastix`).
+2. Add the folder holding the elastix and transformix executables to the system
+   PATH. This is the step that matters most.
+   - Windows: search for "Edit the system environment variables", click
+     "Environment Variables", and add a new system variable named `elastix` with
+     the path to the bin folder (for example `C:\elastix`).
+   - Linux or macOS: add `export PATH="/path/to/your/elastix/bin:$PATH"` to the
+     shell's configuration file.
+3. Check it: open a new terminal and type `elastix --version`. It should print
+   the version; "command not found" means the PATH is not set correctly.

@@ -24,8 +24,9 @@ function atlas = get_atlas(atlas_key)
 %
 %   NOTE ON default_aplims: the AP crop is currently read from each mouse's
 %   local_settings.txt (`atlasaplims`), NOT from here. The value below is
-%   recorded for reference and for future atlases only -- P1-P4 must keep
-%   using sliceinfo.atlasaplims so existing behaviour is preserved.
+%   recorded for reference and for future atlases only -- the drivers from
+%   run_extract_and_center to run_register_to_atlas must keep using
+%   sliceinfo.atlasaplims so existing behaviour is preserved.
 %
 %   ADDING A YOUNG-BRAIN ATLAS: register a new key here (e.g. 'devccf_p14')
 %   pointing at its template/annotation volumes. Cross-group comparison then
@@ -76,7 +77,7 @@ switch lower(atlas_key)
 
         if ~exist(atlas.dir, 'dir')
             error(['get_atlas: no atlas built for P%d.\n  %s does not exist.\n' ...
-                   'Build it first:  tools\\venv_atlas\\Scripts\\python.exe build_demba_atlas.py %d'], ...
+                   'Build it first:  tools\\venv_atlas\\Scripts\\python.exe atlas\\build_demba_atlas.py %d'], ...
                    age, atlas.dir, age);
         end
         % The AP crop is measured per age when the folder is built (the two
@@ -84,7 +85,7 @@ switch lower(atlas_key)
         % volumes, so it cannot drift away from the atlas it belongs to.
         aplims_file = fullfile(atlas.dir, 'aplims.txt');
         if ~exist(aplims_file, 'file')
-            error(['get_atlas: %s is missing. Re-run build_demba_atlas.py %d, or write the ' ...
+            error(['get_atlas: %s is missing. Re-run atlas\\build_demba_atlas.py %d, or write the ' ...
                    'two AP crop planes into that file.'], aplims_file, age);
         end
         lims = sscanf(fileread(aplims_file), '%d')';

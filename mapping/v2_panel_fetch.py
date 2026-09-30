@@ -14,7 +14,7 @@ experiments come in a box of their own and cannot be placed against the atlas;
 v2_ish_regions drops them for the same reason). Both go to fetch_failures.csv
 with the reason, so the panel's real size is a number on disk and not a guess.
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_panel_fetch.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_panel_fetch.py
 """
 
 import csv

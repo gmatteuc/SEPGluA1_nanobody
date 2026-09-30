@@ -20,7 +20,7 @@ MIN_N mice with tissue.
 
 Output: data/comparisons_v2/ccf/<cohort>/video_<reading>_<cohort>.mp4
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_video.py [cohort ...]
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_video.py [cohort ...]
 """
 
 import csv

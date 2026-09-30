@@ -3,8 +3,9 @@ function remap_control_points(mousename, old_decisions_file, do_apply)
 %
 % Control points live in atlas2histology_tform.mat as one cell per slice,
 % indexed by POSITION in the ordered volume rather than by the piece of tissue
-% they were placed on. Reordering in P1bis therefore leaves every point behind
-% on whatever slice now occupies its old position, and nothing complains.
+% they were placed on. Reordering in run_order_slices therefore leaves every
+% point behind on whatever slice now occupies its old position, and nothing
+% complains.
 %
 % This walks them across. It reads the ordering decisions as they were when
 % the points went down and as they are now, matches positions through the
@@ -20,8 +21,9 @@ function remap_control_points(mousename, old_decisions_file, do_apply)
 %   remap_control_points(mouse, old_decisions)          % dry run, prints only
 %   remap_control_points(mouse, old_decisions, true)    % write the new file
 %
-% The old decisions file is the backup taken BEFORE curating in P1bis. Without
-% it there is nothing to match against, which is why it has to be kept.
+% The old decisions file is the backup taken BEFORE curating in
+% run_order_slices. Without it there is nothing to match against, which is why
+% it has to be kept.
 
 if nargin < 3
     do_apply = false;

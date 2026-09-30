@@ -55,14 +55,10 @@ codegen/
 # =============================================================
 #  Exceptions: vendored third-party deps ship legitimate
 #  resources (colormaps, example volumes, mex binaries) that
-#  the pipeline needs at runtime. Re-include their whole trees.
+#  the pipeline needs at runtime. Re-include their whole trees
+#  (all in third_party/), the images the documentation shows,
+#  and the documents with their tables.
 # =============================================================
-!LightSuite-main/**
-!matlab_elastix-master/**
-!yamlmatlab/**
-!BioformatsImage/**
-# the same trees once the refactor moves them (docs/REFACTOR_PLAN.md), and the
-# images the documentation shows
 !third_party/**
 !assets/**
 !docs/**
@@ -78,7 +74,7 @@ codegen/
 #  copies on the MATLAB path, shadowing transformix.m et al.
 #  Safe to delete from disk.
 # =============================================================
-matlab_elastix-master/matlab_elastix-master/
+third_party/matlab_elastix/matlab_elastix-master/
 
 # Python environments (tools/requirements_*.txt recreates them)
 tools/venv_atlas/

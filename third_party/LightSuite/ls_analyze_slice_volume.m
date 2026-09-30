@@ -1,3 +1,4 @@
+% Modified for the SEP-GluA1 project; see third_party/LightSuite/PATCHES.md.
 
 % folder which contains mouse subfolders
 datafolderpath = 'D:\sep_histology'; %'D:\example_charlie'; %'J:\'; % 

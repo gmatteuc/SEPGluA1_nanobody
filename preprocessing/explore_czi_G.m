@@ -2,6 +2,9 @@
 % Assumes Bio-Formats toolbox is installed and added to MATLAB's Java path.
 % Download from: https://www.openmicroscopy.org/bio-formats/downloads/
 % Add to path: javaaddpath('/path/to/bioformats_package.jar');
+% In this project the reader is on the path from sep_setup_paths
+% (third_party\BioformatsImage):
+% Run sep_setup_paths first, once per MATLAB session.
 
 % Define the folder path and select a file (change as needed)
 folderPath = 'S:\ElboustaniLab\#SHARE\Data\MG705_Gria1\Anatomy\Axioscan\20250706\';

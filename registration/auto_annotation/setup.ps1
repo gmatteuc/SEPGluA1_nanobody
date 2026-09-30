@@ -3,14 +3,14 @@
 # on the bundled weights.
 #
 #   cd D:\sep_histology\code
-#   .\setup_auto_annotation.ps1
+#   .\registration\auto_annotation\setup.ps1
 #
 # Re-running is safe. Needs a Python 3.10+ on PATH (Anaconda's is fine) and
 # internet access for the packages (~2.5 GB with CUDA torch).
 
 $ErrorActionPreference = 'Stop'
-$here  = Split-Path -Parent $MyInvocation.MyCommand.Path
-$pydir = Join-Path $here 'auto_annotation'
+# this script sits in the engine's folder, next to requirements.txt and weights\
+$pydir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $venv  = Join-Path $pydir '.venv'
 $py    = Join-Path $venv 'Scripts\python.exe'
 

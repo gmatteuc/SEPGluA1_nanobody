@@ -42,7 +42,7 @@ Outputs, all under data\\adult_v2\\ish:
   ish_old_vs_new.png             the diagnostic for the question above: every
                                  gene's old rho against its new one
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_ish_compare.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_ish_compare.py
 """
 
 import csv

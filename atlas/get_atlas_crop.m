@@ -13,14 +13,15 @@ function A = get_atlas_crop(atlas_key)
 %              land at the same relative position in this cohort's volume
 %   key, res_um, aplims, csv_dir
 %
-% Why this exists. P5 to P10 all opened annotation_10.nii.gz and cropped it
-% to [180 1079] inline, which is the adult atlas and nothing else. The young
-% brains are registered to DeMBA, and their registered volumes come out on a
-% different grid: LightSuite writes them at twice the 20 um registration
-% grid, so the adults land on the CCF 10 um grid (900 x 800 x 1140) and the
-% P20 brains on a 10 um-equivalent grid of DeMBA space (994 x 800 x 1140,
-% i.e. the 20 um crop [63 559] upsampled by two). DV and ML are the same size
-% in both, only the AP length differs. This helper produces the matching
+% Why this exists. run_collect_by_group, run_normalise_groups,
+% run_group_differences and P8 to P10 all opened annotation_10.nii.gz and
+% cropped it to [180 1079] inline, which is the adult atlas and nothing else.
+% The young brains are registered to DeMBA, and their registered volumes come
+% out on a different grid: LightSuite writes them at twice the 20 um
+% registration grid, so the adults land on the CCF 10 um grid (900 x 800 x 1140)
+% and the P20 brains on a 10 um-equivalent grid of DeMBA space (994 x 800 x
+% 1140, i.e. the 20 um crop [63 559] upsampled by two). DV and ML are the same
+% size in both, only the AP length differs. This helper produces the matching
 % annotation for either, so the analysis scripts can stop knowing which.
 %
 % For 'ccf' the returned annot is exactly AllenVol(180:1079, :, :) -- the

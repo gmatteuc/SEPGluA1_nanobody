@@ -4,15 +4,17 @@ function p = get_paths()
 %   p.root        project root, the parent of this code folder
 %   p.data        derived data, one folder per group
 %   p.atlas       Allen atlas volumes and ontology CSVs
-%   p.lightsuite  vendored LightSuite
-%   p.yaml        vendored yamlmatlab
-%   p.elastix     vendored matlab_elastix
-%   p.bioformats  vendored Bio-Formats reader
+%   p.lightsuite  vendored LightSuite (third_party\LightSuite)
+%   p.yaml        vendored yamlmatlab (third_party\yamlmatlab)
+%   p.elastix     vendored matlab_elastix (third_party\matlab_elastix)
+%   p.bioformats  vendored Bio-Formats reader (third_party\BioformatsImage)
+%   p.auto_annotation  the automatic annotation's Python engine
+%                 (registration\auto_annotation)
 %   p.code        this folder
 %
 % The layout is a plain sibling arrangement:
 %
-%   <root>\code\    this file, and the pipeline scripts
+%   <root>\code\    this file, and the code in its pipeline folders
 %   <root>\data\    everything the pipeline produces
 %
 % All of it is worked out from where this file sits rather than written out as
@@ -27,7 +29,7 @@ function p = get_paths()
 % Python route applies the same rules (v2_paths.py).
 %
 % Raw .czi are copied into <root>\data\<group>\<mouse>\ before processing, so
-% the read-only lab share is not part of this at all -- see P0_copy_raw_data.
+% the read-only lab share is not part of this at all -- see run_copy_raw_data.
 
 p.code = fileparts(mfilename('fullpath'));
 p.root = fileparts(p.code);
@@ -39,10 +41,11 @@ end
 check_data_root(p.code, p.data);
 p.atlas = fullfile(p.data, 'atlas');
 
-p.lightsuite = fullfile(p.code, 'LightSuite-main');
-p.yaml       = fullfile(p.code, 'yamlmatlab');
-p.elastix    = fullfile(p.code, 'matlab_elastix-master');
-p.bioformats = fullfile(p.code, 'BioformatsImage');
+p.lightsuite = fullfile(p.code, 'third_party', 'LightSuite');
+p.yaml       = fullfile(p.code, 'third_party', 'yamlmatlab');
+p.elastix    = fullfile(p.code, 'third_party', 'matlab_elastix');
+p.bioformats = fullfile(p.code, 'third_party', 'BioformatsImage');
+p.auto_annotation = fullfile(p.code, 'registration', 'auto_annotation');
 
 end
 

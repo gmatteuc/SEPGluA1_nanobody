@@ -1,7 +1,7 @@
 function sep_run_driver_copy(driver, data_root, assign, rewrites)
 %SEP_RUN_DRIVER_COPY  Run a driver script on a copy of the data tree.
 %   SEP_RUN_DRIVER_COPY(driver, data_root, assign, rewrites) makes a copy of
-%   the driver script (by name, e.g. 'P5_collect_data_by_group') with the
+%   the driver script (by name, e.g. 'run_collect_by_group') with the
 %   settings changed as in sep_make_script_copy, points the whole data tree,
 %   inputs and outputs, to data_root through the environment variable
 %   SEP_DATA_ROOT, which get_paths honours, and runs it. The variable's
@@ -16,7 +16,7 @@ function sep_run_driver_copy(driver, data_root, assign, rewrites)
 %   from the command line (one line):
 %     matlab -batch "restoredefaultpath; cd('G:\sep_refactor\check\code');
 %       sep_setup_paths; addpath('tools');
-%       sep_run_driver_copy('P5_collect_data_by_group', 'G:\sep_refactor\check\data')"
+%       sep_run_driver_copy('run_collect_by_group', 'G:\sep_refactor\check\data')"
 %   A session that already ran other code can give different figures (see
 %   tools\README.md).
 %

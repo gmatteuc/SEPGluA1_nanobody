@@ -43,7 +43,7 @@ Outputs, under data\\adult_v2\\beyond\\for_sami:
   F_maps.png/.eps           observed, predicted and residual on the brain
   regression_table.csv      every structure: observed, predicted, residual
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_beyond_regression.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_beyond_regression.py
 """
 
 import csv

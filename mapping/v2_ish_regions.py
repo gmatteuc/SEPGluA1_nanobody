@@ -44,7 +44,7 @@ Output: data\\adult_v2\\ish\\gene_region_table.csv, long format, one row per
 gene and structure, plus a coverage column so a structure measured from three
 voxels can be told from one measured from three thousand.
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_ish_regions.py [gene ...]
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_ish_regions.py [gene ...]
 """
 
 import csv

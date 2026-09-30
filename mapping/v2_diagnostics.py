@@ -17,18 +17,18 @@ data/comparisons_v2/processing_diagnostics/, with an index README beside them:
                               the cortex distributions
   07_route_agreement.png      voxelwise (warped) against region-wise (never
                               warped), structure by structure
-  08_mask_vs_p6bis.png        the v2 tissue mask against the P6bis/P2bis one
+  08_mask_vs_p6bis.png        the v2 tissue mask against the run_normalise_groups/run_nano_equalisation one
                               that was debugged by eye, where the latter works
   09_denominators.png         autofluorescence and SEP as reference channels,
                               and whether a structure's answer depends on which
                               one is used
 
-The per-brain sheets P4bis writes when it carries the SEP channel into
+The per-brain sheets run_add_sep_channel writes when it carries the SEP channel into
 registered space sit beside these, in processing_diagnostics/sep_channel/.
 
 Run it after a full pass, or with mouse names to refresh a few sheets:
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_diagnostics.py [mouse ...]
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_diagnostics.py [mouse ...]
 """
 
 import csv
@@ -258,9 +258,9 @@ def sheet_route_agreement():
 
 
 def sheet_mask_vs_p6bis():
-    """08 -- the v2 mask against the one P6bis uses, on brains that have both.
+    """08 -- the v2 mask against the one run_normalise_groups uses, on brains that have both.
 
-    The P6bis mask was checked by eye over many sessions, so it is the right
+    The run_normalise_groups mask was checked by eye over many sessions, so it is the right
     thing to be measured against. It is not used here for two reasons: it is
     computed on the nano channel, which is the quantity being compared and is
     four times dimmer in pups; and its centre-of-mass guard returns an
@@ -292,7 +292,7 @@ def sheet_mask_vs_p6bis():
                 ax.contour((ann[k] > 0).astype(float), levels=[0.5], colors='#cccccc', linewidths=0.6)
                 agree = 2 * (mine[k] & (old > 0.5)).sum() / max(mine[k].sum() + (old > 0.5).sum(), 1)
                 ax.set_title(f'{mouse}  plane {k}   Dice {agree:.3f}', fontsize=10)
-    fig.suptitle('red = v2 mask (auto channel), blue dashed = P6bis mask (nano channel), grey = atlas brain.\n'
+    fig.suptitle('red = v2 mask (auto channel), blue dashed = run_normalise_groups mask (nano channel), grey = atlas brain.\n'
                  'Swapping one for the other moves every cortical result by at most 0.02 log2', fontsize=11)
     fig.tight_layout(rect=(0, 0, 1, 0.94))
     save_figure(fig, os.path.join(OUT, '08_mask_vs_p6bis.png'), dpi=95); plt.close(fig)
@@ -389,7 +389,7 @@ rather than trusted. Regenerate with `v2_diagnostics.py`.
 | `07_route_agreement.png` | points on the identity line | a systematic offset, i.e. the warp biasing the comparison |
 | `08_mask_vs_p6bis.png` | red and blue contours on top of each other | the new mask cutting into tissue, or reaching into the surround, where the old one does not |
 | `09_denominators.png` | the two reference channels behave alike across brains; structures sit on the identity line | a structure whose young-adult difference flips sign with the denominator -- that result belongs to the denominator, not to the biology |
-| `sep_channel/<mouse>.png` | written by `P4bis_add_sep_channel.m`: every slice recovered at r = 1.00000, and the registered DAPI of that run on top of the one P4 wrote | a slice below r = 0.99, or a residual shift above a fraction of a pixel: the SEP channel would not be sitting where NANO and AUTO sit |
+| `sep_channel/<mouse>.png` | written by `run_add_sep_channel.m`: every slice recovered at r = 1.00000, and the registered DAPI of that run on top of the one run_register_to_atlas wrote | a slice below r = 0.99, or a residual shift above a fraction of a pixel: the SEP channel would not be sitting where NANO and AUTO sit |
 
 The numbers behind these are in `../young_vs_adult/region_stats.csv` and
 `../README.md`.

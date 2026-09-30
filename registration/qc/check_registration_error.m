@@ -3,8 +3,8 @@ close all
 clc
 
 % /// QC helper: atlas-alignment error, read straight off disk ///
-% Every mouse that has been through the alignment stage of P4 has a
-% regopts.mat holding `errall`, the 3D fit error of the sample against the
+% Every mouse that has been through the alignment stage of run_register_to_atlas
+% has a regopts.mat holding `errall`, the 3D fit error of the sample against the
 % atlas at each optimization step. Nothing has to be recomputed to read it, so
 % this prints it for every aligned mouse alongside the section count.
 %
@@ -63,8 +63,9 @@ for k = 1:numel(cohort)
         continue
     end
 
-    % How many sections actually went in, after the manual removals in P1bis.
-    % Needed to tell a genuinely bad fit from a merely short brain.
+    % How many sections actually went in, after the manual removals in
+    % run_order_slices. Needed to tell a genuinely bad fit from a merely short
+    % brain.
     decisions_name = fullfile(cohort(k).base_dir, 'lightsuite', ...
                      'volume_for_ordering_processing_decisions.txt');
     if exist(decisions_name, 'file')
@@ -83,7 +84,7 @@ end
 
 if isempty(err_end)
     error(['No aligned mice found in %s. regopts.mat is written by the alignment ' ...
-           'stage of P4, so run P4 with run_mode = ''align'' first.'], ...
+           'stage of run_register_to_atlas, so run it with run_mode = ''align'' first.'], ...
            strjoin(groups_to_report, ', '));
 end
 

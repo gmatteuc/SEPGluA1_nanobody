@@ -3,6 +3,7 @@ close all
 clc
 
 % /// Pipeline script #2: read centered volumes and perform residual correction anlayisis to bring autofluorecence and nano channel on the same scale  /// 
+% Run sep_setup_paths first, once per MATLAB session.
 
 %% User-defined parameters
 
@@ -25,15 +26,11 @@ saveRatioMap = false;
 
 %% Add paths 
 
+% The toolboxes are on the path from sep_setup_paths; only the atlas folder
+% is added here.
 atlas = get_atlas(atlas_key);
 allenDir = atlas.dir;
-lightsuiteDir = paths.lightsuite;
-yamlDir = paths.yaml;
-elastixDir = paths.elastix;
 addpath(allenDir)
-addpath(genpath(lightsuiteDir))
-addpath(genpath(yamlDir))
-addpath(genpath(elastixDir))
 
 %% Load atlas
 
@@ -48,7 +45,7 @@ if isempty(mice_to_process)
 else
     cohort = get_cohort('names', mice_to_process);
 end
-fprintf('P2: %d mouse/mice selected.\n', numel(cohort));
+fprintf('run_residual_correction: %d mouse/mice selected.\n', numel(cohort));
 
 %% Loop over mice to perform residual analysis (signal correction)
 

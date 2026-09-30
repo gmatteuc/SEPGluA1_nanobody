@@ -12,7 +12,7 @@ analysis (cohort agreement equal to the manual annotation on 14 of 15 brains;
 conclusions unchanged). The method, every experiment and the validation are in
 the separate repository `SEPGluA1_autoannotation` (its `LOG.md`).
 
-## Workflow (P4_register_to_atlas.m)
+## Workflow (registration/run_register_to_atlas.m)
 
 1. `run_mode = 'annotate'`: on the suggested anchor slices (`j` jumps between
    them) scroll to the right plane and press `a`; save with `s`. This writes
@@ -42,18 +42,18 @@ No file written here ends in `tform.mat`, which `registerSlicesToAtlas` globs fo
 ## Layout
 
 ```
-auto_annotation/
+registration/auto_annotation/
   core.py            the algorithms; importable, no file I/O
   cli.py             python cli.py propose <folder> | section <folder> <slice> <plane> <out.mat>
   weights/           landmark.pt, matcher.pt, VERSION.txt (which models, which brains they never saw)
   requirements.txt
-../auto_annotate.m            MATLAB wrapper; out.ok / out.message on any failure
-../setup_auto_annotation.ps1  creates the venv (CUDA torch if a GPU), self-test
+  setup.ps1          creates the venv (CUDA torch if a GPU), self-test
+registration/pipeline/auto_annotate.m   MATLAB wrapper; out.ok / out.message on any failure
 ```
 
 ## Setup (once per machine)
 
 ```
 cd D:\sep_histology\code
-.\setup_auto_annotation.ps1
+.\registration\auto_annotation\setup.ps1
 ```

@@ -4,19 +4,19 @@ clc
 
 % /// Pipeline script #4bis: carry the SEP channel into registered space ///
 %
-% P4 registers five channels -- DAPI, NANO, AUTO, DIFF, MASK. The microscope
-% recorded a sixth, on the green filter it names EGFP, and that one stops at
-% volume_centered. It is not a second label: every mouse in this project is a
-% SEP-GluA1 knock-in, so the green channel is the tagged receptor itself. Ex
-% vivo it reports the whole GluA1 pool -- the pH sensitivity that makes SEP
-% surface-specific in a living cell is gone in fixed, permeabilised tissue --
-% while the nanobody stain reports the receptors that sat on the membrane.
-% Normalising nano by it therefore asks a well-posed question, surface per unit
-% receptor expressed, where nano per unit autofluorescence only asks surface
-% per unit tissue. Sami expects to trust it more than the autofluorescence, and
-% the only honest way to choose is to carry both to the end on every brain and
-% look. So this script adds SEP as an EXTRA registered volume and overwrites
-% nothing:
+% run_register_to_atlas registers five channels -- DAPI, NANO, AUTO, DIFF, MASK.
+% The microscope recorded a sixth, on the green filter it names EGFP, and that
+% one stops at volume_centered. It is not a second label: every mouse in this
+% project is a SEP-GluA1 knock-in, so the green channel is the tagged receptor
+% itself. Ex vivo it reports the whole GluA1 pool -- the pH sensitivity that
+% makes SEP surface-specific in a living cell is gone in fixed, permeabilised
+% tissue -- while the nanobody stain reports the receptors that sat on the
+% membrane. Normalising nano by it therefore asks a well-posed question, surface
+% per unit receptor expressed, where nano per unit autofluorescence only asks
+% surface per unit tissue. Sami expects to trust it more than the
+% autofluorescence, and the only honest way to choose is to carry both to the
+% end on every brain and look. So this script adds SEP as an EXTRA registered
+% volume and overwrites nothing:
 %
 %   in   <mouse>\lightsuite\volume_centered\chan04_EGFP.tiff   raw, per slice
 %                                                              (EGFP names the
@@ -54,19 +54,22 @@ clc
 % original one, it is the original one. The SEP channel is then warped with it
 % and goes through the saved elastix transforms beside the DAPI.
 %
-% That DAPI is also why the output carries two channels. It rides all the way
-% to registered space and is compared there with the DAPI P4 registered months
-% ago: if those two agree voxel for voxel, the SEP volume beside it sits in
-% the same space as NANO and AUTO, and nano/SEP is a ratio between channels
-% that line up. The check is printed per mouse and drawn in
-% data\comparisons_v2\processing_diagnostics\sep_channel\<mouse>.png.
-% (A second, duller reason: with a single channel in the folder
-% loadLargeSliceVolume squeezes the channel dimension away and
-% generateRegisteredSliceVolume then reads slices as channels.)
+% That DAPI is also why the output carries two channels. It rides all the way to
+% registered space and is compared there with the DAPI that
+% run_register_to_atlas registered months ago: if those two agree voxel for
+% voxel, the SEP volume beside it sits in the same space as NANO and AUTO, and
+% nano/SEP is a ratio between channels that line up. The check is printed per
+% mouse and drawn in
+% data\comparisons_v2\processing_diagnostics\sep_channel\<mouse>.png. (A second,
+% duller reason: with a single channel in the folder loadLargeSliceVolume
+% squeezes the channel dimension away and generateRegisteredSliceVolume then
+% reads slices as channels.)
 %
 % Cost: no refitting, but the per-slice recovery is an image registration and
 % the re-application is a transformix pass per slice per channel, so roughly
 % 30-45 min per brain. Run it detached and leave it.
+%
+% Run sep_setup_paths first, once per MATLAB session.
 
 %% User-defined parameters
 
@@ -87,7 +90,7 @@ mice_to_process   = {};
 % the top of this file.
 %
 %   $env:P4BIS_MICE = 'MG903_SepGluA_P20,MG913_SepGluA_P20'
-%   matlab -batch "cd('D:\sep_histology\code'); P4bis_add_sep_channel"
+%   matlab -batch "cd('D:\sep_histology\code'); sep_setup_paths; run_add_sep_channel"
 env_mice = getenv('P4BIS_MICE');
 if ~isempty(env_mice)
     mice_to_process = strtrim(strsplit(env_mice, ','));
@@ -115,10 +118,7 @@ min_slice_corr = 0.99;
 % No atlas is needed here and none is put on the path: every bit of geometry
 % comes from transform_params.mat and from the aligned volume already on disk,
 % which is what makes this step age-agnostic and safe to run over young and
-% adult brains in one go.
-addpath(genpath(paths.lightsuite))
-addpath(genpath(paths.yaml))
-addpath(genpath(paths.elastix))
+% adult brains in one go. The toolboxes are on the path from sep_setup_paths.
 
 %% Resolve cohort
 
@@ -132,7 +132,7 @@ end
 diag_dir = fullfile(paths.data, 'comparisons_v2', 'processing_diagnostics', 'sep_channel');
 makeNewDir(diag_dir);
 
-fprintf('P4bis: %d mouse/mice selected.\n', numel(cohort));
+fprintf('run_add_sep_channel: %d mouse/mice selected.\n', numel(cohort));
 
 %% Loop over mice
 
@@ -167,7 +167,7 @@ for mouse_idx = 1:numel(cohort)
     idx_dapi   = find(contains(chan_names, 'dapi'), 1);
     idx_egfp   = find(contains(chan_names, 'egfp'), 1);
     if isempty(idx_dapi) || isempty(idx_egfp)
-        error('P4bis: %s has no DAPI and/or green (EGFP) channel in\n  %s', mouse_name, centered_dir);
+        error('run_add_sep_channel: %s has no DAPI and/or green (EGFP) channel in\n  %s', mouse_name, centered_dir);
     end
 
     aligned_dapi = fullfile(aligned_dir, 'chan01_DAPI.tiff');
@@ -201,7 +201,7 @@ for mouse_idx = 1:numel(cohort)
     fprintf('Done! Took %2.2f s\n', toc);
 
     if Nslices ~= numel(info_aligned)
-        error(['P4bis: %s has %d slices after reordering but volume_aligned has %d.\n' ...
+        error(['run_add_sep_channel: %s has %d slices after reordering but volume_aligned has %d.\n' ...
                'The ordering file and the aligned volume disagree, so no slice-to-slice\n' ...
                'correspondence can be assumed. Not touching this mouse.'], ...
                mouse_name, Nslices, numel(info_aligned));
@@ -309,11 +309,12 @@ for mouse_idx = 1:numel(cohort)
 
     % generateRegisteredSliceVolume writes to <procpath>\volume_registered and
     % that path is hardcoded. LightSuite is not to be edited (the adults were
-    % registered with it as it stands), so it is pointed at a working folder
-    % and the result is moved into place afterwards. sliceinfo is otherwise
-    % passed exactly as P4's 'register' branch passes it, stale px_atlas and
-    % all, because reproducing that run is the whole point: the SEP volume has
-    % to land on the same grid as volume_registered, not on a better one.
+    % registered with it as it stands), so it is pointed at a working folder and
+    % the result is moved into place afterwards. sliceinfo is otherwise passed
+    % exactly as run_register_to_atlas's 'register' branch passes it, stale
+    % px_atlas and all, because reproducing that run is the whole point: the SEP
+    % volume has to land on the same grid as volume_registered, not on a better
+    % one.
     makeNewDir(work_dir);
     si             = sliceinfo;
     si.channames   = {'DAPI', 'SEP'};
@@ -329,15 +330,16 @@ for mouse_idx = 1:numel(cohort)
 
     %% Check it landed where NANO and AUTO are
 
-    % Every twentieth plane of the registered DAPI, this run against P4's.
-    fprintf('Checking the registered DAPI against the one P4 wrote... '); tic;
+    % Every twentieth plane of the registered DAPI, this run against
+    % run_register_to_atlas's.
+    fprintf('Checking the registered DAPI against the one run_register_to_atlas wrote... '); tic;
     ref_dapi = fullfile(registered_dir, 'chan01_DAPI.tiff');
     new_dapi = fullfile(out_registered, 'chan01_DAPI.tiff');
     info_ref = imfinfo(ref_dapi);
     info_new = imfinfo(new_dapi);
     if numel(info_ref) ~= numel(info_new) || info_ref(1).Height ~= info_new(1).Height ...
             || info_ref(1).Width ~= info_new(1).Width
-        error(['P4bis: %s registered SEP came out %dx%dx%d against volume_registered''s %dx%dx%d.\n' ...
+        error(['run_add_sep_channel: %s registered SEP came out %dx%dx%d against volume_registered''s %dx%dx%d.\n' ...
                'The two are not on the same grid and must not be divided into one another.'], ...
                mouse_name, info_new(1).Height, info_new(1).Width, numel(info_new), ...
                info_ref(1).Height, info_ref(1).Width, numel(info_ref));
@@ -374,7 +376,7 @@ for mouse_idx = 1:numel(cohort)
     plot(planes - 1, corr_reg, 'o-', 'Color', [0.15 0.15 0.15], ...
         'MarkerFaceColor', [0.15 0.15 0.15], 'MarkerSize', 4);
     xlabel('registered plane (ML index)'); ylabel('r vs volume\_registered');
-    title(sprintf('registered DAPI, this run vs P4 (median %1.4f)', median(corr_reg, 'omitnan')));
+    title(sprintf('registered DAPI, this run vs run_register_to_atlas (median %1.4f)', median(corr_reg, 'omitnan')));
     ylim([min(0.9, min(corr_reg) - 0.01) 1.001]); box off
 
     [~, iworst] = min(corr_slice);

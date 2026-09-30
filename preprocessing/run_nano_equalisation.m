@@ -3,6 +3,7 @@ close all
 clc
 
 % /// Pipeline script #2bis (alternate): read centered volumes and perform nano channel median equalization across slices  /// 
+% Run sep_setup_paths first, once per MATLAB session.
 
 %% 1. User-defined parameters
 
@@ -49,7 +50,7 @@ end
 num_mice = numel(cohort);
 processed_mouse_names  = {cohort.name};
 processed_mouse_groups = {cohort.group};
-fprintf('P2bis: %d mouse/mice selected.\n', num_mice);
+fprintf('run_nano_equalisation: %d mouse/mice selected.\n', num_mice);
 
 fprintf('--- Phase 1: Scanning Dimensions ---\n');
 

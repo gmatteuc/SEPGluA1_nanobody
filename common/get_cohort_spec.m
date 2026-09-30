@@ -8,20 +8,22 @@ function S = get_cohort_spec(spec)
 % Returns a struct:
 %   group      registry group name ('naive', 'rws', 'behavior', 'young')
 %   ages       age filter in days ([] for a whole group)
-%   tag        filename suffix P5 uses for an age-filtered aggregate: '' for
-%              a whole group, '_P20' for young_P20 -- so nano_4d<tag>.mat,
-%              collected_mice<tag>.mat, nano_4d_normalized<tag>.mat
+%   tag        filename suffix run_collect_by_group uses for an age-filtered
+%              aggregate: '' for a whole group, '_P20' for young_P20 -- so
+%              nano_4d<tag>.mat, collected_mice<tag>.mat,
+%              nano_4d_normalized<tag>.mat
 %   base_dir   <data>\<group>
 %   atlas_key  'ccf' for the adults, 'demba_p20' for P20 (see cohort_atlas_key)
-%   mice       the mouse names, in the order P5 stacked them: from
-%              collected_mice<tag>.mat when P5 wrote one, else from the
-%              registry (the adults were aggregated before P5 recorded that)
+%   mice       the mouse names, in the order run_collect_by_group stacked
+%              them: from collected_mice<tag>.mat when run_collect_by_group
+%              wrote one, else from the registry (the adults were aggregated
+%              before run_collect_by_group recorded that)
 %   label      the spec string, for titles and folder names
 %
 % This is the one place that knows how a cohort spec maps onto files, so the
-% analysis scripts (P6bis, P8) can take 'young_P20' and 'naive' alike and
-% never open an atlas or list mice themselves. An adult spec resolves to
-% exactly the names and files those scripts used before.
+% analysis scripts (run_normalise_groups, P8) can take 'young_P20' and 'naive'
+% alike and never open an atlas or list mice themselves. An adult spec resolves
+% to exactly the names and files those scripts used before.
 
 spec = char(spec);
 tok = regexp(spec, '^(\w+?)(_P[\dP]+)?$', 'tokens', 'once');

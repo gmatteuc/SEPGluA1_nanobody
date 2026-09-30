@@ -22,6 +22,8 @@ clc
 %
 % The transformed volume comes from tmp/demba_to_allen.py. Re-run that if the
 % atlas or its crop ever changes.
+%
+% Run sep_setup_paths first, once per MATLAB session.
 
 %% User-defined parameters
 

@@ -46,7 +46,7 @@ Outputs, under data\\adult_v2\\beyond:
   fig5_model_space.png      E and F, how much ANY model of this data can explain
   fig6_readings.png         G, the same test on all five readings
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_beyond_controls.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_beyond_controls.py
 """
 
 import csv

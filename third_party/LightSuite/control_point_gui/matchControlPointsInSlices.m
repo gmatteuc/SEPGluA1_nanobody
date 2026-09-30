@@ -1,6 +1,8 @@
 function matchControlPointsInSlices(opts)
 % Manually align histology slices and matched CCF slices
 
+% Modified for the SEP-GluA1 project; see third_party/LightSuite/PATCHES.md.
+
 % Initialize guidata
 gui_data = struct;
 opts.downfac_reg = opts.allenres/opts.registres;
@@ -151,7 +153,8 @@ gui_data.uncertain    = cell(gui_data.Nslices, 1);
 %              put every slice within about a section of the right plane.
 %              Saved to plane_anchors.mat, with the plane the interpolation
 %              gives every slice -- the automatic step uses exactly those.
-%   proposal   auto_proposal_controlpoints.mat, written by P4 'autoannotate'.
+%   proposal   auto_proposal_controlpoints.mat, written by run_register_to_atlas
+%              'autoannotate'.
 %              Every slice still empty in the saved annotation is filled from
 %              it as PROVISIONAL (orange, not saved until accepted with 'k' or
 %              touched), its least confident points marked ?.
@@ -179,8 +182,9 @@ if exist(proposal_fn, 'file')
         low(1:numel(I.low_confidence)) = I.low_confidence(:);
     end
     % Slices re-proposed in an earlier session (u, U) carry their LATEST
-    % proposal in annotation_provenance.mat: that, not the P4 file, is what
-    % was accepted there, so it is what flags and provenance refer to.
+    % proposal in annotation_provenance.mat: that, not the run_register_to_atlas
+    % file, is what was accepted there, so it is what flags and provenance refer
+    % to.
     prov_fn = fullfile(gui_data.save_path, 'annotation_provenance.mat');
     if exist(prov_fn, 'file')
         L = load(prov_fn);
@@ -398,7 +402,7 @@ right = { ...
     '  wheel          find its atlas plane', ...
     '  a              fix that plane (again: undo)', ...
     '  s              save, close the window', ...
-    '  then run P4 with run_mode ''autoannotate''', ...
+    '  then run run_register_to_atlas with run_mode ''autoannotate''', ...
     '', ...
     'Session 2: review, every slice starts orange', ...
     '  k              looks right: accept, next', ...
@@ -989,9 +993,10 @@ else
     tform = affinetform2d;
 end
 
-% P4's checks, shown while there is still time to act on them: pairs far off
-% the slice's own affine (marked * on the points), and a slice that does not
-% fit an affine at all, which usually means the wrong atlas plane
+% run_register_to_atlas's checks, shown while there is still time to act on
+% them: pairs far off the slice's own affine (marked * on the points), and a
+% slice that does not fit an affine at all, which usually means the wrong atlas
+% plane
 [bad_pairs, med_res] = affine_outliers(gui_data.atlas_control_points{gui_data.curr_slice}, ...
                                        gui_data.histology_control_points{gui_data.curr_slice});
 if med_res > 20
@@ -1625,9 +1630,9 @@ end
 
 
 function [bad, med] = affine_outliers(a, h)
-% Pairs far off the slice's own affine, by the rule P4 applies before
-% registering (report_suspect_pairs): refit without the outliers a few
-% times, then flag residuals over 3x the median and at least 30 px. med is
+% Pairs far off the slice's own affine, by the rule run_register_to_atlas
+% applies before registering (report_suspect_pairs): refit without the outliers
+% a few times, then flag residuals over 3x the median and at least 30 px. med is
 % the median residual (NaN when there are too few pairs to judge).
 bad = false(size(h, 1), 1);
 med = nan;
@@ -1810,12 +1815,12 @@ no_pts  = all(cellfun(@isempty, gui_data.histology_control_points));
 if ~isempty(gui_data.proposal) && n_rev > 0
     modes{end+1} = sprintf('STEP 3 REVIEW: %d slice(s) left, k accepts, u re-proposes', n_rev);
 elseif ~isempty(gui_data.proposal)
-    modes{end+1} = 'REVIEW DONE: s to save, then P4 ''register''';
+    modes{end+1} = 'REVIEW DONE: s to save, then run_register_to_atlas ''register''';
 elseif n_anch > 0 && n_sugg < numel(gui_data.suggested_anchors)
     modes{end+1} = sprintf('STEP 1 ANCHORS: %d of %d suggested set (j, scroll, a)', ...
         n_sugg, numel(gui_data.suggested_anchors));
 elseif n_anch > 0
-    modes{end+1} = sprintf('STEP 1 DONE (%d anchors): s to save, then P4 ''autoannotate''', n_anch);
+    modes{end+1} = sprintf('STEP 1 DONE (%d anchors): s to save, then run_register_to_atlas ''autoannotate''', n_anch);
 elseif no_pts
     modes{end+1} = 'NO POINTS YET: click to annotate, or j + a to set anchors for the automatic one';
 end
@@ -1936,7 +1941,8 @@ else
     qcol = [1 0.85 0.1];
 end
 % a * after the number: the pair sits far off the slice's own affine, the
-% same test P4 runs before registering, computed live so it follows edits
+% same test run_register_to_atlas runs before registering, computed live so it
+% follows edits
 star = affine_outliers(a, h);
 gui_data.hist_labels  = label_points(gui_data.histology_ax, h, col, unc, qcol, star);
 gui_data.atlas_labels = label_points(gui_data.atlas_ax,     a, col, unc, qcol, star);

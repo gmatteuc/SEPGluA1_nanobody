@@ -8,6 +8,7 @@ paths = get_paths();
 
 
 % /// Pipeline script #6: perform final normalization across mice in each group and plot averages ///
+% Run sep_setup_paths first, once per MATLAB session.
 
 %%  Set user-defined parameters
 
@@ -26,14 +27,15 @@ plot_verification_video = false;
 
 % Channel to normalize: 'nano' (default, surface GluA1) or 'auto' (autofluorescence control).
 % Loads <channel>_4d.mat and saves <channel>_4d_normalized.mat in each cohort folder.
-% Pipeline scripts downstream (P7bis, P8, P9) read whichever channel they're configured for.
+% Pipeline scripts downstream (run_group_differences, P8, P9) read whichever
+% channel they're configured for.
 channel = 'nano'; % 'auto'
 
 % Cohorts to normalise, as specs: an adult group by name ('rws', 'naive',
 % 'behavior'), or the young group with an age ('young_P20'). An adult group
-% keeps the mouse lists and selections above, exactly as before. A young
-% cohort takes the mice P5 stacked (collected_mice<tag>.mat), all of them, and
-% its own atlas. See get_cohort_spec.
+% keeps the mouse lists and selections above, exactly as before. A young cohort
+% takes the mice run_collect_by_group stacked (collected_mice<tag>.mat), all of
+% them, and its own atlas. See get_cohort_spec.
 cohort_specs = {'rws', 'naive'};
 % Batch runs can pick the cohorts without editing this file:
 %   set SEP_COHORT_SPECS=young_P20   (comma-separated for several)
@@ -43,17 +45,10 @@ end
 
 %% Add paths
 
-% Define paths
+% The toolboxes are on the path from sep_setup_paths; only the atlas folder
+% is added here.
 allenDir = paths.atlas;
-lightsuiteDir = paths.lightsuite;
-yamlDir = paths.yaml;
-elastixDir = paths.elastix;
-
-% Add defined paths
 addpath(allenDir)
-addpath(genpath(lightsuiteDir))
-addpath(genpath(yamlDir))
-addpath(genpath(elastixDir))
 
 %% Atlas
 
@@ -80,7 +75,8 @@ for ci = 1:numel(cohort_specs)
         subset_indices = selected_mice_idx_list{mousetype_idx};
         current_mice = all_mice_of_type(subset_indices);
     else
-        % A young cohort: whatever P5 stacked, in that order, all of it
+        % A young cohort: whatever run_collect_by_group stacked, in that order,
+        % all of it
         current_mice   = S.mice;
         subset_indices = 1:numel(current_mice);
     end

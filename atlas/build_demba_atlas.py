@@ -11,7 +11,7 @@ pipeline indexes. Three things still have to happen before MATLAB can use one:
              even though they hold 20 um data. The real resolution lives in
              get_atlas (res_um) and in each mouse's local_settings.txt.
   ID space   BrainGlobe ships Allen *structure IDs*; everything downstream here
-             (get_allen_region_mask, P5, P8) resolves regions through
+             (get_allen_region_mask, run_collect_by_group, P8) resolves regions through
              *parcellation_index*. The two collide numerically without meaning
              the same thing, so the annotation is remapped. The original is kept
              beside it as annotation_structureids_original.nii.gz.
@@ -34,7 +34,7 @@ The two crop measurements are the same ones used for P20, where they agreed
                  adult crop limits. Independent of the shape of the brain as a
                  whole, and its slope also measures the AP stretch.
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe build_demba_atlas.py 16
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe atlas\\build_demba_atlas.py 16
   ... then add the printed case to get_atlas.m if it is not there yet.
 """
 
@@ -233,7 +233,7 @@ def main(age):
         f'aplims.txt holds the area-profile value, which is what get_atlas uses.\n'
         f'Built by build_demba_atlas.py.\n')
     print(f'\nwrote {out_dir / "aplims.txt"} ({lo_a} {hi_a}) and source.txt')
-    print(f"get_atlas('demba_p{age}') will pick this up; P4 needs atlas_key = 'demba_p{age}'.")
+    print(f"get_atlas('demba_p{age}') will pick this up; run_register_to_atlas needs atlas_key = 'demba_p{age}'.")
 
 
 if __name__ == '__main__':

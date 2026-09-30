@@ -5,7 +5,7 @@ The gene ranking on its own cannot say whether the nanobody reports receptor ON
 THE MEMBRANE or simply receptor. Gria1, Cacng8, Dlg2 and Grip1 are all
 postsynaptic, so no grouping of genes -- ours, GO's or SynGO's -- separates the
 two. What separates them is a contrast between CHANNELS, and the SEP channel
-that P4bis carried into registered space is the one that makes it possible:
+that run_add_sep_channel carried into registered space is the one that makes it possible:
 
   sepauto    SEP / autofluorescence     total receptor, however it is localised
   ratio      nano / autofluorescence    receptor at the surface
@@ -49,7 +49,7 @@ Outputs, under data\\adult_v2\\arms:
   arms_consistency.png      the self-check: against v2_region_plot, and the
                             log-space identity between the three arms
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_adult_arms.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_adult_arms.py
 """
 
 import csv
@@ -110,7 +110,7 @@ def mouse_table(mouse, names):
     """{structure name: (n voxels, mean per arm)} for one adult."""
     z = np.load(os.path.join(PER_MOUSE, mouse + '.npz'))
     if 'sep' not in z.files:
-        raise SystemExit(f'{mouse}: no SEP channel. Run P4bis_add_sep_channel.m, '
+        raise SystemExit(f'{mouse}: no SEP channel. Run run_add_sep_channel.m, '
                          f'then v2_per_mouse.py, for this brain.')
     sig = z['sig'].astype(np.float32)
     auto = z['auto'].astype(np.float32)

@@ -9,6 +9,7 @@ clc
 % asserting before a manual annotation session is spent on top of them.
 %
 % Run this before annotating a young brain. It touches nothing.
+% Run sep_setup_paths first, once per MATLAB session.
 
 paths = get_paths();
 fprintf('=== DeMBA P20 setup check ===\n\n');
@@ -120,10 +121,10 @@ src = fileread(fullfile(paths.lightsuite, 'slice_module', 'registerSlicesToAtlas
 [~, n_pass, n_fail] = report('registerSlicesToAtlas control-point placeholder is 0x4', ...
     contains(src, 'zeros(0,4)'), n_pass, n_fail);
 
-src = fileread(fullfile(paths.code, 'P4_register_to_atlas.m'));
-[~, n_pass, n_fail] = report('P4 re-parses local_settings instead of MATLAB''s builtin', ...
+src = fileread(fullfile(paths.code, 'registration', 'run_register_to_atlas.m'));
+[~, n_pass, n_fail] = report('run_register_to_atlas re-parses local_settings instead of MATLAB''s builtin', ...
     contains(src, 'parseSettingsFile(settings_name)'), n_pass, n_fail);
-[~, n_pass, n_fail] = report('P4 atlas_key is demba_p20', ...
+[~, n_pass, n_fail] = report('run_register_to_atlas atlas_key is demba_p20', ...
     contains(src, "atlas_key = 'demba_p20';"), n_pass, n_fail);
 
 %% 6. Which brains are ready to annotate
@@ -150,11 +151,11 @@ for k = 1:numel(young)
     if ~ismember(young(k).age_days, atlas.age_days)
         state = sprintf('P%g - needs its own DeMBA age', young(k).age_days);
     elseif ~has_dec
-        state = 'needs P1bis ordering';
+        state = 'needs run_order_slices ordering';
     elseif ~(has_reg && has_ins)
-        state = 'ordered, needs P4 align';
+        state = 'ordered, needs run_register_to_atlas align';
     elseif ~aligned_here
-        state = sprintf('STALE - aligned to a different atlas (allenres %g), re-run P4 align', ...
+        state = sprintf('STALE - aligned to a different atlas (allenres %g), re-run run_register_to_atlas align', ...
                         R.allenres);
     elseif has_cps
         state = 'HAS control points';
@@ -170,11 +171,11 @@ fprintf('\n=== %d passed, %d failed ===\n', n_pass, n_fail);
 if n_fail > 0
     fprintf('DO NOT annotate until the failures above are fixed.\n');
 else
-    fprintf('P4 align + annotate is safe to run against demba_p20.\n');
+    fprintf('run_register_to_atlas align + annotate is safe to run against demba_p20.\n');
 end
 
-fprintf(['\nStill outstanding, and NOT checked by this script: P5 onward\n' ...
-         'hardcode the adult atlas and crop. The two cohorts land on\n' ...
+fprintf(['\nStill outstanding, and NOT checked by this script: run_collect_by_group\n' ...
+         'onward hardcode the adult atlas and crop. The two cohorts land on\n' ...
          'different grids ([900 800 1140] adult, [994 800 1140] young), so\n' ...
          'those scripts must be made atlas-aware per cohort before any young\n' ...
          'data reaches them.\n']);

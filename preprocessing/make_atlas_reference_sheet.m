@@ -9,6 +9,8 @@ clc
 % The plates are spaced slice_spacing_um apart, so plate N and plate N+1 are one
 % section apart in our data. That makes it easy to walk through your sections and
 % the reference side by side.
+%
+% Run sep_setup_paths first, once per MATLAB session.
 
 %% User-defined parameters
 

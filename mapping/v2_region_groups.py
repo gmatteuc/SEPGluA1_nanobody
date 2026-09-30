@@ -30,7 +30,7 @@ Writes into data/comparisons_v2/young_vs_adult/:
   group_plot.png         systems, one dot per mouse
   laminar_plot.png       layers within each cortical system
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_region_groups.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_region_groups.py
 """
 
 import csv
@@ -165,7 +165,7 @@ def main():
         sig = z['sig'].astype(np.float32); auto = z['auto'].astype(np.float32); tissue = z['tissue']
         if any(r == 'sepratio' for r, _ in READINGS) and 'sep' not in z.files:
             raise SystemExit(f'{mouse}: no SEP channel in its per-mouse file. Run\n'
-                             f'  P4bis_add_sep_channel.m for this brain, then v2_per_mouse.py,\n'
+                             f'  run_add_sep_channel.m for this brain, then v2_per_mouse.py,\n'
                              f'  or drop the reading with V2_READINGS.')
 
         # sig per unit of a reference CHANNEL, the denominator smoothed by one

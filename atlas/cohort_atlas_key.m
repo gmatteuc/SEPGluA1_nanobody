@@ -31,7 +31,7 @@ switch lower(group)
         p = get_paths();
         if ~exist(fullfile(p.data, sprintf('atlas_demba_p%d', u)), 'dir')
             error(['cohort_atlas_key: no DeMBA atlas has been built for P%d yet.\n' ...
-                   'Build it:  tools\\venv_atlas\\Scripts\\python.exe build_demba_atlas.py %d'], u, u);
+                   'Build it:  tools\\venv_atlas\\Scripts\\python.exe atlas\\build_demba_atlas.py %d'], u, u);
         end
     otherwise
         error('cohort_atlas_key: unknown group ''%s''.', group);

@@ -46,7 +46,7 @@ Outputs, under data\\adult_v2\\ish:
   panel_test.csv         per gene: rho, partial rho, role, match, reliability
   ish_panel_test.png     the test, the matching, and the null
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_ish_panel_test.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_ish_panel_test.py
 """
 
 import csv

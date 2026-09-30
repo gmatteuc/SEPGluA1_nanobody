@@ -19,18 +19,19 @@ function out = auto_annotate(mode, procpath, slice, plane)
 %   out.ok is false, with out.message saying why, on any failure -- a missing
 %   interpreter, a missing file, a Python error. Callers check it.
 %
-%   The Python side lives in auto_annotation/ next to this file and runs in its
-%   own virtual environment; run setup_auto_annotation.ps1 once per machine,
-%   or point AUTO_ANNOTATION_PYTHON at an interpreter that has torch.
+%   The Python side lives in registration/auto_annotation/ (get_paths'
+%   auto_annotation) and runs in its own virtual environment; run
+%   registration/auto_annotation/setup.ps1 once per machine, or point
+%   AUTO_ANNOTATION_PYTHON at an interpreter that has torch.
 
 out = struct('ok', false, 'message', '');
 
-here  = fileparts(mfilename('fullpath'));
-pydir = fullfile(here, 'auto_annotation');
+p     = get_paths();
+pydir = p.auto_annotation;
 py    = auto_annotation_python(pydir);
 if isempty(py)
-    out.message = ['no Python interpreter found: run setup_auto_annotation.ps1 or set ' ...
-                   'AUTO_ANNOTATION_PYTHON'];
+    out.message = ['no Python interpreter found: run registration\auto_annotation\setup.ps1 ' ...
+                   'or set AUTO_ANNOTATION_PYTHON'];
     return
 end
 cli = fullfile(pydir, 'cli.py');
@@ -91,8 +92,8 @@ end
 
 
 function py = auto_annotation_python(pydir)
-% The interpreter: an explicit override, else the venv setup_auto_annotation.ps1
-% creates next to the package -- relative to the code folder, so it moves with it.
+% The interpreter: an explicit override, else the venv setup.ps1 creates inside
+% the engine's folder -- relative to the code folder, so it moves with it.
 cands = { getenv('AUTO_ANNOTATION_PYTHON'), ...
           fullfile(pydir, '.venv', 'Scripts', 'python.exe') };
 py = '';

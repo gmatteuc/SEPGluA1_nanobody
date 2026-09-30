@@ -13,11 +13,13 @@ clc
 %
 % WHY THIS EXISTS: the raw data on the share is READ-ONLY, and getSliceInfo
 % creates its 'lightsuite' working folder NEXT TO the .czi it is given. Point
-% P1 at the share and it would write there. Copying first is mandatory, not
-% stylistic.
+% run_extract_and_center at the share and it would write there. Copying first
+% is mandatory, not stylistic.
 %
 % Transfer uses robocopy (restartable, resumes rather than restarts). No /MIR
 % and no /MOV are ever passed, so the source cannot be modified.
+%
+% Run sep_setup_paths first, once per MATLAB session.
 
 %% User-defined parameters
 
@@ -41,7 +43,7 @@ if isempty(mice_to_process)
 else
     cohort = get_cohort('names', mice_to_process);
 end
-fprintf('P0: %d mouse/mice selected.\n', numel(cohort));
+fprintf('run_copy_raw_data: %d mouse/mice selected.\n', numel(cohort));
 
 %% Loop over mice
 
@@ -121,7 +123,7 @@ for mouse_idx = 1:numel(cohort)
 end
 
 fprintf('\n%s\n', repmat('=', [1 60]));
-fprintf('P0 done: %d mouse/mice verified, %d with problems.\n', n_ok, n_bad);
+fprintf('run_copy_raw_data done: %d mouse/mice verified, %d with problems.\n', n_ok, n_bad);
 fprintf('%s\n', repmat('=', [1 60]));
 
 %% Local function: refuse to write anywhere on the read-only share

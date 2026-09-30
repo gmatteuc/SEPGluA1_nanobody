@@ -38,7 +38,7 @@ Outputs, under data\\adult_v2\\beyond\\for_sami:
   C_where.png/.eps           D_controls.png/.eps
   numbers_for_the_caption.txt   every figure's numbers as a sentence
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_beyond_figures.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_beyond_figures.py
 """
 
 import csv

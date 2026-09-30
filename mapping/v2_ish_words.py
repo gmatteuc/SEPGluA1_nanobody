@@ -44,7 +44,7 @@ Outputs, under data\\adult_v2\\ish:
   feature_enrichment.csv       every feature, every reading
   ish_word_enrichment.png      the picture, for zref
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_ish_words.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_ish_words.py
 """
 
 import csv

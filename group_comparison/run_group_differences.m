@@ -8,6 +8,7 @@ paths = get_paths();
 
 
 % /// Pipeline script #7: analyze hemispheric differences and compare groups using normalized signal channels (nano or auto) ///
+% Run sep_setup_paths first, once per MATLAB session.
 
 %%  Set user-defined parameters
 

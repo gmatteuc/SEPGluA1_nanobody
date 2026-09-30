@@ -3,6 +3,7 @@ close all
 clc
 
 % /// Pipeline script #3: display outputs of residual correction anlaysis in a GUI where user can annotate artifact for future removal /// 
+% Run sep_setup_paths first, once per MATLAB session.
 
 %% User-defined parameters
 
@@ -26,7 +27,7 @@ if isempty(mice_to_process)
 else
     cohort = get_cohort('names', mice_to_process);
 end
-fprintf('P3: %d mouse/mice selected.\n', numel(cohort));
+fprintf('run_annotate_artifacts: %d mouse/mice selected.\n', numel(cohort));
 
 %% Loop over mice
 
@@ -38,8 +39,9 @@ for mouse_idx = 1:numel(cohort)
 
     % Get dirs
     % NOTE: the 'lightsuite' level was missing here before, so output_dir did
-    % not match where P2 writes and P4 reads. As written, P3 could never find
-    % scaled_auto_volume_*.mat and silently skipped every mouse.
+    % not match where run_residual_correction writes and run_register_to_atlas
+    % reads. As written, this script could never find scaled_auto_volume_*.mat
+    % and silently skipped every mouse.
     base_dir = fullfile(paths.data, mouse_type);
     output_dir = fullfile(base_dir, mouse_name, 'lightsuite', 'correction_output');
     if ~exist(output_dir, 'dir')

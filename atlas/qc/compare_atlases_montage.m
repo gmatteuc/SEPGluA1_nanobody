@@ -21,6 +21,8 @@ clc
 % than from a plane index, because the two volumes have different AP extents
 % and origins. That is only as good as the crops themselves -- see the note on
 % default_aplims in get_atlas.m.
+%
+% Run sep_setup_paths first, once per MATLAB session.
 
 %% User-defined parameters
 

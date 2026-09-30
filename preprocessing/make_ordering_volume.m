@@ -19,21 +19,20 @@ clc
 % This script re-does exactly what generateSliceVolume does to build the
 % composite (same resize, same background normalisation, same 99th percentile
 % scaling), only with the colour assignment under your control. It reads the
-% already-extracted volume_centered channels, so P1 does not need rerunning.
+% already-extracted volume_centered channels, so run_extract_and_center does not
+% need rerunning.
 %
 % IMPORTANT: slice order is untouched. Page N of the rebuilt volume is the same
 % section as page N of the old one, so any curation you have already done stays
 % valid.
 %
-% CAVEAT: rerunning P1 calls generateSliceVolume again, which will overwrite the
-% composite with the original mapping. Rerun this script afterwards if that
-% happens.
+% CAVEAT: rerunning run_extract_and_center calls generateSliceVolume again,
+% which will overwrite the composite with the original mapping. Rerun this
+% script afterwards if that happens.
+%
+% Run sep_setup_paths first, once per MATLAB session.
 
 %% User-defined parameters
-
-% Where the project lives. Derived from the location of the code rather than
-% written out, so the tree can be moved or copied to another drive as is.
-paths = get_paths();
 
 % Cohort selection (mice come from the shared registry get_cohort.m).
 % Set mice_to_process to {} to rebuild every mouse in groups_to_process.
@@ -45,11 +44,6 @@ mice_to_process   = {};
 red_channel   = 'auto';    % autofluorescence
 green_channel = 'nano';    % SEP-GluA1, the signal of interest
 blue_channel  = 'dapi';    % nuclei, conventionally blue
-
-%% Add paths
-
-lightsuiteDir = paths.lightsuite;
-addpath(genpath(lightsuiteDir))
 
 %% Resolve cohort
 

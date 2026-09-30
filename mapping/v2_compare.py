@@ -20,7 +20,7 @@ Outputs, in data/comparisons_v2/young_vs_adult/:
   region_table.csv      per structure, both modes, both young groups
   cortex_table.txt      the cortical areas, printed
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe v2_compare.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_compare.py
 """
 
 import csv

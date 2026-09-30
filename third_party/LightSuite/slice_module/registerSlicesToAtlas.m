@@ -2,6 +2,8 @@ function regparams = registerSlicesToAtlas(opts)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 
+% Modified for the SEP-GluA1 project; see third_party/LightSuite/PATCHES.md.
+
 regparams = struct();
 %==========================================================================
 % read reg volume and options

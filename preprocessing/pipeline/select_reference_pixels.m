@@ -5,8 +5,8 @@ if nargin < 3 || isempty(p_max), p_max = 65; end
 if nargin < 4 || isempty(disk_px), disk_px = 15; end
 % These two checks were off by one: range_frac is argument 5 and plot_flag is
 % argument 6, but the plot_flag default was guarded by nargin < 5. Calling with
-% fewer than six arguments therefore left one of them undefined. P2 passes all
-% six, so this was latent rather than active.
+% fewer than six arguments therefore left one of them undefined.
+% run_residual_correction passes all six, so this was latent rather than active.
 if nargin < 5 || isempty(range_frac), range_frac = 0.20; end
 if nargin < 6 || isempty(plot_flag), plot_flag = false; end
 
@@ -75,8 +75,9 @@ end
 % Fallback: if no knee was detectable, every findpeaks attempt above returned
 % empty and idx_max_bis / idx_min are empty. Left alone that empty value
 % propagates down to d2_masked.*((1:100)>first_d2_bump_idx) and the function
-% errors out, which is what killed P2 on MG904. Same guard as the one in
-% select_background_pixels: fall back to p_max as the threshold percentile.
+% errors out, which is what killed run_residual_correction on MG904. Same guard
+% as the one in select_background_pixels: fall back to p_max as the threshold
+% percentile.
 %
 % This only changes behaviour on slices where the function used to crash, so
 % results that were computed successfully before are unaffected.

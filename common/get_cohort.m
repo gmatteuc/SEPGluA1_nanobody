@@ -17,11 +17,12 @@ function cohort = get_cohort(varargin)
 %     base_dir      full local path: <base_root>\<group>\<name>
 %
 %   IMPORTANT - the adult entries (rws, naive, behavior) are listed in the exact
-%   legacy order used by the hardcoded `mice`/`mousetypes` literals that P1-P7bis
-%   carried before this registry existed. Several scripts select mice by numeric
-%   index (e.g. P2bis `mice_to_process = 1:17`), so reordering these entries would
-%   silently change which mouse is processed. get_cohort('verify') asserts the
-%   order still matches the frozen literal.
+%   legacy order used by the hardcoded `mice`/`mousetypes` literals that the
+%   drivers from run_extract_and_center to run_group_differences carried before
+%   this registry existed. Several scripts select mice by numeric index (e.g.
+%   run_nano_equalisation `mice_to_process = 1:17`), so reordering these entries
+%   would silently change which mouse is processed. get_cohort('verify')
+%   asserts the order still matches the frozen literal.
 
 %% Parse inputs
 
@@ -129,7 +130,8 @@ end
 
 function verify_legacy_order(cohort)
 % Compares the adult portion of the registry against the exact literal that
-% P1-P7bis hardcoded before the registry existed. Index-based mouse selection
+% the drivers from run_extract_and_center to run_group_differences hardcoded
+% before the registry existed. Index-based mouse selection
 % depends on this order.
 
 legacy_mice = {'MG691_Gria1', 'MG692_Gria1', 'MG693_Gria1', 'MG736_Gria1', 'MG737_Gria1', ...
@@ -147,7 +149,7 @@ got_mice  = {cohort(1:n).name};
 got_types = {cohort(1:n).group};
 
 assert(isequal(got_mice, legacy_mice), ...
-    'get_cohort: adult mouse order changed. Index-based selection (e.g. P2bis mice_to_process = 1:17) would break.');
+    'get_cohort: adult mouse order changed. Index-based selection (e.g. run_nano_equalisation mice_to_process = 1:17) would break.');
 assert(isequal(got_types, legacy_types), ...
     'get_cohort: adult group assignment changed relative to the legacy literal.');
 
