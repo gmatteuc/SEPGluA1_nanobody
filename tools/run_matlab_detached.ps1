@@ -147,12 +147,15 @@ if ($logName.Length -gt 60) {
 $log = Join-Path $LogDir ("_{0}.log" -f $logName)
 
 # The commit the code folder is at, and whether it has uncommitted changes, so
-# the log says which code ran.
-$commit = (& git -C $CodeDir rev-parse HEAD 2>$null)
+# the log says which code ran. The check trees sit on G:, an exFAT drive that
+# records no file owners, which git otherwise refuses to read: the folder is
+# marked safe for these two calls only, not in any git configuration.
+$safe = "safe.directory=$($CodeDir.Replace('\', '/'))"
+$commit = (& git -c $safe -C $CodeDir rev-parse HEAD 2>$null)
 if ($LASTEXITCODE -ne 0 -or -not $commit) {
     $commit = "unknown (not a git checkout)"
 } else {
-    $changed = @(& git -C $CodeDir status --porcelain --untracked-files=no 2>$null)
+    $changed = @(& git -c $safe -C $CodeDir status --porcelain --untracked-files=no 2>$null)
     if ($changed.Count -gt 0) {
         $commit = "$commit with $($changed.Count) uncommitted changes"
     }
