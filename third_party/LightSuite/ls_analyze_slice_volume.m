@@ -1,8 +1,7 @@
-% Modified for the SEP-GluA1 project; see third_party/LightSuite/PATCHES.md.
 
 % folder which contains mouse subfolders
-datafolderpath = 'D:\sep_histology'; %'D:\example_charlie'; %'J:\'; % 
-mousename      = 'CG027';  %'MG727'   ;%'AM147';%'CGF028'; %'AM130'; 'CGF027';
+datafolderpath = 'D:\Histology\Experiments\TRAP\'; %'D:\example_charlie'; %'J:\'; % 
+mousename      = 'AM130';%'AM147';%'CGF028'; %'AM130'; 'CGF027';
 
 dp = fullfile(datafolderpath, sprintf('*%s*', mousename));
 dp = dir(dp);
@@ -14,12 +13,11 @@ filelistcheck         = dir(fullfile(dp, '*.czi'));
 filepaths             = fullfile({filelistcheck(:).folder}', {filelistcheck(:).name}');
 sliceinfo.filepaths   = filepaths;
 sliceinfo             = getSliceInfo(sliceinfo);
-
 %% (auto) we first generate the slice volume
 slicevol = generateSliceVolume(sliceinfo, sliceinfo.regchan);
 
 %% (manual) reorder, flip and discard slices if needed
-%SliceOrderEditor(sliceinfo.volorder)
+SliceOrderEditor(sliceinfo.volorder)
 generateReordedVolume(sliceinfo);
 
 %% (auto) we align slices and initialize registration
@@ -27,18 +25,17 @@ sliceinfo          = load(fullfile(sliceinfo.procpath, "sliceinfo.mat"));
 sliceinfo          = sliceinfo.sliceinfo;
 sliceinfo          = copyStructBtoA(sliceinfo, settings);
 alignedvol         = alignSliceVolume(sliceinfo.slicevol, sliceinfo);
-
 %% (manual) determine cutting angle gui if you are not happy with the original estimation
 opts = load(fullfile(sliceinfo.procpath, "regopts.mat"));
 determineCuttingAngleGUI(opts)
-
 %% (manual) match control points to determine cutting angle and gaps
+
 % !!! The control point selection is currently tied to the initial
 % registration. Don't start before checking the diagnostic plots and the
 % inspection volume!!!
+
 opts = load(fullfile(sliceinfo.procpath, "regopts.mat"));
 matchControlPointsInSlices(opts)
-
 %% (auto) refine registation with control points and elastix
 opts            = load(fullfile(sliceinfo.procpath, "regopts.mat"));
 transformparams = registerSlicesToAtlas(opts);
@@ -70,8 +67,10 @@ iplot = randperm(size(atlasptcoords,1),nrand);
 close all;
 plotBrainGrid; hold on;
 scatter3(atlasptcoords(iplot,2),atlasptcoords(iplot,3),atlasptcoords(iplot,1),2,'filled','MarkerFaceAlpha',0.5)
+
 coordsfin = sanitizeCellCoords(atlasptcoords, av);
 createRotatingBrainGif(coordsfin, 'D:\AM130_slices.gif')
+
 
 %% (auto) move cell detections in atlas space
 transformparams    = load(fullfile(sliceinfo.procpath, "transform_params.mat"));

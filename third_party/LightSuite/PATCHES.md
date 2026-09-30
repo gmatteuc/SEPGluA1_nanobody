@@ -15,7 +15,7 @@ downloaded.
 
 | file | changes | kind |
 |---|---|---|
-| `ls_analyze_slice_volume.m` | P0a | demo script, never run by the pipeline |
+| `ls_analyze_slice_volume.m` | P0a (reverted) | demo script, back to upstream |
 | `slice_module/alignSliceVolume.m` | P0b, LS2 | registration |
 | `slice_module/registerSlicesToAtlas.m` | LS1 | registration |
 | `control_point_gui/matchControlPointsInSlices.m` | LS3, LS4, LS5, LS8, AA | control-point GUI |
@@ -122,7 +122,8 @@ commit). Its data folder and mouse name were pointed at this project
 (`D:\sep_histology`, `CG027`), its `SliceOrderEditor` call commented out, and
 a few blank lines moved. The pipeline never runs it: the drivers call
 LightSuite's functions themselves. It is on the do-not-run list
-(`third_party/README.md`); the plan returns it to upstream's version.
+(`third_party/README.md`). Returned to upstream's version in the refactor,
+so it no longer differs from upstream.
 
 **Step 4 of the refactor** (this commit): the one-line notice at the top of
 each file above (a comment, so the code is identical), and in
