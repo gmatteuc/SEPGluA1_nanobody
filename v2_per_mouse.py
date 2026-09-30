@@ -47,7 +47,7 @@ import time
 import nibabel as nib
 import numpy as np
 
-DATA = r'D:\sep_histology\data'
+from v2_paths import DATA
 OUT = os.path.join(DATA, 'comparisons_v2', 'per_mouse')
 CSV_MAP = os.path.join(DATA, 'atlas', 'parcellation_to_parcellation_term_membership.csv')
 MAD_K = 4.0

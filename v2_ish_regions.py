@@ -57,7 +57,7 @@ import numpy as np
 import nibabel as nib
 from scipy.ndimage import binary_erosion
 
-DATA = r'D:\sep_histology\data'
+from v2_paths import DATA
 ISH_DIR = os.path.join(DATA, 'atlas_ish')
 CSV_MAP = os.path.join(DATA, 'atlas', 'parcellation_to_parcellation_term_membership.csv')
 OUT = os.path.join(DATA, 'adult_v2', 'ish')
@@ -66,9 +66,13 @@ OUT = os.path.join(DATA, 'adult_v2', 'ish')
 # 100-gene panel; the larger ontology-defined one from v2_panel_build is run by
 # pointing these at it, which keeps one audited copy of the aggregation instead
 # of a second script that drifts:
-#   $env:V2_ISH_PANEL = 'D:\sep_histology\data\adult_v2\panel\panel_v2.csv'
+#   $env:V2_ISH_PANEL = 'adult_v2\panel\panel_v2.csv'
 #   $env:V2_ISH_TABLE = 'gene_region_table_panel.csv'
+# A relative panel path is taken inside the data root, so the same setting
+# works on a copy of the data; an absolute one is used as it is.
 PANEL = os.environ.get('V2_ISH_PANEL') or os.path.join(DATA, 'gene_targets.csv')
+if not os.path.isabs(PANEL):
+    PANEL = os.path.join(DATA, PANEL)
 TABLE = os.environ.get('V2_ISH_TABLE') or 'gene_region_table.csv'
 
 GRID_UM = 200

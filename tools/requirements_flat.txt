@@ -1,0 +1,35 @@
+# tools/venv_flat: v2_inspect.py, the cortical flatmaps.
+# Python 3.12.7 (Anaconda, C:\ProgramData\anaconda3). Frozen on 30 Sep 2026 as the
+# environment stood when the results were produced. Recreate it from the repository
+# root with
+#   python -m venv tools\venv_flat
+#   tools\venv_flat\Scripts\python -m pip install -r tools\requirements_flat.txt
+
+ccf-streamlines==1.2.0
+colorama==0.4.6
+contourpy==1.4.0
+cycler==0.12.1
+fonttools==4.66.0
+h5py==3.16.0
+ImageIO==2.37.4
+imageio-ffmpeg==0.6.0
+kiwisolver==1.5.1
+lazy-loader==0.6
+matplotlib==3.11.2
+networkx==3.7
+nibabel==5.4.2
+numpy==2.5.3
+packaging==26.3
+pandas==3.0.6
+pillow==12.3.0
+pip==26.2.1
+pynrrd==1.1.3
+pyparsing==3.3.3
+python-dateutil==2.9.0.post0
+scikit-image==0.26.0
+scipy==1.18.1
+six==1.17.0
+tifffile==2026.9.20
+tqdm==4.70.1
+typing_extensions==4.16.0
+tzdata==2026.4

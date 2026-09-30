@@ -23,3 +23,6 @@
 *.jpg     binary
 *.jpeg    binary
 *.pdf     binary
+*.pt      binary
+*.ckpt    binary
+*.nii.gz  binary

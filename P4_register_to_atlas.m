@@ -202,6 +202,28 @@ for k = 1:numel(cohort)
 end
 fprintf('P4: atlas resolution agrees with local_settings for all selected mice.\n');
 
+% Aligning again rewrites the atlas block that control points, anchors and
+% proposals are counted in, so an annotated brain would silently lose its
+% annotation (same rule as 'angle' below). Checked for every selected mouse
+% before any of them is aligned.
+if strcmp(run_mode, 'align')
+    annotation_files = {'atlas2histology_tform.mat', 'plane_anchors.mat', ...
+                        'auto_atlas_planes.mat', 'auto_proposal_controlpoints.mat'};
+    annotated = {};
+    for k = 1:numel(cohort)
+        found = annotation_files(cellfun(@(f) exist(fullfile(cohort(k).base_dir, ...
+            'lightsuite', f), 'file') == 2, annotation_files));
+        if ~isempty(found)
+            annotated{end+1} = sprintf('  %s: %s', cohort(k).name, strjoin(found, ', ')); %#ok<SAGROW>
+        end
+    end
+    if ~isempty(annotated)
+        error(['P4: these mice already have an annotation, which aligning again would ' ...
+               'invalidate:\n%s\nMove those files aside first if you really want to redo ' ...
+               'both.'], strjoin(annotated, '\n'));
+    end
+end
+
 %% Loop over mice
 
 for mouse_idx = 1:numel(cohort)

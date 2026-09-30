@@ -78,7 +78,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy.stats import rankdata, spearmanr
 
-DATA = r'D:\sep_histology\data'
+from v2_paths import DATA
 NANO = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult', 'region_means_per_mouse.csv')
 GENES = os.path.join(DATA, 'adult_v2', 'ish', 'gene_region_table.csv')
 OUT = os.path.join(DATA, 'adult_v2', 'ish')

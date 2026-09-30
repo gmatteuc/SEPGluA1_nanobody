@@ -62,7 +62,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy.stats import mannwhitneyu, false_discovery_control
 
-DATA = r'D:\sep_histology\data'
+from v2_paths import DATA
 RHO = os.path.join(DATA, 'adult_v2', 'ish', 'gene_correlations.csv')
 OUT = os.path.join(DATA, 'adult_v2', 'ish')
 CACHE = os.path.join(OUT, 'annotation')

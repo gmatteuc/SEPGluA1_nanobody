@@ -50,7 +50,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy.stats import rankdata, spearmanr
 
-DATA = r'D:\sep_histology\data'
+from v2_paths import DATA
 OUT = os.path.join(DATA, 'adult_v2', 'ish')
 TABLE = os.environ.get('V2_ISH_TABLE') or 'gene_region_table_panel.csv'
 

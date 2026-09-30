@@ -1,0 +1,878 @@
+# Repository refactor plan
+
+Draft 5, 30 Sep 2026, agreed with Giulio. Step 0 starts on 30 Sep.
+
+The project is to be handed over, and this refactor consolidates it: code
+another scientist can pick up and run, documents that say what it is for, and
+an analysis route whose results can be defended. The grant work is done (last
+figures: the cortical flatmaps), and the automatic annotation is merged and
+has passed its first new brain (MG914, 30 Sep).
+
+Draft 1 was an inventory and a layout. A read-only study of the code (30 Sep),
+and an independent review of the resulting draft, changed several things:
+
+- the Python route does not yet cover everything P8, P9 and P10 answer: five
+  additions are required before they retire (item by item, with the
+  specification of each addition, in [REFACTOR_COVERAGE.md](REFACTOR_COVERAGE.md));
+- some quoted ISH results do not hold as quoted (see S5);
+- the first verification design could have written into the production data
+  tree and had no clean baseline; this draft replaces it;
+- our LightSuite changes are not GUI-only: two are registration bug fixes;
+- the Python half of the style guide has a full draft
+  ([STYLE_python_draft.md](STYLE_python_draft.md)), derived from the Genedata
+  and MaxWell projects;
+- the documents follow the two-photon imaging repository (the dendrites
+  repository, `D:\dendrites\code`): README with the science up front,
+  scientific context, adding data, roadmap, a README per folder.
+
+## The project in four lines of work
+
+The documents (step 10) are written around these, and they decide what is
+important in the code:
+
+1. **Plasticity localisation** (the original aim). Surface GluA1 after an
+   experience (rhythmic whisker stimulation, RWS, as in Gambino et al. 2014; or behavior) against naive
+   mice, to find where plasticity lands in cortex or elsewhere. There were
+   effects, but not robust enough to be sure, and more animals would be a
+   large investment, so the line is paused, not closed. MATLAB: collect by
+   group, normalise, group differences (today P5, P6bis, P7bis). It stays
+   runnable, with identical results, and documented well enough to be resumed
+   with more animals.
+2. **Adult distribution.** How the nanobody signal (in principle surface AMPA
+   receptors containing GluA1) is distributed across the whole brain, and how
+   reproducible that is across mice. The adult cohort is the 10 naive and RWS
+   mice pooled (checked: the part of the map that abundance and density do
+   not explain agrees between the five naive and the five RWS mice, rho
+   +0.88); behavior adults are not characterised here, only in the plasticity
+   comparison. Was P8, and P10 for the autofluorescence control. Becomes
+   Python.
+3. **What the map measures.** Against the Allen in situ hybridisation maps:
+   the map is not explained by receptor abundance or synaptic density alone,
+   which points to surface GluA1. Was P9; the Python route extends it (390-gene
+   panel, gene reliability, the beyond-abundance regression and its controls).
+4. **Young against adult** (grant, September 2026). Young mice (P16 to P36)
+   against adults, looking for differences in cortex that could correspond to
+   critical periods. Python.
+
+Preprocessing and registration (MATLAB, with LightSuite and the automatic
+annotation) serve all four.
+
+## Rules
+
+- Results stay identical unless a change is intended, listed and checked. A
+  bug found on the way is listed here and fixed in the Fixes step (8), one
+  commit each, with a before/after check.
+- Pure moves (`git mv`) are committed separately from content changes, so git
+  keeps each file's history. A script that becomes a function is moved with
+  `git mv` and a new short driver is written beside it. No case-only renames
+  (`core.ignorecase` is true). The style-pass commits go into
+  `.git-blame-ignore-revs`.
+- Renaming follows an explicit old-to-new table, never a pattern on P plus
+  digits: ages (P20), atlas keys (`demba_p20`), cohort tags (`young_P20`),
+  data file names (`nano_4d_P20.mat`) and P7bis's P99 metric keep theirs. The
+  messages that name a script (about 60) are updated in the same commit.
+- The work happens on a branch whose code folder sits inside its own check
+  tree on G: (see Verification design), so `main` stays usable. During the
+  refactor `main` gets only uncommitted run-setting edits; any fix needed on
+  `main` is logged and ported to the branch by hand.
+- **No check ever writes into the production data tree.** Checks run on copies
+  (check trees), in fresh MATLAB sessions, and print the code root, the data
+  root, the commit and `which` of the path functions they resolved.
+- Raw `.czi` files, on `S:` and under `data\<group>\<mouse>\` on D:, are never
+  written, moved or deleted. Check trees hold copies. Caches are deleted only
+  inside check trees. The G: snapshot is never used as a check tree.
+- Commits are authored by Giulio alone, and code and documents credit no
+  other author.
+- LightSuite stays third-party code. Only the files we already changed are
+  changed, and every change is listed in `third_party/LightSuite/PATCHES.md`.
+
+## Decisions already taken
+
+- Runnable scripts are named `run_...` with a short header explaining the
+  flow; the P-numbers go. Code is grouped into folders by pipeline, drivers at
+  the top of each, the functions they call in a `pipeline/` subfolder.
+- Python is the main analysis route: adult distribution, ISH, young against
+  adult. MATLAB stays for preprocessing, registration, and the plasticity
+  comparison (naive against RWS, naive against behavior).
+- A MATLAB analysis retires only when the Python route answers the same
+  scientific question, not necessarily with the same output. If it does not,
+  the question is added to Python first.
+- Dropped on 29 Sep, not rebuilt in Python: P8's per-mouse videos, P9's
+  voxel-level ISH correlation, and P8's distance-weight diagnostic figure. The
+  border guard that figure justified is not dropped (A3, A4).
+- Giulio checks the Python route against the old code after the refactor.
+  That check runs the old code from the tag `refactor-start` in its own check
+  tree, never the 29 Sep snapshot's code as it is: its Python writes to
+  `D:\sep_histology\data` and its sandbox scripts import
+  `D:\sep_histology\code`.
+- The Python style follows the Genedata and MaxWell projects. READMEs have no
+  section on how the code was written.
+- The validation sandbox (`SEPGluA1_autoannotation`) stays a separate
+  repository for now; merging it in is a possible later step, after this
+  refactor.
+- LightSuite: our current copy stays. The patches are restructured during the
+  refactor (steps 4 and 6). Later, as a separate track, they are offered
+  upstream, and the copy is replaced by the latest upstream plus our patches,
+  with a rerun check.
+- Order: the refactor comes before the remaining young mice (MG896, MG906,
+  MG895, then MG907 and MG908), which then go through the refactored code.
+
+Decided on 30 Sep (Giulio):
+
+- **L1.** The Python route is the folder `mapping/` (entry points, settings,
+  tests) with the package `mapping/sepmap/` inside it.
+- **L2.** Retired code goes to `archive/` until Giulio's check, then is
+  deleted (the tag keeps it).
+- **L3.** landmark_refine (the image matching behind the GUI's r key) is
+  retired. The cheap point carry-over stays (t, take the neighbour's points;
+  p, carry forward as provisional), so a brain can still be annotated on a
+  computer without a GPU. The retirement is one change in step 6: P4
+  `annotate` stops starting the worker (its stale "(r, t)" comment goes), the
+  files go to `archive/`, the r key's code leaves LightSuite's GUI, and
+  PATCHES.md records it.
+- **L4.** P2's `global` correction variant is archived; `slicewise` stays.
+- **L5.** The reference adult for the registration check is CGF027_Gria1
+  (naive, CCF, hand-annotated, with its SEP channel).
+- **L6.** No licence file for now. (The grant commits to releasing the analysis
+  code on publication: the licence, and the GPL obligations of our modified
+  LightSuite, come back then.)
+- **L7.** The literature goes into `docs/SCIENTIFIC_CONTEXT.md` as in the imaging
+  repository: grouped by the question each paper bears on, what it shows and
+  what it means here. The PDFs stay in `data\ref_papers\`.
+- **Y1.** No comment above a function repeating its docstring.
+- **Y2.** Double quotes everywhere, existing code included, for consistency.
+- **Y4.** One cohort table, read by MATLAB and Python alike.
+- **Y5.** The two Python verification tools are restyled.
+- **Y6.** The MATLAB half of the style guide is the imaging repository's
+  `docs/STYLE.md`, adapted (paths through `get_paths` and `SEP_DATA_ROOT`, the
+  cohort registry, the hot colormap, grey reliability bars).
+- **Y7.** The style pass works from the guide's quotes only.
+- **Z1, Z2** (the LightSuite swap and the upstream contributions): later.
+
+## Decisions on the science (30 Sep, Giulio)
+
+- **S6. The plasticity comparison as Sami approved it.** The reference is the
+  output of 5 Dec 2025, approved by Sami: `naive_vs_rws` and
+  `naive_vs_behavior` in `S:\ElboustaniLab\#SHARE\Processed\SEP-GluA1_Project\comparisons\comparisons\`
+  (the copies in `data\comparisons\` are identical, file by file). Its headline
+  is the increase of the nanobody signal in S1 after RWS (hemisphere-sum t map,
+  slab 565, surprise-masked at p < 0.01). Its mice: naive CGF027, CGF028,
+  CGF033, CGF034, CGF035; RWS MG691, MG692, MG693, MG736, MG737; behavior
+  MG705, MG709, MG716, MG718 (of the 7 in the registry; MG709 has no tissue at
+  slab 565, which is probably why P7bis's comment speaks of three mice). This
+  is exactly what the code selects today, so the settings stay as they are,
+  and the comment is corrected (Fixes). Ideally these outputs stay unchanged:
+  step 3 compares the fresh run of today's code with them (see What is
+  compared with what).
+- **S1 to S5** as recommended below, with two amendments: Benjamini-Hochberg
+  is reported beside the uncorrected p values, and if it leaves nothing
+  standing the correction is reconsidered together (for example a declared set
+  of structures of interest from the grant: V1, S1, RL, AL, LI and the control
+  regions; tests at division level; the spatial null) rather than applied
+  blindly; the per-gene videos stay optional, drawn for a few genes of
+  interest (A10).
+- **A6 to A9** wait until after the refactor.
+- **Normalisation across the routes.** The Python route normalises each brain
+  on its own (background subtraction, then one scale per brain: cref, zref);
+  the plasticity comparison fits each brain to its group's median and the
+  experimental group onto the control group. Both are kept as they are for
+  now. If analyses of both routes end up in the same paper, their
+  preprocessing and normalisation must be made comparable, or the difference
+  discussed: this is an open item in `docs/ROADMAP.md`.
+
+### The recommendations S1 to S5, as agreed
+
+- **S1. The declared structure set.** Which structures enter the adult
+  distribution, the ISH gene ranking, the nano-against-autofluorescence
+  summaries and the zref reference. Today the gene ranking averages each
+  structure over however many adults have it: 22 structures of the adult table
+  are seen in fewer than 5 of the 10 adults (15 of them in the gene ranking,
+  mostly pons, medulla and midbrain), and their values do not replicate across
+  mice. zref is referenced to the structures shared by all 17 brains, young
+  included, so adding young brains moves every adult's zref. **(rec.)**
+  grey-matter structures (the rule the beyond-abundance analysis already uses)
+  seen in all 10 adults, written once to a table that every analysis reads,
+  with every dropped structure and the reason (number of mice, white matter,
+  catch-all label). The all-10 rule keeps 234 of 280 structures; some drop
+  only because of the 250-voxel minimum per mouse. P9's nine-division set is
+  reported alongside.
+- **S2. What "enriched" means.** P8 called a region enriched at LR-sum >= 1.5
+  or z >= 0 (zero at the voxel mean); Sami asked (28 Apr) for a threshold of 2
+  on the LR-sum and, in the same feedback, for a permutation null. **(rec.)**
+  per structure, an exact signed-rank test of zref against the brain's median
+  structure across mice, Benjamini-Hochberg across structures, with the spatial
+  null (A7) as the stronger version. Zero now means the median structure, not
+  the voxel mean, so "enriched" changes meaning: to agree with Sami. At n = 10
+  the smallest two-sided exact p is 1/512.
+- **S3. The autofluorescence control per structure (P10's question).**
+  **(rec.)** two-sided tests on centred contrasts. Inputs are the per-mouse
+  log2 nano and log2 autofluorescence structure means, never the stored
+  `ratio` reading, whose level depends on exposure. Each contrast is shown
+  beside the nano and autofluorescence values (6 of P10's 21 delta-z hits were
+  low-autofluorescence periventricular structures with nano below the
+  median). BH within each contrast family at structure level (Bonferroni
+  cannot reject at n = 10); Bonferroni over the 9 divisions. This keeps P10's
+  question, not its lists: P10 was one-sided, on a scale dominated by the
+  hippocampus, with inputs from three dates.
+- **S4. The per-gene delta-z video and P8's threshold videos:** optional or
+  dropped? And does the 29 Sep drop of the "distance-weight diagnostic" cover
+  P9's eroded-against-distance-weighted ranking comparison? **(rec.)** drop
+  the per-gene video; the threshold contours survive only inside the
+  optional A10; P9's comparison is covered by A3's robustness check.
+- **S5. Which ISH numbers to quote.** None of the following until A1 to A3
+  have run: Gria1's rank (22 in old P9; 10 in the Python route as is; 17 once
+  each structure must be seen in at least 5 adults); the powered panel test
+  (p = 0.74) and the roles permutation, which run on the same unrestricted
+  structure set; "control genes cluster near zero", which holds for the
+  control_inhib and control_glia medians but not gene by gene (Chrm1, Htr3a
+  and Drd1 sit at +0.66 to +0.67). What holds already: Cacng8 first under
+  every structure set tried (rho 0.77 to 0.82). The beyond-abundance result is
+  not affected (it already uses all adults and the grey-matter rule).
+
+## Target layout
+
+```
+README.md               the project, the four lines of work, setup, pipelines, outputs
+ruff.toml               Python lint and format settings
+sep_setup_paths.m       adds an explicit list of code folders, LightSuite once and
+                        below ours; never genpath of the root, never data or atlas
+                        folders; refuses to run when a script the branch moved is
+                        back at the root under its old name (an editor tab saved
+                        after the merge would do that). A minimal version, which
+                        only adds the code root, is committed in step 0
+get_paths.m             stays exactly one level below the project root (it derives
+                        the root from its own location); gains SEP_DATA_ROOT and
+                        the production-data guard
+
+common/                 cohort registry, volume reading, left/right statistics, colours
+atlas/                  atlas lookup, building DeMBA atlases, atlas QC
+preprocessing/          raw copy, extraction, slice order, residual correction,
+                        nano equalisation, artifact annotation
+registration/           registration to the atlas, the SEP channel, QC, and the
+                        automatic annotation: MATLAB side, the GUI plugin
+                        (annotation_gui/), the Python engine (auto_annotation/)
+group_comparison/       plasticity localisation: collect by group, normalise,
+                        group differences
+mapping/                the Python route (L1): run_*.py in run order, settings.toml,
+                        README.md, tests/, and the package:
+    sepmap/             config.py (paths and cohort; imports no analysis code),
+                        plotting.py, volumes/, young_vs_adult/, adult/, ish/,
+                        structures.py (the declared set, added in step 9)
+tests/                  MATLAB tests, sep_run_all_tests
+tools/                  verification tools (MATLAB ones with a sep_ prefix),
+                        detached-run helper, requirements_<env>.txt
+third_party/            README.md (licences, do-not-run list), LightSuite (+ UPSTREAM,
+                        PATCHES.md), matlab_elastix, yamlmatlab, BioformatsImage
+archive/                retired code until checked (L2)
+docs/                   STYLE.md, scientific context (with the literature), adding
+                        data, roadmap, figures, production settings, plans
+assets/                 images for the README
+```
+
+Names that also exist in the dendrites repository (`setup_paths`,
+`project_paths`, `compare_outputs`, `check_code_identity`, `run_driver_copy`,
+...) get a `sep_` prefix here: both projects run in the same MATLAB, and a
+shadowed `run_driver_copy` would redirect through the other project's variable
+and write into real data. A test (step 4) lists every function on the project
+path, third_party included, and the dendrites repository's function names when
+its checkout is present; it fails on duplicate names (case-insensitive) and
+runs `which -all` on each name to catch shadowed MATLAB and toolbox functions.
+
+Output folders and file names under `data\` do not change, with two
+exceptions: the detached runner names its logs after the script, and
+`v2_diagnostics` regenerates `processing_diagnostics\README.md` with the script
+names in it (an expected difference in the output comparison). Data files are
+not edited; a table of old and new script names, with the tag
+`refactor-start`, goes into `docs/ADDING_DATA.md`.
+
+## Inventory
+
+**live**: part of a pipeline in use; **tool**: run by hand when needed;
+**QC**: checks, kept; **retired**: to `archive/`.
+
+### Preprocessing (MATLAB)
+
+| now | status | becomes | notes |
+|---|---|---|---|
+| P0_copy_raw_data.m | live | preprocessing/run_copy_raw_data.m | reads S:, writes D: only |
+| P1_extract_and_center_data.m | live | preprocessing/run_extract_and_center.m | |
+| P1bis_order_slices.m | live, manual | preprocessing/run_order_slices.m | opens SliceOrderEditor |
+| P2_residual_correction_analysis.m | live | preprocessing/run_residual_correction.m | 498 lines, split |
+| P2bis_nano_correction_analysis.m | live | preprocessing/run_nano_equalisation.m | 543 lines; P4 reads its equalized_volume.mat (use_equalized_nano = 1) |
+| P3_annotate_artifacts.m | live, manual | preprocessing/run_annotate_artifacts.m | |
+| ArtifactAnnotator.m, select_reference_pixels.m | live | preprocessing/pipeline/ | |
+| select_background_pixels.m | live | common/ | P2bis, P6bis |
+| make_ordering_volume.m, make_atlas_reference_sheet.m | tool | preprocessing/ | |
+| BioformatsImage/explore_czi_G.m | tool (ours, inside a vendored folder) | preprocessing/ | dumps .czi channel metadata; its path to S: becomes a setting |
+| BioformatsImage/extractAxioscanImages.m | not called | archive/ | writes folders next to the .czi files it reads: never to be run on raw folders |
+
+### Registration
+
+| now | status | becomes | notes |
+|---|---|---|---|
+| P4_register_to_atlas.m | live | registration/run_register_to_atlas.m | five modes stay; the settings block stays one small block at the top (edited daily) |
+| P4bis_add_sep_channel.m | live | registration/run_add_sep_channel.m | |
+| auto_annotate.m | live | registration/pipeline/ | finds the engine through get_paths, not its own location |
+| auto_annotation/, setup_auto_annotation.ps1 | live | registration/auto_annotation/ (setup.ps1 inside) | the setup script's paths are fixed in the same commit |
+| the automatic-annotation part of LightSuite's GUI | live | registration/annotation_gui/ | moved out as a plugin in step 6 (see LightSuite) |
+| recompute_backvalues.m | live | registration/pipeline/ | |
+| remap_control_points.m | tool | registration/ | carries points across a reorder |
+| check_registration_error.m, verify_demba_setup.m | QC | registration/qc/ | verify_demba_setup checks behaviour, not P4's source text (it fails today) |
+| landmark_refine*, setup_landmark_refine.ps1 | L3 | archive/ in step 6 | stays in place until then, so P4 annotate keeps working |
+
+### Atlas
+
+| now | status | becomes |
+|---|---|---|
+| get_atlas.m, get_atlas_crop.m, cohort_atlas_key.m, get_allen_region_mask.m | live | atlas/ |
+| build_demba_atlas.py | tool | atlas/ |
+| atlas_diagnostics.m, check_demba_to_allen.m, compare_atlas_regions.m, compare_atlases_montage.m | QC | atlas/qc/ |
+
+### Shared
+
+| now | status | becomes |
+|---|---|---|
+| get_paths.m | live | stays at the root |
+| get_cohort.m, get_cohort_spec.m, loadVolume.m, compute_lr_stats.m, get_color2color_colormap.m | live | common/ |
+| test_backward_compat.m | QC | tests/ (its hard-coded paths and its addpath of `main`'s code are fixed in step 4, before it is ever run from the branch) |
+| docs/adult_ish_design.md | doc | docs/, folded into SCIENTIFIC_CONTEXT and ROADMAP |
+
+### Plasticity localisation (MATLAB, kept)
+
+| now | becomes | notes |
+|---|---|---|
+| P5_collect_data_by_group.m | group_comparison/run_collect_by_group.m | |
+| P6bis_analyze_group_averages_and_normalize.m | group_comparison/run_normalise_groups.m | 841 lines, split |
+| P7bis_analyze_group_differences.m | group_comparison/run_group_differences.m | 1699 lines, split; the comparison (naive against rws or behavior) is one setting |
+| write_lr_video*.m, write_lr_indiv_*.m (6 files) | group_comparison/pipeline/ | |
+
+### Python route
+
+In step 4 the `v2_*.py` files move unchanged into `mapping/`, flat, so their
+imports keep working and each still runs as `python v2_x.py`. In step 5 they
+become the package: flat imports become package imports; the 11 modules that
+define the data root (the other 15 import it from `v2_per_mouse`) read it from
+`config.py`; every module loses its `__main__` block and is called from a
+`run_*.py` next to the package. That is a code change, checked by rerunning.
+
+| now | becomes |
+|---|---|
+| v2_per_mouse, v2_to_ccf, v2_cohort | sepmap/volumes/ |
+| v2_compare, v2_replot, v2_region_plot, v2_region_groups, v2_video, v2_video_compare | sepmap/young_vs_adult/ |
+| v2_inspect | sepmap/young_vs_adult/closeup.py (not `inspect`, which shadows the standard library). It runs in the flatmap environment, so it imports only `config.py`; the constants it copies today (SIGNED_READINGS, LOG2_FLOOR, MIN_N) move into `settings.toml` |
+| v2_beyond_density, v2_beyond_controls, v2_beyond_regression, v2_beyond_figures, v2_sep_channel_check, v2_adult_arms | sepmap/adult/ |
+| v2_panel_build, v2_panel_fetch, v2_ish_regions, v2_ish_reliability, v2_ish_compare, v2_ish_words, v2_ish_roles, v2_ish_panel_test, v2_ish_arms | sepmap/ish/ |
+| v2_diagnostics | sepmap/diagnostics.py |
+
+The ISH chain runs twice today (the 100-gene panel, then the 390-gene panel),
+and only environment variables say so (`V2_ISH_PANEL`, `V2_ISH_TABLE`; the
+first is an absolute production path). Both passes become explicit steps in
+the run order. `V2_READINGS` and the MATLAB overrides `P4BIS_MICE` and
+`SEP_COHORT_SPECS` are kept, or fail loudly under an old name
+(`SEP_MERGE_SPECS` retires with P8); every run prints the settings in force.
+
+### Waiting, then retired
+
+P8, P9 and P10 stay where they are, untouched (not rerun, moved or restyled),
+until the additions (step 9) are done; then they go to `archive/`. Their frozen
+outputs in `data\comparisons\` (and on the G: snapshot) are what the additions
+are compared with. The path guard checks only for the scripts the branch has
+moved.
+
+| now | why |
+|---|---|
+| P8, P9, P10, plot_violinplot.m (P9 only) | once A1 to A5 are in the Python route |
+| P6_analyze_group_averages_and_normalize.m, P7_analyze_group_differences.m, plot_abs_slice.m, plot_diff_slice.m, write_diff_video.m | replaced by P6bis/P7bis; to archive in step 4 |
+| compare_young_vs_adult_lrsum.py, replot_young_vs_adult_lrsum.py, region_means_raw_per_mouse.py, region_ratio_young_vs_adult.py, plot_region_ratio_young_vs_adult.py | the first young-against-adult attempt; to archive in step 4 (they still write `D:\sep_histology\data` literally, with no guard: never run from a check tree) |
+| lr_sum_and_diff.m, scratch.m, bk/ | not called; to archive in step 4 (the elastix recipe of bk/LightSuite.txt is copied into the README in the same step) |
+
+### Inputs and couplings to keep
+
+- `data\gene_targets.csv` (the hand-written 100-gene panel) is not in the
+  repository, and `*.csv` is ignored: it becomes a versioned, documented input.
+- `v2_ish_compare` reads P9's `gene_panel_summary.csv`
+  (`data\comparisons\merged_naive_rws_vs_ish_summary_nosmooth\`, from an older
+  P9 whose output folder had no channel tag) for the old-against-new ranking
+  check. It stays a frozen file, copied into every check tree. Today
+  `v2_ish_compare` skips that check silently when the file is missing: it
+  should fail instead (Fixes). Olig2 and Calb2 are left out when the agreement
+  is quoted (their old grids were stretched off the reference).
+- `v2_diagnostics` sheet 08 reads P6bis's background masks, so it runs after
+  P6bis in every run order.
+- The GUI's `*` outlier mark repeats P4's `report_suspect_pairs` thresholds
+  (20 px, 30 px); after the plugin move, both read one definition.
+- The sandbox repository and its audit document call the main code by path:
+  they are pointed at the tag `refactor-start`. `sandbox_barrel`, the MATLAB
+  bookmarks and the project's working notes are updated to the new names after
+  the merge.
+
+## Python route: what it must gain before P8, P9 and P10 retire
+
+Item by item, with the specification of each addition, in
+[REFACTOR_COVERAGE.md](REFACTOR_COVERAGE.md); where a specification there
+differs from this plan, the plan applies. Of 88 outputs and tests of P8, P9
+and P10, 28 are covered (usually more rigorously: explicit background, a tissue
+mask from autofluorescence, half-cohort reproducibility, the 390-gene panel,
+gene reliability, the powered and controlled tests), 26 partly, 19 not at all;
+4 were dropped by decision and 11 are file handling. One missing item is the
+dependence of the gene ranking on the structure set, the reason for S1 and S5.
+
+| | addition | replaces | priority |
+|---|---|---|---|
+| A1 | the declared structure set and zref reference (S1): one table, used by tables and maps alike | P8's z-scoring and region set | required, first |
+| A2 | ISH per-section quality control: failed sections flagged and set to missing, never interpolated; a reviewed exceptions list for genuine regional absence; the effect on the ranking reported. An unreviewed first scan flags 14 of 95 genes, two of them (Tac1, Glra1) likely genuine absence; Gria1 is clean | P9's section repair | required |
+| A3 | the gene ranking on A1's set and A2's tables (one shared `adult_profile` with the minimum-mice rule), rerun of the ranking, roles, panel test, arms and words; its robustness to the statistic (Spearman, Pearson) and to borders on both sides (ISH full against eroded, nano plain against eroded); a sensitivity table under three structure sets | P9's region set, metric comparison, headline ranking | required |
+| A4 | adult distribution: every structure by division, per-mouse mean and SEM, reliability, the enrichment call (S2), an eroded nano mean beside the plain one (calls that change are flagged); also for the young cohort on its own | P8's bar charts, tables, enrichment | required |
+| A5 | autofluorescence as a parallel control per structure and division (S3), and the autofluorescence distribution itself | all of P10, P8's `auto` run | required |
+| A6 | within-division gene agreement, per-gene structure scatters | P9's per-gene figures | after the refactor |
+| A7 | spatial null (surrogate maps with the same spatial smoothness) for the gene correlations and for enrichment | Sami's permutation request, never built | after the refactor |
+| A8 | the gene panel against the autofluorescence map | P9's `auto` option, never run | after the refactor |
+| A9 | gene documentation table for the supplement | Sami's request of 28 Apr | after the refactor |
+| A10 | autofluorescence and nano-minus-autofluorescence videos, threshold contours, per-gene videos for a few genes of interest | P8/P9/P10 videos | optional (S4) |
+
+These change numbers on purpose (A1 moves every zref, so the young-against-
+adult differences behind the grant figures; A1 to A3 move the gene ranks), so
+they come after the moves and the identity checks, each with its before and
+after written down. `docs/FIGURES.md` records each grant figure against the
+tag that made it, and the report gives the new values beside the old.
+
+Outside this refactor, and still open: a DAPI control (in neither route).
+
+### Known defects of the retiring route
+
+Differences from P8 to P10 caused by these are expected, not refactor errors.
+The list goes into `docs/ROADMAP.md` and the final report.
+
+- P8's adult outputs carry an artefact of the `abs()` over slabs (P6bis was not
+  rerun after the raw-zero fix).
+- P9 stretched the 200 um ISH grid onto the atlas box (a 1.5 to 2.5% scale
+  error, up to about 0.17 mm); its missing-data value (-1) was interpolated and
+  clamped to 0; the off-reference Olig2 and Calb2 grids were stretched.
+- P9's section repair "repaired" true absence of expression (Slc17a6) and
+  copied the last good section over posterior planes (Cacng8, sections 48 to
+  66).
+- P8's and P10's autofluorescence came from a stale `auto_4d.mat` (19 Nov) that
+  P5 no longer writes; P10's inputs mix caches from 2 May and 4 Sep.
+- P10's Bonferroni over structures cannot reject at n = 10; P9's category
+  ANOVA was anticonservative.
+
+## Verification design
+
+The study found the first design unsafe; this replaces it.
+
+### Where checks run
+
+- **Check trees on G:** (1.24 TB free), each with its own code copy inside it,
+  next to its data copy, so the data root a copy derives from its own location
+  is the copy's:
+
+  ```
+  G:\sep_refactor\ref\code        worktree at tag refactor-start (the old code)
+  G:\sep_refactor\ref\data        inputs + the reference outputs, read-only after step 3
+  G:\sep_refactor\ref_run1\       the first old run's outputs, kept until shown
+                                  identical to the second
+  G:\sep_refactor\check\code      the refactor branch
+  G:\sep_refactor\check\data      inputs restored from ref before each pipeline
+  G:\sep_refactor\reg\old\        code (refactor-start) and data for the
+                                  registration checks, a small separate tree
+  G:\sep_refactor\reg\old_run1\   the first old registration run's outputs
+  G:\sep_refactor\reg\new\        code (the branch) and data, inputs restored
+                                  from reg\old before each run
+  ```
+
+- **Guards**, committed on `main` in step 0 so the tag carries them:
+  `get_paths.m` and the Python data root refuse a production data folder
+  (`D:\sep_histology\data`) when the code folder is not the production one
+  (`D:\sep_histology\code`), and refuse any data root inside the G: snapshot.
+  `SEP_DATA_ROOT` overrides the derived root, for runs that need it.
+- **Sizes.** Cohort tree inputs are about 115 GB (the registered volumes of
+  every brain, the SEP volumes, the atlases and ISH grids); its outputs about
+  190 GB (the cohort files of P5 and P6bis, the P7bis folders, the Python
+  route's outputs). The registration tree is about 45 GB plus its reruns. Worst
+  case, with both old runs kept, about 0.9 TB; about 0.7 TB once the two old
+  runs are shown identical.
+- **Inputs are listed, not guessed.** Each tree's input list is built from what
+  the drivers read (for P4, MG914's `lightsuite\` holds regopts.mat,
+  correction_output\, volume_aligned\, atlas2histology_tform.mat,
+  local_settings.txt ...), and a missing input stops the run. Also copied: the
+  frozen P9 summary, `gene_targets.csv`, and the downloaded caches (Allen,
+  ontology, gene annotations), byte-identical. The network steps
+  (`v2_panel_build`, `v2_panel_fetch`) run from cache only.
+
+### What is compared with what
+
+- **The reference is a fresh run of the old code**, not the files on disk,
+  with the settings of `docs/production_settings.md`: P5 adults with no age
+  filter, P6bis including behavior (S6), P7bis once per comparison, the Python
+  route on the 17 brains of `v2_cohort.py` at `refactor-start` with both ISH
+  passes spelled out (the second with `V2_ISH_PANEL` and `V2_ISH_TABLE` set,
+  `V2_READINGS` unset). MG914 and the other new young brains join after the
+  merge: adding a young brain moves every adult's zref until A1.
+- **Order of a cohort run:** P5, P6bis, P7bis, then the Python route (sheet 08
+  of the diagnostics reads P6bis's masks).
+- **Run twice.** The old code runs twice on the reference tree, the first
+  run's outputs moved to `ref_run1\` before the second. Most of the cohort
+  chain is deterministic, so the two should be identical; if they are,
+  `ref_run1\` is deleted.
+- **Pass criterion.** Where the old code is deterministic, new must equal old
+  (tables and `.mat` values exactly; figures up to renderer noise). Where it is
+  not (registration), the new-against-old difference must be no larger than
+  the old-against-old one, on named measures: voxelwise correlation of the
+  registered volumes per channel, `errall`, region means, the P7bis statistics.
+  Unseeded today: elastix's sampler (`bsplineRegisterSlice.m:15`) and the random
+  point subsampling in extraction and align (`extractBrainLimits3.m:35`,
+  `alignSliceVolume.m:73`). P2's `randn` only jitters dots in a figure.
+- **Quick and full checks.** Step 3 records each pipeline's run time. During
+  steps 5 to 8 a quick check runs after each commit (one brain registered; P5
+  to P7bis without videos; the Python route without videos); the full rerun
+  runs at the end of each step.
+- **Caches.** Computed caches (`*_scalars.npz`, the ISH tables
+  `gene_region_table*.csv`) are deleted in every tree before each run, the
+  reference and old-against-old runs included; file
+  dates are checked after it, so a check that rewrote nothing cannot pass.
+
+### The registration checks (small tree)
+
+MG914 is already annotated, and its manual steps cannot be repeated
+identically, so it is checked in stages, with its saved manual outputs copied
+in unchanged (slice-order decisions, artifact masks, cutting angle, anchors,
+control points):
+
+1. P1, P2 and P2bis from its raw `.czi`, each in a fresh session, compared
+   with its production outputs (voxelwise correlation of `volume_centered`
+   and of the corrected volumes, the per-slice slopes of P2) within the
+   tolerance of an old-against-old pair. If extraction differs, the
+   position-indexed artifact masks no longer fit, and that is recorded rather
+   than forced.
+2. P4 `register` and P4bis from its saved align outputs and control points,
+   compared within tolerance (old against old sets the tolerance).
+3. P4 `autoannotate` from the saved anchors and planes, its proposals compared
+   with the saved ones.
+4. Align is never rerun on it (the step 0 guard refuses), and the manual GUIs
+   are not rerun or compared; the GUI has its own check (step 6).
+
+The reference adult (L5) gets stage 2 only. None of this runs in the cohort
+tree, so the cohort chain reads the production registrations unchanged.
+
+### Sessions, tools, environments
+
+- **Sessions and paths.** Fresh MATLAB, `restoredefaultpath`, then
+  `sep_setup_paths`; the explicit folder list keeps `archive/`, `tests/`,
+  `tools/venv_*`, `.git` and worktree folders off the path.
+- **The detached runner** (`tools/run_matlab_detached.ps1`) requires
+  `-CodeDir`, `-DataRoot` and `-LogDir` with no defaults, sets `SEP_DATA_ROOT`
+  for the MATLAB it starts, refuses a log folder under the production data
+  when the data root is a copy, and runs `restoredefaultpath; cd(CodeDir);
+  sep_setup_paths; <script>` after printing the commit and the data root.
+- **Verification tools.** The MATLAB ones come from the imaging repository's
+  `tools/`, copied with a `sep_` prefix (the shadowing risk is MATLAB's); the
+  two Python ones (`check_code_identity.py`, `compare_outputs.py`) come from
+  the refactor template and keep their names. All are adapted: the redirect goes through `SEP_DATA_ROOT` (inputs and
+  outputs), and the identity check takes an old-to-new name map, so a moved
+  file cannot pass uncompared. Tried once on a one-brain, one-driver tree
+  before step 3.
+- **Code identity** is compared through the parse tree, never byte by byte
+  (line endings differ between the working tree and a checkout). The baseline
+  for the style pass is taken after the moves and splits.
+- **Environments** are frozen as they are (`pip freeze` of each, pip always
+  called as `python -m pip`), never recreated during the refactor, and never
+  given an editable install. `venv_atlas` holds 4.7 GB of DeMBA-to-CCF
+  deformation fields downloaded in September: they are copied, with a file
+  list and hashes, to `data\atlas\ccf_translator_fields\` and to G:, and the
+  README says how to restore them after a reinstall. pytest and ruff go into a
+  separate `tools\venv_dev`, so the analysis environments do not change. Runs
+  from a check tree set `AUTO_ANNOTATION_PYTHON` to `main`'s engine
+  interpreter.
+- **Merging.** Giulio stops the landmark_refine worker and closes every MATLAB
+  session first (an open editor tab saved after the merge would recreate the
+  old P4 at the root). The uncommitted run settings are written down, stashed,
+  and re-applied to `run_register_to_atlas.m`. After the merge, the ignored
+  engine environment is moved by hand to
+  `registration\auto_annotation\.venv` (git moves only tracked files) and its
+  self-test run; the ignored leftovers at the old paths are removed with
+  Giulio's agreement.
+
+## Steps
+
+### 0. Safety commit on `main`
+
+1. `SEP_DATA_ROOT` and the production-data guard in `get_paths.m` and in every
+   Python file that defines the data root (11 `v2_*.py` modules and
+   `build_demba_atlas.py`); the Python default found by walking up from the
+   file to the folder that holds `get_paths.m`, then its parent plus `data`,
+   so it survives the files moving one level down in step 4;
+   `V2_ISH_PANEL` relative to the data root. Checked by comparing `get_paths()`
+   and `DATA` with the variable unset against their old values; no driver runs
+   on production.
+2. A guard in P4 `align` that refuses when control points already exist, as
+   `angle` already does. Only the guard is committed; the run settings in P4
+   stay uncommitted.
+3. `pip freeze` of the four environments into `tools/`; the deformation fields
+   copied with their hashes; `tools\venv_dev` with pytest and ruff.
+4. `.gitignore`: anchor `data/`, `output/` and `comparisons/` to the root;
+   re-include `third_party/**` (the vendored re-include rules stop matching
+   after the move), `assets/` and `docs/` (test fixtures and the versioned CSV
+   inputs get their re-include lines when they first appear); the
+   local-settings line for the editor folder moves to
+   `.git/info/exclude`. `.gitattributes` marks `*.pt`, `*.ckpt`, `*.nii.gz` and
+   `*.jar` as binary.
+5. A minimal `sep_setup_paths.m` (adds the code root, as today's drivers
+   expect), so the tag carries it and the runner works on the old code; the
+   detached runner and the verification tools, as above.
+6. `docs/production_settings.md`, drafted for Giulio's sign-off.
+7. Commit this plan, `REFACTOR_COVERAGE.md` and the style draft.
+
+### 1. Decisions
+
+L1 to L7, Y1 to Y7 and S1 to S6 are decided. `docs/STYLE.md` is assembled: the shared
+rules and the MATLAB half (Y6), the Python half from the draft, and the
+style-pass rules (how comment-only and code changes are made and checked).
+The reference examples are named at the start of step 7.
+
+### 2. Freeze
+
+Refresh the G: snapshot (only what changed since 29 Sep is copied). Tag `main`
+as `refactor-start` (`before-refactor` stays). Tag the code state behind the
+grant figures as `grant-2026-09`, on the last commit before step 0 (its
+Python route is unchanged since 26 Sep, before the last grant figures;
+Giulio confirms). `refactor-start` differs from it only by step 0. Create the two worktrees in their check
+trees.
+
+### 3. Reference capture
+
+Build the trees, run the old code as described in Verification design, keep
+every output and log, record run times. Run it when the machine is free:
+the cohort files are tens of GB each, and another heavy process would slow
+the runs, skew the run times and could exhaust memory mid-run (it would
+not change the results).
+
+Then compare the fresh run with the plasticity outputs Sami approved (5 Dec
+2025, S6): the t maps and surprise masks of the slab figures, read from the
+`.fig` files, and the region bars. The inputs were renormalised since (rws on
+1 May 2026, naive on 4 Sep 2026, after the raw-zero fix), so they may differ.
+Any difference is explained, and the reference agreed with Giulio, before
+step 4: the refactor then keeps whatever is agreed exactly.
+
+### 4. Organise
+
+One commit of pure moves (`git mv` into the layout, the Python files flat into
+`mapping/`, the files retired now into `archive/`, LightSuite into
+`third_party/LightSuite/`). Then the content commit: `sep_setup_paths`, the
+drivers' own `addpath(genpath(...))` calls removed, `get_paths`' LightSuite
+path, the rewritten `.gitignore`, the engine lookup and setup paths, the path
+test with duplicate names, `test_backward_compat.m`'s paths, and the elastix
+recipe of `bk/LightSuite.txt` copied into the README before `bk/` is
+archived. LightSuite gets
+its `UPSTREAM` file (repository, commit `2f16206`, 29 Oct 2025), `PATCHES.md`
+describing today's differences, a one-line modification notice in each
+modified file (GPL-3.0 section 5a; a comment, so code-identical), and
+`third_party/README.md` with the licences and the do-not-run list. Full check.
+
+### 5. Scripts into functions, one pipeline at a time
+
+Common and atlas, preprocessing, registration, plasticity comparison, then the
+Python route (first sub-step: the package, its imports and `config.py`). Each
+driver becomes header, settings and a few calls; the body moves unchanged into
+`pipeline/` or the package. `checkcode` on every new function (a script turned
+function can silently pick up a built-in, as P4 once did with `settings`).
+Quick check per commit, full check per pipeline.
+
+### 6. Split the big files
+
+P7bis (1699 lines), P6bis (841), P2bis (543), P4 (534), P2 (498), the longest
+Python `main()` functions (v2_region_plot 215 lines, v2_region_groups 190).
+One file at a time, same checks.
+
+The annotation GUI: the automatic-annotation layer moves out of LightSuite's
+file into `registration/annotation_gui/` as a plugin behind one generic hook
+(LS7), and the r key goes (L3). Checked with the sandbox's GUI drive scripts
+pointed at the branch, the engine's self-test, and a checklist Giulio runs on
+MG914 in the registration tree (keys a, j, k, K, u, U, save; with nothing
+edited, `atlas2histology_tform.mat`, `plane_anchors.mat`,
+`auto_atlas_planes.mat` and `annotation_provenance.mat` come out identical),
+plus one opening with no engine installed.
+
+### 7. Style pass
+
+The reference examples are named from the first files restyled and approved.
+Then about eight groups of files, each restyled against `docs/STYLE.md`.
+Comment and layout changes are checked automatically for code identity; small
+code changes by rerunning. Every possible bug noticed goes to the list below.
+A final check that no file credits an author other than Giulio.
+
+### 8. Fixes
+
+Each bug of the list below gets its own commit and a before/after check on the
+check tree. Fixes that would change production numbers wait for Giulio's
+decision.
+
+### 9. Scientific additions
+
+A1, A2, A3, A4, A5 in that order (A10 if wanted), each with its before and
+after; the
+quoted numbers in the documents are corrected. Then P8 to P10 go to
+`archive/`.
+
+### 10. Tests and documents
+
+Tests, where mistakes are easy and silent: cohort registry, atlas lookup,
+left/right statistics, the path test (from step 4), the Python route's region
+means on synthetic volumes (plant a known pattern, recover it), the automatic
+annotation's self-test. Skipped, not failed, when data is not connected.
+
+Documents, on the model of the imaging repository (Python READMEs follow the
+sections of the Genedata and MaxWell projects, MATLAB ones the imaging
+repository's):
+
+- **README.md**: an image with a caption (a coronal zref plane or a flatmap),
+  the project in one paragraph and the four lines of work, setup (MATLAB
+  R2024b, R2022b at least for `fitgeotform2d`, with the Image Processing,
+  Statistics and Parallel Computing toolboxes; elastix 5.1.0 on the path,
+  installed per user (the recipe copied in step 4); npy-matlab; the
+  BrainGlobe atlas cache in `~/.brainglobe`; the three Python environments
+  (analysis, flatmaps, automatic annotation), plus `tools\venv_dev` for tests
+  and linting), the pipelines table, where outputs go, conventions.
+- **docs/SCIENTIFIC_CONTEXT.md**: the question; the four lines of work and what
+  each found; the grant this serves (the imaging repository describes this
+  project as part of Aim 2 of the SNSF Weave grant: the two documents cite each
+  other); related literature grouped by the question each paper bears on,
+  with what it shows and what it means here (L7; the PDFs stay in
+  `data\ref_papers\`, whose `PAPER_SUMMARIES.md` is the start); a
+  question-to-code table; the terms
+  used in the code (readings, nano, auto, DIFF, LR-sum, the atlases, ages).
+- **docs/ADDING_DATA.md**: a new mouse end to end, manual steps included (slice
+  order, artifacts, anchors, review), for young mice and for more plasticity
+  animals; the data layout and channel names; the old-to-new script names; the
+  traps: channel names change between stages; control points follow slice
+  positions, so a reorder needs `remap_control_points`; never re-align an
+  annotated brain; never put an atlas folder on the path (LightSuite finds the
+  atlas by `which('average_template_10.nii.gz')`, the 20 um DeMBA volumes are
+  renamed `*_10` and need `px_atlas = 20`, so a second atlas folder or a wrong
+  `px_atlas` halves the AP scale without an error); a slice still orange at
+  save has no control points and registers from images alone; which
+  LightSuite version processed which cohort.
+- **docs/ROADMAP.md**: open questions and the decisions taken (the
+  normalisation of the two routes and how they would be made comparable for
+  one paper, atlas choice,
+  what the SEP channel is, the beyond-abundance result, the ISH tests, the
+  known defects of the retiring route, the paused plasticity line and what
+  would make it convincing).
+- **docs/FIGURES.md**: every figure or number that went into the grant or will
+  go into a paper, with the script, settings and tag that make it.
+- One README per pipeline folder (run order, outputs, where the code is),
+  and for `tests/`, `tools/` and `third_party/`.
+
+Sources for the scientific context: the grant and the papers in
+`data\ref_papers\` (added 30 Sep); for the plasticity comparison, Giulio's
+account (a small increase of the nanobody signal in S1 after RWS, as expected
+for plasticity localised in S1) and its outputs in `data\comparisons\`; for
+the ISH work, which was never presented, the output figures of the final P9
+run.
+
+### 11. Report and merge
+
+What changed, how each step was checked, the bug list, the open decisions.
+Merge as described under Merging. Then the remaining young mice through the
+refactored code, and MG914's SEP channel and Python route with them.
+
+## LightSuite
+
+**What we have.** At our first commit, 151 of our 153 LightSuite files were
+identical to upstream commit `2f16206` (29 Oct 2025). Two edits predate that
+commit: the demo script's paths (reverted to upstream in step 4) and a PNG
+export in `alignSliceVolume` that upstream has since fixed its own way (dropped
+at the swap). Upstream is 168 commits ahead and active. Its README says a
+Python version "is being developed at PyLightSuite"; that repository was not
+public on 30 Sep.
+
+**Our changes**, as a patch series, each small enough to be one upstream pull
+request:
+
+| | change | kind | effect on results |
+|---|---|---|---|
+| LS1 | `registerSlicesToAtlas`: 0x4 placeholders when there are no control points | crash fix | none today (the branch ran only in the 2 Sep image-only trials, since redone) |
+| LS2 | `alignSliceVolume`: atlas resolution from `px_atlas` instead of a hard-coded 10 um | registration fix | required for the 20 um DeMBA atlases (the AP scale was off by 2); none for the adults |
+| LS3 | GUI fixes: clicks on points, dragging, partial-pair title, no empty control-point file on save | GUI | none |
+| LS4 | GUI: atlas-plane prediction without backward extrapolation, order-conflict warning | GUI | none when every slice has points |
+| LS5 | GUI: editing, carry-forward and t, numbered labels with flags, controls window, the `*` outlier mark | GUI | none on registration code; a slice left orange is saved empty and registers from images alone |
+| LS6 | SliceOrderEditor montage | GUI | none |
+| LS7 | GUI: one generic plugin hook, off by default (new, written in step 6) | GUI | none |
+| LS8 | GUI: the r key's landmark_refine proposals | project-specific | removed in step 6 (L3); t and p stay |
+
+Both registration bugs are still in upstream. In step 6 the automatic-
+annotation layer (about 550 lines today inside LightSuite's GUI file: anchors,
+proposals, accept and re-propose keys, provenance) moves into our tree as a
+plugin that P4 passes in when the engine is installed. Without the plugin, the
+GUI behaves as our patched GUI (as upstream once LS3 to LS5 are merged). The
+project thresholds (the suggested anchor count, the outlier rule) become
+plugin settings.
+
+**Upstream pull requests** (Z2): LS1 to LS7, after rebasing on upstream (its
+GUI now has its own numbering and binds backspace to "delete last point";
+its SliceOrderEditor was rewritten). Wish-list requests from our workarounds:
+saving the per-slice transforms, an output-folder option, relative elastix
+paths, a seed in the align step, the demo's settings bug, and extentfactor, the
+CPD iteration count and the B-spline bins and samples as options with
+upstream's defaults, so a cohort can be registered with the old parameters
+(needed for Z1's first option). The patch mechanics (a fork with the series,
+vendored with `git subtree`) and the full swap plan from the study go into
+`PATCHES.md` in step 4.
+
+**The swap** (Z1), as its own step after the refactor. Changes that alter
+results: upstream's B-spline settings (every registration), the align extent
+(6 to 10: plane indices shift by 30, so re-aligning an annotated brain
+invalidates its points), a lower CPD iteration count, and extraction that no
+longer crops and edits the curated decisions file (which would invalidate
+artifact masks and P2 outputs). Also: P1bis must use upstream's SliceOrderEditor
+(ours drops its crop columns on save); P4bis gains the crop step or refuses;
+`cpwt` stays 0.2 (upstream's demo uses 0.4); the path starts at
+`<LightSuite>/src`; our matlab_elastix is checked against the fork upstream
+now asks for. So: never re-run extraction or align on an existing brain;
+measure the noise floor of the current code first (register only); register
+the reference mice with upstream from their existing align outputs and control
+points and compare voxelwise, per region, and on the headline numbers;
+re-validate the automatic annotation, whose models were trained on the current
+geometry; record which version processed which cohort.
+
+## Bugs and oddities (fixed in step 8, each on its own, unless another step is named)
+
+- P7bis takes the behavior mice by index `[1 2 3 4]` from whatever P6bis
+  saved, while its comment names three mice: select the same four by name
+  and correct the comment (S6: no change in results).
+- P6bis writes diagnostics to the current folder when its diagnostics folder
+  variable is missing (to become an error).
+- P4 `register` (and P4bis) take the grid of the registered volume from
+  `sliceinfo.mat`, which P1 writes from `local_settings.txt`. Every young brain
+  was extracted in August with `px_atlas = 10`, so all of them, the ones still
+  to register included, come out on the same 10 um-sampled grid that the
+  Python route expects (it averages 2x2x2 blocks down to 20 um). A P1 run now
+  would read `px_atlas = 20` and give a 20 um grid without any warning. To fix
+  before any new brain is extracted: P4 sets the output grid explicitly and
+  checks it against the rest of the cohort; `ADDING_DATA.md` names the trap.
+- `verify_demba_setup.m` checks P4's source text for `atlas_key =
+  'demba_p20';` and fails today (to check behaviour instead).
+- `test_backward_compat.m` hard-codes 10 `D:\` paths (two more in comments)
+  and adds `main`'s code folder to the path (fixed in step 4, before use).
+- `v2_ish_compare` skips the old-against-new check silently when P9's summary
+  is missing (to fail instead).
+- `v2_video.MIN_N` has no `young_P22` key (KeyError; fixed here, not in A10).
+- `v2_video`'s reliability t uses n = max(nL, nR), which overstates n when the
+  two hemispheres come from different mice.
+- The `ratio` reading's level depends on exposure: the zero line in
+  `region_plot.png` and the ratio video's scale carry no "nano equals
+  autofluorescence" meaning; only the order within a mouse does (a caption
+  fix at least).
+- `adult_profile` is written three times in the ISH scripts, with no
+  minimum-mice rule (replaced in A3).
+- `v2_ish_regions`' docstring describes an orientation test that is not in the
+  code.
+- LightSuite's copy holds scripts that write to `S:` (`compare_mice.m`,
+  `protocol_manuscript_generate_plots.m`) and a machine-specific demo: kept,
+  marked do-not-run in `third_party/README.md`.
+- A nested duplicate `matlab_elastix-master/matlab_elastix-master/` sits on
+  disk (ignored): Giulio deletes it before the merge, or a stray copy is left
+  on `main`.
+- elastix 5.1.0 is installed per user and recorded only in
+  `bk/LightSuite.txt` (copied into the README in step 4).
+
+The style pass will add to this list.

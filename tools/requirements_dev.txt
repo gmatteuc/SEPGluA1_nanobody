@@ -1,0 +1,15 @@
+# tools\venv_dev: tests (pytest) and linting (ruff). It reads the analysis packages
+# from tools\venv_atlas through a .pth file, so the analysis environment itself never
+# changes. Python 3.12.7 (Anaconda). Create it from the repository root with
+#   python -m venv tools\venv_dev
+#   tools\venv_dev\Scripts\python -m pip install -r tools\requirements_dev.txt
+# then write the absolute path of tools\venv_atlas\Lib\site-packages, one line, into
+#   tools\venv_dev\Lib\site-packages\venv_atlas.pth
+
+colorama==0.4.6
+iniconfig==2.3.0
+packaging==26.3
+pluggy==1.6.0
+Pygments==2.21.0
+pytest==9.1.1
+ruff==0.16.9

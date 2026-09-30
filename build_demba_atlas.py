@@ -39,6 +39,7 @@ The two crop measurements are the same ones used for P20, where they agreed
 """
 
 import csv
+import os
 import re
 import sys
 from pathlib import Path
@@ -46,7 +47,45 @@ from pathlib import Path
 import nibabel as nib
 import numpy as np
 
-DATA = Path(r'D:\sep_histology\data')
+def _data_root():
+    """The data root, by the same rule and guards as get_paths.m and v2_paths.py.
+
+    The parent of the folder holding get_paths.m, plus data, or SEP_DATA_ROOT
+    when it is set. A copy of the code may not use the production data (or a
+    folder inside it), and the snapshot on G: is never a data root. The rule is
+    repeated here because this script moves to atlas/ in the refactor, away
+    from v2_paths.py; keep the two identical.
+    """
+    def canonical(path):
+        path = os.path.normpath(os.path.abspath(path))
+        drive, rest = os.path.splitdrive(path)
+        return drive.upper() + rest
+
+    code = canonical(os.path.dirname(os.path.abspath(__file__)))
+    while not os.path.isfile(os.path.join(code, 'get_paths.m')):
+        if os.path.dirname(code) == code:
+            raise RuntimeError('no get_paths.m above this script: cannot tell where the '
+                               'data lives')
+        code = os.path.dirname(code)
+    data = canonical(os.environ.get('SEP_DATA_ROOT') or os.path.join(os.path.dirname(code),
+                                                                     'data'))
+    production = os.path.normcase(r'D:\sep_histology\data')
+    inside = (os.path.normcase(data) == production
+              or os.path.normcase(data).startswith(production + os.sep))
+    if inside and os.path.normcase(code) != os.path.normcase(r'D:\sep_histology\code'):
+        raise RuntimeError(f'this copy of the code ({code}) would use the production data '
+                           f'({data}); set SEP_DATA_ROOT to the data of its own check tree')
+    if os.path.normcase(data).startswith(os.path.normcase(r'G:\sep_histology_snapshot')):
+        raise RuntimeError(f'the data root {data} is inside the snapshot on G:')
+    code_folder = os.path.normcase(r'D:\sep_histology\code')
+    if (os.path.normcase(data) == code_folder
+            or os.path.normcase(data).startswith(code_folder + os.sep)):
+        raise RuntimeError(f'the data root {data} is inside the code folder; set '
+                           f'SEP_DATA_ROOT to the check tree')
+    return Path(data)
+
+
+DATA = _data_root()
 CCF_ANN = DATA / 'atlas' / 'annotation_10.nii.gz'
 PARCELLATION = DATA / 'atlas' / 'parcellation.csv'
 CCF_LIMS = (180, 1079)          # the adult crop, 1-based inclusive, 10 um planes

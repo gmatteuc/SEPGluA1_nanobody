@@ -25,7 +25,7 @@ import urllib.error
 import urllib.request
 import zipfile
 
-DATA = r'D:\sep_histology\data'
+from v2_paths import DATA
 PANEL = os.path.join(DATA, 'adult_v2', 'panel', 'panel_v2.csv')
 DEST = os.path.join(DATA, 'atlas_ish')
 OUT = os.path.join(DATA, 'adult_v2', 'panel')

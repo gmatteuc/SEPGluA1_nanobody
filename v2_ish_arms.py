@@ -76,7 +76,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy.stats import rankdata, spearmanr, wilcoxon
 
-DATA = r'D:\sep_histology\data'
+from v2_paths import DATA
 ARMS_CSV = os.path.join(DATA, 'adult_v2', 'arms', 'region_means_arms.csv')
 GENES = os.path.join(DATA, 'adult_v2', 'ish', 'gene_region_table.csv')
 OUT = os.path.join(DATA, 'adult_v2', 'arms')

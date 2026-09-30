@@ -73,7 +73,7 @@ from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.patheffects as path_effects
 from scipy.ndimage import center_of_mass, gaussian_filter
 
-DATA = r'D:\sep_histology\data'
+from v2_paths import DATA
 ASSETS = os.path.join(DATA, 'atlas_flatmap')
 CCF_ROOT = os.path.join(DATA, 'comparisons_v2', 'ccf')
 OUT = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult')

@@ -64,7 +64,7 @@ import urllib.parse
 import urllib.request
 from collections import defaultdict
 
-DATA = r'D:\sep_histology\data'
+from v2_paths import DATA
 OUT = os.path.join(DATA, 'adult_v2', 'panel')
 CACHE = os.path.join(OUT, 'cache')
 OLD_PANEL = os.path.join(DATA, 'gene_targets.csv')

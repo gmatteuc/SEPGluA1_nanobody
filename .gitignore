@@ -46,10 +46,11 @@ codegen/
 # ---- Result tables ----
 *.csv
 
-# ---- Accidental local data dirs ----
-data/
-output/
-comparisons/
+# ---- Accidental local data dirs (anchored: a folder of that name deeper in
+# the code, e.g. a package's data/, is not a data dir) ----
+/data/
+/output/
+/comparisons/
 
 # =============================================================
 #  Exceptions: vendored third-party deps ship legitimate
@@ -60,6 +61,11 @@ comparisons/
 !matlab_elastix-master/**
 !yamlmatlab/**
 !BioformatsImage/**
+# the same trees once the refactor moves them (docs/REFACTOR_PLAN.md), and the
+# images the documentation shows
+!third_party/**
+!assets/**
+!docs/**
 
 # ---- Re-apply junk rules inside the vendored trees ----
 **/*.asv
@@ -74,10 +80,8 @@ comparisons/
 # =============================================================
 matlab_elastix-master/matlab_elastix-master/
 
-# ---- Claude Code local settings (machine-specific) ----
-.claude/settings.local.json
-
-# Python env for brainglobe-atlasapi (atlas downloads); not part of the pipeline
+# Python environments (tools/requirements_*.txt recreates them)
 tools/venv_atlas/
 tools/venv_flat/
+tools/venv_dev/
 __pycache__/

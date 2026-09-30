@@ -1,0 +1,26 @@
+# landmark_refine/.venv: landmark_refine, to be retired in the refactor (L3).
+# Python 3.12.7 (Anaconda, C:\ProgramData\anaconda3). Frozen on 30 Sep 2026 as the
+# environment stood when the results were produced. Recreate it from the repository
+# root with
+#   python -m venv landmark_refine\.venv
+#   landmark_refine\.venv\Scripts\python -m pip install -r tools\requirements_landmark_refine.txt
+# torch is the CUDA 12.4 build from the PyTorch index: add
+#   --extra-index-url https://download.pytorch.org/whl/cu124
+# to the install line (the setup script of the engine does this).
+
+filelock==3.32.3
+fsspec==2026.7.0
+Jinja2==3.1.6
+kornia==0.8.3
+kornia_rs==0.1.14
+MarkupSafe==3.0.3
+mpmath==1.3.0
+networkx==3.6.1
+numpy==2.5.2
+packaging==26.3
+pip==26.2.1
+scipy==1.18.1
+setuptools==78.1.0
+sympy==1.13.1
+torch==2.6.0+cu124
+typing_extensions==4.16.0
