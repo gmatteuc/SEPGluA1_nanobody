@@ -989,6 +989,17 @@ else
     tform = affinetform2d;
 end
 
+% P4's checks, shown while there is still time to act on them: pairs far off
+% the slice's own affine (marked * on the points), and a slice that does not
+% fit an affine at all, which usually means the wrong atlas plane
+[bad_pairs, med_res] = affine_outliers(gui_data.atlas_control_points{gui_data.curr_slice}, ...
+                                       gui_data.histology_control_points{gui_data.curr_slice});
+if med_res > 20
+    anchorstr = sprintf('%s -- WHOLE SLICE OFF (median %.0f px): wrong plane?', anchorstr, med_res);
+elseif any(bad_pairs)
+    anchorstr = sprintf('%s -- %d pair(s) * far off this slice''s affine', anchorstr, nnz(bad_pairs));
+end
+
 title(gui_data.histology_ax, {tstrcurr, anchorstr})
 
 av_warp_boundaries = round(conv2(currim,ones(3)./9,'same')) ~= currim;
@@ -1613,6 +1624,30 @@ end
 end
 
 
+function [bad, med] = affine_outliers(a, h)
+% Pairs far off the slice's own affine, by the rule P4 applies before
+% registering (report_suspect_pairs): refit without the outliers a few
+% times, then flag residuals over 3x the median and at least 30 px. med is
+% the median residual (NaN when there are too few pairs to judge).
+bad = false(size(h, 1), 1);
+med = nan;
+if size(a, 1) < 5 || size(a, 1) ~= size(h, 1)
+    return
+end
+src = a(:, [3 2]); dst = h(:, [3 2]);
+w = ones(size(src, 1), 1);
+for it = 1:8
+    tf = fitgeotform2d(src(w > 0.999, :), dst(w > 0.999, :), 'affine');
+    r  = vecnorm(tf.transformPointsForward(src) - dst, 2, 2);
+    s  = median(r) + 1e-6;
+    w  = double(r <= 2*s);
+    if nnz(w) < 5, break, end
+end
+bad = r > max(3*median(r), 30);
+med = median(r);
+end
+
+
 function gui_data = remember_proposal(gui_data, k)
 % Keep slice k's newest proposal (from u or U) as ITS proposal: provenance and
 % the ? flags of a later session refer to what was shown and accepted.
@@ -1900,19 +1935,28 @@ if gui_data.provisional(sl)
 else
     qcol = [1 0.85 0.1];
 end
-gui_data.hist_labels  = label_points(gui_data.histology_ax, h, col, unc, qcol);
-gui_data.atlas_labels = label_points(gui_data.atlas_ax,     a, col, unc, qcol);
+% a * after the number: the pair sits far off the slice's own affine, the
+% same test P4 runs before registering, computed live so it follows edits
+star = affine_outliers(a, h);
+gui_data.hist_labels  = label_points(gui_data.histology_ax, h, col, unc, qcol, star);
+gui_data.atlas_labels = label_points(gui_data.atlas_ax,     a, col, unc, qcol, star);
 guidata(gui_fig, gui_data);
 end
 
 
-function t = label_points(ax, pts, col, unc, qcol)
+function t = label_points(ax, pts, col, unc, qcol, star)
 % Text objects cannot be given PickableParts none through the plot call, so
-% they are created one by one and told not to catch the mouse.
+% they are created one by one and told not to catch the mouse. ? marks a
+% low-confidence proposal point, * a pair far off the slice's own affine.
 if nargin < 5, qcol = [1 0.35 0.35]; end
+if nargin < 6, star = false(size(pts,1), 1); end
 t = gobjects(size(pts,1), 1);
 for k = 1:size(pts,1)
-    if k <= numel(unc) && unc(k)
+    is_unc  = k <= numel(unc)  && unc(k);
+    is_star = k <= numel(star) && star(k);
+    if is_star
+        lab = sprintf('%d%s*', k, repmat('?', 1, is_unc));  c = [0.3 0.9 1];  fs = 9;
+    elseif is_unc
         lab = sprintf('%d?', k);  c = qcol;  fs = 9;
     else
         lab = sprintf('%d', k);   c = col;            fs = 8;
