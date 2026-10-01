@@ -861,6 +861,9 @@ geometry; record which version processed which cohort.
   on and `perform_area_based_analysis_fine` off, the coarse block reads
   `half_width` before anything sets it. Both are off in production. Its
   comment beside the behavior subset still says "subselect 3 of ... 4".
+- `v2_adult_arms` stops at its self-check before drawing
+  `arms_consistency.png`, so the figure that would show a drift is missing
+  exactly when the check fails (the table is written).
 - `v2_adult_arms`' consistency check against `v2_region_plot` compares values
   stored to 4 decimals with `<=` half the last digit (5.0e-05) and no margin for
   floating-point error, so it fails when a difference lands exactly on the
@@ -929,3 +932,18 @@ The style pass will add to this list.
   passes. The Python stage now pins `PYTHONHASHSEED=0`, and the reference's
   `v2_ish_words` outputs were regenerated with it by the old code (identical
   on two runs; the unseeded originals are kept in `G:\sep_refactor\ref_unseeded`).
+- **1 Oct, step 5, Python route** (`add8135` pure moves, `f473cb5`): the
+  `v2_*.py` scripts are the package `mapping/sepmap/` (`volumes`,
+  `young_vs_adult`, `adult`, `ish`, `diagnostics`, `config`), with one
+  `mapping/run_<step>.py` per step and `mapping/settings.toml`. In it for
+  now: the constants two modules kept in step by hand (all copies were equal)
+  and the two ISH passes, chosen with `--panel targets|ontology` instead of
+  `V2_ISH_PANEL`/`V2_ISH_TABLE` (refused if set). Each run prints the
+  settings in force. Reviewed from three sides before the run (one minor
+  finding). Full route on the check tree against the reference, 120 min: the
+  same step fails (`run_adult_arms`, the known self-check); 259 output files
+  identical; the 8 that differ were each checked to differ only where a
+  script is named (diagnostics README, sheet 08 and `slices_sepratio`
+  titles) or in the scalars cache's source date. Every other parameter is
+  still a constant in its module, and `matplotlib.use` is still in the
+  modules (style pass).
