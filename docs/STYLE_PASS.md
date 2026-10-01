@@ -2,8 +2,9 @@
 
 Temporary: the procedure of step 7 of [REFACTOR_PLAN.md](REFACTOR_PLAN.md),
 which brings existing code in line with [STYLE.md](STYLE.md). It is deleted
-when step 7 is done; the rules themselves are in STYLE.md, and only there.
-The pass works file by file, from STYLE.md and its reference examples.
+when step 7 is done, and STYLE.md's two mentions of it (its introduction and
+Reference examples) go with it; the rules themselves are in STYLE.md, and only
+there. The pass works file by file, from STYLE.md and its reference examples.
 
 ## Reference examples: code not to copy
 
@@ -32,8 +33,6 @@ layout pass does not change code; do not copy these:
 
 ## Old code
 
-- Existing commented-out code stays until the owner decides, with a comment
-  saying why it is off, or that the reason is not recorded.
 - Don't rewrite a clear comment only to put a verb first.
 - The pass renames nothing unless the assignment allows it (kind B); a rename
   STYLE.md would want goes on a list for the owner.
@@ -51,8 +50,9 @@ They are `Genedata_exercise\PKA_exercise_Giulio_Matteucci.zip` and
 `S:\ElboustaniLab\#SHARE\Documents\Giulio\`; the first version of STYLE.md,
 in the git history, cites each of its quotes from them by file and line. Their
 habits that STYLE.md does not follow: a lowercase comment above 109 of their
-114 functions repeating the docstring (Y1); single quotes (Y2); data checked
-with bare `assert` (`pka/loading.py:53-67`, `mea/loading.py:40, 64`); no type
+114 functions repeating the docstring (Y1); a few single-quoted strings among
+the double-quoted ones (Y2); data checked with bare `assert`
+(`pka/loading.py:53-67`, `mea/loading.py:40, 64`); no type
 hints; 19 end-of-line comments and comments up to 125 characters; layout by
 hand (black would change 361 of their 2,918 lines), with backslash
 continuations (`pka/plotting.py:150-151`, `maxwell/run_pipeline.py:119-120`);

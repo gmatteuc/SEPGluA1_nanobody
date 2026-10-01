@@ -5,9 +5,9 @@ start of step 7 changed, what to decide, and what was left for later.
 
 ## What was written
 
-- `docs/STYLE.md` (439 lines): shared rules (108 lines), the MATLAB half
-  (108: the imaging repository's guide adapted, Y6, with a table of where
-  the P8/P10 conventions differ and which wins) and the Python half (199: the
+- `docs/STYLE.md` (447 lines): shared rules (111 lines), the MATLAB half
+  (110: the imaging repository's guide adapted, Y6, with a table of where
+  the P8/P10 conventions differ and which wins) and the Python half (202: the
   draft finalised, Y1, Y2, Y5, Y7). A rule that holds in both languages is
   stated once, in Shared rules; each half keeps the language's form of it,
   with one short example per rule, quoted from the reference examples or

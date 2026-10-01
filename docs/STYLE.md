@@ -43,9 +43,9 @@ belongs in the git log, and in `docs/` when a reader needs it.
 
 ### Comments
 
-- Short and lowercase, a verb first or a noun phrase: `% load traces`,
-  `# per-plate quality control`. A capital only for a proper name, an acronym
-  or an identifier (`# Gaussian sigma in 20 um voxels ...`).
+- Short and lowercase, verb first where it reads naturally, else a noun phrase:
+  `% load traces`, `# per-plate quality control`. A capital only for a proper
+  name, an acronym or an identifier (`# Gaussian sigma in 20 um voxels ...`).
 - On their own line, just before the code, one per step (in a loop, one per
   sub-step); never at the end of a line, except tool pragmas (`%#ok<NANMEAN>`,
   `# noqa: E402`) and the units column of `settings.toml`.
@@ -64,9 +64,11 @@ belongs in the git log, and in `docs/` when a reader needs it.
   check expects (`# the DIO record must alternate on/off starting with on`).
 - One or two lines, wrapped at 90 characters; more only to justify a setting
   or constant, or to explain a workaround. A longer account of a method goes
-  into the help block or docstring. Papers by author and year, "(Hill 2011,
-  as in SpikeInterface)"; what they show, in `docs/SCIENTIFIC_CONTEXT.md` (L7).
-- No commented-out code in new code (old code: STYLE_PASS.md).
+  into the help block or docstring. Papers by author and year, in one line,
+  "(Hill 2011, as in SpikeInterface)"; what a paper shows and what it means
+  here goes into `docs/SCIENTIFIC_CONTEXT.md` (L7), not into the code.
+- No commented-out code in new code. Old commented-out code stays until the
+  owner decides, with a comment saying why it is off, or that it is not recorded.
 
 ### Data safety
 
@@ -95,9 +97,10 @@ Each is defined in one place; never copy a value into a script.
   (Y4). New code takes its mice from these, never from a list of its own.
 - The atlases: `get_atlas(key)`, `cohort_atlas_key`, `get_atlas_crop`. Only
   `get_atlas` adds an atlas folder to the path, the one a run needs.
-- Parameters: a MATLAB driver's `%% Settings`, `mapping/settings.toml`. A
-  number someone could reasonably choose differently is a parameter; one fixed
-  by the method, or a figure's layout, stays in the code, with a comment.
+- Parameters: a MATLAB driver's `%% Settings`; in Python `mapping/settings.toml`.
+  A number someone could reasonably choose differently is a parameter. One fixed
+  by the method stays in the code, with a comment saying what it is (`0.6745`
+  turns a median absolute deviation into an SD); a figure's layout stays too.
 - Colours: the values under Figures, copied exactly (into a MATLAB script's
   settings, or where Python draws) until one palette holds them.
 
@@ -115,7 +118,7 @@ Each is defined in one place; never copy a value into a script.
 - Never parula; jet or turbo only when asked for, into a subfolder of their
   own (`run_closeup --cmap`), and a difference stays blue-red.
 - No data is flat grey `#bfbfbf`, which no data colormap produces. In the
-  young-against-adult maps hot stops at 0.82, so saturation reads yellow.
+  young-against-adult maps hot stops at 0.82 of its range, never reaching white.
 - Bars of a value per structure across mice: the height is the value, the
   colour its reliability (t, clamped) in grey, darker for more reliable, never
   pure white. Bars that compare categories take palette colours.
@@ -152,9 +155,9 @@ Each is defined in one place; never copy a value into a script.
 - The function a driver calls takes `run_settings`, names the driver in its
   help block, and first unpacks the settings, one per line
   (`mousetypes_list = run_settings.mousetypes_list;`).
-- A body over about 60 lines is a short main part of `%%` steps calling local
-  functions with explicit inputs and outputs: no nested functions, no
-  globals, no `evalin` or `assignin`.
+- A long function is a short main part of `%%` steps calling local functions
+  with explicit inputs and outputs: no nested functions, no globals, no
+  `evalin` or `assignin`.
 - `load` into a struct, never the workspace: `S_nano = load(file, 'nano_4d');`.
   Other options come as a struct, a missing field defaulted at the top.
 - Local functions come last, after `% ===== Local functions =====` (not a
@@ -165,8 +168,8 @@ Each is defined in one place; never copy a value into a script.
 
 Every file has one, local functions included: sentence case, short.
 
-- A driver's comes before any code, so `help` shows it: the pipeline and this
-  step among the others, what it does, then the data it is set up for:
+- A driver's comes before any code, so `help` shows it: the pipeline and its
+  steps, what this one does in general, then briefly the data it is set up for:
 
 ```matlab
 %% run_collect_by_group
@@ -174,7 +177,9 @@ Every file has one, local functions included: sentence case, short.
 %
 % Plasticity comparison, step 1 of 3:
 %   1. run_collect_by_group    stack each group's registered volumes  <- this script
-%   ...
+%   2. run_normalise_groups    bring the mice of a group onto one intensity scale
+%   3. run_group_differences   left-right differences, control against experimental group
+%
 % Stacks the registered nano volumes of a group's mice into one 4D array ...
 %
 % Setup: the young cohort, P20 brains only, for the comparison with the ...
@@ -193,8 +198,8 @@ Every file has one, local functions included: sentence case, short.
   body with several steps, and after the help block.
 - `%%` sections with a short capitalised title, not numbered
   (`%% Collect each group`), in every script and in function bodies over about
-  60 lines. One statement per line: `if ~exist(out_dir, 'dir')`,
-  `mkdir(out_dir);` and `end` on three lines.
+  60 lines; short functions have none. One statement per line:
+  `if ~exist(out_dir, 'dir')`, `mkdir(out_dir);` and `end` on three lines.
 - Spaces around `=` and after commas. Lines under about 90 characters,
   continued with `...` and an indent of four; the pieces of a message joined
   in `[...]` line up under the first. A string literal that does not fit stays
@@ -259,8 +264,8 @@ file follows it, `tools/` included (Y5).
 - Only run scripts have an `if __name__ == "__main__":` block. `__init__.py`
   is empty or a one-line docstring.
 - Notebooks are optional, numbered (`01_exploration.ipynb`), and only call the
-  package, so no result exists only there: a markdown cell (title, what it
-  shows), then a cell that imports, calls `set_style()` and loads.
+  package, so no result exists only there: first a markdown cell (title, what
+  it shows), then a code cell that imports, calls `set_style()` and loads.
 - One `run_<step>.py` per step (L1). Its header is the module docstring: the
   summary line, the run order with this step marked, what it does and writes,
   the usage line, its options (`mapping/run_compare.py`).
@@ -273,6 +278,7 @@ file follows it, `tools/` included (Y5).
     # unit table and quality control
     table = units.unit_table(trains, templates, mapping, duration_s)
     table = units.apply_unit_qc(table)
+    table.to_csv(out / "units.csv", index=False)
     n_ok = int(table["accepted"].sum())
     print(f"unit QC: {n_ok} accepted of {len(table)}, table written to units.csv")
 ```
@@ -282,8 +288,9 @@ file follows it, `tools/` included (Y5).
   can call it; analysis parameters never are. The cache switch is named for
   what it redoes (`--resort`); the cache file name is a setting.
 - Progress with `print`, not `logging`, with `flush=True` inside long loops.
-- The figure backend is set only in run scripts, first under
-  `if __name__ == "__main__":` (`matplotlib.use("Agg")`), never in a module.
+- The figure backend is set only in run scripts (`matplotlib.use("Agg")`, first
+  under `if __name__ == "__main__":`), never in a module, so notebooks still
+  show their figures and importing a module changes no global state.
 
 ### Settings and paths
 
@@ -296,7 +303,7 @@ file follows it, `tools/` included (Y5).
   colours stay in `plotting.py`.
 - `config.py` loads the file once (`tomllib`) into `SETTINGS`; a module names
   each table it uses after its imports, upper case after the table:
-  `QC = SETTINGS["qc"]`, not `REC`.
+  `QC = SETTINGS["qc"]`, never an abbreviation such as `REC`.
 - A setting a caller may change is a keyword argument defaulting to `None`,
   read in an `if` block (`if n is None:`, `n = UNITS["sta_units"]`); never a
   setting as the default value, which is fixed at import.
@@ -318,11 +325,11 @@ file follows it, `tools/` included (Y5).
   by run_compare.py."); a run script's has a usage line, indented four, with
   plain `python`.
 - Every function and class has one, private and nested ones too; a small
-  helper's is one line, kept on one line. Plain prose, no `Args:` or
-  `Returns:`: a one-line summary in sentence case ending with a period, then
-  only what the names don't say (shapes and units, what comes back, when a
-  value is NaN, why the method is right), argument names in backticks, a
-  list of rules numbered:
+  helper's is one line, kept on one line. Plain prose, no `Args:`, `Returns:`
+  or `Parameters` sections: a one-line summary in sentence case ending with a
+  period, then only what the names don't say (shapes and units, what comes
+  back, when a value is NaN, why the method is right), argument names in
+  backticks, a list of rules numbered:
 
 ```python
 def fit_all(matrix, return_flags=False):
@@ -333,15 +340,16 @@ def fit_all(matrix, return_flags=False):
     """
 ```
 
-- No comment above `def` repeating the docstring (Y1); no blank line after it.
+- No comment line above `def` (Y1), and no blank line after the docstring.
 
 ### Layout and naming
 
 - `ruff format` sets the layout (`ruff.toml`: 90 characters, double quotes;
   single only where it keeps them, as inside an f-string's braces). Left to
-  you: blank lines splitting a body into steps (in `main()` each block opens
-  with a comment); long strings split into adjacent literals; brackets, never
-  a backslash, to continue a line; f-strings, never `%` or `.format`.
+  you: blank lines splitting a body into steps, each opened by a comment in
+  `main()`, elsewhere only when the names leave it unclear; long strings split
+  into adjacent literals; brackets, never a backslash, to continue a line;
+  f-strings, never `%` or `.format`.
 - A function over about 60 lines, or five or six steps, is split. Functions
   come in the order the pipeline uses them, each helper just above its first
   caller. No separator lines inside functions; a module not yet split by
