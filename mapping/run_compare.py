@@ -1,10 +1,5 @@
 """Young against adult in the adult CCF: maps and the per-structure table.
 
-Folds the hemispheres of the cohort volumes, compares the young cohort with
-the adults reading by reading, and writes into comparisons_v2/young_vs_adult/:
-volumes_ccf20.npz, slices_<reading>.png and .eps, region_table.csv and
-cortex_table.txt. The method is in sepmap/young_vs_adult/compare.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
@@ -34,6 +29,15 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
 
+Folds the hemispheres of the cohort volumes and compares the young cohort with
+the adults reading by reading (the method is in sepmap/young_vs_adult/compare.py).
+Writes, in comparisons_v2/young_vs_adult/ under the data root:
+
+    volumes_ccf20.npz     adult_*, young_*, log2_* maps, n maps, annot20 (AP, DV, ML half)
+    slices_<reading>.png  dorsal up, midline right, no data in grey; an .eps beside it
+    region_table.csv      per structure, every reading, both young groups
+    cortex_table.txt      the cortical areas, also printed
+
     python run_compare.py
 
 V2_READINGS, a comma-separated subset of the readings (ratio, sepratio,
@@ -50,7 +54,7 @@ from sepmap.young_vs_adult import compare
 
 
 def main():
-    """Young against adult in the adult CCF."""
+    """Print the readings in force, then compare and write the maps and tables."""
     # settings in force
     readings = " ".join(cohort.MODES)
     if os.environ.get("V2_READINGS", "").strip():
@@ -62,6 +66,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(description="young against adult in the adult CCF")
     parser.parse_args()
     main()
