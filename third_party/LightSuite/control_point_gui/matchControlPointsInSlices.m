@@ -413,11 +413,11 @@ switch eventdata.Key
             % dropping one alone would re-pair every later point.
             if size(h,1) >= idx, h(idx,:) = []; end
             if size(a,1) >= idx, a(idx,:) = []; end
+            gui_data.histology_control_points{gui_data.curr_slice} = h;
+            gui_data.atlas_control_points{gui_data.curr_slice}     = a;
             % a plugin's data per point is per row too
             gui_data = call_plugin(gui_data, 'edit', gui_fig, gui_data, ...
                 struct('slice', gui_data.curr_slice, 'row', idx));
-            gui_data.histology_control_points{gui_data.curr_slice} = h;
-            gui_data.atlas_control_points{gui_data.curr_slice}     = a;
             gui_data.sel_side = '';
             gui_data.sel_idx  = 0;
             gui_data.provisional(gui_data.curr_slice) = false;
@@ -1469,6 +1469,8 @@ function value = call_plugin(gui_data, event, gui_fig, value, info)
 if isempty(gui_data.plugin)
     return
 end
+% the window, also when a click handed the GUI the image that was clicked
+gui_fig = ancestor(gui_fig, 'figure');
 if nargin < 5
     info = struct();
 end
