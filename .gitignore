@@ -81,3 +81,9 @@ tools/venv_atlas/
 tools/venv_flat/
 tools/venv_dev/
 __pycache__/
+
+# Left at the code root by the refactor, since git moves only tracked files:
+# the engine's environment until it is moved by hand to
+# registration/auto_annotation/.venv, and the retired matcher's (archive/).
+/auto_annotation/.venv/
+/landmark_refine/.venv/
