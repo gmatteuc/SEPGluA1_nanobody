@@ -861,6 +861,11 @@ geometry; record which version processed which cohort.
   on and `perform_area_based_analysis_fine` off, the coarse block reads
   `half_width` before anything sets it. Both are off in production. Its
   comment beside the behavior subset still says "subselect 3 of ... 4".
+- `add_sep_channel.m:279`: since step 4 its panel title names
+  `run_register_to_atlas`, and the TeX interpreter draws the underscores as
+  subscripts; give the title `'Interpreter', 'none'`. Also in the register
+  code, an `annotated{end+1}` keeps the script form `%#ok<SAGROW>`, which a
+  function does not honour (style pass).
 - `v2_adult_arms` stops at its self-check before drawing
   `arms_consistency.png`, so the figure that would show a drift is missing
   exactly when the check fails (the table is written).
@@ -947,3 +952,16 @@ The style pass will add to this list.
   titles) or in the scalars cache's source date. Every other parameter is
   still a constant in its module, and `matplotlib.use` is still in the
   modules (style pass).
+- **1 Oct, step 5, registration** (`89a24c4` pure moves, `1d240a0`):
+  `run_register_to_atlas` and `run_add_sep_channel` keep their settings and
+  call `register_to_atlas` and `add_sep_channel` in `registration/pipeline/`
+  (parse trees identical to the old bodies). Four variables of the align
+  branch come from `load` without an output; none is a function on the path,
+  and the function's help says so for step 6. `verify_demba_setup` reads the
+  moved settings code. Reviewed for the GUI modes, which cannot run headless:
+  their windows keep their own state, nothing reads the old script's
+  variables. MG914 on the check tree against the reference: registered
+  volumes identical page for page, `transform_params.mat` the same, the
+  automatic proposal within the old-against-old spread (median 0.06 px).
+  Still to try by hand, after step 6 changes the GUI: annotate mode on MG914
+  in the check tree (the step 6 checklist).
