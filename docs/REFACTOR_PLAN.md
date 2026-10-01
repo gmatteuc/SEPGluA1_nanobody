@@ -533,10 +533,13 @@ with historical outputs inform rather than decide.
 ### What is compared with what
 
 - **Pass criterion.** Where the old code is deterministic, new must equal old:
-  tables and `.mat` values exactly, figures up to renderer noise. Registration
-  is not deterministic (elastix's sampler, `bsplineRegisterSlice.m:15`): new
-  against old must differ no more than old against old, on the voxelwise
-  correlation of the registered volumes per channel and on `errall`.
+  tables and `.mat` values exactly, figures up to renderer noise. Where it is
+  not, new against old must differ no more than old against old. Measured in
+  step 4: the registration of MG914 came out identical voxel for voxel in two
+  old runs and the new one, despite elastix's unseeded sampler; the automatic
+  proposal on the GPU is not reproducible (see the bug list), and two
+  Python outputs depend on string hashing or file dates (see the step-4
+  check below).
 - **Quick and full checks.** A quick check after each commit (the plasticity
   chain on the small set without videos, one brain through the Python
   per-mouse steps); the full small-set check at the end of each step, a few
@@ -845,6 +848,20 @@ geometry; record which version processed which cohort.
 - `v2_ish_compare` skips the old-against-new check silently when P9's summary
   is missing (to fail instead).
 - `v2_video.MIN_N` has no `young_P22` key (KeyError; fixed here, not in A10).
+- `v2_ish_words` gives slightly different bootstrap intervals (`gap_lo`,
+  `gap_hi`) from run to run: one random generator is shared across features in
+  the order they were collected from Python sets, which changes with each
+  run's string hashing (step 4 check: medians 0.004 apart, at most 0.19; every
+  feature, p and q identical). Iterate the features sorted.
+- The automatic annotation's matcher is not reproducible on the GPU: two runs
+  of the same code on MG914 moved the proposed points by a median of 0.07 px,
+  at most 13 px (atlas landmarks identical). Ask PyTorch for deterministic
+  algorithms in the engine; the proposals are reviewed by hand anyway.
+- `v2_adult_arms`' consistency check against `v2_region_plot` compares values
+  stored to 4 decimals with `<=` half the last digit (5.0e-05) and no margin for
+  floating-point error, so it fails when a difference lands exactly on the
+  bound (5.000e-05 in the step-3 reference run); the table is written before
+  it stops.
 - `v2_video`'s reliability t uses n = max(nL, nR), which overstates n when the
   two hemispheres come from different mice.
 - The `ratio` reading's level depends on exposure: the zero line in
@@ -865,3 +882,35 @@ geometry; record which version processed which cohort.
   `bk/LightSuite.txt` (copied into the README in step 4).
 
 The style pass will add to this list.
+
+## Progress
+
+- **30 Sep, step 0** (`6a29c37`, `c2e4cdc`, `8f16f14` on `main`): the data-root
+  variable and its guards in both languages, the P4 align guard, the
+  verification tools, frozen environments, the plan documents.
+- **30 Sep, step 2**: snapshot refreshed (2,156 files, 7.2 GB, nothing
+  deleted); tags `refactor-start` (`c2e4cdc`) and `grant-2026-09` (`04c0484`)
+  pushed; check trees `G:\sep_refactor\ref` and `G:\sep_refactor\check`.
+- **1 Oct, step 3**: the reference run of the old code on the small set, all
+  stages. Old code bugs met on the way: `v2_adult_arms`' self-check (in the
+  bug list).
+- **1 Oct, S6, informative**: today's P7bis on the inputs of the approved
+  December 2025 figures reproduces them (slab t maps and surprise masks
+  correlate 0.997 to 0.998 for RWS, 0.988 to 0.999 for behavior; individual
+  maps 1.000000; regional bars 0.994 to 0.998). The residue comes from the
+  background masks, which were regenerated since. The S1 increase is there.
+- **1 Oct, step 4** (branch `refactor`: `a50bc66` pure moves, `3a735f0` paths
+  and references, `e37d6bc`, `684ce64`): passed. Code identity shows only the
+  intended files changed; the path test finds no clash. Run on the check tree
+  and compared with the reference:
+  - plasticity chain: every `.mat` and every P7bis output identical; 11
+    diagnostic PNGs differ by 1 or 2 anti-aliasing pixels;
+  - Python route: 817 of 825 files identical, and the same step fails
+    (`v2_adult_arms`); the rest is expected or old-code non-determinism: the
+    `*_scalars.npz` caches store their source's file date, the diagnostics
+    index and sheet 08's title name the renamed scripts, `v2_ish_words`'
+    bootstrap bounds move with string hashing (bug list);
+  - registration of MG914: identical voxel for voxel (old, old and new), its
+    transform file identical; the automatic proposal moves by a median of
+    0.06 px between old and new, less than between two runs of the old code
+    on the GPU (0.07 px median, 13 px at most; bug list).
