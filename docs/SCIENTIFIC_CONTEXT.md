@@ -11,20 +11,20 @@ Those are marked provisional.
 
 ## The question
 
-AMPA receptors carry most fast excitatory transmission in the brain, and each
-is built from four core subunits, GluA1 to GluA4 (Lopez-Ortega et al. 2024).
-Regulating their function and their traffic to and from the membrane is
-critical for many forms of synaptic plasticity, and GluA1-containing receptors
-are recruited to spines after long-term potentiation (Huganir & Nicoll 2013).
-Current models of LTP need a sizeable pool of receptors already on the cell
-surface (Huganir & Nicoll 2013).
+AMPA receptors carry most fast excitatory transmission in the brain. They are
+assembled from combinations of four core subunits, GluA1 to GluA4
+(Lopez-Ortega et al. 2024). Regulating their function and their traffic to and
+from the membrane is critical for many forms of synaptic plasticity, and tagged
+GluA1 is recruited to spines after long-term potentiation (Huganir & Nicoll
+2013). A sizeable surface pool of receptors is a recurring requirement of
+current models of LTP (Huganir & Nicoll 2013).
 
 The grant this project serves uses surface GluA1 as a molecular readout of
 synaptic remodelling potential: a proxy for plasticity potential, not a
 definitive marker of critical periods.
 
-The project maps surface GluA1 across the whole mouse brain and asks four
-questions of the map:
+The project maps the nanobody signal, in principle surface GluA1, across the
+whole mouse brain and asks four questions of the map:
 
 1. Where does an experience change it?
 2. How is it distributed in the adult brain, and how reproducible is that
@@ -42,7 +42,12 @@ questions of the map:
   detergent, to keep the label on the membrane and away from intracellular
   receptor pools, and the GFP part of SEP-GluA1 amplified with a GFP-booster
   nanobody. In preliminary preparations this showed surface GluA1 with no
-  detectable intracellular labelling (grant, Fig. 3a).
+  detectable intracellular labelling (grant, Fig. 3a). The project's own
+  records do not agree on this: the header of `run_add_sep_channel.m` calls
+  the tissue fixed and permeabilised, and an April note reads nano in fixed
+  tissue as total SEP-GluA1, not strictly surface. Which holds for these
+  brains is to be confirmed from the staining protocol; until then the map is
+  called the nanobody signal, in principle surface GluA1.
 - **Channels.** Each section is recorded in four channels: DAPI (nuclei), the
   nanobody (Cy5, called nano), autofluorescence (Cy3, called auto) and the
   green channel of SEP itself (filter EGFP).
@@ -78,13 +83,18 @@ questions of the map:
   compared voxel by voxel, with Welch t and surprise (-log10 p) maps.
 - **Result.** The headline is an increase of the nanobody signal in S1 after
   RWS, in the hemisphere-sum t map of the slab around plane 565, masked at
-  p < 0.01. The increase is small. It is where plasticity caused by whisker
-  stimulation was expected.
-- **Reproduced.** On 1 October 2026 today's code was rerun on the preserved
-  inputs of that run. The slab t maps and surprise masks correlate with the
+  p < 0.01. That threshold is uncorrected and applied voxel by voxel, on maps
+  smoothed in 3D (Gaussian, sigma 5 voxels), with five mice per group; the
+  figure shows the median over planes 555 to 575. The increase is small. It is
+  where plasticity caused by whisker stimulation was expected.
+- **Reproduced.** On 1 October 2026 today's group-difference step was rerun
+  on the normalised volumes of 26 and 27 November 2025, the inputs of the
+  approved run. The slab t maps and surprise masks correlate with the
   approved ones at 0.997 to 0.998 for RWS (0.988 to 0.999 for behaviour), the
-  regional bars at 0.994 to 0.998, and the S1 increase is there. This checks
-  the computation on the same mice; it is not a replication in new animals.
+  regional bars at 0.994 to 0.998, and the S1 increase is there. The small
+  residue comes from the background masks, which were regenerated since.
+  This checks the computation on the same mice; it is not a replication in
+  new animals.
 - **Status.** The team was not fully confident that the effect is robust, and
   more animals would be a large investment, so the line is paused, not
   closed. The code stays runnable, with identical results, and documented
@@ -100,8 +110,7 @@ questions of the map:
   enter only the plasticity comparison.
 - **Reproducibility.** Over the 126 ways of splitting the ten adults into two
   halves of five, the two half-cohort maps agree at rho 0.974 over 125
-  grey-matter structures (Spearman-Brown 0.987 for the full cohort). Every
-  pair of single mice agrees, at a median rho of 0.780 (worst 0.595). The
+  grey-matter structures (Spearman-Brown 0.987 for the full cohort). The
   autofluorescence of the same brains explains none of the map
   (cross-validated R² -0.043).
 - **Being rebuilt.** Which structures stand out, and with what confidence, is
@@ -141,9 +150,11 @@ reliability (the ceiling, 97.4% of the variance):
   (Spearman-Brown 0.966), almost as well as the map itself.
 - Seven controls tried to break this: a spatial gradient, structure size,
   single animals, naive against RWS, curvature, the whole gene space and the
-  choice of reading. The curvature control failed the first time: fitted with
-  straight lines, a fifth of the map was credited to the leftover. The model
-  was changed to allow curvature, and the claim fell from about half to 39%.
+  choice of reading. For single animals, the leftovers of every pair of mice
+  agree, at a median rho of 0.780 (worst 0.595). The curvature control failed
+  the first time: fitted with straight lines, a fifth of the map was credited
+  to the leftover. The model was changed to allow curvature, and the claim
+  fell from about half to 39%.
 - The richest model tried, 20 components of the whole 390-gene panel, reaches
   a cross-validated R² of 0.826 (85% of the ceiling). Its leftover still
   replicates at 0.879.
@@ -165,33 +176,33 @@ reliability (the ceiling, 97.4% of the variance):
   hand-picked genes and found AMPA receptor trafficking and anchoring genes,
   Cacng8 first, above Gria1 itself.
 - The Python route reproduces that ranking (rho 0.91 against the old
-  ordering). Cacng8 (TARP γ-8) is first under every reading and every
-  structure set tried (rho 0.77 to 0.82).
-- Gria1's own rank depends on which structures enter: 10th of 95 with all
-  structures, 17th when each structure must be seen in at least five adults.
-  It is not quoted until the declared structure set is in place.
-- One Allen map is more reliable than assumed. For the 218 genes measured more
-  than once, the median agreement between experiments is rho 0.69, and
-  Gria1's map scores 0.91. Gria1 ranking below Cacng8 is not a bad Gria1
-  experiment.
+  ordering). Cacng8 (TARP γ-8) is first under every reading. Under `zref` it
+  stays first in every structure set tried, at rho 0.77 to 0.82.
+- Gria1's own rank moves with the structure set. It is not quoted until A1 to
+  A3 have run (S5 in the plan).
+- A single Allen ISH experiment is more reliable than assumed. For the 218
+  genes measured more than once, the median agreement between experiments is
+  rho 0.69, and Gria1's map scores 0.91. Gria1 ranking below Cacng8 is not a
+  bad Gria1 experiment.
 - Cacng8 above Gria1 is a single-gene result. On the 100-gene panel, the
-  subunit genes (median rho +0.58) correlate better with the map than the
-  localisation genes (+0.385). Splitting the same 19 genes by function does no
-  better than splitting them at random (exact permutation, p = 0.49).
+  subunit genes as a group correlate better with the map than the
+  localisation genes. Splitting the same 19 genes by function does no better
+  than splitting them at random (an exact permutation over every split).
 - **The powered test is negative.** A 390-gene panel was built from Gene
   Ontology terms, not by hand. Once the subunit composite is removed, the 84
   AMPA receptor localisation genes explain no more of the map than
-  expression-matched postsynaptic genes: difference -0.010, p = 0.74, where a
-  difference of ±0.062 would have been detected. As a positive control, the
-  same test detects the difference between control genes of high and low map
-  reliability (+0.155, p = 0.0007), so the negative is informative. Genes
-  such as Arpc5 and Cdk5r1, which have nothing to do with AMPA receptor
-  traffic, sit in the same band as Cacng8. The map is predicted about equally
-  well by any well-measured forebrain postsynaptic gene.
-- **Provisional.** These ISH numbers were computed on the unrestricted
-  structure set; A1 to A3 rerun them. Their p values are anticonservative,
-  because genes within a set are co-expressed (Fulcher et al. 2021); a
-  spatial null is planned (A7).
+  expression-matched postsynaptic genes. As a positive control, the same test
+  detects the difference between control genes of high and low map
+  reliability, so the negative is informative. Genes such as Arpc5 and
+  Cdk5r1, which have nothing to do with AMPA receptor traffic, sit in the same
+  band as Cacng8. The map is predicted about equally well by any
+  well-measured forebrain postsynaptic gene.
+- **Provisional.** These ISH results were computed on the unrestricted
+  structure set; A1 to A3 rerun them. Under S5 the numbers of the powered
+  test and of the permutation are held back until then; the values computed
+  so far are in `docs/adult_ish_design.md`. Their p values are
+  anticonservative, because genes within a set are co-expressed (Fulcher et
+  al. 2021); a spatial null is planned (A7).
 
 **The green channel is not total receptor.**
 
@@ -210,8 +221,11 @@ reliability (the ceiling, 97.4% of the variance):
 - **What remains.** With Gria1 mRNA partialled out of the nano map (`ratio`
   reading), anchoring and trafficking genes still predict the remainder
   (Cacng8 +0.54, Cnih2 +0.50; median +0.12 over 33 genes, 20 of them
-  positive). This is suggestive, not decisive: mRNA is not protein, and a
-  regional gradient of translation or turnover would look the same.
+  positive). This is weak, and not decisive. The median is small, and the
+  powered test above shows that other well-measured postsynaptic genes predict
+  the map about as well, so it is not specific to anchoring or trafficking.
+  And mRNA is not protein: a regional gradient of translation or turnover
+  would look the same.
 - **What would settle it.** A wet-lab control: a total-GluA1 antibody stain
   or autoradiography on a subset of the same brains. A knockout or
   no-primary control would test specificity instead. There is no knockout or
@@ -236,39 +250,55 @@ reliability (the ceiling, 97.4% of the variance):
 - **Only the pattern can be compared.** Young and adult brains were imaged in
   different sessions. The autofluorescence used as an internal standard rises
   with age itself. Nano per unit autofluorescence is lower in young cortex
-  (-0.4 to -1.0 log2), but that is a bound, not a value.
+  (-0.4 in retrosplenial to -1.2 log2 in frontal cortex), but that is a
+  bound, not a value.
 - **The young brain is flatter.** The spread of its structures (p90 - p10 of
-  log2 nano relative to cortex) is 0.98 log2, against 1.93 in adults. `zref`
-  removes this per brain, so a zref difference is a difference of positions
-  within each brain's own range, not a fold change (see Terms).
+  log2 nano relative to cortex) is about half the adult one: 0.9 to 1.0 log2
+  in young brains against 1.8 to 1.9 in adults, depending on which brains
+  and which structures enter. `zref` removes this per brain, so a zref
+  difference is a difference of positions within each brain's own range, not
+  a fold change (see Terms).
 - **By system** (7 young against 10 adults, `cref`, log2 young minus adult,
-  group medians; Mann-Whitney p < 0.01, uncorrected, unless marked):
-  somatosensory +0.21, retrosplenial +0.24, frontal -0.42, striatum -0.79,
-  hippocampus -1.03; primary visual -0.06, not significant.
+  group medians from `group_stats.csv`; Mann-Whitney p < 0.01, uncorrected,
+  unless marked): primary somatosensory +0.21, retrosplenial +0.24, frontal
+  -0.42, striatum -0.79, hippocampus -1.03; primary visual -0.06, not
+  significant. The reading matters: hippocampus is -1.03 under `cref` and
+  +0.49 under `zref`.
 - **RL and AL.** RL and AL together, the visuo-tactile areas of the grant,
-  are the only visual group that survives correction: `zref` +0.23
+  are the only visual group that survives correction under `zref`: +0.23
   (p = 0.0007, q = 0.014), against -0.01 between naive and RWS adults; the
-  P20 brains alone give +0.34. V1 shows no difference (`zref` +0.07,
-  q = 0.35).
-- **By layer.** In every sensory system, primary and higher order alike, the
-  supragranular layers hold a larger share of the signal in young brains
-  (+0.15 to +0.32) and the infragranular layers the same or a smaller one
-  (-0.13 to -0.22). In RL+AL both the supragranular layers (+0.28) and
-  layer 4 (+0.27) are higher (q = 0.006 each), while layer 4 is flat in V1 and
-  in the other visual areas: RL and AL have a laminar profile closer to
-  somatosensory cortex than to V1.
-- **The most robust number.** The supragranular-minus-infragranular contrast
-  is positive in every system under all five readings (+0.09 to +0.44). It
-  cancels any scale factor of a brain (exposure, staining strength, the
-  choice of denominator).
+  P20 brains alone give +0.34. This holds under `zref` only: under `cref`,
+  which is blind to a shift of the whole cortex, RL+AL is +0.08 (p = 0.36).
+  V1 shows no difference (`zref` +0.07, q = 0.35).
+- **By layer.** Under `cref`, in every sensory system, primary and higher
+  order alike, the young-minus-adult difference is larger in the
+  supragranular layers (+0.11 to +0.30) than in the infragranular ones. The
+  infragranular layers are lower in young brains in the visual and auditory
+  systems (-0.13 to -0.25), but slightly higher in somatosensory cortex
+  (SSp +0.07, SSs +0.11). Under `zref`, RL+AL is higher in both the
+  supragranular layers (+0.28) and layer 4 (+0.27, q = 0.006 each), while
+  layer 4 does not differ in V1 or in the other visual areas (+0.13 and
+  +0.15, q ≥ 0.11): RL and AL have a laminar profile closer to somatosensory
+  cortex than to V1.
+- **The laminar contrast.** Taken per mouse, the supragranular-minus-
+  infragranular contrast is larger in young brains in every laminar system
+  under `cref` (+0.05 in frontal to +0.51 in RL+AL; p < 0.05 in seven of the
+  nine systems, uncorrected). It cancels any scale factor of a brain
+  (exposure, staining strength, the choice of reference), so `subref` gives
+  the same values and `zref` the same signs. Under `ratio` and `sepratio`,
+  whose denominators vary between layers, it is not positive everywhere: it
+  is negative in frontal cortex and in the higher visual areas under both,
+  and about zero in retrosplenial cortex under `ratio`. These values were
+  recomputed for this document; no output of the code holds them yet.
 - **A critical period cannot be claimed yet.** Two ages cannot show a window.
   V1, where the classic mouse critical period sits (Levelt & Hübener 2012),
-  shows no difference at P16 to P22, while somatosensory cortex shows the
-  largest. And the superficial-layer excess is also what the later maturation
-  of the superficial layers alone would give. The P28 to P36 brains can
-  separate the two: if V1's superficial excess peaks near P28 and falls by
-  P36 while S1 has already declined, that is a window moving across
-  modalities; the same decline everywhere at the same rate is maturation.
+  shows no difference at P16 to P22, while among the sensory systems
+  somatosensory cortex shows the largest. And the superficial-layer excess is
+  also what the later maturation of the superficial layers alone would give.
+  The P28 to P36 brains can separate the two: if V1's superficial excess
+  peaks near P28 and falls by P36 while S1 has already declined, that is a
+  window moving across modalities; the same decline everywhere at the same
+  rate is maturation.
 - **Registration caveats.** Registration is driven by DAPI, whose cell
   packing falls between P20 and adulthood. In the P20 atlas, 19% of the volume
   that is fibre tract in the adult atlas is labelled isocortex, so results
@@ -388,10 +418,12 @@ dendritic plateau potentials in vivo. *Nature* 515:116-119. `Gambino_2014.pdf`
   NMDA-receptor plateau potentials, and these depend on the posteromedial
   thalamic nucleus (POm).
 - Here: the protocol behind the RWS group, and the reason S1 was where its
-  effect was expected. The plasticity comparison's regional figures highlight
-  the barrel field, VPM and the posterior thalamic complex. The paper
-  measures potentiation of single cells over minutes in anaesthetised mice;
-  it does not measure surface GluA1.
+  effect was expected. The regional surprise bars of the plasticity
+  comparison highlight the same six areas for RWS and for behaviour: the
+  barrel field, the supplemental somatosensory area, VPM, the posterior
+  thalamic complex, the zona incerta and the rostrolateral visual area. The
+  paper measures potentiation of single cells over minutes in anaesthetised
+  mice; it does not measure surface GluA1.
 
 ### Critical periods
 
@@ -401,11 +433,14 @@ cortex. *Annu Rev Neurosci* 35:309-330. `Levelt_2012.pdf`
 - Review of ocular-dominance plasticity, mostly in rodent V1. In mice it is
   strongest at the end of the fourth postnatal week; P28 to P32 is generally
   taken as the critical period. The maturation of inhibitory circuits opens
-  it; what ends it is less clear. Plasticity exists well before and long
-  after the peak, and closure is often gradual.
+  it; what ends it is less clear. For the closing, it reviews the receptors
+  of myelin-associated growth inhibitors (Nogo-66 receptor, PirB), the
+  extracellular matrix and perineuronal nets, the epigenetic regulation of
+  CREB-mediated transcription, and neuromodulatory inputs. Plasticity exists
+  well before and long after the peak, and closure is often gradual.
 - Here: the reference timing for V1. The young brains analysed so far are
   P16 to P22, before that peak, and V1 shows no young-adult difference; the
-  P28 brains sit at the peak. The mechanisms it reviews are inhibitory. The
+  P28 brains sit at the peak. The review does not discuss AMPA receptors. The
   grant treats surface GluA1 as a proxy for plasticity potential, not a
   definitive marker of critical periods.
 
@@ -492,9 +527,9 @@ common coordinate framework. *Nat Commun* 15:9072. `Kronman_2024.pdf`
 - DevCCF: templates at E11.5, E13.5, E15.5, E18.5, P4, P14 and P56, from MRI
   and light-sheet data, with developmental labels following the prosomeric
   model, and the CCFv3 registered into its P56.
-- Here: it has no template between P14 and P56, so on its own it would have
-  put every young brain on an adult template. DeMBA's DevCCF labels come from
-  it.
+- Here: it has no template between P14 and P56, so on its own it offers no
+  age-matched template for the P20 to P36 brains. DeMBA's DevCCF labels come
+  from it.
 
 **Chon U, Vanselow DJ, Cheng KC, Kim Y (2019).** Enhanced and unified
 anatomical labeling for a common mouse brain atlas. *Nat Commun* 10:5067.
@@ -526,15 +561,16 @@ The run order of the Python route is in the header of every `mapping/run_*.py`.
 
 - **P-numbers.** In an age, a cohort tag or an atlas key, `P<n>` is
   postnatal day n (P20, `young_P20`, `demba_p20`). The old script names P0 to
-  P10 (P4, P6bis, P7bis) were pipeline steps; the refactor renames them
-  `run_...`, and the table of old and new names goes into
-  `docs/ADDING_DATA.md`.
+  P10 (P4, P6bis, P7bis) were pipeline steps. The refactor renames the
+  drivers `run_...`; P8, P9 and P10 keep their names until A1 to A5 replace
+  them. The table of old and new names goes into `docs/ADDING_DATA.md`.
 - **Channels.** At acquisition the files carry dye names (`chan02_Cy5` for
   nano, `chan03_Cy3` for auto); after registration, role names
   (`chan01_DAPI`, `chan02_NANO`, `chan03_AUTO`, `chan04_DIFF`,
   `chan05_MASK`).
-  - **nano**: the nanobody label of surface SEP-GluA1. The registered NANO is
-    the slice-equalised nano of `run_nano_equalisation`.
+  - **nano**: the nanobody label of SEP-GluA1, in principle of the surface
+    receptors (see the method). The registered NANO is the slice-equalised
+    nano of `run_nano_equalisation`.
   - **auto**: autofluorescence. The registered AUTO is fitted onto the nano
     slice by slice (slope and intercept on reference pixels,
     `run_residual_correction`).
@@ -567,7 +603,8 @@ The run order of the Python route is in the header of every `mapping/run_*.py`.
   brain's structures. Zero is the brain's median structure, mostly
   subcortical, not a physical null. One unit is that brain's own spread. A
   zref difference is already a difference of logs and cannot be converted to
-  a fold change: +1 is about 2x in a young brain and about 3.8x in an adult.
+  a fold change: with the spreads of line 4, +1 is about 2x in a young brain
+  and 3.5x to 3.8x in an adult.
   Quote numbers from the tables and use the maps for the pattern (over 238
   areas the two agree at r = 0.985, but the maps read lower).
 - **LR-sum and LR-diff** (MATLAB route, `common/compute_lr_stats.m`): left
@@ -591,8 +628,10 @@ The run order of the Python route is in the header of every `mapping/run_*.py`.
   young brain needs `px_atlas = 20`. CCF Translator
   (`brainglobe-ccf-translator`) carries a young brain to the CCF.
 - **RWS.** Rhythmic whisker stimulation, as in Gambino et al. 2014.
-- **Structure sets.** The beyond-abundance analysis uses grey-matter
-  structures only and no "..., unassigned" labels (125 structures). The plan's
+- **Structure sets.** The beyond-abundance analysis keeps grey-matter
+  structures seen in all ten adults, with no "..., unassigned" labels, that
+  the ISH maps of the subunit and marker genes cover and that have
+  autofluorescence values in every adult (125 structures). The plan's
   declared set (S1) keeps grey-matter structures seen in all ten adults, 234
   of 280.
 - **Reliability and Spearman-Brown.** Agreement between two independent
