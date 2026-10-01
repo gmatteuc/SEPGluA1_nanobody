@@ -5,16 +5,22 @@ start of step 7 changed, what to decide, and what was left for later.
 
 ## What was written
 
-- `docs/STYLE.md` (1,318 lines): shared rules, the MATLAB half (the imaging
-  repository's guide adapted, Y6, with a table of where the P8/P10
-  conventions differ and which wins), the Python half (the draft finalised:
-  Y1, Y2, Y5, Y7), and the rules of the style pass. A rule that holds in
-  both languages is stated once, in Shared rules; each half keeps the
-  language's form of it and the quotes the style pass needs (Y7). The
-  Python half is 740 lines against the draft's 893 (without its section on
-  applying the guide, now the style pass): 17% shorter. The MATLAB half is
-  233 lines against the imaging guide's 177, because of the project's own
-  rules and the table. `docs/STYLE_python_draft.md` is removed.
+- `docs/STYLE.md` (439 lines): shared rules (108 lines), the MATLAB half
+  (108: the imaging repository's guide adapted, Y6, with a table of where
+  the P8/P10 conventions differ and which wins) and the Python half (199: the
+  draft finalised, Y1, Y2, Y5, Y7). A rule that holds in both languages is
+  stated once, in Shared rules; each half keeps the language's form of it,
+  with one short example per rule, quoted from the reference examples or
+  the reference projects (Y7). A first version ran to 1,318 lines; the
+  condensed one keeps every rule and drops the repetition, the extra
+  examples, the line citations into the reference projects and the
+  explanations a reader does not need to follow a rule.
+  `docs/STYLE_python_draft.md` is removed.
+- `docs/STYLE_PASS.md` (292 lines), temporary, deleted when step 7 is done:
+  the procedure of the style pass (kinds A, B and C of change, the checks
+  for each file), the code of the reference examples not to copy, what
+  applies to old code only, the reference projects' habits the guide does
+  not follow, the pipeline README template and the environment recipes.
 - `ruff.toml` at the root: line length 90, Python 3.12, rules E, W, F,
   double quotes, `third_party` and `archive` excluded.
 - The four reference examples, restyled. Only comments, headers,
@@ -148,8 +154,9 @@ def fold_n(n):
    hand rules. Its one cost here is visible above: a long conditional
    expression is spread over several lines, which the guide's own rule then
    turns into `if`/`else` (kind B). **Recommendation: keep `ruff format`.**
-   Without it, delete the `[format]` table of `ruff.toml` and the Layout
-   section's first bullet; the reference files stay valid.
+   Without it, delete the `[format]` table of `ruff.toml`, the first bullet
+   of the Python half's Layout and naming, and `ruff format` in STYLE_PASS.md
+   (kind A, Python check 4); the reference files stay valid.
 2. **MATLAB settings in lower case.** The imaging guide writes settings in
    upper case (`SESSIONS`). The guide keeps `snake_case` as a project rule:
    each setting goes to the pipeline function under its own name, and
@@ -186,14 +193,14 @@ def fold_n(n):
 6. **Who does the structural changes.** The plan leaves `matplotlib.use` and
    the module constants "for the style pass" (Progress, step 5, Python
    route), while the guide's first version put them outside it, so no step
-   owned them. The guide now has a kind C for them: structural changes
+   owned them. STYLE_PASS.md now has a kind C for them: structural changes
    (backend into the run scripts, constants into `settings.toml`, `pathlib`,
    merging the five `save_figure` and the three `fold_n`, a plotting module
    and a MATLAB palette function, splitting the functions still over 60
    lines), each in its own commit after the kind A and B commits of the
    files it touches, each checked by a rerun. The alternative is a named step
-   between 7 and 8. **Recommendation: kind C inside step 7, as the guide now
-   says; the plan's step 7 then names it.**
+   between 7 and 8. **Recommendation: kind C inside step 7, as STYLE_PASS.md
+   now says; the plan's step 7 then names it.**
 
 Decided in the guide while reconciling the earlier conventions, to confirm:
 
@@ -238,12 +245,12 @@ Renames of names used outside their module:
 Also: the `log2_zref` column of `region_table.csv` holds a difference, not a
 log2 ratio (a column name, so it stays unless the table changes anyway).
 
-Code changes the guide's "do not copy" list names: `clear all` (choice 3);
-in `compare.py`, imports in isort order with `LinearSegmentedColormap` at
-the top, the four multi-line conditional expressions into `if`/`else` and
-type hints (kind B), and the backend, `os.path`, `SMOOTH` and the 100-voxel
-minimum, the settings table, the drawing and `save_figure`, and the two long
-functions (kind C, choice 6).
+Code changes the "do not copy" list (STYLE_PASS.md) names: `clear all`
+(choice 3); in `compare.py`, imports in isort order with
+`LinearSegmentedColormap` at the top, the four multi-line conditional
+expressions into `if`/`else` and type hints (kind B), and the backend,
+`os.path`, `SMOOTH` and the 100-voxel minimum, the settings table, the
+drawing and `save_figure`, and the two long functions (kind C, choice 6).
 
 ## Possible bugs noticed (for the plan's bug list)
 
@@ -268,6 +275,7 @@ functions (kind C, choice 6).
 - `docs/REFACTOR_PLAN.md` (line 22) links to `STYLE_python_draft.md`, which
   no longer exists; to update where the plan is maintained.
 - The plan's rule puts "the style-pass commits" into
-  `.git-blame-ignore-revs`. The guide narrows it to kind A commits: kind B
-  and C change code, and blame should show them.
-- Step 7 of the plan to name kind C, if choice 6 is taken.
+  `.git-blame-ignore-revs`. STYLE_PASS.md narrows it to kind A commits: kind
+  B and C change code, and blame should show them.
+- Step 7 of the plan to name kind C, if choice 6 is taken, and to point to
+  `docs/STYLE_PASS.md` for its procedure.

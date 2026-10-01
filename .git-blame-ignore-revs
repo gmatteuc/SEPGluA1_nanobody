@@ -1,5 +1,6 @@
 # Commits that change only comments and layout (kind A of the style pass,
-# docs/STYLE.md). To use them: git config blame.ignoreRevsFile .git-blame-ignore-revs
+# docs/STYLE_PASS.md while step 7 runs), so that git blame skips them.
+# To use them: git config blame.ignoreRevsFile .git-blame-ignore-revs
 
 # Restyle the four reference examples: comments and layout only
 a87882a1f51ab7a0009a6be2eb4b884f73281cd7
