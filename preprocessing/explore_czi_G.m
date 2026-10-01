@@ -6,9 +6,16 @@
 % (third_party\BioformatsImage):
 % Run sep_setup_paths first, once per MATLAB session.
 
-% Define the folder path and select a file (change as needed)
+%% User-defined parameters
+
+% The .czi files to look into: the folder that holds them and their names.
+% They are only read, so the folder can be on the lab share (raw data,
+% read-only) or a mouse folder of the local copy (data\<group>\<mouse>\, see
+% run_copy_raw_data).
 folderPath = 'S:\ElboustaniLab\#SHARE\Data\MG705_Gria1\Anatomy\Axioscan\20250706\';
 fileNames = {'MG705_SEP_nAB_2WD_1.czi', 'MG705_SEP_nAB_2WD_2.czi', 'MG705_SEP_nAB_2WD_3.czi'};
+
+%% Explore the files
 
 % Loop over each file
 for f = 1:length(fileNames)

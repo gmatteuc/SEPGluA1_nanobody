@@ -1,38 +1,14 @@
-close all
-clear all
-clc
+function extract_and_center(run_settings)
+%EXTRACT_AND_CENTER  Extract and centre the sections of the selected mice.
+%   EXTRACT_AND_CENTER(run_settings) does the work of
+%   run_extract_and_center, which sets the fields of run_settings
+%   (groups_to_process, mice_to_process, atlas_key) and says what each one
+%   does.
 
-% /// Pipeline script #1: extracts data from raw .czi files and save centered volumes for further processing  ///
-% For each selected mouse:
-%   (1) Reads local_settings.txt (falls back to LightSuite internal defaults)
-%   (2) Scans the .czi files and detects valid scenes (getSliceInfo)
-%   (3) Extracts and centers all channels at px_process resolution, writing
-%       volume_centered\chanXX_*.tiff plus volume_for_ordering.tiff
-%   (4) Writes volume_ordered.tiff from the slice-ordering decisions file if
-%       one exists, otherwise identity ordering
-%
-% Steps (1)-(3) are fully automatic. The MANUAL reorder/flip/discard step
-% (SliceOrderEditor, commented at the bottom) comes after; re-running this
-% script then applies the saved decisions.
-%
-% Mice come from the shared registry get_cohort.m rather than a hardcoded
-% list, so every cohort (rws / naive / behavior / young) runs through the
-% identical code path.
-%
-% Run sep_setup_paths first, once per MATLAB session.
-
-%% User-defined parameters
-
-% Cohort selection. Set mice_to_process to {} to process every mouse in
-% groups_to_process; give explicit names to process just those.
-groups_to_process = {'young'};                  % 'rws' | 'naive' | 'behavior' | 'young'
-mice_to_process   = {'MG909_SepGluA_P20', 'MG910_SepGluA_P20', 'MG911_SepGluA_P16', ...
-                     'MG912_SepGluA_P20', 'MG913_SepGluA_P20', 'MG914_SepGluA_P28'};
-                                                % {} = all mice in groups_to_process
-                                                % the first eight are already extracted
-
-% Reference atlas (not used for extraction itself, only added to the path)
-atlas_key = 'ccf';
+% The settings of run_extract_and_center, under the names the code below uses
+groups_to_process = run_settings.groups_to_process;
+mice_to_process = run_settings.mice_to_process;
+atlas_key = run_settings.atlas_key;
 
 %% Add paths
 
@@ -129,6 +105,8 @@ if isempty(failed_mice)
 else
     fprintf('\nP1 finished with %d failure(s): %s\n', ...
         numel(failed_mice), strjoin(failed_mice, ', '));
+end
+
 end
 
 %% Local function: locate local_settings.txt for a mouse

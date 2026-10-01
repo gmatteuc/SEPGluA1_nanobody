@@ -1,23 +1,28 @@
-clear all
-close all
-clc
+function annotate_artifacts(run_settings)
+%ANNOTATE_ARTIFACTS  Open the artifact annotation window on each selected mouse.
+%   ANNOTATE_ARTIFACTS(run_settings) does the work of
+%   run_annotate_artifacts, which sets the fields of run_settings (paths,
+%   groups_to_process, mice_to_process, correction_type) and says what each
+%   one does.
+%
+%   ArtifactAnnotator holds MATLAB (uiwait) until its window is closed, then
+%   the next mouse opens, as in the script. The window keeps what it needs
+%   in its own data and saves the masks itself, so nothing it does depends
+%   on this function's variables.
+%
+%   Each mouse's scaled_auto_volume_<correction_type>.mat is loaded with
+%   load() and no output, so the variables passed to the window
+%   (scaledautoVol, nanoVol, bg_mask_vol, slice_data) are assigned nowhere
+%   in the code: a function finds them only because no function on the
+%   path has their names. The file also holds correction_type, which
+%   replaces the setting (with the same value) when it is loaded, as it did
+%   in the script.
 
-% /// Pipeline script #3: display outputs of residual correction anlaysis in a GUI where user can annotate artifact for future removal /// 
-% Run sep_setup_paths first, once per MATLAB session.
-
-%% User-defined parameters
-
-% Where the project lives. Derived from the location of the code rather than
-% written out, so the tree can be moved or copied to another drive as is.
-paths = get_paths();
-
-% Cohort selection (mice come from the shared registry get_cohort.m).
-% Set mice_to_process to {} to process every mouse in groups_to_process.
-groups_to_process = {'young'};                  % 'rws' | 'naive' | 'behavior' | 'young'
-mice_to_process   = {'MG903_SepGluA_P20'};      % {} = all mice in groups_to_process
-
-% Choose correction type
-correction_type = 'slicewise';
+% The settings of run_annotate_artifacts, under the names the code below uses
+paths = run_settings.paths;
+groups_to_process = run_settings.groups_to_process;
+mice_to_process = run_settings.mice_to_process;
+correction_type = run_settings.correction_type;
 
 %% Resolve cohort
 
@@ -62,5 +67,7 @@ for mouse_idx = 1:numel(cohort)
 
     % Clear per-mouse variables to save memory
     clear scaledautoVol nanoVol bg_mask_vol slice_data average_slope average_intercept
+
+end
 
 end

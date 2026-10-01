@@ -1,39 +1,14 @@
-close all
-clear all
-clc
+function copy_raw_data(run_settings)
+%COPY_RAW_DATA  Copy the raw .czi files of the selected mice from the lab share.
+%   COPY_RAW_DATA(run_settings) does the work of run_copy_raw_data, which
+%   sets the fields of run_settings (groups_to_process, mice_to_process,
+%   share_root, do_copy) and says what each one does.
 
-% /// Pipeline script #0: copy raw .czi from the lab share to local storage ///
-% For each selected mouse:
-%   (1) Resolves the source dir on the share, honouring the per-mouse
-%       share_subdir in the registry (some brains keep their .czi under
-%       Anatomy\Axioscan, others at the mouse root)
-%   (2) Copies *.czi into <base_root>\<group>\<name>\ so every downstream
-%       script sees ONE layout, with the .czi at the mouse root
-%   (3) Verifies each file arrived with a byte-identical size
-%
-% WHY THIS EXISTS: the raw data on the share is READ-ONLY, and getSliceInfo
-% creates its 'lightsuite' working folder NEXT TO the .czi it is given. Point
-% run_extract_and_center at the share and it would write there. Copying first
-% is mandatory, not stylistic.
-%
-% Transfer uses robocopy (restartable, resumes rather than restarts). No /MIR
-% and no /MOV are ever passed, so the source cannot be modified.
-%
-% Run sep_setup_paths first, once per MATLAB session.
-
-%% User-defined parameters
-
-% Cohort selection (mice come from the shared registry get_cohort.m).
-% Set mice_to_process to {} to copy every mouse in groups_to_process.
-groups_to_process = {'young'};
-mice_to_process   = {'MG909_SepGluA_P20', 'MG910_SepGluA_P20', 'MG911_SepGluA_P16', ...
-                     'MG912_SepGluA_P20', 'MG913_SepGluA_P20', 'MG914_SepGluA_P28'};
-
-% Root of the raw data on the lab share (READ-ONLY - never written to)
-share_root = 'S:\ElboustaniLab\#SHARE\Data';
-
-% Set false for a dry run that reports what would be copied
-do_copy = true;
+% The settings of run_copy_raw_data, under the names the code below uses
+groups_to_process = run_settings.groups_to_process;
+mice_to_process = run_settings.mice_to_process;
+share_root = run_settings.share_root;
+do_copy = run_settings.do_copy;
 
 %% Resolve cohort
 
@@ -125,6 +100,8 @@ end
 fprintf('\n%s\n', repmat('=', [1 60]));
 fprintf('run_copy_raw_data done: %d mouse/mice verified, %d with problems.\n', n_ok, n_bad);
 fprintf('%s\n', repmat('=', [1 60]));
+
+end
 
 %% Local function: refuse to write anywhere on the read-only share
 

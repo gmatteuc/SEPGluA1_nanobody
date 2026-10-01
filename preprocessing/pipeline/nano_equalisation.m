@@ -1,31 +1,17 @@
-clear all
-close all
-clc
+function nano_equalisation(run_settings)
+%NANO_EQUALISATION  Equalise the nano intensity across the slices of the selected mice.
+%   NANO_EQUALISATION(run_settings) does the work of run_nano_equalisation,
+%   which sets the fields of run_settings (paths, groups_to_process,
+%   mice_to_process, atlas_key, save_results, base_output_dir) and says
+%   what each one does. The selected mice are processed together.
 
-% /// Pipeline script #2bis (alternate): read centered volumes and perform nano channel median equalization across slices  /// 
-% Run sep_setup_paths first, once per MATLAB session.
-
-%% 1. User-defined parameters
-
-% Where the project lives. Derived from the location of the code rather than
-% written out, so the tree can be moved or copied to another drive as is.
-paths = get_paths();
-
-% Cohort selection (mice come from the shared registry get_cohort.m).
-% Set mice_to_process to {} to process every mouse in groups_to_process.
-% NOTE: this used to be a list of numeric INDICES into a hardcoded mouse
-% list (mice_to_process = 1:17); it is now a list of mouse NAMES, so the
-% selection no longer depends on the order of the registry.
-groups_to_process = {'young'};                  % 'rws' | 'naive' | 'behavior' | 'young'
-mice_to_process   = {'MG909_SepGluA_P20', 'MG910_SepGluA_P20', 'MG911_SepGluA_P16', ...
-                     'MG912_SepGluA_P20', 'MG913_SepGluA_P20', 'MG914_SepGluA_P28'};                         % {} = all mice in groups_to_process
-
-% Reference atlas
-atlas_key = 'ccf';
-
-% Output settings
-save_results = true;
-base_output_dir = fullfile(paths.data, 'intensity_diagnostics');
+% The settings of run_nano_equalisation, under the names the code below uses
+paths = run_settings.paths;
+groups_to_process = run_settings.groups_to_process;
+mice_to_process = run_settings.mice_to_process;
+atlas_key = run_settings.atlas_key;
+save_results = run_settings.save_results;
+base_output_dir = run_settings.base_output_dir;
 
 %% 2. Add paths
 
@@ -543,3 +529,5 @@ for i = 1:num_mice
         '-v7.3');
 end
 fprintf('All volumes saved successfully.\n');
+
+end

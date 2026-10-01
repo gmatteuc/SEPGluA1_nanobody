@@ -1,28 +1,18 @@
-clear all
-close all
-clc
+function residual_correction(run_settings)
+%RESIDUAL_CORRECTION  Scale the autofluorescence onto the nano channel, slice by slice.
+%   RESIDUAL_CORRECTION(run_settings) does the work of
+%   run_residual_correction, which sets the fields of run_settings (paths,
+%   groups_to_process, mice_to_process, atlas_key, doPlotBkg, savePlotBkg,
+%   saveRatioMap) and says what each one does.
 
-% /// Pipeline script #2: read centered volumes and perform residual correction anlayisis to bring autofluorecence and nano channel on the same scale  /// 
-% Run sep_setup_paths first, once per MATLAB session.
-
-%% User-defined parameters
-
-% Where the project lives. Derived from the location of the code rather than
-% written out, so the tree can be moved or copied to another drive as is.
-paths = get_paths();
-
-% Cohort selection (mice come from the shared registry get_cohort.m).
-% Set mice_to_process to {} to process every mouse in groups_to_process.
-groups_to_process = {'young'};                  % 'rws' | 'naive' | 'behavior' | 'young'
-mice_to_process   = {'MG909_SepGluA_P20', 'MG910_SepGluA_P20', 'MG911_SepGluA_P16', ...
-                     'MG912_SepGluA_P20', 'MG913_SepGluA_P20', 'MG914_SepGluA_P28'};                         % {} = all mice in groups_to_process
-
-% Reference atlas
-atlas_key = 'ccf';
-
-doPlotBkg = true;
-savePlotBkg = true;
-saveRatioMap = false;
+% The settings of run_residual_correction, under the names the code below uses
+paths = run_settings.paths;
+groups_to_process = run_settings.groups_to_process;
+mice_to_process = run_settings.mice_to_process;
+atlas_key = run_settings.atlas_key;
+doPlotBkg = run_settings.doPlotBkg;
+savePlotBkg = run_settings.savePlotBkg;
+saveRatioMap = run_settings.saveRatioMap;
 
 %% Add paths 
 
@@ -492,5 +482,7 @@ for mouse_idx = 1:numel(cohort)
     % Clear per-mouse variables to save memory
     clear autoVol_centered dapiVol_centered nanoVol_centered autoVol_registered dapiVol_registered nanoVol_registered selectedVol selectedVolSig slice_data bg_mask_vol correctedVol scaledautoVol
     close all
+
+end
 
 end

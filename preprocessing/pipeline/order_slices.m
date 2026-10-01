@@ -1,63 +1,27 @@
-close all
-clear all
-clc
+function order_slices(run_settings)
+%ORDER_SLICES  Curate the slice order of one mouse, or apply the curated order.
+%   ORDER_SLICES(run_settings) does the work of run_order_slices, which sets
+%   the fields of run_settings (mice_to_process, run_mode) and says what
+%   each one, and each run mode, does.
+%
+%   In 'edit' mode SliceOrderEditor holds MATLAB (uiwait) until its window
+%   is closed, so this function returns only then, as the script did. The
+%   window keeps what it needs in its own data and writes the decisions
+%   file itself, so nothing it does depends on this function's variables.
+%
+%   In 'apply' mode generateReordedVolume (LightSuite) takes its folder from
+%   sliceinfo.mat, not from the cohort: it reads the decisions file and
+%   volume_for_ordering.tiff, and deletes and rewrites volume_ordered.tiff,
+%   at the absolute paths run_extract_and_center stored there (procpath,
+%   volorder). In the production data tree that is this mouse's folder. In
+%   a copy of it (a check tree, a copy on another drive) it is still the
+%   original folder, which 'apply' then overwrites, and the 'rebuilt:'
+%   line below names a file it did not write. Never run 'apply' on a
+%   copied mouse folder until this is fixed (it is on the bug list).
 
-% /// Pipeline script #1bis: MANUAL slice reorder / flip / discard ///
-% Entry point for the one manual step between run_extract_and_center and
-% run_residual_correction. Two modes:
-%
-%   run_mode = 'edit'   opens SliceOrderEditor on the selected mouse's
-%                       volume_for_ordering.tiff. Reorder, flip and mark
-%                       slices for removal, then save and close the GUI.
-%                       It writes, next to that tiff:
-%                         volume_for_ordering_processing_decisions.txt
-%                       with columns OriginalIndex / FlipState / NewOrderOriginalIndex
-%
-%   run_mode = 'apply'  reloads the saved sliceinfo and rebuilds
-%                       volume_ordered.tiff from the decisions file
-%
-% Typical use: run with 'edit', curate, close the GUI, switch to 'apply',
-% run again. Then continue with run_residual_correction.
-%
-% This exists so the manual step does not require re-running
-% run_extract_and_center's ~10 min extraction just to reach the (previously
-% commented-out) GUI call.
-%
-% Run sep_setup_paths first, once per MATLAB session.
-
-%% User-defined parameters
-
-% Cohort selection (mice come from the shared registry get_cohort.m).
-% The GUI is per-mouse, so give exactly one name when run_mode = 'edit'.
-%
-% Whole young cohort below, with the number of sections in each. Work down the
-% list: uncomment the one you are on, comment the previous.
-%
-% The P20 brains come first now: after the discussion with Sami the youngest
-% ages are where the difference from adults is expected to be largest, so they
-% are the ones that need to reach the registration stage first. The rest of the
-% cohort follows, still worth curating but not on the critical path.
-
-% --- P20 (and the P16 next to it) — priority ---
-%  mice_to_process = {'MG897_SepGluA_P20'};   % 30 sections DONE
-%  mice_to_process = {'MG903_SepGluA_P20'};   % 44 sections DONE
-%  mice_to_process = {'MG909_SepGluA_P20'};   % 46 sections
-%  mice_to_process = {'MG910_SepGluA_P20'};   % 46 sections
-% mice_to_process = {'MG912_SepGluA_P20'};   % 30 sections
-mice_to_process = {'MG913_SepGluA_P20'};   % 42 sections
-% mice_to_process = {'MG911_SepGluA_P16'};   % 50 sections
-
-% --- older ages — after the P20s ---
-% mice_to_process = {'MG904_SepGluA_P22'};   % 46 sections DONE
-% mice_to_process = {'MG896_SepGluA_P28'};   % 43 sections DONE
-% mice_to_process = {'MG906_SepGluA_P32'};   % 30 sections DONE
-% mice_to_process = {'MG895_SepGluA_P36'};   % 40 sections DONE
-% mice_to_process = {'MG914_SepGluA_P28'};   % 46 sections
-% mice_to_process = {'MG908_SepGluA_P32'};   % 37 sections
-% mice_to_process = {'MG907_SepGluA_P36'};   % 33 sections
-
-% 'edit' = open the GUI, 'apply' = rebuild volume_ordered.tiff from decisions
-run_mode = 'edit';
+% The settings of run_order_slices, under the names the code below uses
+mice_to_process = run_settings.mice_to_process;
+run_mode = run_settings.run_mode;
 
 %% Resolve cohort
 
@@ -114,5 +78,7 @@ for mouse_idx = 1:numel(cohort)
         otherwise
             error('Unknown run_mode: %s (use ''edit'' or ''apply'').', run_mode);
     end
+
+end
 
 end
