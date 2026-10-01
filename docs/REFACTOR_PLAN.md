@@ -1007,3 +1007,19 @@ The style pass will add to this list.
   in the style pass). To try by hand with the step 6 checklist: both GUIs on
   `G:\sep_refactor\pre\gui\data` (no `sliceinfo.mat` there on purpose, so
   'apply' cannot run).
+- **1 Oct, step 6, the big files** (`24c41cf`, `e88475b`, `d67d8a2`,
+  `5e67ade`, `0a8fce9`, `510bc6a`, `586430f`): `group_differences`,
+  `normalise_groups`, `residual_correction`, `nano_equalisation` and
+  `register_to_atlas` are a short main function of `%%` steps calling local
+  functions with explicit inputs and outputs; `region_plot` and
+  `region_groups` have a short `main()`. Every old statement is still there
+  once, unchanged (checked per statement). Split in four worktrees, reviewed
+  (no findings), checked one at a time on the check trees: plasticity 135
+  files, every `.mat`, `.fig` and P7bis output identical, 10 PNGs differ by
+  1 to 3 anti-aliasing pixels; P2/P2bis on MG914 identical apart from 9 such
+  PNGs; MG914's registration identical page for page, the proposal within
+  the GPU spread; the Python steps and their readers, 72 files identical
+  (3 EPS differ in their creation date). Not run: the angle, annotate and
+  align modes (their code moved into `load_regopts`, `set_cutting_angle`,
+  `annotate_control_points`, `refuse_annotated_mice`, `bridge_preprocessing`
+  and `align_slices`, statements unchanged), for the hand check.
