@@ -142,7 +142,11 @@ Decided on 30 Sep (Giulio):
   what it means here. The PDFs stay in `data\ref_papers\`.
 - **Y1.** No comment above a function repeating its docstring.
 - **Y2.** Double quotes everywhere, existing code included, for consistency.
-- **Y4.** One cohort table, read by MATLAB and Python alike.
+- **Y4.** One cohort table, read by MATLAB and Python alike. Done in step 8,
+  as a fix with a before/after check, not in step 5: the Python route stacks
+  its brains in its own order (young P20, P16, P22, naive, RWS) and the
+  MATLAB registry in the legacy order, so a shared table either keeps a
+  per-route order or changes cohort means in their last bits.
 - **Y5.** The two Python verification tools are restyled.
 - **Y6.** The MATLAB half of the style guide is the imaging repository's
   `docs/STYLE.md`, adapted (paths through `get_paths` and `SEP_DATA_ROOT`, the
