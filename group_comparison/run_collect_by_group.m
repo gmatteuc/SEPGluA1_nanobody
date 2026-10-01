@@ -1,50 +1,55 @@
+%% run_collect_by_group
+% ===== Collect the registered volumes of each group =====
+%
+% Plasticity comparison, step 1 of 3:
+%   1. run_collect_by_group    stack each group's registered volumes  <- this script
+%   2. run_normalise_groups    bring the mice of a group onto one intensity scale
+%   3. run_group_differences   left-right differences, control against experimental group
+%
+% Stacks the registered nano volumes of a group's mice into one 4D array
+% (AP x DV x ML x mouse), saved in the group's folder for run_normalise_groups.
+% The mice come from the cohort registry (get_cohort), in registry order,
+% narrowed to some ages if age_filter is set; mice whose registration has not
+% finished are skipped with a note, so a stack can be rebuilt as more brains
+% finish. Saves <group>\nano_4d<tag>.mat and collected_mice<tag>.mat, the
+% order of the mice along the fourth dimension (<tag> is empty for a whole
+% group, _P20 for age_filter = [20]). Only the nano stack is saved; the help
+% of collect_by_group says why the other files on disk are not to be read.
+%
+% Setup: the young cohort, P20 brains only, for the comparison with the
+% adults. For the plasticity comparison, the groups are rws, naive and
+% behavior, with no age filter. Run sep_setup_paths first, once per MATLAB
+% session; the code is in pipeline\collect_by_group.m.
+
 clear all
 close all
 clc
 
-% /// Plasticity comparison, step 1 of 3: collect the registered volumes by group ///
-% For each group, stacks the registered nano volumes of its mice into one 4D
-% array (AP x DV x ML x mouse) and saves it in the group's folder, where
-% run_normalise_groups reads it:
-%   (1) takes the group's mice from the cohort registry (get_cohort), in
-%       registry order, narrowed to some ages if age_filter is set
-%   (2) skips, with a note, the mice whose registration has not finished
-%   (3) loads each mouse's registered nano, auto and mask volumes
-%       (lightsuite\volume_registered\) and stacks them
-%   (4) saves <group>\nano_4d<tag>.mat, and collected_mice<tag>.mat with the
-%       order of the mice along the fourth dimension (<tag> is empty for a
-%       whole group, _P20 for age_filter = [20])
-% Only the nano stack is saved; the other saves are commented out (see the
-% note above them, in pipeline\collect_by_group.m).
-% Run sep_setup_paths first, once per MATLAB session. The settings are below,
-% the code is in pipeline\collect_by_group.m.
+%% Settings
 
-%% User-defined parameters
-
-% Where the project lives. Derived from the location of the code rather than
-% written out, so the tree can be moved or copied to another drive as is.
+% project folders, worked out from where the code sits, so the tree can be moved
+% or copied to another drive as is (SEP_DATA_ROOT points the data elsewhere)
 paths = get_paths();
 
-% Cohort selection (mice come from the shared registry get_cohort.m).
-mousetypes_list = {'young'};                    % 'rws' | 'naive' | 'behavior' | 'young'
+% groups to collect ('rws', 'naive', 'behavior', 'young'); the mice of each come
+% from the cohort registry, get_cohort
+mousetypes_list = {'young'};
 
-% Optional age filter, applied within each group above. Leave empty to take the
-% whole group. The young cohort spans P16-P36, but the comparison Sami wants
-% first is the youngest ages against the adults, so a P20-only aggregate is
-% assembled separately rather than diluting it with the P32/P36 brains.
-age_filter = [20];                              % [] = whole group, e.g. [20] or [16 20 22]
+% ages to keep in each group ([] = whole group, or e.g. [20], [16 20 22]); P20 alone,
+% since the P32 and P36 brains would dilute the youngest against the adults
+age_filter = [20];
 
-% Only mice that actually reached the end of run_register_to_atlas can be
-% collected here; the rest are skipped with a warning rather than killing the
-% run, so the aggregate can be rebuilt as more brains finish registering.
+% skip, with a note, the mice whose registration has not finished, so the stack
+% holds whatever is ready
 skip_missing = true;
 
-% Choose correction type
+% preprocessing correction ('slicewise'); not passed to the code below, so it has
+% no effect on this step
 correction_type = 'slicewise';
 
 %% Run
 
-% The settings above go to the code under the same names
+% pass the settings to the code, under the same names
 run_settings = struct();
 run_settings.paths = paths;
 run_settings.mousetypes_list = mousetypes_list;
