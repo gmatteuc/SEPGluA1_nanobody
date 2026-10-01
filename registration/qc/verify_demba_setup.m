@@ -121,9 +121,10 @@ src = fileread(fullfile(paths.lightsuite, 'slice_module', 'registerSlicesToAtlas
 [~, n_pass, n_fail] = report('registerSlicesToAtlas control-point placeholder is 0x4', ...
     contains(src, 'zeros(0,4)'), n_pass, n_fail);
 
-src = fileread(fullfile(paths.code, 'registration', 'run_register_to_atlas.m'));
+src = fileread(fullfile(paths.code, 'registration', 'pipeline', 'register_to_atlas.m'));
 [~, n_pass, n_fail] = report('run_register_to_atlas re-parses local_settings instead of MATLAB''s builtin', ...
     contains(src, 'parseSettingsFile(settings_name)'), n_pass, n_fail);
+src = fileread(fullfile(paths.code, 'registration', 'run_register_to_atlas.m'));
 [~, n_pass, n_fail] = report('run_register_to_atlas atlas_key is demba_p20', ...
     contains(src, "atlas_key = 'demba_p20';"), n_pass, n_fail);
 
