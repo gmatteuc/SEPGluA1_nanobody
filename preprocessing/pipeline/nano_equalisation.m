@@ -40,6 +40,104 @@ fprintf('run_nano_equalisation: %d mouse/mice selected.\n', num_mice);
 
 fprintf('--- Phase 1: Scanning Dimensions ---\n');
 
+[dim_store, file_paths] = scan_dimensions(cohort, paths, num_mice);
+
+% Determine Global Max Dimensions
+MAX_H = max(dim_store(:,1));
+MAX_W = max(dim_store(:,2));
+MAX_Z = max(dim_store(:,3));
+
+fprintf('--- Phase 2: Loading Volumes into Unified 4D Matrix ---\n');
+fprintf('  Max Dimensions: [%d x %d x %d]\n', MAX_H, MAX_W, MAX_Z);
+fprintf('  Allocating memory...\n');
+
+nano_4d = load_volumes(file_paths, dim_store, num_mice, MAX_H, MAX_W, MAX_Z);
+
+%% 4. Calculate Slice Statistics from Memory
+
+fprintf('--- Phase 3: Calculating Statistics ---\n');
+
+[intensity_medians, intensity_iqrs] = slice_statistics_raw(nano_4d, dim_store, ...
+    num_mice, MAX_Z, processed_mouse_names);
+
+%% 5. Visualization & Analysis
+
+fprintf('--- Phase 4: Generating Diagnostic Plots ---\n');
+
+% --- Calculation for Relative Metrics ---
+mouse_consensus = repmat(nanmean(intensity_medians,1), [size(intensity_medians,1), 1]);
+rel_diff_map = (intensity_medians - mouse_consensus) ./ mouse_consensus;
+
+[f1, f2, f3] = plot_intensity_raw(intensity_medians, rel_diff_map, ...
+    processed_mouse_names, num_mice, MAX_Z);
+
+% --- Saving ---
+if save_results
+    timestamp = save_statistics_raw(base_output_dir, intensity_medians, intensity_iqrs, ...
+        rel_diff_map, processed_mouse_names, processed_mouse_groups, f1, f2, f3);
+end
+
+%% 7. Generate Individual Videos (Masked + Gray)
+
+fprintf('--- Phase 5: Generating Individual Videos ---\n');
+
+write_videos_raw(nano_4d, dim_store, intensity_medians, processed_mouse_names, ...
+    num_mice, base_output_dir, timestamp);
+
+%% 8. Perform Slice-wise Equalization
+
+fprintf('--- Phase 6: Performing Slice Equalization (Window: 5 slices) ---\n');
+
+nano_4d = equalise_slices(nano_4d, intensity_medians, dim_store, num_mice, ...
+    processed_mouse_names);
+
+%% 9. Recalculate Statistics on Equalized Data
+
+fprintf('--- Phase 7: Recalculating Statistics (Equalized) ---\n');
+
+[intensity_medians_eq, intensity_iqrs_eq] = slice_statistics_equalised(nano_4d, ...
+    dim_store, num_mice, MAX_Z, processed_mouse_names);
+
+%% 10. Visualization (Equalized)
+
+fprintf('--- Phase 8: Generating Diagnostic Plots (Equalized) ---\n');
+
+% --- Calculation for Relative Metrics ---
+mouse_consensus_eq = repmat(nanmean(intensity_medians_eq,1), [size(intensity_medians_eq,1), 1]); %#ok<*NANMEAN>
+rel_diff_map_eq = (intensity_medians_eq - mouse_consensus_eq) ./ mouse_consensus_eq;
+
+[f4, f5, f6] = plot_intensity_equalised(intensity_medians_eq, rel_diff_map_eq, ...
+    processed_mouse_names, num_mice, MAX_Z);
+
+% --- Saving ---
+if save_results
+    save_statistics_equalised(base_output_dir, timestamp, intensity_medians_eq, ...
+        intensity_iqrs_eq, rel_diff_map_eq, processed_mouse_names, ...
+        processed_mouse_groups, f4, f5, f6);
+end
+
+%% 11. Generate Individual Videos (Equalized)
+
+fprintf('--- Phase 9: Generating Individual Videos (Equalized) ---\n');
+
+write_videos_equalised(nano_4d, dim_store, intensity_medians_eq, ...
+    processed_mouse_names, num_mice, base_output_dir, timestamp);
+
+%% 12. Save Equalized Volumes to Individual Mouse Directories
+
+fprintf('--- Phase 10: Saving Equalized Volumes to Individual Folders ---\n');
+
+save_equalised_volumes(nano_4d, cohort, paths, dim_store, intensity_medians, ...
+    intensity_iqrs, intensity_medians_eq, intensity_iqrs_eq, num_mice);
+
+end
+
+% ===== Local functions: loading =====
+
+function [dim_store, file_paths] = scan_dimensions(cohort, paths, num_mice)
+%SCAN_DIMENSIONS  Height, width and number of slices of each mouse's centered nano volume.
+%   Stops when a volume is missing; returns the sizes and the paths of the volumes.
+
 dim_store = zeros(num_mice, 3); % [H, W, Z]
 file_paths = cell(num_mice, 1);
 
@@ -63,14 +161,11 @@ for i = 1:num_mice
     fprintf('  Mouse %s: [%d x %d x %d]\n', mouse_name, dim_store(i,1), dim_store(i,2), dim_store(i,3));
 end
 
-% Determine Global Max Dimensions
-MAX_H = max(dim_store(:,1));
-MAX_W = max(dim_store(:,2));
-MAX_Z = max(dim_store(:,3));
+end
 
-fprintf('--- Phase 2: Loading Volumes into Unified 4D Matrix ---\n');
-fprintf('  Max Dimensions: [%d x %d x %d]\n', MAX_H, MAX_W, MAX_Z);
-fprintf('  Allocating memory...\n');
+function nano_4d = load_volumes(file_paths, dim_store, num_mice, MAX_H, MAX_W, MAX_Z)
+%LOAD_VOLUMES  All the mice's nano volumes in one 4D array, padded with NaN.
+%   Each volume sits in the top-left corner of its MAX_H x MAX_W x MAX_Z block.
 
 % Allocate 4D Matrix
 nano_4d = NaN(MAX_H, MAX_W, MAX_Z, num_mice);
@@ -90,9 +185,14 @@ for i = 1:num_mice
 end
 fprintf('All volumes loaded.\n');
 
-%% 4. Calculate Slice Statistics from Memory
+end
 
-fprintf('--- Phase 3: Calculating Statistics ---\n');
+% ===== Local functions: before equalisation =====
+
+function [intensity_medians, intensity_iqrs] = slice_statistics_raw(nano_4d, ...
+    dim_store, num_mice, MAX_Z, processed_mouse_names)
+%SLICE_STATISTICS_RAW  Median and IQR of each slice's tissue pixels, before equalisation.
+%   The padding is set to the slice's mode before the background is selected.
 
 intensity_medians = nan(MAX_Z, num_mice);
 intensity_iqrs  = nan(MAX_Z, num_mice);
@@ -131,13 +231,12 @@ for i = 1:num_mice
     intensity_iqrs(:, i)  = slice_iqrs;
 end
 
-%% 5. Visualization & Analysis
+end
 
-fprintf('--- Phase 4: Generating Diagnostic Plots ---\n');
-
-% --- Calculation for Relative Metrics ---
-mouse_consensus = repmat(nanmean(intensity_medians,1), [size(intensity_medians,1), 1]);
-rel_diff_map = (intensity_medians - mouse_consensus) ./ mouse_consensus;
+function [f1, f2, f3] = plot_intensity_raw(intensity_medians, rel_diff_map, ...
+    processed_mouse_names, num_mice, MAX_Z)
+%PLOT_INTENSITY_RAW  Heatmaps and profiles of the slice medians, before equalisation.
+%   Returns the profiles (f1), absolute heatmap (f2) and relative heatmap (f3) figures.
 
 % --- Plot 1: Absolute Heatmap ---
 f2 = figure('Name', 'Intensity Heatmap (Absolute)', 'Color', 'w', 'Units', 'normalized', 'Position', [0.1 0.1 0.5 0.8]);
@@ -186,29 +285,37 @@ yline(0, 'k--', 'LineWidth', 2, 'DisplayName', 'Mouse Mean (Zero Dev)');
 xlabel('Slice Number'); ylabel('Relative Deviation'); title('Relative Deviation Profiles');
 grid on; xlim([1 MAX_Z]); ylim([-0.75, 0.75]); % Matching heatmap limits
 
-% --- Saving ---
-if save_results
-    timestamp = datestr(now, 'yyyymmdd_HHMM'); %#ok<DATST,TNOW1>
-    savePathData = fullfile(base_output_dir, ['Intensity_Stats_' timestamp '.mat']);
-
-    % Robust save (check if variables exist)
-    if exist('intensity_iqrs', 'var')
-        save(savePathData, 'intensity_medians', 'intensity_iqrs', 'rel_diff_map', 'processed_mouse_names', 'processed_mouse_groups', '-v7.3');
-    else
-        save(savePathData, 'intensity_medians', 'rel_diff_map', 'processed_mouse_names', 'processed_mouse_groups', '-v7.3');
-    end
-    fprintf('Data saved to: %s\n', savePathData);
-
-    exportgraphics(f1, fullfile(base_output_dir, ['Plot_Traces_' timestamp '.png']), 'Resolution', 300);
-    exportgraphics(f2, fullfile(base_output_dir, ['Plot_Heatmap_Abs_' timestamp '.png']), 'Resolution', 300);
-    exportgraphics(f3, fullfile(base_output_dir, ['Plot_Heatmap_Rel_' timestamp '.png']), 'Resolution', 300);
-
-    close all
 end
 
-%% 7. Generate Individual Videos (Masked + Gray)
+function timestamp = save_statistics_raw(base_output_dir, intensity_medians, ...
+    intensity_iqrs, rel_diff_map, processed_mouse_names, processed_mouse_groups, ...
+    f1, f2, f3)
+%SAVE_STATISTICS_RAW  Save the statistics and the three figures from before equalisation.
+%   Returns the time stamp that names them, which every later file of the run takes.
 
-fprintf('--- Phase 5: Generating Individual Videos ---\n');
+timestamp = datestr(now, 'yyyymmdd_HHMM'); %#ok<DATST,TNOW1>
+savePathData = fullfile(base_output_dir, ['Intensity_Stats_' timestamp '.mat']);
+
+% Robust save (check if variables exist)
+if exist('intensity_iqrs', 'var')
+    save(savePathData, 'intensity_medians', 'intensity_iqrs', 'rel_diff_map', 'processed_mouse_names', 'processed_mouse_groups', '-v7.3');
+else
+    save(savePathData, 'intensity_medians', 'rel_diff_map', 'processed_mouse_names', 'processed_mouse_groups', '-v7.3');
+end
+fprintf('Data saved to: %s\n', savePathData);
+
+exportgraphics(f1, fullfile(base_output_dir, ['Plot_Traces_' timestamp '.png']), 'Resolution', 300);
+exportgraphics(f2, fullfile(base_output_dir, ['Plot_Heatmap_Abs_' timestamp '.png']), 'Resolution', 300);
+exportgraphics(f3, fullfile(base_output_dir, ['Plot_Heatmap_Rel_' timestamp '.png']), 'Resolution', 300);
+
+close all
+
+end
+
+function write_videos_raw(nano_4d, dim_store, intensity_medians, ...
+    processed_mouse_names, num_mice, base_output_dir, timestamp)
+%WRITE_VIDEOS_RAW  One video per mouse, background masked, before equalisation.
+%   Writes Video_<mouse>_<timestamp>.mp4 in base_output_dir.
 
 % Setup invisible figure once to reuse
 h_fig = figure('visible', 'off', 'units', 'pixels', 'position', [100 100 800 600], 'Color', 'k');
@@ -283,9 +390,14 @@ end
 close(h_fig);
 fprintf('Script finished.\n');
 
-%% 8. Perform Slice-wise Equalization
+end
 
-fprintf('--- Phase 6: Performing Slice Equalization (Window: 5 slices) ---\n');
+% ===== Local functions: equalisation =====
+
+function nano_4d = equalise_slices(nano_4d, intensity_medians, dim_store, num_mice, ...
+    processed_mouse_names)
+%EQUALISE_SLICES  Scale each slice so its median becomes the moving median over 5 slices.
+%   Changes nano_4d in place (same name in and out); padded or empty slices keep factor 1.
 
 % Set window size (2 before + 2 after)
 window_size = 5;
@@ -321,9 +433,13 @@ for i = 1:num_mice
 end
 fprintf('Equalization applied to nano_4d in memory.\n');
 
-%% 9. Recalculate Statistics on Equalized Data
+end
 
-fprintf('--- Phase 7: Recalculating Statistics (Equalized) ---\n');
+function [intensity_medians_eq, intensity_iqrs_eq] = slice_statistics_equalised( ...
+    nano_4d, dim_store, num_mice, MAX_Z, processed_mouse_names)
+%SLICE_STATISTICS_EQUALISED  Median and IQR of each slice's tissue, after equalisation.
+%   The mask comes from a copy with the padding set to its mode, the statistics from the
+%   slice itself.
 
 % Reset stats matrices
 intensity_medians_eq = nan(MAX_Z, num_mice);
@@ -363,13 +479,12 @@ for i = 1:num_mice
     intensity_iqrs_eq(:, i)  = slice_iqrs;
 end
 
-%% 10. Visualization (Equalized)
+end
 
-fprintf('--- Phase 8: Generating Diagnostic Plots (Equalized) ---\n');
-
-% --- Calculation for Relative Metrics ---
-mouse_consensus_eq = repmat(nanmean(intensity_medians_eq,1), [size(intensity_medians_eq,1), 1]); %#ok<*NANMEAN>
-rel_diff_map_eq = (intensity_medians_eq - mouse_consensus_eq) ./ mouse_consensus_eq;
+function [f4, f5, f6] = plot_intensity_equalised(intensity_medians_eq, ...
+    rel_diff_map_eq, processed_mouse_names, num_mice, MAX_Z)
+%PLOT_INTENSITY_EQUALISED  Heatmaps and profiles of the slice medians, after equalisation.
+%   Returns the absolute heatmap (f4), relative heatmap (f5) and profiles (f6) figures.
 
 % --- Plot 1: Absolute Heatmap (Eq) ---
 f4 = figure('Name', 'Intensity Heatmap (Absolute - Equalized)', 'Color', 'w', 'Units', 'normalized', 'Position', [0.1 0.1 0.5 0.8]);
@@ -410,22 +525,30 @@ yline(0, 'k--', 'LineWidth', 2);
 xlabel('Slice Number'); ylabel('Relative Deviation'); title('Relative Deviation Profiles (Equalized)');
 grid on; xlim([1 MAX_Z]); ylim([-0.75, 0.75]);
 
-% --- Saving ---
-if save_results
-    savePathData = fullfile(base_output_dir, ['Intensity_Stats_Equalized_' timestamp '.mat']);
-    save(savePathData, 'intensity_medians_eq', 'intensity_iqrs_eq', 'rel_diff_map_eq', 'processed_mouse_names', 'processed_mouse_groups', '-v7.3');
-    fprintf('Equalized Data saved to: %s\n', savePathData);
-
-    exportgraphics(f6, fullfile(base_output_dir, ['Plot_Traces_Equalized_' timestamp '.png']), 'Resolution', 300);
-    exportgraphics(f4, fullfile(base_output_dir, ['Plot_Heatmap_Abs_Equalized_' timestamp '.png']), 'Resolution', 300);
-    exportgraphics(f5, fullfile(base_output_dir, ['Plot_Heatmap_Rel_Equalized_' timestamp '.png']), 'Resolution', 300);
-
-    close all
 end
 
-%% 11. Generate Individual Videos (Equalized)
+function save_statistics_equalised(base_output_dir, timestamp, intensity_medians_eq, ...
+    intensity_iqrs_eq, rel_diff_map_eq, processed_mouse_names, ...
+    processed_mouse_groups, f4, f5, f6)
+%SAVE_STATISTICS_EQUALISED  Save the statistics and the three figures after equalisation.
+%   Named with the time stamp of the statistics saved before equalisation.
 
-fprintf('--- Phase 9: Generating Individual Videos (Equalized) ---\n');
+savePathData = fullfile(base_output_dir, ['Intensity_Stats_Equalized_' timestamp '.mat']);
+save(savePathData, 'intensity_medians_eq', 'intensity_iqrs_eq', 'rel_diff_map_eq', 'processed_mouse_names', 'processed_mouse_groups', '-v7.3');
+fprintf('Equalized Data saved to: %s\n', savePathData);
+
+exportgraphics(f6, fullfile(base_output_dir, ['Plot_Traces_Equalized_' timestamp '.png']), 'Resolution', 300);
+exportgraphics(f4, fullfile(base_output_dir, ['Plot_Heatmap_Abs_Equalized_' timestamp '.png']), 'Resolution', 300);
+exportgraphics(f5, fullfile(base_output_dir, ['Plot_Heatmap_Rel_Equalized_' timestamp '.png']), 'Resolution', 300);
+
+close all
+
+end
+
+function write_videos_equalised(nano_4d, dim_store, intensity_medians_eq, ...
+    processed_mouse_names, num_mice, base_output_dir, timestamp)
+%WRITE_VIDEOS_EQUALISED  One video per mouse, background masked, after equalisation.
+%   Writes Video_<mouse>_Equalized_<timestamp>.mp4 in base_output_dir.
 
 h_fig = figure('visible', 'off', 'units', 'pixels', 'position', [100 100 800 600], 'Color', 'k');
 set(h_fig, 'InvertHardcopy', 'off');
@@ -483,9 +606,12 @@ end
 close(h_fig);
 fprintf('Full pipeline finished.\n');
 
-%% 12. Save Equalized Volumes to Individual Mouse Directories
+end
 
-fprintf('--- Phase 10: Saving Equalized Volumes to Individual Folders ---\n');
+function save_equalised_volumes(nano_4d, cohort, paths, dim_store, intensity_medians, ...
+    intensity_iqrs, intensity_medians_eq, intensity_iqrs_eq, num_mice)
+%SAVE_EQUALISED_VOLUMES  Save each mouse's equalised volume and statistics in its folder.
+%   Writes lightsuite\correction_output\equalized_volume.mat, cropped to the mouse's size.
 
 for i = 1:num_mice
     % 1. Get Mouse Identity
