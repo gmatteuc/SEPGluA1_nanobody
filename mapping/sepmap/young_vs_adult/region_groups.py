@@ -124,8 +124,11 @@ def layer_of(substructure_name):
     return m.group(1) if m else None
 
 
-def main():
-    # index -> (structure acronym, division acronym, layer or None)
+def load_parcellation_terms():
+    """Structure and division acronyms and substructure names, by parcellation index.
+
+    Read from the parcellation term membership table (CSV_MAP).
+    """
     stru, divi, sub = {}, {}, {}
     with open(CSV_MAP, newline='', encoding='utf-8') as fh:
         for r in csv.DictReader(fh):
@@ -136,9 +139,14 @@ def main():
                 divi[i] = r['parcellation_term_acronym']
             elif r['parcellation_term_set_name'] == 'substructure':
                 sub[i] = r['parcellation_term_name']
-    layer = {i: layer_of(nm) for i, nm in sub.items()}
+    return stru, divi, sub
 
-    # every group is a set of parcellation indices
+
+def define_groups(stru, divi, layer):
+    """The systems, the subcortical divisions and the layers within LAMINAR_SYSTEMS.
+
+    Keyed by (grouping, name); groups with no index are dropped.
+    """
     groups = {}
     for name, pred in SYSTEMS:
         groups[('system', name)] = {i for i, a in stru.items() if divi.get(i) == 'Isocortex' and pred(a)}
@@ -151,11 +159,25 @@ def main():
             groups[('layer', f'{name} {lname}')] = {i for i, a in stru.items()
                                                     if divi.get(i) == 'Isocortex' and pred(a) and layer.get(i) in tokens}
     groups = {k: v for k, v in groups.items() if v}
+    return groups
 
-    # per mouse: the voxel-weighted mean of sig and of ratio in every group,
-    # plus the two references, all on that brain's own atlas
+
+# sig per unit of a reference CHANNEL, the denominator smoothed by one
+# 20 um voxel and mask-normalised, as in volumes.cohort and young_vs_adult.region_plot
+def per_unit(ref, sig, tissue):
+    """`sig` per unit of the channel `ref` within `tissue`, clipped to RATIO_CLIP."""
+    ref_s = gaussian_filter(np.where(tissue, ref, 0), 1.0) / np.maximum(
+        gaussian_filter(tissue.astype(np.float32), 1.0), 1e-3)
+    return np.clip(np.where(ref_s > 0, sig / np.maximum(ref_s, 1e-3), 0), -RATIO_CLIP, RATIO_CLIP)
+
+
+def group_means(mice, groups, stru, divi):
+    """Per mouse: the group means, the two references and the structure means of sig.
+
+    Group cells are (voxels, mean sig, mean ratio, mean sepratio), None under 250
+    voxels; the structure means feed the range match.
+    """
     anns, per, refs, struct_mean = {}, {}, {}, {}
-    mice = [m for g in GROUPS.values() for m in g]
     for mouse in mice:
         atlas_key = MICE[mouse][1]
         if atlas_key not in anns:
@@ -168,15 +190,8 @@ def main():
                              f'  run_add_sep_channel.m for this brain, then run_per_mouse.py,\n'
                              f'  or drop the reading with V2_READINGS.')
 
-        # sig per unit of a reference CHANNEL, the denominator smoothed by one
-        # 20 um voxel and mask-normalised, as in volumes.cohort and young_vs_adult.region_plot
-        def per_unit(ref):
-            ref_s = gaussian_filter(np.where(tissue, ref, 0), 1.0) / np.maximum(
-                gaussian_filter(tissue.astype(np.float32), 1.0), 1e-3)
-            return np.clip(np.where(ref_s > 0, sig / np.maximum(ref_s, 1e-3), 0), -RATIO_CLIP, RATIO_CLIP)
-
-        ratio = per_unit(auto)
-        sepratio = per_unit(z['sep'].astype(np.float32)) if 'sep' in z.files else np.zeros_like(sig)
+        ratio = per_unit(auto, sig, tissue)
+        sepratio = per_unit(z['sep'].astype(np.float32), sig, tissue) if 'sep' in z.files else np.zeros_like(sig)
         lab = ann[tissue]; nlab = int(ann.max()) + 1
         n = np.bincount(lab, minlength=nlab)
         s_sig = np.bincount(lab, weights=sig[tissue], minlength=nlab)
@@ -201,7 +216,14 @@ def main():
             by_struct[stru[i]][0] += int(n[i]); by_struct[stru[i]][1] += s_sig[i]
         struct_mean[mouse] = {k: v[1] / v[0] for k, v in by_struct.items() if v[0] >= 250}
         print(f'{mouse:20s} {sum(v is not None for v in per[mouse].values())}/{len(groups)} groups', flush=True)
+    return per, refs, struct_mean
 
+
+def range_match(mice, struct_mean, refs):
+    """Per mouse the median and p90-p10 spread of log2 cortex-relative structure means.
+
+    Taken over the structures every brain has.
+    """
     common = set.intersection(*[set(struct_mean[m]) for m in mice])
     norm = {}
     for m in mice:
@@ -209,28 +231,36 @@ def main():
                       if struct_mean[m][k] > 0])
         p10, med, p90 = np.percentile(v, [10, 50, 90])
         norm[m] = (med, max(p90 - p10, 1e-6))
+    return norm
 
-    def value(reading, mouse, key):
-        cell = per[mouse].get(key)
-        if cell is None:
+
+def value(reading, mouse, key, per, norm, refs):
+    """Value of `reading` for `mouse` in group `key` (log2 or range-matched), or None."""
+    cell = per[mouse].get(key)
+    if cell is None:
+        return None
+    _, m_sig, m_rat, m_sep = cell
+    if reading in SIGNED_READINGS:
+        if m_sig <= 0:
             return None
-        _, m_sig, m_rat, m_sep = cell
-        if reading in SIGNED_READINGS:
-            if m_sig <= 0:
-                return None
-            med, spread = norm[mouse]
-            return (math.log2(m_sig / refs[mouse]['cref']) - med) / spread
-        if reading in ('ratio', 'sepratio'):
-            v = m_rat if reading == 'ratio' else m_sep
-        else:
-            v = m_sig / refs[mouse][reading]
-        return math.log2(v) if v > 0 else None
+        med, spread = norm[mouse]
+        return (math.log2(m_sig / refs[mouse]['cref']) - med) / spread
+    if reading in ('ratio', 'sepratio'):
+        v = m_rat if reading == 'ratio' else m_sep
+    else:
+        v = m_sig / refs[mouse][reading]
+    return math.log2(v) if v > 0 else None
 
-    # ------------------------------------------------------------- stats
+
+def group_stats(groups, mice, per, norm, refs):
+    """Per group and reading the young-against-adult tests, as rows of group_stats.csv.
+
+    The Mann-Whitney BH q is taken within each reading and grouping.
+    """
     rows = []
     for key in groups:
         for reading, _ in READINGS:
-            v = {m: value(reading, m, key) for m in mice}
+            v = {m: value(reading, m, key, per, norm, refs) for m in mice}
             v = {m: x for m, x in v.items() if x is not None}
             yo = [v[m] for m in GROUPS['young'] if m in v]
             y20 = [v[m] for m in YOUNG_P20 if m in v]
@@ -250,13 +280,19 @@ def main():
             idx = [i for i, r in enumerate(rows) if r['reading'] == reading and r['grouping'] == grouping]
             for i, q in zip(idx, bh_fdr([rows[i]['mannwhitney_p'] for i in idx])):
                 rows[i]['mannwhitney_q_BH'] = q
+    return rows
+
+
+def write_group_stats(rows):
+    """Write group_stats.csv into OUT, floats to four decimals."""
     with open(os.path.join(OUT, 'group_stats.csv'), 'w', newline='', encoding='utf-8') as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys())); w.writeheader()
         for r in rows:
             w.writerow({k: (f'{x:.4f}' if isinstance(x, float) else x) for k, x in r.items()})
-    star = {(r['reading'], r['grouping'], r['group']):
-            ('**' if r['mannwhitney_p'] < 0.01 else ('*' if r['mannwhitney_p'] < 0.05 else '')) for r in rows}
 
+
+def print_group_table(groups, rows, star):
+    """Print the median log2 young - adult of every group and reading, with its stars."""
     print(f'\n{"group":22s} ' + ' '.join(f'{r:>12s}' for r, _ in READINGS) + '   (log2 young - adult, medians)')
     for grouping in ('system', 'layer'):
         print(f'--- by {grouping}')
@@ -268,49 +304,83 @@ def main():
                 cells.append(f'{r["diff_median"]:+8.2f}{star[(reading, grouping, key[1])]:<3s}' if r else f'{"--":>11s}')
             print(f'  {key[1]:22s} ' + ' '.join(cells))
 
-    # ------------------------------------------------------------ figures
-    def dotplot(keys, labels, fname, title):
-        fig, axes = plt.subplots(len(READINGS), 1, figsize=(max(9, 0.62 * len(keys) + 4), 3.6 * len(READINGS)), sharex=True)
-        for ax, (reading, rtitle) in zip(axes, READINGS):
-            for g in ('naive', 'rws', 'young'):
-                ms = GROUPS[g]
-                jit = np.linspace(-0.2, 0.2, len(ms))
-                xo = 0.26 if g == 'young' else -0.1
-                mids = []
-                for i, key in enumerate(keys):
-                    ys = [value(reading, m, key) for m in ms]
-                    ys = [y for y in ys if y is not None]
-                    for j, y in enumerate(ys):
-                        ax.plot(i + jit[j] + xo, y, 'o', ms=4.5, color=COL[g], alpha=0.9, mec='none')
-                    mids.append(np.median(ys) if ys else np.nan)
-                ax.plot(np.arange(len(keys)) + xo, mids, '_', ms=16, mew=2.4, color=COL[g], label=LABEL[g])
-            lo, hi = ax.get_ylim(); ax.set_ylim(lo, hi + 0.14 * (hi - lo)); lo, hi = ax.get_ylim()
-            for i, key in enumerate(keys):
-                st = star.get((reading, key[0], key[1]), '')
-                if st:
-                    ax.text(i, hi - 0.04 * (hi - lo), st, ha='center', va='top', fontsize=12, color=COL['young'])
-            ax.axhline(0, color='k', lw=0.6)
-            ax.set_title(rtitle, fontsize=10.5, loc='left')
-            ax.set_ylabel({'ratio': 'log2  nano / auto', 'sepratio': 'log2  nano / SEP',
-                           'cref': 'log2  vs own isocortex', 'subref': 'log2  vs subcortex',
-                           'zref': 'range-matched'}[reading], fontsize=10)
-            ax.grid(axis='y', lw=0.3, alpha=0.6); ax.set_xlim(-0.7, len(keys) - 0.3)
-        axes[0].legend(loc='lower left', fontsize=9, frameon=True, framealpha=0.9, edgecolor='none', ncol=3)
-        axes[-1].set_xticks(range(len(keys)))
-        axes[-1].set_xticklabels(labels, rotation=55, ha='right', fontsize=9)
-        fig.suptitle(title, fontsize=11.5)
-        fig.tight_layout(rect=(0, 0, 1, 0.965))
-        save_figure(fig, os.path.join(OUT, fname)); plt.close(fig)
 
+def dotplot(keys, labels, fname, title, star, per, norm, refs):
+    """Dot plot of the groups `keys` into OUT/`fname`, a panel per reading."""
+    fig, axes = plt.subplots(len(READINGS), 1, figsize=(max(9, 0.62 * len(keys) + 4), 3.6 * len(READINGS)), sharex=True)
+    for ax, (reading, rtitle) in zip(axes, READINGS):
+        for g in ('naive', 'rws', 'young'):
+            ms = GROUPS[g]
+            jit = np.linspace(-0.2, 0.2, len(ms))
+            xo = 0.26 if g == 'young' else -0.1
+            mids = []
+            for i, key in enumerate(keys):
+                ys = [value(reading, m, key, per, norm, refs) for m in ms]
+                ys = [y for y in ys if y is not None]
+                for j, y in enumerate(ys):
+                    ax.plot(i + jit[j] + xo, y, 'o', ms=4.5, color=COL[g], alpha=0.9, mec='none')
+                mids.append(np.median(ys) if ys else np.nan)
+            ax.plot(np.arange(len(keys)) + xo, mids, '_', ms=16, mew=2.4, color=COL[g], label=LABEL[g])
+        lo, hi = ax.get_ylim(); ax.set_ylim(lo, hi + 0.14 * (hi - lo)); lo, hi = ax.get_ylim()
+        for i, key in enumerate(keys):
+            st = star.get((reading, key[0], key[1]), '')
+            if st:
+                ax.text(i, hi - 0.04 * (hi - lo), st, ha='center', va='top', fontsize=12, color=COL['young'])
+        ax.axhline(0, color='k', lw=0.6)
+        ax.set_title(rtitle, fontsize=10.5, loc='left')
+        ax.set_ylabel({'ratio': 'log2  nano / auto', 'sepratio': 'log2  nano / SEP',
+                       'cref': 'log2  vs own isocortex', 'subref': 'log2  vs subcortex',
+                       'zref': 'range-matched'}[reading], fontsize=10)
+        ax.grid(axis='y', lw=0.3, alpha=0.6); ax.set_xlim(-0.7, len(keys) - 0.3)
+    axes[0].legend(loc='lower left', fontsize=9, frameon=True, framealpha=0.9, edgecolor='none', ncol=3)
+    axes[-1].set_xticks(range(len(keys)))
+    axes[-1].set_xticklabels(labels, rotation=55, ha='right', fontsize=9)
+    fig.suptitle(title, fontsize=11.5)
+    fig.tight_layout(rect=(0, 0, 1, 0.965))
+    save_figure(fig, os.path.join(OUT, fname)); plt.close(fig)
+
+
+def plot_groups(groups, star, per, norm, refs):
+    """Draw group_plot.png (the systems) and laminar_plot.png (the layers)."""
     sys_keys = [k for k in groups if k[0] == 'system']
     dotplot(sys_keys, [k[1] for k in sys_keys], 'group_plot.png',
             'Young vs adult by system, one dot per mouse, each brain on the atlas of its own age\n'
             f'Bars are group medians.  * p<0.05, ** p<0.01 '
-            f'(Mann-Whitney {len(GROUPS["young"])} vs {len(ADULTS)}, uncorrected)')
+            f'(Mann-Whitney {len(GROUPS["young"])} vs {len(ADULTS)}, uncorrected)', star, per, norm, refs)
     lay_keys = [k for k in groups if k[0] == 'layer']
     dotplot(lay_keys, [k[1].replace(' supragranular', ' L1-3').replace(' granular', ' L4').replace(' infragranular', ' L5-6')
                        for k in lay_keys], 'laminar_plot.png',
             'Young vs adult by cortical layer within each system (layers from the ontology)\n'
             f'Bars are group medians.  * p<0.05, ** p<0.01 '
-            f'(Mann-Whitney {len(GROUPS["young"])} vs {len(ADULTS)}, uncorrected)')
+            f'(Mann-Whitney {len(GROUPS["young"])} vs {len(ADULTS)}, uncorrected)', star, per, norm, refs)
+
+
+def main():
+    """Group means per mouse, young-against-adult tests, group_stats.csv, both plots."""
+    # index -> (structure acronym, division acronym, layer or None)
+    stru, divi, sub = load_parcellation_terms()
+    layer = {i: layer_of(nm) for i, nm in sub.items()}
+
+    # every group is a set of parcellation indices
+    groups = define_groups(stru, divi, layer)
+
+    # per mouse: the voxel-weighted mean of sig and of ratio in every group,
+    # plus the two references, all on that brain's own atlas
+    mice = [m for g in GROUPS.values() for m in g]
+    per, refs, struct_mean = group_means(mice, groups, stru, divi)
+
+    # range match of each brain
+    norm = range_match(mice, struct_mean, refs)
+
+    # ------------------------------------------------------------- stats
+    rows = group_stats(groups, mice, per, norm, refs)
+    write_group_stats(rows)
+    star = {(r['reading'], r['grouping'], r['group']):
+            ('**' if r['mannwhitney_p'] < 0.01 else ('*' if r['mannwhitney_p'] < 0.05 else '')) for r in rows}
+
+    # summary table, printed
+    print_group_table(groups, rows, star)
+
+    # ------------------------------------------------------------ figures
+    plot_groups(groups, star, per, norm, refs)
     print('\nwrote group_plot.png, laminar_plot.png, group_stats.csv')
