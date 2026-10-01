@@ -173,7 +173,11 @@ def welch(a, b):
     return float(2 * tdist.sf(abs(t), df))
 
 
-def main():
+def load_structure_terms():
+    """Structure names and acronyms, and division acronyms, by parcellation index.
+
+    Read from the parcellation term membership table (CSV_MAP).
+    """
     names, acro, divi = {}, {}, {}
     with open(CSV_MAP, newline='', encoding='utf-8') as fh:
         for row in csv.DictReader(fh):
@@ -182,9 +186,25 @@ def main():
                 names[idx] = row['parcellation_term_name']; acro[idx] = row['parcellation_term_acronym']
             elif row['parcellation_term_set_name'] == 'division':
                 divi[idx] = row['parcellation_term_acronym']
+    return names, acro, divi
 
+
+# sig divided by a reference CHANNEL, voxel by voxel: the denominator is
+# smoothed by one 20 um voxel and mask-normalised, exactly as volumes.cohort
+# does it, so a region mean here and a voxel there mean the same thing.
+def per_unit(ref, sig, tissue):
+    """`sig` per unit of the channel `ref` within `tissue`, clipped to RATIO_CLIP."""
+    ref_s = gaussian_filter(np.where(tissue, ref, 0), 1.0) / np.maximum(
+        gaussian_filter(tissue.astype(np.float32), 1.0), 1e-3)
+    return np.clip(np.where(ref_s > 0, sig / np.maximum(ref_s, 1e-3), 0), -RATIO_CLIP, RATIO_CLIP)
+
+
+def structure_means(mice, names):
+    """Per mouse and structure: tissue voxels, and the mean of sig, ratio and sepratio.
+
+    Each brain on its own atlas; structures under MIN_VOX voxels are left out.
+    """
     anns, per = {}, {}
-    mice = [m for g in GROUPS.values() for m in g]
     for mouse in mice:
         cohort, atlas_key = MICE[mouse][:2]
         if atlas_key not in anns:
@@ -197,16 +217,8 @@ def main():
                              f'  run_add_sep_channel.m for this brain, then run_per_mouse.py,\n'
                              f'  or drop the reading with V2_READINGS.')
 
-        # sig divided by a reference CHANNEL, voxel by voxel: the denominator is
-        # smoothed by one 20 um voxel and mask-normalised, exactly as volumes.cohort
-        # does it, so a region mean here and a voxel there mean the same thing.
-        def per_unit(ref):
-            ref_s = gaussian_filter(np.where(tissue, ref, 0), 1.0) / np.maximum(
-                gaussian_filter(tissue.astype(np.float32), 1.0), 1e-3)
-            return np.clip(np.where(ref_s > 0, sig / np.maximum(ref_s, 1e-3), 0), -RATIO_CLIP, RATIO_CLIP)
-
-        ratio = per_unit(auto)
-        sepratio = per_unit(z['sep'].astype(np.float32)) if 'sep' in z.files else np.zeros_like(sig)
+        ratio = per_unit(auto, sig, tissue)
+        sepratio = per_unit(z['sep'].astype(np.float32), sig, tissue) if 'sep' in z.files else np.zeros_like(sig)
         lab = ann[tissue]; nlab = int(ann.max()) + 1
         n = np.bincount(lab, minlength=nlab)
         s_sig = np.bincount(lab, weights=sig[tissue], minlength=nlab)
@@ -222,23 +234,36 @@ def main():
         per[mouse] = {k: (v[0], v[1] / v[0], v[2] / v[0], v[3] / v[0])
                       for k, v in d.items() if v[0] >= MIN_VOX}
         print(f'{mouse:20s} {atlas_key:10s} {len(per[mouse])} structures', flush=True)
+    return per
 
-    meta = {nm: (acro[idx], divi.get(idx, '')) for idx, nm in names.items()}
-    by_acro = {meta[k][0]: k for k in meta}
-    group_of = {m: g for g, ms in GROUPS.items() for m in ms}
 
-    def ref(m, pred):
-        s = c = 0.0
-        for k, (n, ms, _, _) in per[m].items():
-            if pred(meta.get(k, ('', ''))[1]):
-                s += ms * n; c += n
-        return s / c if c else float('nan')
+def ref(m, pred, per, meta):
+    """Voxel-weighted mean sig of mouse `m` over structures whose division passes `pred`.
+
+    NaN when no structure does.
+    """
+    s = c = 0.0
+    for k, (n, ms, _, _) in per[m].items():
+        if pred(meta.get(k, ('', ''))[1]):
+            s += ms * n; c += n
+    return s / c if c else float('nan')
+
+
+def brain_references(mice, per, meta):
+    """Per mouse the two one-number references: mean sig of isocortex and subcortex."""
     # Each reference is a single number per brain, so every reading is a pure
     # scale and region ratios inside a brain survive it exactly. What changes
     # between them is only the question being asked -- see the header.
-    refs = {m: {'cref': ref(m, lambda d: d == 'Isocortex'),
-                'subref': ref(m, lambda d: d not in NOT_SUBCORTEX)} for m in mice}
+    refs = {m: {'cref': ref(m, lambda d: d == 'Isocortex', per, meta),
+                'subref': ref(m, lambda d: d not in NOT_SUBCORTEX, per, meta)} for m in mice}
+    return refs
 
+
+def range_match(mice, per, refs):
+    """Per mouse the median and the p90-p10 spread of log2 cortex-relative sig.
+
+    Taken over the structures every brain has, and printed.
+    """
     # The range match needs two numbers per brain rather than one, and they have
     # to come from the same set of structures in every brain or the spread would
     # depend on which regions a section happened to cover.
@@ -252,29 +277,40 @@ def main():
     print('dynamic range per brain (p90-p10 of log2 over %d shared structures):' % len(common))
     for m in mice:
         print(f'  {m:20s} median {norm[m][0]:+.2f}   spread {norm[m][1]:.2f}')
+    return norm
 
-    def value(reading, m, k):
-        if k is None or k not in per[m]:
+
+def value(reading, m, k, per, norm, refs):
+    """Value of `reading` for mouse `m` in structure `k`, or None.
+
+    log2 for every reading but the signed ones, which are range-matched.
+    """
+    if k is None or k not in per[m]:
+        return None
+    n, ms, mr, msep = per[m][k]
+    if reading in SIGNED_READINGS:
+        if ms <= 0:
             return None
-        n, ms, mr, msep = per[m][k]
-        if reading in SIGNED_READINGS:
-            if ms <= 0:
-                return None
-            med, spread = norm[m]
-            return (math.log2(ms / refs[m]['cref']) - med) / spread
-        # ratio and sepratio are already ratios, taken voxel by voxel against a
-        # channel; the rest divide sig by a single number measured on this brain
-        if reading in ('ratio', 'sepratio'):
-            v = mr if reading == 'ratio' else msep
-        else:
-            v = ms / refs[m][reading]
-        return math.log2(v) if v > 0 else None
+        med, spread = norm[m]
+        return (math.log2(ms / refs[m]['cref']) - med) / spread
+    # ratio and sepratio are already ratios, taken voxel by voxel against a
+    # channel; the rest divide sig by a single number measured on this brain
+    if reading in ('ratio', 'sepratio'):
+        v = mr if reading == 'ratio' else msep
+    else:
+        v = ms / refs[m][reading]
+    return math.log2(v) if v > 0 else None
 
-    # ------------------------------------------------------- tables
+
+def region_rows(mice, meta, group_of, per, norm, refs):
+    """The per-mouse rows, and per structure and reading the young-against-adult tests.
+
+    The test rows carry the BH q of the Welch and the Mann-Whitney p, within each reading.
+    """
     rows_pm, rows_st = [], []
     for k in sorted(meta, key=lambda k: (meta[k][1], meta[k][0])):
         for reading, _ in READINGS:
-            v = {m: value(reading, m, k) for m in mice}
+            v = {m: value(reading, m, k, per, norm, refs) for m in mice}
             v = {m: x for m, x in v.items() if x is not None}
             for m, x in v.items():
                 rows_pm.append((reading, group_of[m], MICE[m][0], m, k, meta[k][0], meta[k][1], per[m][k][0], x))
@@ -301,7 +337,11 @@ def main():
             for i, qi in zip(idx, bh_fdr([rows_st[i][col] for i in idx])):
                 store[i] = qi
     rows_st = [r[:12] + (q_welch[i], q_mw[i]) + r[12:] for i, r in enumerate(rows_st)]
+    return rows_pm, rows_st
 
+
+def write_tables(rows_pm, rows_st):
+    """Write region_means_per_mouse.csv and region_stats.csv into OUT."""
     with open(os.path.join(OUT, 'region_means_per_mouse.csv'), 'w', newline='', encoding='utf-8') as fh:
         w = csv.writer(fh)
         w.writerow(['reading', 'group', 'cohort', 'mouse', 'structure', 'acronym', 'division', 'n_vox20', 'log2_value'])
@@ -314,6 +354,9 @@ def main():
                     'diff_log2_P20only', 'welch_p_P20only', 'diff_log2_P16_single', 'naive_minus_rws_log2'])
         w.writerows([r[:6] + tuple(f'{x:.4f}' for x in r[6:]) for r in rows_st])
 
+
+def print_cortex_table(rows_st):
+    """Print log2(young / adult) of each area in AREAS and reading, with its stars."""
     st = {(r[0], r[2]): r for r in rows_st}
     print(f'\nCORTEX  log2(young / adult), young = {len(GROUPS["young"])} mice (P20 + P16) vs {len(ADULTS)} adults '
           '(* p<0.05, ** p<0.01, Mann-Whitney, uncorrected; q in the CSV). '
@@ -333,7 +376,9 @@ def main():
         tail = f'{r[14]:+9.2f} {r[16]:+7.2f} {r[17]:+10.2f}' if r else ''
         print(f'  {a:9s} ' + ' '.join(cells) + ' ' + tail)
 
-    # ------------------------------------------------------- figure
+
+def plot_regions(rows_st, by_acro, per, norm, refs):
+    """Draw region_plot.png: a panel per reading, a dot per mouse in each of AREAS."""
     # Every mouse is a dot of the same size, the P16 brain included: it is one
     # young animal among six. The bar is the group MEDIAN, to match the rank-sum
     # test that puts the stars on.
@@ -354,7 +399,7 @@ def main():
                     mids.append(np.nan); continue
                 k = by_acro.get(a); ys = []
                 for j, m in enumerate(ms):
-                    y = value(reading, m, k)
+                    y = value(reading, m, k, per, norm, refs)
                     if y is None:
                         continue
                     ys.append(y)
@@ -387,4 +432,31 @@ def main():
                  fontsize=11.5)
     fig.tight_layout(rect=(0, 0, 1, 0.965))
     save_figure(fig, os.path.join(OUT, 'region_plot.png'))
+
+
+def main():
+    """Region means per mouse, young-against-adult tests, two tables and the plot."""
+    # structure names, acronyms and divisions of the ontology
+    names, acro, divi = load_structure_terms()
+
+    # per mouse: structure means, each brain on its own atlas
+    mice = [m for g in GROUPS.values() for m in g]
+    per = structure_means(mice, names)
+    meta = {nm: (acro[idx], divi.get(idx, '')) for idx, nm in names.items()}
+    by_acro = {meta[k][0]: k for k in meta}
+    group_of = {m: g for g, ms in GROUPS.items() for m in ms}
+
+    # the references of each brain, and its range match
+    refs = brain_references(mice, per, meta)
+    norm = range_match(mice, per, refs)
+
+    # ------------------------------------------------------- tables
+    rows_pm, rows_st = region_rows(mice, meta, group_of, per, norm, refs)
+    write_tables(rows_pm, rows_st)
+
+    # cortex summary, printed
+    print_cortex_table(rows_st)
+
+    # ------------------------------------------------------- figure
+    plot_regions(rows_st, by_acro, per, norm, refs)
     print('\nwrote', os.path.join(OUT, 'region_plot.png'))
