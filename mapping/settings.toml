@@ -1,0 +1,32 @@
+# Settings of the Python route, read once by sepmap/config.py into SETTINGS.
+# For now it holds only the values that two modules used to keep in step by
+# hand, and the two passes of the ISH chain. Every other parameter is still a
+# constant in its module; moving them here is a later step of the refactor
+# (docs/REFACTOR_PLAN.md).
+
+[readings]
+# Readings that are a signed position within a brain's own range rather than an
+# intensity: young and adult are compared by difference rather than log2 ratio,
+# and drawn on a diverging scale centred on zero, from -v to +v.
+signed = ["zref"]
+log2_floor = 0.02          # floor under a value before its log2: zref, and the young/adult log2 ratios
+
+[young_vs_adult]
+min_n_young = 2            # young brains with tissue that a voxel needs to be compared
+min_n_adult = 5            # adult brains with tissue that a voxel needs to be compared
+
+[videos]
+fps = 12                   # frames per second of the plane-by-plane videos
+min_label_area = 150       # 20 um voxels a structure needs in a coronal plane to get its acronym drawn
+
+# The ISH chain runs twice: on the hand-written 100-gene panel, then on the
+# 390-gene ontology panel that run_panel_build writes. run_ish_regions.py and
+# run_ish_reliability.py choose a pass with --panel. Panel paths are relative to
+# the data root; table is the file run_ish_regions writes under adult_v2/ish.
+[ish_panels.targets]
+panel = "gene_targets.csv"
+table = "gene_region_table.csv"
+
+[ish_panels.ontology]
+panel = "adult_v2/panel/panel_v2.csv"
+table = "gene_region_table_panel.csv"

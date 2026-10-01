@@ -11,10 +11,10 @@ Two things are recorded rather than swallowed. A grid that 404s (some
 experiments have no downloadable grid at all, which is not a local problem) and
 a grid whose header is not the shared 67 x 41 x 58 reference box (a few
 experiments come in a box of their own and cannot be placed against the atlas;
-v2_ish_regions drops them for the same reason). Both go to fetch_failures.csv
+ish.regions drops them for the same reason). Both go to fetch_failures.csv
 with the reason, so the panel's real size is a number on disk and not a guess.
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_panel_fetch.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_panel_fetch.py
 """
 
 import csv
@@ -25,7 +25,7 @@ import urllib.error
 import urllib.request
 import zipfile
 
-from v2_paths import DATA
+from sepmap.config import DATA
 PANEL = os.path.join(DATA, 'adult_v2', 'panel', 'panel_v2.csv')
 DEST = os.path.join(DATA, 'atlas_ish')
 OUT = os.path.join(DATA, 'adult_v2', 'panel')
@@ -110,7 +110,3 @@ def main():
     print(f'\n{done} fetched, {len(failures)} failed -> {path}')
     usable = sum(1 for r in rows if already_there(r['experiment_id']))
     print(f'{usable} of {len(rows)} panel experiments are now on disk')
-
-
-if __name__ == '__main__':
-    main()

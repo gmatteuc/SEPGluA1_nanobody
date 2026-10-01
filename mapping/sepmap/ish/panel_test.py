@@ -1,7 +1,7 @@
 """
 Subunit against localisation, on the ontology panel, with power this time.
 
-v2_ish_roles.py ran this contrast on the 100-gene panel and got the predicted
+ish.roles ran this contrast on the 100-gene panel and got the predicted
 direction with no evidence for it: four subunit genes, fifteen localisation
 genes, and a permutation null four times wider than the effect. Two things were
 wrong with that, and only one of them was the panel size.
@@ -29,7 +29,7 @@ If it reports total receptor, the two sets should look alike.
 
 **Controls are matched on expression, because a quiet gene correlates with
 nothing.** Reliability rises steeply with expression level (see
-v2_ish_reliability.py), so an unmatched comparison partly measures which set
+ish.reliability), so an unmatched comparison partly measures which set
 happens to contain louder genes. Each localisation gene is paired with the
 unused control gene closest to it in median expression energy, greedily, and
 the test is run on the matched pairs; the unmatched version is reported beside
@@ -46,7 +46,7 @@ Outputs, under data\\adult_v2\\ish:
   panel_test.csv         per gene: rho, partial rho, role, match, reliability
   ish_panel_test.png     the test, the matching, and the null
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_ish_panel_test.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_ish_panel_test.py
 """
 
 import csv
@@ -59,7 +59,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy.stats import rankdata, spearmanr, mannwhitneyu
 
-from v2_paths import DATA
+from sepmap.config import DATA
 NANO = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult', 'region_means_per_mouse.csv')
 OUT = os.path.join(DATA, 'adult_v2', 'ish')
 MERGED = os.path.join(OUT, 'gene_region_table_merged.csv')
@@ -300,7 +300,3 @@ def figure(results, by, loc, matched_ctrl, ctrl, level):
     path = os.path.join(OUT, 'ish_panel_test.png')
     fig.savefig(path, dpi=200); plt.close(fig)
     print(f'\n{path}')
-
-
-if __name__ == '__main__':
-    main()

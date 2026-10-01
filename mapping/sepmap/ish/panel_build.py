@@ -1,7 +1,7 @@
 """
 The gene panel, defined by ontology rather than by us.
 
-The subunit-against-localisation test in v2_ish_roles.py came out with the
+The subunit-against-localisation test in ish.roles came out with the
 predicted direction and no evidence for it, because the panel is too small: four
 subunit genes, fifteen localisation genes, and a permutation null wide enough to
 swallow the effect four times over. This builds the panel that could carry it.
@@ -53,7 +53,7 @@ Outputs, under data\\adult_v2\\panel:
   panel_genes.csv     one row per gene, with every term that claimed it
   cache\\*.json        every API response, so a re-run asks nothing twice
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_panel_build.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_panel_build.py
 """
 
 import csv
@@ -64,7 +64,7 @@ import urllib.parse
 import urllib.request
 from collections import defaultdict
 
-from v2_paths import DATA
+from sepmap.config import DATA
 OUT = os.path.join(DATA, 'adult_v2', 'panel')
 CACHE = os.path.join(OUT, 'cache')
 OLD_PANEL = os.path.join(DATA, 'gene_targets.csv')
@@ -226,7 +226,3 @@ def main():
     already = sum(1 for r in rows if os.path.exists(
         os.path.join(DATA, 'atlas_ish', f'{r["experiment_id"]}_energy.mhd')))
     print(f'  {already} of {len(rows)} grids are already on disk')
-
-
-if __name__ == '__main__':
-    main()

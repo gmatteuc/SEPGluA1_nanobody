@@ -28,20 +28,19 @@ registered space sit beside these, in processing_diagnostics/sep_channel/.
 
 Run it after a full pass, or with mouse names to refresh a few sheets:
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_diagnostics.py [mouse ...]
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_diagnostics.py [mouse ...]
 """
 
 import csv
 import os
-import sys
 
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from v2_per_mouse import annotation_20, atlas_grid, MICE, CSV_MAP, DATA, OUT as PER_MOUSE
-from v2_cohort import COHORTS, OUT_ROOT as CCF_ROOT, PER_MOUSE_CCF
+from sepmap.volumes.per_mouse import annotation_20, atlas_grid, MICE, CSV_MAP, DATA, OUT as PER_MOUSE
+from sepmap.volumes.cohort import COHORTS, OUT_ROOT as CCF_ROOT, PER_MOUSE_CCF
 
 OUT = os.path.join(DATA, 'comparisons_v2', 'processing_diagnostics')
 YOUNG = [m for m, v in MICE.items() if v[1] != 'ccf']
@@ -360,7 +359,7 @@ def sheet_denominators():
         ax.set_xlim(-lim, lim); ax.set_ylim(-lim, lim)
         ax.set_title(f'young - adult, {len(keys)} structures (r = {np.corrcoef(x, y)[0, 1]:.2f})', fontsize=10)
     else:
-        ax.text(0.5, 0.5, 'run v2_region_plot.py first', ha='center', va='center', transform=ax.transAxes)
+        ax.text(0.5, 0.5, 'run run_region_plot.py first', ha='center', va='center', transform=ax.transAxes)
         ax.set_title('young - adult per structure', fontsize=10)
     ax.set_xlabel('log2 difference, nano / auto'); ax.set_ylabel('log2 difference, nano / SEP')
     ax.grid(lw=0.3, alpha=0.6)
@@ -376,7 +375,7 @@ def write_index():
         fh.write("""# processing diagnostics
 
 One sheet per question, so every step of the v2 route can be checked by eye
-rather than trusted. Regenerate with `v2_diagnostics.py`.
+rather than trusted. Regenerate with `run_diagnostics.py`.
 
 | sheet | what to look for | what would be wrong |
 |---|---|---|
@@ -396,7 +395,14 @@ The numbers behind these are in `../young_vs_adult/region_stats.csv` and
 """)
 
 
-if __name__ == '__main__':
+def main(named_mice):
+    """Every sheet of `named_mice`, or of every brain and the cohort-level ones too.
+
+    With mouse names only those brains' sheets are refreshed; with none, every
+    brain's sheets, the cohort-level sheets and the index are written. ISO and
+    ANN, which the sheet functions read as module globals, are set here.
+    """
+    global ISO, ANN
     os.makedirs(OUT, exist_ok=True)
     ISO = set()
     with open(CSV_MAP, newline='', encoding='utf-8') as fh:
@@ -405,7 +411,7 @@ if __name__ == '__main__':
                 ISO.add(int(row['parcellation_index']))
     ISO = list(ISO)
     ANN = {k: annotation_20(k) for k in {v[1] for v in MICE.values()}}
-    mice = sys.argv[1:] or list(MICE)
+    mice = named_mice or list(MICE)
     for mouse in mice:
         ann = ANN[MICE[mouse][1]]
         z = np.load(os.path.join(PER_MOUSE, mouse + '.npz'))
@@ -414,7 +420,7 @@ if __name__ == '__main__':
         if MICE[mouse][1] != 'ccf':
             sheet_warp(mouse)
         print(f'{mouse:20s} sheets written', flush=True)
-    if not sys.argv[1:]:
+    if not named_mice:
         sheet_coverage(); sheet_cohort_n(); sheet_scaling(); sheet_route_agreement()
         sheet_mask_vs_p6bis(); sheet_denominators(); write_index()
         print('cohort-level sheets and index written')

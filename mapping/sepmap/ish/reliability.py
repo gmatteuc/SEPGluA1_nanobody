@@ -36,7 +36,7 @@ Outputs, under data\\adult_v2\\ish:
   gene_region_table_merged.csv  one profile per gene, replicates averaged
   ish_reliability.png           the distribution, and what it depends on
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_ish_reliability.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_ish_reliability.py
 """
 
 import csv
@@ -50,9 +50,13 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy.stats import rankdata, spearmanr
 
-from v2_paths import DATA
+from sepmap.config import DATA, SETTINGS
 OUT = os.path.join(DATA, 'adult_v2', 'ish')
-TABLE = os.environ.get('V2_ISH_TABLE') or 'gene_region_table_panel.csv'
+# The table to read is the one run_ish_regions wrote for one of the panel passes
+# named in settings.toml ([ish_panels]); by default the ontology panel, whose
+# genes include those with more than one experiment.
+ISH_PANELS = SETTINGS['ish_panels']
+DEFAULT_PANEL = 'ontology'
 
 MIN_ISH_VOXELS = 10
 MIN_SHARED = 50            # structures two experiments must share to be compared
@@ -103,11 +107,12 @@ def merge(profiles):
            {k: len(v) for k, v in acc.items()}
 
 
-def main():
+def main(panel_name=DEFAULT_PANEL):
+    TABLE = ISH_PANELS[panel_name]['table']
     path = os.path.join(OUT, TABLE)
     if not os.path.exists(path):
-        raise SystemExit(f'{path} not found -- run v2_ish_regions.py with '
-                         f'V2_ISH_PANEL set to the ontology panel first')
+        raise SystemExit(f'{path} not found -- run run_ish_regions.py with '
+                         f'--panel {panel_name} first')
     per, meta = load(path)
     print(f'{len(per)} genes, {sum(len(v) for v in per.values())} experiments, '
           f'from {TABLE}')
@@ -208,7 +213,3 @@ def figure(rows, rel, rel_by_pairing, per, meta):
     path = os.path.join(OUT, 'ish_reliability.png')
     fig.savefig(path, dpi=200); plt.close(fig)
     print(f'\n{path}')
-
-
-if __name__ == '__main__':
-    main()

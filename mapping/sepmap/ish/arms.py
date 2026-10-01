@@ -5,7 +5,7 @@ This is the question the gene ranking alone cannot answer. Cacng8 outranking
 Gria1 is suggestive, but Gria1, Cacng8, Dlg2 and Grip1 are all postsynaptic
 genes, so no grouping of genes -- ours, GO's, or SynGO's -- distinguishes
 "surface pool" from "total receptor". Both hypotheses predict a postsynaptic
-map. The distinction lives in the CHANNELS, and v2_adult_arms.py puts the three
+map. The distinction lives in the CHANNELS, and adult.arms puts the three
 of them on one footing:
 
   sepauto    SEP / auto     total receptor, wherever it sits
@@ -30,7 +30,7 @@ surface-fraction arm.
 
 **THE PREMISE FAILED, AND THIS IS THE RECORD OF HOW.** Run first, then checked:
 `SEP / auto` correlates with Gria1 at -0.11, which sent us to the channels
-themselves. v2_sep_channel_check.py settles it -- in this fixed, cleared tissue
+themselves. adult.sep_channel_check settles it -- in this fixed, cleared tissue
 the green channel is mostly autofluorescence (rho 0.79 +- 0.04 against the
 autofluorescence channel across all ten adults, against 0.26 for nano; dynamic
 range 0.95 log2 against autofluo's 1.07 and nano's 1.93). So `sepauto` is not
@@ -63,7 +63,7 @@ Outputs, under data\\adult_v2\\arms:
   arm_gene_correlations.csv     arm x gene, plain and partial-on-Gria1
   arms_vs_genes.png             the two tests, drawn
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_ish_arms.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_ish_arms.py
 """
 
 import csv
@@ -76,7 +76,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy.stats import rankdata, spearmanr, wilcoxon
 
-from v2_paths import DATA
+from sepmap.config import DATA
 ARMS_CSV = os.path.join(DATA, 'adult_v2', 'arms', 'region_means_arms.csv')
 GENES = os.path.join(DATA, 'adult_v2', 'ish', 'gene_region_table.csv')
 OUT = os.path.join(DATA, 'adult_v2', 'arms')
@@ -274,7 +274,7 @@ def main():
     arms = arm_profiles()
     missing = [a for a in ARMS if a not in arms]
     if missing:
-        raise SystemExit(f'arms missing from {ARMS_CSV}: {missing}. Run v2_adult_arms.py')
+        raise SystemExit(f'arms missing from {ARMS_CSV}: {missing}. Run run_adult_arms.py')
     genes, category = gene_profiles()
     if CONTROL not in genes:
         raise SystemExit(f'{CONTROL} is not in the gene table; it is the control here')
@@ -292,7 +292,3 @@ def main():
 
     plain, partial, mach = report(rows, category)
     figure(plain, partial, mach, category)
-
-
-if __name__ == '__main__':
-    main()

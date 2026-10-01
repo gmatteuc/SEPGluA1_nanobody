@@ -8,7 +8,7 @@ parcellation_index when they were built, so VISp in a P16 brain is measured
 against the P16 annotation, VISp in a P20 brain against the P20 one, and only
 the resulting per-mouse means are compared. Pooling ages is therefore clean
 here in a way it is not for a voxelwise map, where the young brains have to be
-carried into the CCF first (v2_to_ccf).
+carried into the CCF first (volumes.to_ccf).
 
 Per mouse and structure: the mean of sig, of sig/auto and of sig/SEP over the
 tissue voxels, then per mouse
@@ -16,11 +16,11 @@ tissue voxels, then per mouse
                               Not an absolute measure: the young cortex is
                               2.0 log2 below the adult in nano and 1.0 log2
                               below it in auto, so the denominator carries its
-                              own age effect (see v2_cohort).
+                              own age effect (see volumes.cohort).
   sepratio                    nano per unit SEP. This was meant to be receptor
                               on the membrane per unit receptor expressed, SEP
                               being the tag on GluA1 itself, and it is not:
-                              v2_sep_channel_check.py finds the green channel
+                              adult.sep_channel_check finds the green channel
                               dominated by autofluorescence in this tissue, so
                               the reading behaves as a second nano/autofluo.
                               The description that follows is what it was
@@ -62,7 +62,7 @@ Benjamini-Hochberg q of each, so a corrected reading is one column away.
 Writes region_means_per_mouse.csv, region_stats.csv and region_plot.png into
 data/comparisons_v2/young_vs_adult/.
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_region_plot.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_region_plot.py
 """
 
 import csv
@@ -76,8 +76,8 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from v2_per_mouse import annotation_20, MICE, CSV_MAP, OUT as PER_MOUSE, DATA
-from v2_cohort import RATIO_CLIP, YOUNG_P20, YOUNG_P16, YOUNG_P22, NAIVE, RWS, MODES, SIGNED_READINGS
+from sepmap.volumes.per_mouse import annotation_20, MICE, CSV_MAP, OUT as PER_MOUSE, DATA
+from sepmap.volumes.cohort import RATIO_CLIP, YOUNG_P20, YOUNG_P16, YOUNG_P22, NAIVE, RWS, MODES, SIGNED_READINGS
 
 OUT = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult')
 MIN_VOX = 250      # 20 um voxels = 2 nl, the same volume as the earlier tables
@@ -90,9 +90,9 @@ READINGS = [('ratio', 'nanobody / autofluorescence, both background-subtracted  
             ('cref', 'background-subtracted nanobody, relative to the mouse\'s own isocortex  (log2)'),
             ('subref', 'background-subtracted nanobody, relative to subcortex excluding HPF and STR  (log2)'),
             ('zref', "range-matched: cortex-relative, then centred and scaled by each brain's own spread")]
-# V2_READINGS (see v2_cohort) drops a reading from the tables and figures as
-# well, so one variable covers the whole chain. v2_region_groups imports this
-# list and follows it.
+# V2_READINGS (see volumes.cohort) drops a reading from the tables and figures as
+# well, so one variable covers the whole chain. young_vs_adult.region_groups
+# imports this list and follows it.
 READINGS = [r for r in READINGS if r[0] in MODES]
 GROUPS = {'young': YOUNG_P20 + YOUNG_P16 + YOUNG_P22, 'naive': NAIVE, 'rws': RWS}
 ADULTS = NAIVE + RWS
@@ -194,11 +194,11 @@ def main():
         sig = z['sig'].astype(np.float32); auto = z['auto'].astype(np.float32); tissue = z['tissue']
         if 'sepratio' in MODES and 'sep' not in z.files:
             raise SystemExit(f'{mouse}: no SEP channel in its per-mouse file. Run\n'
-                             f'  run_add_sep_channel.m for this brain, then v2_per_mouse.py,\n'
+                             f'  run_add_sep_channel.m for this brain, then run_per_mouse.py,\n'
                              f'  or drop the reading with V2_READINGS.')
 
         # sig divided by a reference CHANNEL, voxel by voxel: the denominator is
-        # smoothed by one 20 um voxel and mask-normalised, exactly as v2_cohort
+        # smoothed by one 20 um voxel and mask-normalised, exactly as volumes.cohort
         # does it, so a region mean here and a voxel there mean the same thing.
         def per_unit(ref):
             ref_s = gaussian_filter(np.where(tissue, ref, 0), 1.0) / np.maximum(
@@ -388,7 +388,3 @@ def main():
     fig.tight_layout(rect=(0, 0, 1, 0.965))
     save_figure(fig, os.path.join(OUT, 'region_plot.png'))
     print('\nwrote', os.path.join(OUT, 'region_plot.png'))
-
-
-if __name__ == '__main__':
-    main()

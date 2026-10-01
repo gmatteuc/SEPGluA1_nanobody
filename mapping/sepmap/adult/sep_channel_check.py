@@ -1,7 +1,7 @@
 """
 Is the green channel reporting tagged receptor, or is it reporting the tissue?
 
-This exists because the three-arm argument in v2_ish_arms.py rests entirely on
+This exists because the three-arm argument in ish.arms rests entirely on
 one premise -- that ex vivo the SEP channel reports TOTAL GluA1 -- and the arm
 built on it behaved strangely: `SEP / auto` correlates with Gria1 expression at
 -0.11, while plain nano manages +0.62. Either the premise is wrong or the arm
@@ -35,7 +35,7 @@ Outputs, under data\\adult_v2\\arms:
   sep_channel_check.csv     the per-mouse numbers behind the figure
   sep_channel_check.png     the figure
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_sep_channel_check.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_sep_channel_check.py
 """
 
 import csv
@@ -49,8 +49,8 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy.stats import spearmanr
 
-from v2_per_mouse import annotation_20, MICE, CSV_MAP, OUT as PER_MOUSE, DATA
-from v2_cohort import NAIVE, RWS
+from sepmap.volumes.per_mouse import annotation_20, MICE, CSV_MAP, OUT as PER_MOUSE, DATA
+from sepmap.volumes.cohort import NAIVE, RWS
 
 OUT = os.path.join(DATA, 'adult_v2', 'arms')
 GENES = os.path.join(DATA, 'adult_v2', 'ish', 'gene_region_table.csv')
@@ -223,7 +223,3 @@ def main():
     path = os.path.join(OUT, 'sep_channel_check.png')
     fig.savefig(path, dpi=200); plt.close(fig)
     print(f'\n{path}')
-
-
-if __name__ == '__main__':
-    main()

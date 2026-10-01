@@ -1,9 +1,9 @@
-"""Where the project's data lives, for the Python route.
+"""Where the project's data lives, and the settings of the Python route.
 
 The data root is worked out the way get_paths.m works it out for MATLAB: the
 parent of the code folder, plus data. The code folder is the one that holds
-get_paths.m, found by walking up from this file, so the answer stays right
-when the scripts move one level down in the refactor (docs/REFACTOR_PLAN.md).
+get_paths.m, found by walking up from this file, so the answer does not
+depend on how deep in the code folder this file sits (mapping/sepmap/).
 
 SEP_DATA_ROOT points the whole data tree somewhere else. The refactor's checks
 run on copies of the data and must never write into the real one, and two
@@ -11,11 +11,16 @@ guards, the same as in get_paths.m, make that hard to get wrong: a copy of the
 code may not use the production data, and the snapshot on G: is a backup,
 never a data root.
 
+settings.toml, next to the package in mapping/, is read once into SETTINGS.
+print_settings gives every run script the same first lines: the data root,
+where it came from, and the run's options.
+
 Only the standard library is used, so the flatmap environment can import it
 too.
 """
 
 import os
+import tomllib
 
 PRODUCTION_CODE = r'D:\sep_histology\code'
 PRODUCTION_DATA = r'D:\sep_histology\data'
@@ -71,3 +76,23 @@ def data_root():
 
 
 DATA = data_root()
+
+# the settings file sits next to the package, beside the run scripts
+_SETTINGS_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                              'settings.toml')
+with open(_SETTINGS_PATH, 'rb') as _fh:
+    SETTINGS = tomllib.load(_fh)
+
+
+def print_settings(options):
+    """Print the settings a run works with, as the first lines of its log.
+
+    The data root and where it came from (SEP_DATA_ROOT, or beside the code
+    folder), the settings file, then the run's own options, one per line, from
+    `options` ({name: value}).
+    """
+    origin = 'SEP_DATA_ROOT' if os.environ.get('SEP_DATA_ROOT', '') else 'beside the code folder'
+    print(f'data root  {DATA}  ({origin})', flush=True)
+    print(f'settings   {_SETTINGS_PATH}', flush=True)
+    for name, value in options.items():
+        print(f'{name:10s} {value}', flush=True)

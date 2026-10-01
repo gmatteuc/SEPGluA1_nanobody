@@ -23,7 +23,7 @@ WHAT IS BEING REGRESSED ON WHAT
       abundance  the four AMPA receptor subunit genes Gria1-4, averaged over
                  their rank profiles. The set is not ours: it is GO:0004971
                  intersected with GO:0032281, less the delta receptors Grid1
-                 and Grid2 (see OVERRIDE in v2_panel_build.py).
+                 and Grid2 (see OVERRIDE in ish.panel_build).
       markers    eleven canonical synaptic markers CHOSEN BY HAND from the
                  panel -- Syp, Syn1, Vamp2, Bsn, Syt1 presynaptically, Dlg4,
                  Homer1, Shank2, Shank3, Nlgn1, Camk2a postsynaptically. A
@@ -43,7 +43,7 @@ Outputs, under data\\adult_v2\\beyond\\for_sami:
   F_maps.png/.eps           observed, predicted and residual on the brain
   regression_table.csv      every structure: observed, predicted, residual
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_beyond_regression.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_beyond_regression.py
 """
 
 import csv
@@ -55,12 +55,12 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy.stats import rankdata, spearmanr
 
-from v2_per_mouse import annotation_20
-from v2_beyond_density import (ADULTS, OUT, SUBUNITS, MARKERS, nano_per_mouse,
-                               gene_profiles, autofluorescence, keep_structure,
-                               build_covariates, half_map, residual, r_squared,
-                               cv_r2, flexible, structure_names, tidy)
-from v2_beyond_figures import RED, DARK, LIGHT, BLUE, FIGS, save
+from sepmap.volumes.per_mouse import annotation_20
+from sepmap.adult.beyond_density import (ADULTS, OUT, SUBUNITS, MARKERS, nano_per_mouse,
+                                         gene_profiles, autofluorescence, keep_structure,
+                                         build_covariates, half_map, residual, r_squared,
+                                         cv_r2, flexible, structure_names, tidy)
+from sepmap.adult.beyond_figures import RED, DARK, LIGHT, BLUE, FIGS, save
 
 # Coronal planes to draw, in 20 um slices through the CCF (450 of them). Chosen
 # to show cortex with hippocampus beneath it and thalamus at the midline, which
@@ -218,7 +218,3 @@ def main():
 
     panel_e(observed, predicted, res, structures, fitted, cv)
     panel_f(observed, predicted, res, structures)
-
-
-if __name__ == '__main__':
-    main()

@@ -4,9 +4,9 @@ left, the hemisphere-averaged cohort mean; right, reliability t = mean / SEM
 over the mice with tissue at that voxel; atlas outlines and acronyms on both;
 one frame per 20 um plane, front to back.
 
-Everything is drawn in the adult CCF, because that is where v2_cohort now
+Everything is drawn in the adult CCF, because that is where volumes.cohort now
 builds the cohort volumes -- the young brains having been carried there one by
-one (v2_to_ccf), which is what lets the pooled young group mix P20 and P16.
+one (volumes.to_ccf), which is what lets the pooled young group mix P20 and P16.
 
   cohorts   young (every registered young brain), young_P20, adult, naive, rws
   readings  the same four the region tables carry: ratio (per unit
@@ -20,12 +20,11 @@ MIN_N mice with tissue.
 
 Output: data/comparisons_v2/ccf/<cohort>/video_<reading>_<cohort>.mp4
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_video.py [cohort ...]
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_video.py [cohort ...]
 """
 
 import csv
 import os
-import sys
 import time
 
 import numpy as np
@@ -37,14 +36,15 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 from scipy.ndimage import center_of_mass
 
-from v2_per_mouse import CSV_MAP, DATA
-from v2_cohort import OUT_ROOT as CCF_ROOT, COHORTS, MODES, SIGNED_READINGS
+from sepmap.config import SETTINGS
+from sepmap.volumes.per_mouse import CSV_MAP, DATA
+from sepmap.volumes.cohort import OUT_ROOT as CCF_ROOT, COHORTS, MODES, SIGNED_READINGS
 
 MEAN_VMAX = {'ratio': 2.0, 'sepratio': 0.6, 'cref': 2.0, 'subref': 2.0, 'zref': 2.0}   # each scaled so cortex sits near half: cref is 1 by construction, adult cortex is 1.01 in ratio and 0.29 in sepratio; HPF saturates by design
 T_PCT = 95.0                              # t panel range: 0 .. this percentile of t over the cohort's voxels
 MIN_N = {'young': 2, 'young_P20': 2, 'young_P16': 1, 'naive': 3, 'rws': 3, 'adult': 5}
-FPS = 12
-MIN_LABEL_AREA = 150     # 20 um voxels in the plane, below which no acronym is drawn
+FPS = SETTINGS['videos']['fps']
+MIN_LABEL_AREA = SETTINGS['videos']['min_label_area']     # 20 um voxels in the plane, below which no acronym is drawn
 
 
 def fold(v):
@@ -140,7 +140,3 @@ def main(cohorts):
                 writer.send(np.ascontiguousarray(rgba[:, :, :3]))
             writer.close(); plt.close(fig)
             print(f'{cohort:10s} {reading:6s} {len(frames)} frames -> {out}   {time.time() - t0:.0f} s', flush=True)
-
-
-if __name__ == '__main__':
-    main(sys.argv[1:] or ['young', 'adult', 'young_P20', 'naive', 'rws'])

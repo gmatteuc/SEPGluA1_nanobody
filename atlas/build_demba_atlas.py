@@ -48,13 +48,13 @@ import nibabel as nib
 import numpy as np
 
 def _data_root():
-    """The data root, by the same rule and guards as get_paths.m and v2_paths.py.
+    """The data root, by the same rule and guards as get_paths.m and sepmap/config.py.
 
     The parent of the folder holding get_paths.m, plus data, or SEP_DATA_ROOT
     when it is set. A copy of the code may not use the production data (or a
     folder inside it), and the snapshot on G: is never a data root. The rule is
     repeated here because this script moves to atlas/ in the refactor, away
-    from v2_paths.py; keep the two identical.
+    from mapping/sepmap/config.py; keep the two identical.
     """
     def canonical(path):
         path = os.path.normpath(os.path.abspath(path))

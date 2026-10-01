@@ -2,8 +2,8 @@
 v2, step 4: young vs adult in the adult CCF, from cohort volumes that are
 already there.
 
-Nothing is transformed here any more: v2_to_ccf carried each brain onto the
-660 x 400 x 570 grid at 20 um and v2_cohort averaged them on it. This script
+Nothing is transformed here any more: volumes.to_ccf carried each brain onto the
+660 x 400 x 570 grid at 20 um and volumes.cohort averaged them on it. This script
 folds the hemispheres, compares, and writes the maps and tables.
 
   ratio   log2( young nano/auto  /  adult nano/auto )        absolute-ish
@@ -20,7 +20,7 @@ Outputs, in data/comparisons_v2/young_vs_adult/:
   region_table.csv      per structure, both modes, both young groups
   cortex_table.txt      the cortical areas, printed
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_compare.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_compare.py
 """
 
 import csv
@@ -34,12 +34,16 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from v2_per_mouse import DATA, CSV_MAP
-from v2_cohort import OUT_ROOT as CCF_ROOT, COHORTS, MODES, SIGNED_READINGS, Z_FLOOR
+from sepmap.config import SETTINGS
+from sepmap.volumes.per_mouse import DATA, CSV_MAP
+from sepmap.volumes.cohort import OUT_ROOT as CCF_ROOT, COHORTS, MODES, SIGNED_READINGS, Z_FLOOR
 
 OUT = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult')
 CCF_AP0 = 180                        # the adult registered crop, 10 um planes
-MIN_N_YOUNG, MIN_N_ADULT = 2, 5
+# brains with tissue that a voxel needs to be compared, from settings.toml, the
+# same keys young_vs_adult.closeup reads
+MIN_N_YOUNG = SETTINGS['young_vs_adult']['min_n_young']
+MIN_N_ADULT = SETTINGS['young_vs_adult']['min_n_adult']
 SMOOTH = 1.0                         # voxels at 20 um, applied to the log2 map only
 YOUNG = 'young'                      # pooled P20 + P16
 YOUNG_ALT = 'young_P20'              # sensitivity check
@@ -95,7 +99,7 @@ def load_cohort(cohort):
 
 
 def draw_figures(z, out):
-    """Slices figure per mode from the saved volumes (also used by v2_replot.py).
+    """Slices figure per mode from the saved volumes (also used by young_vs_adult.replot).
 
     Colour conventions: no data (outside the atlas, or too few mice) is flat
     GREY; the intensity map stops before the white end of 'hot', so saturation
@@ -124,7 +128,7 @@ def draw_figures(z, out):
     ok = np.nonzero(cov > 0.5 * cov.max())[0]
     planes = [int(v) for v in np.linspace(ok[0], ok[-1], 6).round()]
     what = {'ratio': 'nano / autofluorescence, both background-subtracted',
-            'sepratio': 'nano / SEP, both background-subtracted  -  NOT a surface fraction, see v2_sep_channel_check',
+            'sepratio': 'nano / SEP, both background-subtracted  -  NOT a surface fraction, see run_sep_channel_check',
             'cref': "background-subtracted nano relative to each mouse's isocortex mean",
             'subref': 'background-subtracted nano relative to the subcortex, excluding HPF and STR',
             'zref': "range-matched: position within each brain's own distribution "
@@ -185,7 +189,7 @@ def main():
           f'(young n>={MIN_N_YOUNG}: {(inside & (young_n >= MIN_N_YOUNG)).sum():,}; '
           f'adult n>={MIN_N_ADULT}: {(inside & (adult_n >= MIN_N_ADULT)).sum():,})   {time.time() - t0:.0f} s', flush=True)
 
-    eps = Z_FLOOR      # the same floor v2_cohort applies, so a map and a table agree
+    eps = Z_FLOOR      # the same floor volumes.cohort applies, so a map and a table agree
     log2, log2_alt = {}, {}
     for m in MODES:
         for src, dst in ((young, log2), (young_alt, log2_alt)):
@@ -277,7 +281,3 @@ def main():
 
     draw_figures(dict(np.load(os.path.join(OUT, 'volumes_ccf20.npz'))), OUT)
     print(f'done  {time.time() - t0:.0f} s')
-
-
-if __name__ == '__main__':
-    main()

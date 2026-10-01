@@ -1,5 +1,5 @@
 """
-Seven attempts to break the claim in v2_beyond_density.py.
+Seven attempts to break the claim in adult.beyond_density.
 
 That script says: about 40% of the explainable variance of the adult
 surface-GluA1 map is not accounted for by receptor abundance or synaptic
@@ -12,7 +12,7 @@ the number that says whether it is.
 straight-line model and failed: allowing the covariates to bend raised the
 cross-validated fit from 0.42 to 0.60, meaning a fifth of the map was being
 credited to the leftover that the covariates could actually explain. The fix was
-to the model, not to the wording -- v2_beyond_density now quotes the bending
+to the model, not to the wording -- adult.beyond_density now quotes the bending
 version, the headline moved from "half" to 40%, and E now asks the follow-up
 question instead: is the bending model bent enough?
 
@@ -37,7 +37,7 @@ Controls E and F are cross-validated, because a flexible model always fits
 better on the data it was fitted to; the question is whether it PREDICTS better,
 and only held-out structures can say.
 
-Everything is imported from v2_beyond_density so the two scripts cannot drift
+Everything is imported from adult.beyond_density so the two scripts cannot drift
 apart: same structures, same covariates, same arithmetic.
 
 Outputs, under data\\adult_v2\\beyond:
@@ -46,7 +46,7 @@ Outputs, under data\\adult_v2\\beyond:
   fig5_model_space.png      E and F, how much ANY model of this data can explain
   fig6_readings.png         G, the same test on all five readings
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_beyond_controls.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_beyond_controls.py
 """
 
 import csv
@@ -59,12 +59,12 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy.stats import rankdata, spearmanr
 
-from v2_per_mouse import annotation_20, CSV_MAP, DATA
-from v2_beyond_density import (ADULTS, NAIVE, RWS, OUT, SUBUNITS, MARKERS,
-                               nano_per_mouse, gene_profiles, autofluorescence,
-                               structure_names, keep_structure, build_covariates,
-                               half_map, half_splits, residual, r_squared, cv_r2,
-                               flexible, spearman_brown, tidy, save, NANO)
+from sepmap.volumes.per_mouse import annotation_20, CSV_MAP, DATA
+from sepmap.adult.beyond_density import (ADULTS, NAIVE, RWS, OUT, SUBUNITS, MARKERS,
+                                         nano_per_mouse, gene_profiles, autofluorescence,
+                                         structure_names, keep_structure, build_covariates,
+                                         half_map, half_splits, residual, r_squared, cv_r2,
+                                         flexible, spearman_brown, tidy, save, NANO)
 
 N_FOLDS = 5             # for the cross-validated controls, E and F
 MAX_PCS = 25            # the largest gene-space model tried in control F
@@ -442,7 +442,3 @@ def main():
     figure_artefacts(res, structures, sizes_arr, per_mouse, pairs, naive, rws, coords)
     figure_model_space(curve, best_k, ceiling, cubic, quintic)
     figure_readings(reading_rows)
-
-
-if __name__ == '__main__':
-    main()

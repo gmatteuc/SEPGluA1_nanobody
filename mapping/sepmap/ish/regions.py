@@ -29,7 +29,7 @@ does not matter here, since a structure mean pools both hemispheres.
 
 Aggregation. Voxels are assigned to structures with the CCF annotation sampled
 onto the same 200 um grid, and structures are keyed by NAME, summing over the
-layer-level indices, exactly as v2_region_plot does for the nano side. Two means
+layer-level indices, exactly as young_vs_adult.region_plot does for the nano side. Two means
 are computed per structure:
 
   full    every valid voxel inside the structure
@@ -44,12 +44,11 @@ Output: data\\adult_v2\\ish\\gene_region_table.csv, long format, one row per
 gene and structure, plus a coverage column so a structure measured from three
 voxels can be told from one measured from three thousand.
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_ish_regions.py [gene ...]
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_ish_regions.py [gene ...]
 """
 
 import csv
 import os
-import sys
 import time
 from collections import defaultdict
 
@@ -57,28 +56,36 @@ import numpy as np
 import nibabel as nib
 from scipy.ndimage import binary_erosion
 
-from v2_paths import DATA
+from sepmap.config import DATA, SETTINGS
 ISH_DIR = os.path.join(DATA, 'atlas_ish')
 CSV_MAP = os.path.join(DATA, 'atlas', 'parcellation_to_parcellation_term_membership.csv')
 OUT = os.path.join(DATA, 'adult_v2', 'ish')
 
-# Which panel to run, and what to call the table. The defaults are the original
-# 100-gene panel; the larger ontology-defined one from v2_panel_build is run by
-# pointing these at it, which keeps one audited copy of the aggregation instead
-# of a second script that drifts:
-#   $env:V2_ISH_PANEL = 'adult_v2\panel\panel_v2.csv'
-#   $env:V2_ISH_TABLE = 'gene_region_table_panel.csv'
-# A relative panel path is taken inside the data root, so the same setting
-# works on a copy of the data; an absolute one is used as it is.
-PANEL = os.environ.get('V2_ISH_PANEL') or os.path.join(DATA, 'gene_targets.csv')
-if not os.path.isabs(PANEL):
-    PANEL = os.path.join(DATA, PANEL)
-TABLE = os.environ.get('V2_ISH_TABLE') or 'gene_region_table.csv'
+# Which panel to run, and what to call the table: one of the passes named in
+# settings.toml ([ish_panels]), chosen by name (run_ish_regions.py --panel).
+# The default is the original 100-gene panel; the larger ontology-defined one
+# from ish.panel_build is the other pass, which keeps one audited copy of the
+# aggregation instead of a second script that drifts. A relative panel path is
+# taken inside the data root, so the same setting works on a copy of the data;
+# an absolute one is used as it is.
+ISH_PANELS = SETTINGS['ish_panels']
+DEFAULT_PANEL = 'targets'
 
 GRID_UM = 200
 MISSING = -1.0          # the Allen flag for "no data here"
 MIN_VOXELS = 3          # a structure needs this many valid 200 um voxels to get a value
 GRID_DIMS = (67, 41, 58)   # the shared reference box, in the header's (x, y, z) order
+
+
+def panel_files(name):
+    """(panel CSV path, output table name) of one panel pass in settings.toml."""
+    if name not in ISH_PANELS:
+        raise ValueError(f'no ISH panel pass {name!r} in settings.toml; the passes '
+                         f'are {", ".join(ISH_PANELS)}')
+    panel = os.path.normpath(ISH_PANELS[name]['panel'])
+    if not os.path.isabs(panel):
+        panel = os.path.join(DATA, panel)
+    return panel, ISH_PANELS[name]['table']
 
 
 class NotReferenceGrid(Exception):
@@ -156,7 +163,8 @@ def region_means(vol, ann, names, eroded_ann):
     return out
 
 
-def main(only=None):
+def main(only=None, panel_name=DEFAULT_PANEL):
+    PANEL, TABLE = panel_files(panel_name)
     os.makedirs(OUT, exist_ok=True)
     panel = [r for r in csv.DictReader(open(PANEL, newline='', encoding='utf-8'))]
     if only:
@@ -213,7 +221,3 @@ def main(only=None):
         w = csv.DictWriter(fh, fieldnames=['symbol', 'experiment_id', 'reason'])
         w.writeheader(); w.writerows(dropped)
     print(f'{len(dropped)} genes dropped -> {path}', flush=True)
-
-
-if __name__ == '__main__':
-    main(sys.argv[1:] or None)

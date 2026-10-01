@@ -1,5 +1,5 @@
 """
-The same per-mouse measurements as v2_region_plot, aggregated two ways that
+The same per-mouse measurements as young_vs_adult.region_plot, aggregated two ways that
 ask coarser questions than "one area at a time":
 
   by system    primary and higher-order visual, somatosensory and auditory,
@@ -15,11 +15,11 @@ ask coarser questions than "one area at a time":
 
 Everything is computed on each brain's OWN atlas, no warping: a group mean is
 the voxel-weighted mean over its member labels in that brain. The three
-readings and the references are the ones v2_region_plot uses (ratio = nano per
+readings and the references are the ones young_vs_adult.region_plot uses (ratio = nano per
 autofluorescence; cref = relative to that brain's isocortex; subref = relative
 to the subcortex excluding HPF and STR; sepratio = nano per unit SEP, which was
 meant to be surface receptor per unit receptor expressed and is not -- the green
-channel is mostly autofluorescence here, see v2_sep_channel_check.py; zref = range-matched to each brain's
+channel is mostly autofluorescence here, see adult.sep_channel_check; zref = range-matched to each brain's
 own spread), and the test is the same Mann-Whitney
 of the young group against the adults, uncorrected in the figure, with BH
 q-values in the CSV.
@@ -30,7 +30,7 @@ Writes into data/comparisons_v2/young_vs_adult/:
   group_plot.png         systems, one dot per mouse
   laminar_plot.png       layers within each cortical system
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_region_groups.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_region_groups.py
 """
 
 import csv
@@ -45,9 +45,9 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from v2_per_mouse import annotation_20, MICE, CSV_MAP, DATA, OUT as PER_MOUSE
-from v2_cohort import RATIO_CLIP, YOUNG_P20, YOUNG_P16, YOUNG_P22, NAIVE, RWS, SIGNED_READINGS
-from v2_region_plot import bh_fdr, mannwhitney, welch, READINGS, NOT_SUBCORTEX, COL
+from sepmap.volumes.per_mouse import annotation_20, MICE, CSV_MAP, DATA, OUT as PER_MOUSE
+from sepmap.volumes.cohort import RATIO_CLIP, YOUNG_P20, YOUNG_P16, YOUNG_P22, NAIVE, RWS, SIGNED_READINGS
+from sepmap.young_vs_adult.region_plot import bh_fdr, mannwhitney, welch, READINGS, NOT_SUBCORTEX, COL
 
 OUT = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult')
 GROUPS = {'young': YOUNG_P20 + YOUNG_P16 + YOUNG_P22, 'naive': NAIVE, 'rws': RWS}
@@ -165,11 +165,11 @@ def main():
         sig = z['sig'].astype(np.float32); auto = z['auto'].astype(np.float32); tissue = z['tissue']
         if any(r == 'sepratio' for r, _ in READINGS) and 'sep' not in z.files:
             raise SystemExit(f'{mouse}: no SEP channel in its per-mouse file. Run\n'
-                             f'  run_add_sep_channel.m for this brain, then v2_per_mouse.py,\n'
+                             f'  run_add_sep_channel.m for this brain, then run_per_mouse.py,\n'
                              f'  or drop the reading with V2_READINGS.')
 
         # sig per unit of a reference CHANNEL, the denominator smoothed by one
-        # 20 um voxel and mask-normalised, as in v2_cohort and v2_region_plot
+        # 20 um voxel and mask-normalised, as in volumes.cohort and young_vs_adult.region_plot
         def per_unit(ref):
             ref_s = gaussian_filter(np.where(tissue, ref, 0), 1.0) / np.maximum(
                 gaussian_filter(tissue.astype(np.float32), 1.0), 1e-3)
@@ -314,7 +314,3 @@ def main():
             f'Bars are group medians.  * p<0.05, ** p<0.01 '
             f'(Mann-Whitney {len(GROUPS["young"])} vs {len(ADULTS)}, uncorrected)')
     print('\nwrote group_plot.png, laminar_plot.png, group_stats.csv')
-
-
-if __name__ == '__main__':
-    main()

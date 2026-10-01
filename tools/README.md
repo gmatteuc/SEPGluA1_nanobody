@@ -8,7 +8,7 @@ data, and their outputs are compared file by file.
 
 ## Where a run reads and writes: SEP_DATA_ROOT
 
-`get_paths.m` (MATLAB) and `v2_paths.py` (Python) take the data root from the
+`get_paths.m` (MATLAB) and `mapping/sepmap/config.py` (Python) take the data root from the
 environment variable `SEP_DATA_ROOT` when it is set, otherwise from the
 folder next to the code (`<root>\data`). It moves the whole data tree, inputs
 and outputs. Both refuse the production data (`D:\sep_histology\data`) to a

@@ -7,8 +7,8 @@ compared where it sits rather than by flicking between two windows. Atlas
 outlines and acronyms on all three; the header says which CCF plane and how
 many brains are behind each side there.
 
-Everything comes from the cohort volumes v2_cohort built in CCF, the same ones
-v2_compare makes its figures from, and all four readings are available. The
+Everything comes from the cohort volumes volumes.cohort built in CCF, the same ones
+young_vs_adult.compare makes its figures from, and all four readings are available. The
 colour scale of the two means is fixed and shared; for ratio, cref and subref
 it is linear and the third panel is a log2 ratio, for zref the means are a
 signed position within each brain's range and the third panel is their
@@ -19,14 +19,13 @@ message gets made, and the colour range can be tightened for that run only --
 the cortex occupies a fraction of the range the hippocampus needs, so saturating
 the extremes is usually the only way to see it:
 
-  v2_video_compare.py [reading ...] [--plane <CCF plane, 10 um>] [--vmax V] [--dlim D]
+  run_video_compare.py [reading ...] [--plane <CCF plane, 10 um>] [--vmax V] [--dlim D]
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_video_compare.py zref --plane 790 --vmax 1.0
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_video_compare.py zref --plane 790 --vmax 1.0
 """
 
 import csv
 import os
-import sys
 import time
 
 import numpy as np
@@ -38,15 +37,16 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 from scipy.ndimage import center_of_mass
 
-from v2_per_mouse import CSV_MAP, DATA
-from v2_cohort import COHORTS, OUT_ROOT as CCF_ROOT, MODES, SIGNED_READINGS
-from v2_compare import MIN_N_YOUNG, MIN_N_ADULT, YOUNG, fold, fold_n
+from sepmap.config import SETTINGS
+from sepmap.volumes.per_mouse import CSV_MAP, DATA
+from sepmap.volumes.cohort import COHORTS, OUT_ROOT as CCF_ROOT, SIGNED_READINGS
+from sepmap.young_vs_adult.compare import MIN_N_YOUNG, MIN_N_ADULT, YOUNG, fold, fold_n
 
 OUT = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult')
 MEAN_VMAX = {'ratio': 2.0, 'sepratio': 0.6, 'cref': 2.0, 'subref': 2.0, 'zref': 2.0}
 LOG2_LIM = 1.5
-FPS = 12
-MIN_LABEL_AREA = 150
+FPS = SETTINGS['videos']['fps']
+MIN_LABEL_AREA = SETTINGS['videos']['min_label_area']
 
 
 def boundaries(lab):
@@ -145,19 +145,3 @@ def main(readings, plane=None, vmax=None, dlim=None):
             writer.close()
         plt.close(fig)
         print(f'{reading:8s} {len(frames)} frame(s) -> {out}   {time.time() - t0:.0f} s', flush=True)
-
-
-if __name__ == '__main__':
-    argv, readings, opts = sys.argv[1:], [], {}
-    i = 0
-    while i < len(argv):
-        if argv[i] in ('--plane', '--vmax', '--dlim'):
-            opts[argv[i][2:]] = argv[i + 1]
-            i += 2
-        else:
-            readings.append(argv[i])
-            i += 1
-    main(readings or list(MODES),
-         plane=int(opts['plane']) if 'plane' in opts else None,
-         vmax=float(opts['vmax']) if 'vmax' in opts else None,
-         dlim=float(opts['dlim']) if 'dlim' in opts else None)

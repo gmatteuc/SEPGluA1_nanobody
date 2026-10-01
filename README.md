@@ -46,29 +46,30 @@ top of the script; the channel is rolled into output folder names so runs never 
 
 P5–P8 were built for adults on one atlas, and reused across ages they answer the
 wrong question (details in `data\comparisons_v2\README.md`). The cross-age
-comparison runs on a separate chain of Python scripts, which reads the registered
+comparison runs on a separate chain of Python scripts in `mapping\` (entry points
+`run_*.py`, the code in the package `mapping\sepmap\`), which reads the registered
 volumes directly and writes only under `data\comparisons_v2\`:
 
 | Script | Purpose |
 |---|---|
-| `v2_per_mouse.py` | per brain, on the atlas of **its own age**: tissue mask, background-subtracted nano, auto and SEP |
-| `v2_to_ccf.py` | each young brain carried DeMBA → CCF at its own age; adults are placed, not warped |
-| `v2_cohort.py` | per-voxel cohort mean, SD and n, in the adult CCF |
-| `v2_compare.py` | young against adult: maps, the per-structure table |
-| `v2_region_plot.py` | the statistics, per-mouse region means with **no warping anywhere** |
-| `v2_region_groups.py` | the same by system (primary vs higher sensory, frontal…) and by cortical layer |
-| `v2_video.py`, `v2_video_compare.py` | plane-by-plane videos, per cohort and young beside adult |
-| `v2_inspect.py` | one reading looked at closely: a coronal plane, its video and the cortical flatmaps (whole depth and by layer), all from one set of volumes. Runs in `tools\venv_flat` — see its docstring |
-| `v2_diagnostics.py` | the sheets that make each step checkable by eye |
+| `run_per_mouse.py` | per brain, on the atlas of **its own age**: tissue mask, background-subtracted nano, auto and SEP |
+| `run_to_ccf.py` | each young brain carried DeMBA → CCF at its own age; adults are placed, not warped |
+| `run_cohort.py` | per-voxel cohort mean, SD and n, in the adult CCF |
+| `run_compare.py` | young against adult: maps, the per-structure table |
+| `run_region_plot.py` | the statistics, per-mouse region means with **no warping anywhere** |
+| `run_region_groups.py` | the same by system (primary vs higher sensory, frontal…) and by cortical layer |
+| `run_video.py`, `run_video_compare.py` | plane-by-plane videos, per cohort and young beside adult |
+| `run_closeup.py` | one reading looked at closely: a coronal plane, its video and the cortical flatmaps (whole depth and by layer), all from one set of volumes. Runs in `tools\venv_flat` — see its header |
+| `run_diagnostics.py` | the sheets that make each step checkable by eye |
 
 Five readings run through all of it, and none of them replaces another: `ratio`
 (nano per unit autofluorescence), `sepratio` (nano per unit SEP — intended as
-surface receptor per unit receptor expressed, but see `v2_sep_channel_check.py`:
+surface receptor per unit receptor expressed, but see `run_sep_channel_check.py`:
 the green channel is mostly autofluorescence here, so it is not), `cref` and `subref` (relative to the
 brain's own isocortex / subcortex) and `zref` (range-matched).
 
-Run them with the project venv:
-`tools\venv_atlas\Scripts\python.exe v2_per_mouse.py`
+Run them with the project venv, in the order each script's header lists:
+`tools\venv_atlas\Scripts\python.exe mapping\run_per_mouse.py`
 
 ### Important caveat on what the pipeline measures
 

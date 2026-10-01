@@ -26,7 +26,7 @@ function p = get_paths()
 % else. The refactor's checks run on copies of the data and must never write
 % into the real one (docs/REFACTOR_PLAN.md), so a copy of the code is refused
 % the production data, and the snapshot on G: is refused as a data root. The
-% Python route applies the same rules (v2_paths.py).
+% Python route applies the same rules (mapping/sepmap/config.py).
 %
 % Raw .czi are copied into <root>\data\<group>\<mouse>\ before processing, so
 % the read-only lab share is not part of this at all -- see run_copy_raw_data.

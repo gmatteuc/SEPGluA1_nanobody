@@ -141,7 +141,7 @@ for mousetype_idx = 1:numel(mousetypes_list)
     % 10 um voxels apart (r 0.94-0.99 plane by plane, every adult), and anything
     % dividing one by the other was quietly mixing them. Uncomment the saves
     % before trusting a file here, or read the registered tiffs directly, as
-    % v2_per_mouse does.
+    % mapping/sepmap/volumes/per_mouse.py does.
     base_dir = fullfile(paths.data, current_mouse_type);
     save(fullfile(base_dir, ['nano_4d' subset_tag '.mat']), 'nano_4d', '-v7.3');
     % save(fullfile(base_dir, ['auto_4d' subset_tag '.mat']), 'auto_4d', '-v7.3');

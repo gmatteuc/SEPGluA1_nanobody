@@ -1,7 +1,7 @@
 """
 The four figures that tell Sami the result, with the statistics on their face.
 
-v2_beyond_density.py and v2_beyond_controls.py are working figures: they exist to
+adult.beyond_density and adult.beyond_controls are working figures: they exist to
 let someone check each step, and there are seven of them. This makes the version
 that goes in front of a person -- four panels, the same palette as the
 young-versus-adult set, every number carrying an interval, and an EPS beside
@@ -38,7 +38,7 @@ Outputs, under data\\adult_v2\\beyond\\for_sami:
   C_where.png/.eps           D_controls.png/.eps
   numbers_for_the_caption.txt   every figure's numbers as a sentence
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_beyond_figures.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_beyond_figures.py
 """
 
 import csv
@@ -50,15 +50,15 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy.stats import rankdata, spearmanr
 
-from v2_beyond_density import (ADULTS, OUT, SUBUNITS, MARKERS, nano_per_mouse,
-                               gene_profiles, autofluorescence, keep_structure,
-                               build_covariates, half_map, half_splits, residual,
-                               cv_r2, flexible, spearman_brown, tidy)
+from sepmap.adult.beyond_density import (ADULTS, OUT, SUBUNITS, MARKERS, nano_per_mouse,
+                                         gene_profiles, autofluorescence, keep_structure,
+                                         build_covariates, half_map, half_splits, residual,
+                                         cv_r2, flexible, spearman_brown, tidy)
 
 FIGS = os.path.join(OUT, 'for_sami')
 
 # The young-versus-adult palette, so the two sets of figures look like one piece
-# of work: COL in v2_region_plot.py is {young #c0392b, naive #555555, rws #9a9a9a}.
+# of work: COL in young_vs_adult.region_plot is {young #c0392b, naive #555555, rws #9a9a9a}.
 RED = '#c0392b'         # the thing being shown
 DARK = '#555555'        # its comparison
 LIGHT = '#9a9a9a'       # context
@@ -315,7 +315,3 @@ def main():
               encoding='utf-8') as fh:
         fh.write('\n'.join(lines) + '\n')
     print(f'  -> {os.path.join(FIGS, "numbers_for_the_caption.txt")}')
-
-
-if __name__ == '__main__':
-    main()

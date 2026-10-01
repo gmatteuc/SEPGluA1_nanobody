@@ -1,4 +1,4 @@
-# tools/venv_atlas: the Python route (v2_*.py) and build_demba_atlas.py.
+# tools/venv_atlas: the Python route (mapping/run_*.py) and build_demba_atlas.py.
 # Python 3.12.7 (Anaconda, C:\ProgramData\anaconda3). Frozen on 30 Sep 2026 as the
 # environment stood when the results were produced. Recreate it from the repository
 # root with

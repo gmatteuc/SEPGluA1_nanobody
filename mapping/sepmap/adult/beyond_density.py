@@ -9,14 +9,14 @@ abundance and three density proxies, allowed a bending relationship, account for
 cohort at 0.97. Even a twenty-component model of the whole 390-gene panel, far
 richer than either explanation, still leaves a remainder that replicates at 0.88.
 
-This script exists to make that sentence defensible, and `v2_beyond_controls.py`
+This script exists to make that sentence defensible, and `adult.beyond_controls`
 exists to attack it. Read them in that order.
 
 WHY NOT JUST RANK GENES
 -----------------------
 The obvious way to ask "is the nano map about trafficking?" is to correlate it
 with every gene and look at the top of the list. We did that, at length, and it
-does not work: v2_ish_panel_test.py showed the ranking is flat across
+does not work: ish.panel_test showed the ranking is flat across
 postsynaptic gene classes. Which is exactly what you would see if the map were
 nothing but synaptic density -- every synaptic gene would correlate, and none
 would stand out. A flat ranking is evidence for the boring hypothesis, not
@@ -92,7 +92,7 @@ That last figure is the "about 40%" in the claim. It is deliberately not
 the explanations failed to account for.
 
 Intervals on all of these come from resampling the 125 structures with
-replacement 2000 times and recomputing; see v2_beyond_figures.py.
+replacement 2000 times and recomputing; see adult.beyond_figures.
 
 CHOICES, AND WHY
 ----------------
@@ -104,7 +104,7 @@ Region means are the level at which both sides mean the same thing.
 experiment, and nothing here assumes a straight-line relationship -- only that
 more receptor means more signal. Spearman and rank regression say exactly that
 and nothing more. Whether the rank relationship really is straight is not
-assumed either: control E in v2_beyond_controls.py tests it.
+assumed either: control E in adult.beyond_controls tests it.
 
 *Grey matter only, and no catch-all labels.* Fibre tracts and ventricles have no
 synapses, so "synaptic density" is not even defined there, and the CCF's
@@ -127,13 +127,13 @@ A NOTE ON HOW THIS NUMBER MOVED
 -------------------------------
 The first version of this analysis fitted the covariates as straight lines and
 reported that half the explainable variance was unaccounted for. Control E in
-v2_beyond_controls.py showed that was too generous to us: the rank relationships
+adult.beyond_controls showed that was too generous to us: the rank relationships
 here are curved, and a straight line left variance in the residual that the
 covariates could have explained. Letting them bend took the model from 0.42 to
 0.60 cross-validated, and the headline from "half" to 39%. The claim survived,
 smaller. That is what the controls are for.
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_beyond_density.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_beyond_density.py
 """
 
 import csv
@@ -148,8 +148,8 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy.stats import rankdata, spearmanr
 
-from v2_per_mouse import annotation_20, MICE, CSV_MAP, OUT as PER_MOUSE, DATA
-from v2_cohort import NAIVE, RWS
+from sepmap.volumes.per_mouse import annotation_20, MICE, CSV_MAP, OUT as PER_MOUSE, DATA
+from sepmap.volumes.cohort import NAIVE, RWS
 
 NANO = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult', 'region_means_per_mouse.csv')
 MERGED_ISH = os.path.join(DATA, 'adult_v2', 'ish', 'gene_region_table_merged.csv')
@@ -292,7 +292,7 @@ def flexible(predictors):
     """The same covariates, allowed to bend.
 
     A straight line through two rank variables assumes the relationship is not
-    only monotone but evenly paced, and control E in v2_beyond_controls.py showed
+    only monotone but evenly paced, and control E in adult.beyond_controls showed
     that assumption is wrong here: adding curvature raises the cross-validated
     fit from 0.42 to 0.60. Crediting that 0.18 to the leftover would have been
     our mistake, not the biology's, so the headline model bends.
@@ -621,8 +621,4 @@ def main():
     agreement = step3_residual(nano, structures, covariates, splits, raw_agreement)
     step4_where(nano, structures, covariates, expr, role, agreement, raw_agreement)
 
-    print('\nNow run v2_beyond_controls.py: it tries to break this seven ways.')
-
-
-if __name__ == '__main__':
-    main()
+    print('\nNow run run_beyond_controls.py: it tries to break this seven ways.')

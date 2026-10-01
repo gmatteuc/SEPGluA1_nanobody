@@ -1,7 +1,7 @@
 """
 What kind of gene sits at the top of the ranking? Annotation words, tested.
 
-`v2_ish_compare.py` leaves one number per gene, and the only grouping available
+`ish.compare` leaves one number per gene, and the only grouping available
 so far is the `category` column we wrote by hand in gene_targets.csv while
 choosing those genes. That column is coarse -- "trafficking" holds Cacng8 next
 to Bsn and Syn1, which are presynaptic -- and using it to explain the ranking is
@@ -44,7 +44,7 @@ Outputs, under data\\adult_v2\\ish:
   feature_enrichment.csv       every feature, every reading
   ish_word_enrichment.png      the picture, for zref
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_ish_words.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_ish_words.py
 """
 
 import csv
@@ -62,7 +62,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy.stats import mannwhitneyu, false_discovery_control
 
-from v2_paths import DATA
+from sepmap.config import DATA
 RHO = os.path.join(DATA, 'adult_v2', 'ish', 'gene_correlations.csv')
 OUT = os.path.join(DATA, 'adult_v2', 'ish')
 CACHE = os.path.join(OUT, 'annotation')
@@ -148,7 +148,7 @@ def words_of(terms, name):
 
 
 def load_rho():
-    """{reading: {gene: rho}} from what v2_ish_compare wrote."""
+    """{reading: {gene: rho}} from what ish.compare wrote."""
     per = defaultdict(dict)
     with open(RHO, newline='', encoding='utf-8') as fh:
         for r in csv.DictReader(fh):
@@ -326,7 +326,3 @@ def main():
             print(f'  {r["gap"]:+.3f} [{r["gap_lo"]:+.2f} {r["gap_hi"]:+.2f}]  '
                   f'n={r["n_genes"]:3d}  q={r["q"]:.3f}  {r["feature"]}')
     figure(terms, words, rho[PLOT_READING])
-
-
-if __name__ == '__main__':
-    main()

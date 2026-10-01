@@ -21,7 +21,7 @@ registered 10 um-equivalent grid):
   sep      the SEP (green) channel, same treatment, where run_add_sep_channel has carried it
            into registered space. It was carried across so that nano/sep could
            read as surface per unit receptor expressed, against nano/auto's
-           surface per unit tissue. It does not: v2_sep_channel_check.py finds
+           surface per unit tissue. It does not: adult.sep_channel_check finds
            this channel dominated by autofluorescence in fixed, cleared tissue.
            Kept because it is a real measurement and the check needs it, but do
            not read nano/sep as a surface fraction.
@@ -36,18 +36,17 @@ cannot pollute them.
 Output: data/comparisons_v2/per_mouse/<mouse>.npz  (sig, auto, sep: float16;
 tissue: bool; scalars). Nothing under data/comparisons is touched.
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_per_mouse.py [mouse ...]
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_per_mouse.py [mouse ...]
 """
 
 import csv
 import os
-import sys
 import time
 
 import nibabel as nib
 import numpy as np
 
-from v2_paths import DATA
+from sepmap.config import DATA
 OUT = os.path.join(DATA, 'comparisons_v2', 'per_mouse')
 CSV_MAP = os.path.join(DATA, 'atlas', 'parcellation_to_parcellation_term_membership.csv')
 MAD_K = 4.0
@@ -205,7 +204,3 @@ def main(mice):
               f'{"bg sep %5.0f  " % extra["bg_sep"] if extra else "no sep       "}'
               f'tissue {100 * tissue.sum() / brain.sum():5.1f}% of atlas brain, planes reached {reached.sum()}/{n_ap}  '
               f'cortex mean {cortex_mean:6.0f}   {time.time() - t0:.0f} s', flush=True)
-
-
-if __name__ == '__main__':
-    main(sys.argv[1:] or list(MICE))

@@ -25,7 +25,7 @@ numbers exist:
 SEP is superecliptic pHluorin on GluA1, so in a living cell it reports the
 surface pool; this tissue is fixed, cleared and mounted, so its pH gradients are
 gone and the green channel should report the receptor wherever it sits. It does
-not. v2_sep_channel_check.py measures the green channel directly and finds it
+not. adult.sep_channel_check measures the green channel directly and finds it
 tracks the autofluorescence channel at rho 0.79 +- 0.04 across all ten adults,
 with a dynamic range of 0.95 log2 against nano's 1.93. Whatever tag survives the
 protocol, autofluorescence dominates what is left.
@@ -34,10 +34,10 @@ The table below is therefore still correct arithmetic, and `sepauto` and
 `sepratio` do not mean what their names promise: not total receptor and not a
 surface fraction. They are kept because they are how that was established, and
 because `ratio` and the consistency check are needed either way. Read
-v2_sep_channel_check.py before using either of them for anything.
+adult.sep_channel_check before using either of them for anything.
 
 What this script produces is only the table: per adult, per structure, the three
-arms in log2. The arithmetic is deliberately the same as v2_region_plot's --
+arms in log2. The arithmetic is deliberately the same as young_vs_adult.region_plot's --
 same 20 um annotation, same MIN_VOX, same mask-normalised smoothing of the
 denominator, structures keyed by name over layer indices -- and it checks itself
 against that script's output for the two arms they share. A silent divergence
@@ -46,10 +46,10 @@ rather than assumed.
 
 Outputs, under data\\adult_v2\\arms:
   region_means_arms.csv     arm x mouse x structure, log2
-  arms_consistency.png      the self-check: against v2_region_plot, and the
+  arms_consistency.png      the self-check: against young_vs_adult.region_plot, and the
                             log-space identity between the three arms
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_adult_arms.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_adult_arms.py
 """
 
 import csv
@@ -63,19 +63,19 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from v2_per_mouse import annotation_20, MICE, CSV_MAP, OUT as PER_MOUSE, DATA
-from v2_cohort import RATIO_CLIP, NAIVE, RWS
+from sepmap.volumes.per_mouse import annotation_20, MICE, CSV_MAP, OUT as PER_MOUSE, DATA
+from sepmap.volumes.cohort import RATIO_CLIP, NAIVE, RWS
 
 OUT = os.path.join(DATA, 'adult_v2', 'arms')
 EXISTING = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult', 'region_means_per_mouse.csv')
 
-MIN_VOX = 250              # 20 um voxels, as in v2_region_plot
+MIN_VOX = 250              # 20 um voxels, as in young_vs_adult.region_plot
 ADULTS = NAIVE + RWS
 ARMS = ('sepauto', 'ratio', 'sepratio')
 LABEL = {'sepauto': 'SEP / autofluorescence   (total receptor)',
          'ratio': 'nano / autofluorescence   (surface receptor)',
          'sepratio': 'nano / SEP   (surface fraction)'}
-# the two arms v2_region_plot already computes, and must agree with
+# the two arms young_vs_adult.region_plot already computes, and must agree with
 SHARED = {'ratio': 'ratio', 'sepratio': 'sepratio'}
 
 
@@ -94,7 +94,7 @@ def structure_meta():
 
 
 def per_unit(num, ref, tissue):
-    """num / ref voxel by voxel, exactly as v2_cohort and v2_region_plot do it.
+    """num / ref voxel by voxel, exactly as volumes.cohort and young_vs_adult.region_plot do it.
 
     The denominator is smoothed by one 20 um voxel so that a single dark voxel
     cannot blow the ratio up, and the smoothing is normalised by the mask so
@@ -111,7 +111,7 @@ def mouse_table(mouse, names):
     z = np.load(os.path.join(PER_MOUSE, mouse + '.npz'))
     if 'sep' not in z.files:
         raise SystemExit(f'{mouse}: no SEP channel. Run run_add_sep_channel.m, '
-                         f'then v2_per_mouse.py, for this brain.')
+                         f'then run_per_mouse.py, for this brain.')
     sig = z['sig'].astype(np.float32)
     auto = z['auto'].astype(np.float32)
     sep = z['sep'].astype(np.float32)
@@ -140,7 +140,7 @@ def mouse_table(mouse, names):
 
 
 def check_against_existing(rows):
-    """The two arms v2_region_plot also computes must come out identical.
+    """The two arms young_vs_adult.region_plot also computes must come out identical.
 
     They are computed here from the same per-mouse files with the same
     arithmetic, so anything above rounding means the two scripts have drifted
@@ -159,7 +159,7 @@ def check_against_existing(rows):
     # that table is written to four decimals, so half of the last digit is the
     # most the two can differ by if they are computing the same thing
     tol = 0.5e-4
-    print(f'\nagainst v2_region_plot (bound is {tol:.1e}, half the last digit it stores):')
+    print(f'\nagainst run_region_plot (bound is {tol:.1e}, half the last digit it stores):')
     ok = True
     for arm, d in sorted(diffs.items()):
         worst = max(d)
@@ -183,7 +183,7 @@ def figure(per, diffs):
         ax.set_yscale('log'); ax.set_xticks(range(len(diffs)))
         ax.set_xticklabels(sorted(diffs), fontsize=8)
         ax.axhline(1e-9, color='#c0392b', lw=0.8, ls='--')
-        ax.set_ylabel('|this script - v2_region_plot|  (log2 units)', fontsize=8)
+        ax.set_ylabel('|this script - run_region_plot|  (log2 units)', fontsize=8)
     ax.set_title('the two shared arms agree', fontsize=9)
 
     # log(nano/sep) should equal log(nano/auto) - log(sep/auto), except that
@@ -250,7 +250,3 @@ def main():
 
     diffs = check_against_existing(rows)
     figure(per, diffs)
-
-
-if __name__ == '__main__':
-    main()

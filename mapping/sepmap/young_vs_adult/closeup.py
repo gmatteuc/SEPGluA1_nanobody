@@ -26,7 +26,7 @@ samples one streamline at a time, which leaves fine radial streaks. The default
 sigma is 3 x 1 x 1 voxels, i.e. 60 um along AP and 20 um across -- anisotropic
 because the banding is, and far below the size of any area.
 
-  tools\\venv_flat\\Scripts\\python.exe mapping\\v2_inspect.py [reading ...]
+  tools\\venv_flat\\Scripts\\python.exe mapping\\run_closeup.py [reading ...]
         [--plane 790] [--vmax 1.0] [--dlim 0.5] [--smooth 3,1,1] [--no-video] [--no-flatmap]
 
 `--smooth` takes one number or three, comma separated, as sigma in 20 um voxels
@@ -60,7 +60,6 @@ mouse_ccf/cortical_coordinates/ccf_2017/ccf_streamlines_assets/ :
 import csv
 import json
 import os
-import sys
 import time
 
 import numpy as np
@@ -73,22 +72,25 @@ from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.patheffects as path_effects
 from scipy.ndimage import center_of_mass, gaussian_filter
 
-from v2_paths import DATA
+from sepmap.config import DATA, SETTINGS
 ASSETS = os.path.join(DATA, 'atlas_flatmap')
 CCF_ROOT = os.path.join(DATA, 'comparisons_v2', 'ccf')
 OUT = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult')
 CSV_MAP = os.path.join(DATA, 'atlas', 'parcellation_to_parcellation_term_membership.csv')
 
 YOUNG, ADULT = 'young', 'adult'
-MIN_N_YOUNG, MIN_N_ADULT = 2, 5          # as in v2_compare, so the maps agree
+# This module runs in the flatmap environment and cannot import the analysis
+# chain, so the values it shares with the chain come from settings.toml, the
+# one definition both read.
+MIN_N_YOUNG = SETTINGS['young_vs_adult']['min_n_young']    # as in young_vs_adult.compare, so the maps agree
+MIN_N_ADULT = SETTINGS['young_vs_adult']['min_n_adult']
 # The floor that keeps log2 finite where a reading is near zero, the same value
-# v2_cohort uses. It bites only the readings compared as a ratio, never zref.
-LOG2_FLOOR = 0.02
-# Kept in step with v2_cohort.SIGNED_READINGS by hand, because this script runs
-# in the flatmap environment and cannot import the analysis chain. A signed
-# reading is a position within a brain's own range: compared by difference,
-# drawn diverging, scaled -v..+v.
-SIGNED_READINGS = ('zref',)
+# volumes.cohort uses. It bites only the readings compared as a ratio, never zref.
+LOG2_FLOOR = SETTINGS['readings']['log2_floor']
+# The same definition as volumes.cohort.SIGNED_READINGS. A signed reading is a
+# position within a brain's own range: compared by difference, drawn
+# diverging, scaled -v..+v.
+SIGNED_READINGS = tuple(SETTINGS['readings']['signed'])
 VMAX = {'zref': 0.9, 'cref': 2.0, 'subref': 2.0, 'ratio': 2.0, 'sepratio': 0.6}
 DLIM = {'zref': 0.5, 'cref': 1.0, 'subref': 1.0, 'ratio': 1.0, 'sepratio': 1.0}
 PLANE = 790                              # CCF plane at 10 um, where RL and AL are cut
@@ -98,8 +100,8 @@ PLANE = 790                              # CCF plane at 10 um, where RL and AL a
 # runs along AP and nothing else. 3 voxels of AP blur is 60 um, well under a
 # section spacing and two orders below the distance between V1 and RL.
 SMOOTH = (3.0, 1.0, 1.0)
-FPS = 12
-MIN_LABEL_AREA = 150                     # 20 um voxels in a coronal plane
+FPS = SETTINGS['videos']['fps']
+MIN_LABEL_AREA = SETTINGS['videos']['min_label_area']                     # 20 um voxels in a coronal plane
 
 # the areas the argument is about: outlined in white on the flatmap and named
 HIGHLIGHT = ('VISp', 'VISrl', 'VISal', 'SSp-bfd')
@@ -142,7 +144,7 @@ def save_figure(fig, path, dpi):
 
 
 def cohort_size(cohort):
-    """How many brains are behind a cohort, read from the list v2_cohort wrote.
+    """How many brains are behind a cohort, read from the list volumes.cohort wrote.
 
     Never a literal: a hardcoded 'n = 6' once survived into figures built from
     seven brains, and a caption that cannot go stale is worth four lines.
@@ -463,24 +465,3 @@ def main(readings, plane, vmax, dlim, sigma, want_video, want_flatmap, cmap_name
         if want_flatmap:
             flatmaps(reading, vals, signed, lim_mean, cmaps, sigma_txt, n, out_dir)
         print(f'{reading}: done in {time.time() - t0:.0f} s', flush=True)
-
-
-if __name__ == '__main__':
-    argv, readings, opts, flags = sys.argv[1:], [], {}, set()
-    i = 0
-    while i < len(argv):
-        if argv[i] in ('--plane', '--vmax', '--dlim', '--smooth', '--cmap'):
-            opts[argv[i][2:]] = argv[i + 1]; i += 2
-        elif argv[i] in ('--no-video', '--no-flatmap'):
-            flags.add(argv[i]); i += 1
-        else:
-            readings.append(argv[i]); i += 1
-    s = ([float(x) for x in opts['smooth'].split(',')] if 'smooth' in opts else list(SMOOTH))
-    main(readings or ['zref'],
-         plane=int(opts.get('plane', PLANE)),
-         vmax=float(opts['vmax']) if 'vmax' in opts else None,
-         dlim=float(opts['dlim']) if 'dlim' in opts else None,
-         sigma=(s[0] if len(s) == 1 else s),
-         want_video='--no-video' not in flags,
-         want_flatmap='--no-flatmap' not in flags,
-         cmap_name=opts.get('cmap'))

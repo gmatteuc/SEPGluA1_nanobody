@@ -7,7 +7,7 @@ GluA1. Two hypotheses:
   A   nano is proportional to total receptor
   B   nano is proportional to surface receptor = total x surface fraction
 
-The postsynaptic-versus-presynaptic contrast in v2_ish_words.py cannot separate
+The postsynaptic-versus-presynaptic contrast in ish.words cannot separate
 these, because A and B both predict a postsynaptic map. But a contrast *within*
 the postsynaptic compartment can, and this is it:
 
@@ -56,7 +56,7 @@ that set should not.
 transport and turnover vary regionally, so a subunit set that explains less than
 localisation does is consistent with hypothesis B and also with a regional
 translation gradient. Only a real total-receptor channel separates those, and
-the one we had is not one (see v2_sep_channel_check.py). This is the strongest
+the one we had is not one (see adult.sep_channel_check). This is the strongest
 version of the argument the current data supports, and it is suggestive.
 
 Outputs, under data\\adult_v2\\ish:
@@ -64,7 +64,7 @@ Outputs, under data\\adult_v2\\ish:
   role_summary.csv      per role and reading: n, median rho, quartiles
   ish_roles.png         the three panels above, for zref
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_ish_roles.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_ish_roles.py
 """
 
 import csv
@@ -78,7 +78,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy.stats import rankdata, spearmanr
 
-from v2_paths import DATA
+from sepmap.config import DATA
 NANO = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult', 'region_means_per_mouse.csv')
 GENES = os.path.join(DATA, 'adult_v2', 'ish', 'gene_region_table.csv')
 OUT = os.path.join(DATA, 'adult_v2', 'ish')
@@ -381,7 +381,3 @@ def figure(by_role, c, stats, observed, p, s_comp, m_comp, y):
     path = os.path.join(OUT, 'ish_roles.png')
     fig.savefig(path, dpi=200); plt.close(fig)
     print(f'\n{path}')
-
-
-if __name__ == '__main__':
-    main()

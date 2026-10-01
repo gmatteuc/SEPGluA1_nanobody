@@ -4,7 +4,7 @@ The adult nano map against every gene in the panel, structure by structure.
 The question this exists to answer: **can zref replace the old pipeline's
 normalisation?** The original route reached its adult map through a per-mouse
 affine fit and a within-brain z-score; v2 reaches a comparable quantity with one
-documented transform (see `zref` in v2_cohort). If the gene ranking comes out
+documented transform (see `zref` in volumes.cohort). If the gene ranking comes out
 the same, the elaborate version was not earning its keep and the method section
 gets much shorter.
 
@@ -13,7 +13,7 @@ So this script does the simplest possible thing and reports how much it matters:
   nano side   one value per structure per adult, straight from
               young_vs_adult\\region_means_per_mouse.csv -- already computed,
               already audited -- averaged over the ten adults
-  gene side   v2_ish_regions.py's table
+  gene side   ish.regions's table
   join        on structure name, which both sides key by
   statistic   Spearman over structures, per gene
 
@@ -27,7 +27,7 @@ SEP), `cref`, `subref` and `zref`. Two of the three validation arms are here:
 
 The third arm, SEP on its own (total receptor, predicted to look most like
 Gria1), needs a reading that does not exist yet -- every current reading has
-nano in the numerator. Adding `sep / auto` to v2_cohort would complete it; until
+nano in the numerator. Adding `sep / auto` to volumes.cohort would complete it; until
 then the dissociation is measured as a shift between nano and nano/sep rather
 than across all three.
 
@@ -42,7 +42,7 @@ Outputs, all under data\\adult_v2\\ish:
   ish_old_vs_new.png             the diagnostic for the question above: every
                                  gene's old rho against its new one
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_ish_compare.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_ish_compare.py
 """
 
 import csv
@@ -55,7 +55,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy.stats import spearmanr
 
-from v2_paths import DATA
+from sepmap.config import DATA
 NANO = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult', 'region_means_per_mouse.csv')
 GENES = os.path.join(DATA, 'adult_v2', 'ish', 'gene_region_table.csv')
 OLD = os.path.join(DATA, 'comparisons', 'merged_naive_rws_vs_ish_summary_nosmooth',
@@ -252,7 +252,3 @@ def main():
     report(rows, old, category)
     if old:
         figure(rows, old, category)
-
-
-if __name__ == '__main__':
-    main()

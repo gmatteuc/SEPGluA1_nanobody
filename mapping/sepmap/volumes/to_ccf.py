@@ -26,17 +26,16 @@ scalars the per-mouse file carried (backgrounds, cortex mean, cohort, age).
 SEP rides exactly the channels it will be divided into, through the same
 transform in the same call, so nothing can drift between them.
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_to_ccf.py [mouse ...]
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_to_ccf.py [mouse ...]
 """
 
 import os
 import re
-import sys
 import time
 
 import numpy as np
 
-from v2_per_mouse import DATA, MICE, OUT as PER_MOUSE, atlas_grid
+from sepmap.volumes.per_mouse import DATA, MICE, OUT as PER_MOUSE, atlas_grid
 
 OUT = os.path.join(DATA, 'comparisons_v2', 'per_mouse_ccf')
 DEMBA_SHAPE = (705, 400, 570)        # every DeMBA age shares this canvas at 20 um
@@ -97,7 +96,3 @@ def main(mice):
                             **{n: out[n].astype(np.float16) for n, _ in chans})
         print(f'{mouse:20s} {cohort:10s} P{age:<3d} tissue {int(out["tissue"].sum()):>10,d} voxels in CCF   '
               f'{time.time() - t0:.0f} s', flush=True)
-
-
-if __name__ == '__main__':
-    main(sys.argv[1:] or list(MICE))

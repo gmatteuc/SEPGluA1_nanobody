@@ -1,7 +1,7 @@
 """
 v2, step 3: cohort volumes, built in the adult CCF from the per-mouse files.
 
-Everything is averaged on one grid, 660 x 400 x 570 at 20 um, because v2_to_ccf
+Everything is averaged on one grid, 660 x 400 x 570 at 20 um, because volumes.to_ccf
 has already carried each brain there: the young through the DeMBA -> CCF
 transform of its own age, the adults by placement alone. That is what lets a
 pooled young group mix P20 and P16 without either age being carried by the
@@ -29,7 +29,7 @@ measured on the brain itself:
           channel in this fixed, cleared tissue is mostly autofluorescence --
           rho 0.79 +- 0.04 against the autofluorescence channel in all ten
           adults, dynamic range 0.95 log2 against autofluo's 1.07 and nano's
-          1.93 (v2_sep_channel_check.py). So this reading is nano over a second
+          1.93 (adult.sep_channel_check). So this reading is nano over a second
           autofluorescence-like channel and tracks `ratio` at rho 0.89 to 0.97
           within every mouse. Kept, because it is what established that and
           because the maps are already made, but it is not a surface fraction.
@@ -59,7 +59,7 @@ and adult = naive + rws.
 
 Output: data/comparisons_v2/ccf/<cohort>/{ratio,cref}_{mean,sd,n}.npy + mice.txt
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\v2_cohort.py
+  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_cohort.py
 """
 
 import os
@@ -67,22 +67,24 @@ import os
 import numpy as np
 from scipy.ndimage import gaussian_filter
 
-from v2_per_mouse import DATA, annotation_20, MICE, CSV_MAP, OUT as PER_MOUSE
+from sepmap.config import SETTINGS
+from sepmap.volumes.per_mouse import DATA, annotation_20, MICE, CSV_MAP, OUT as PER_MOUSE
 
 V2 = os.path.join(DATA, 'comparisons_v2')
 PER_MOUSE_CCF = os.path.join(V2, 'per_mouse_ccf')
 OUT_ROOT = os.path.join(V2, 'ccf')
 RATIO_CLIP = 20.0
-Z_FLOOR = 0.02        # of the cortex mean, so log2 stays finite in the dimmest tissue
+Z_FLOOR = SETTINGS['readings']['log2_floor']        # of the cortex mean, so log2 stays finite in the dimmest tissue
 MODES = ('ratio', 'sepratio', 'cref', 'subref', 'zref')
 
 # Which readings are a SIGNED position rather than an intensity. It decides
 # three things at once, everywhere: young and adult are compared by difference
 # and not by log2 ratio, the maps are drawn on a diverging colour scale centred
-# on zero, and the scale runs -v..+v instead of 0..v. It lives here because
-# getting it right in five scripts and wrong in the sixth would not look like a
-# bug, it would look like a result.
-SIGNED_READINGS = ('zref',)
+# on zero, and the scale runs -v..+v instead of 0..v. It is defined once, in
+# settings.toml, because getting it right in five scripts and wrong in the
+# sixth would not look like a bug, it would look like a result. The modules of
+# the chain import it from here; young_vs_adult.closeup reads the same key.
+SIGNED_READINGS = tuple(SETTINGS['readings']['signed'])
 
 # Any reading can be dropped from every figure, table and video without touching
 # the data: set V2_READINGS to a comma-separated subset. The readings are
@@ -91,8 +93,8 @@ SIGNED_READINGS = ('zref',)
 #
 #   $env:V2_READINGS = 'ratio,cref,subref,zref'     (PowerShell)
 #
-# v2_region_plot filters its READINGS by this, and v2_region_groups follows it,
-# so one variable covers the whole chain.
+# young_vs_adult.region_plot filters its READINGS by this, and
+# young_vs_adult.region_groups follows it, so one variable covers the whole chain.
 _want = os.environ.get('V2_READINGS', '').strip()
 if _want:
     chosen = tuple(s.strip() for s in _want.split(',') if s.strip())
@@ -132,7 +134,7 @@ def mouse_scalars(mouse):
     src = os.path.join(PER_MOUSE, mouse + '.npz')
     cache = os.path.join(PER_MOUSE, mouse + '_scalars.npz')
     # The cache carries the modification time of the file it was computed from,
-    # so re-running v2_per_mouse silently invalidates it. Without that a changed
+    # so re-running run_per_mouse silently invalidates it. Without that a changed
     # tissue mask would go on being divided by the old cortex mean, and nothing
     # on screen would say so.
     if os.path.exists(cache):
@@ -181,7 +183,7 @@ def mouse_modes(mouse):
     # chain still runs on a brain run_add_sep_channel has not reached yet.
     if 'sepratio' in MODES and 'sep' not in z.files:
         raise SystemExit(f'{mouse}: no SEP channel in its per-mouse CCF file. Run\n'
-                         f'  run_add_sep_channel.m for this brain, then v2_per_mouse.py and v2_to_ccf.py,\n'
+                         f'  run_add_sep_channel.m for this brain, then run_per_mouse.py and run_to_ccf.py,\n'
                          f'  or drop the reading with V2_READINGS.')
     sc = mouse_scalars(mouse)
 
@@ -234,7 +236,3 @@ def main():
         n = acc['cref'][2]
         print(f'{cohort:10s} {len(mice):2d} mice | voxels with n>=1 {int((n > 0).sum()):>11,d} | '
               f'with all mice {int((n == len(mice)).sum()):>11,d}', flush=True)
-
-
-if __name__ == '__main__':
-    main()
