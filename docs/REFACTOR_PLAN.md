@@ -876,6 +876,14 @@ geometry; record which version processed which cohort.
   `sliceinfo.volorder` from the cohort folder before the call, as
   `register_to_atlas` already does for `opts.procpath`. Until then 'apply'
   is never run on a copied mouse folder (its help says so).
+- `compare.draw_figures` (young against adult) titles each slice
+  `plane {zc * 2 + CCF_AP0}`, which reads 180 planes too high (526 to 1074
+  instead of 346 to 894 at 10 um): every figure shown with those titles
+  carries wrong plane numbers; the maps themselves are right.
+- P8 colours its reliability bars with the first 200 levels of
+  `flipud(gray(256))`; its comment says this avoids white at the low end, but
+  level 1 is white and the dark end is cut, so the least reliable structures
+  are white bars on white. P8 retires; A4 must not copy the scale.
 - `run_nano_equalisation` (P2bis) stops when `save_results` is false:
   `timestamp` is set only in the save branch and the first video needs it.
   Its two videos per mouse cannot be switched off. It also saves the
