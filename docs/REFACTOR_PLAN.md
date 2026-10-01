@@ -857,6 +857,10 @@ geometry; record which version processed which cohort.
   of the same code on MG914 moved the proposed points by a median of 0.07 px,
   at most 13 px (atlas landmarks identical). Ask PyTorch for deterministic
   algorithms in the engine; the proposals are reviewed by hand anyway.
+- `run_group_differences` (P7bis): with `perform_area_based_analysis_coarse`
+  on and `perform_area_based_analysis_fine` off, the coarse block reads
+  `half_width` before anything sets it. Both are off in production. Its
+  comment beside the behavior subset still says "subselect 3 of ... 4".
 - `v2_adult_arms`' consistency check against `v2_region_plot` compares values
   stored to 4 decimals with `<=` half the last digit (5.0e-05) and no margin for
   floating-point error, so it fails when a difference lands exactly on the
@@ -914,3 +918,14 @@ The style pass will add to this list.
     transform file identical; the automatic proposal moves by a median of
     0.06 px between old and new, less than between two runs of the old code
     on the GPU (0.07 px median, 13 px at most; bug list).
+- **1 Oct, step 5, plasticity chain** (`ca5b2f0` pure moves, `a984279`):
+  `run_collect_by_group`, `run_normalise_groups` and `run_group_differences`
+  keep their settings and call `collect_by_group`, `normalise_groups` and
+  `group_differences` in `group_comparison/pipeline/`, whose bodies are the old
+  scripts' bodies (parse trees identical); P7bis's behavior subset is the
+  setting `behavior_subset`. Fresh run on the check tree against the
+  reference: all 12 `.mat` files and every P7bis output identical, 7
+  diagnostic PNGs differ by 1 or 2 anti-aliasing pixels; `sep_test_path`
+  passes. The Python stage now pins `PYTHONHASHSEED=0`, and the reference's
+  `v2_ish_words` outputs were regenerated with it by the old code (identical
+  on two runs; the unseeded originals are kept in `G:\sep_refactor\ref_unseeded`).
