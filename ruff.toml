@@ -1,0 +1,15 @@
+# Lint and format settings of the Python code, as docs/STYLE.md (Python) sets them.
+# From the repository root, with the dev environment:
+#   tools\venv_dev\Scripts\python -m ruff format <files>
+#   tools\venv_dev\Scripts\python -m ruff check <files>
+
+line-length = 90
+target-version = "py312"
+extend-exclude = ["third_party", "archive"]
+
+[lint]
+# pycodestyle errors and warnings, and pyflakes (unused imports, undefined names)
+select = ["E", "W", "F"]
+
+[format]
+quote-style = "double"
