@@ -861,6 +861,28 @@ geometry; record which version processed which cohort.
   on and `perform_area_based_analysis_fine` off, the coarse block reads
   `half_width` before anything sets it. Both are off in production. Its
   comment beside the behavior subset still says "subselect 3 of ... 4".
+- **First of step 8, a safety bug.** `run_order_slices` 'apply':
+  LightSuite's `generateReordedVolume` takes the decisions file,
+  `volume_for_ordering.tiff` and its output `volume_ordered.tiff` from the
+  absolute `procpath` and `volorder` that P1 stored in `sliceinfo.mat`, not
+  from the cohort folder. On a copied tree it reads and overwrites the
+  original folder, which the data-root guard does not see (or fails if that
+  drive is absent); if the decisions file is missing there it keeps the
+  original order without a word. Fix: set `sliceinfo.procpath` and
+  `sliceinfo.volorder` from the cohort folder before the call, as
+  `register_to_atlas` already does for `opts.procpath`. Until then 'apply'
+  is never run on a copied mouse folder (its help says so).
+- `run_nano_equalisation` (P2bis) stops when `save_results` is false:
+  `timestamp` is set only in the save branch and the first video needs it.
+  Its two videos per mouse cannot be switched off. It also saves the
+  inter-quartile range with the wrong sign (25th minus 75th percentile) as
+  `stats_intensity_iqr_*`; nothing reads it.
+- `run_residual_correction` (P2) stops when `doPlotBkg` is false
+  (`select_reference_pixels` then never assigns its figure output), and
+  loads the atlas annotation without using it.
+- `explore_czi_G` reads `globalMeta` before setting it; the error is caught,
+  so the first file reports no scene information and later files the
+  previous file's.
 - `add_sep_channel.m:279`: since step 4 its panel title names
   `run_register_to_atlas`, and the TeX interpreter draws the underscores as
   subscripts; give the title `'Interpreter', 'none'`. Also in the register
@@ -965,3 +987,19 @@ The style pass will add to this list.
   automatic proposal within the old-against-old spread (median 0.06 px).
   Still to try by hand, after step 6 changes the GUI: annotate mode on MG914
   in the check tree (the step 6 checklist).
+- **1 Oct, step 5, preprocessing** (`6ed2472` pure moves, `15c2f2e`): the
+  six drivers (`run_copy_raw_data`, `run_extract_and_center`,
+  `run_order_slices`, `run_residual_correction`, `run_nano_equalisation`,
+  `run_annotate_artifacts`) keep their settings and call one function each
+  in `preprocessing/pipeline/` (parse trees identical to the old bodies);
+  `explore_czi_G`'s folder is a setting at its top. P2 and P2bis run on
+  MG914 alone, old code against new on identical inputs in
+  `G:\sep_refactor\pre\{ref,check}`: all 7 `.mat` files, the 4 videos and 94
+  of 102 figures identical, 8 per-slice PNGs differ by 1 or 2 anti-aliasing
+  pixels. P0 and P1 by code identity and review; the two GUIs (slice order,
+  artifacts) reviewed in the code: each blocks until its window closes and
+  keeps its own state. The QC scripts and the tools `make_ordering_volume`
+  and `make_atlas_reference_sheet` stay scripts (hand-run audits; headers
+  in the style pass). To try by hand with the step 6 checklist: both GUIs on
+  `G:\sep_refactor\pre\gui\data` (no `sliceinfo.mat` there on purpose, so
+  'apply' cannot run).
