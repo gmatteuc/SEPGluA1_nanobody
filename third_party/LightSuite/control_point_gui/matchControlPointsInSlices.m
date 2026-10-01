@@ -128,20 +128,10 @@ gui_data.select_radius_frac = 0.04;   % of image width, for click-to-select
 gui_data.provisional = false(gui_data.Nslices, 1);
 gui_data.order_problem = '';   % set by update_atlas_slice, painted purple below
 
-% Landmark proposals (landmark_refine.m). Nothing runs on its own: you find
-% the best-matching atlas plane with the wheel, then press r, and the
-% neighbouring slice's points are refined through the image matcher against
-% THAT plane and placed here as provisional points. A plain copy was measured
-% at 15 px from the final answer -- no better than starting empty -- the
-% refined one at 10. Matching uses the autofluorescence channel, the closest
-% modality to the template.
-gui_data.refine_chan  = min(3, size(gui_data.volume, 4));
 gui_data.hist_labels  = gobjects(0);   % the little index numbers next to each point
 gui_data.atlas_labels = gobjects(0);
-% Per slice, which proposed points the matcher was unsure about: its two
-% estimates (atlas->histology and histology->histology) disagreed by more
-% than 15 px. Measured: those need about twice the correction of the rest.
-% Drawn with a ? while the slice is provisional; meaningless once touched.
+% Per slice, which proposed points the automatic annotation was least sure
+% of, one flag per row, drawn with a ? after their number.
 gui_data.uncertain    = cell(gui_data.Nslices, 1);
 
 % Automatic annotation (auto_annotate.m). Two things feed it from here, and
@@ -416,11 +406,10 @@ right = { ...
     '  s              save; orange slices are NOT', ...
     '                 saved', ...
     '', ...
-    'PROPOSE FROM THE NEIGHBOUR  [ r ]', ...
-    '  scroll to the best plane, then r: the', ...
-    '  neighbouring slice''s points, refined', ...
-    '  by the image matcher, placed orange.', ...
-    '  t              same, a plain copy', ...
+    'TAKE FROM THE NEIGHBOUR  [ t ]', ...
+    '  scroll to the best plane, then t: the', ...
+    '  neighbouring slice''s points, as they', ...
+    '  are, placed orange.', ...
     '', ...
     'CARRY FORWARD  [ p ]', ...
     '  an empty slice inherits the previous', ...
@@ -547,56 +536,10 @@ switch eventdata.Key
         guidata(gui_fig,gui_data);
         update_slice(gui_fig, true);
         
-    % r: propose points for THIS slice at the atlas plane on screen, by
-    % refining the neighbouring slice's points through the image matcher.
-    % Deliberately not automatic -- find the best-matching plane with the
-    % wheel first, then ask. Hand-placed points are never overwritten.
-    case 'r'
-        sl = gui_data.curr_slice;
-        if ~isempty(gui_data.histology_control_points{sl}) && ~gui_data.provisional(sl)
-            disp('This slice has hand-placed points. Press c to clear them first if you want a proposal.');
-        else
-            src = source_slice(gui_data, sl);
-            if src == 0
-                disp('Nothing to propose from: neither neighbouring slice has points.');
-            else
-                plane = round(gui_data.atlas_slice);
-                h = gui_data.histology_control_points{src};
-                a = gui_data.atlas_control_points{src};
-                fprintf('Proposing %d point(s) for slice %d from slice %d at atlas plane %d...\n', ...
-                    size(a,1), sl, src, plane);
-                % Whatever goes wrong on the Python side -- no interpreter, a
-                % broken install, a corrupt reply -- ends here as a message.
-                % A key press must never take the GUI down.
-                try
-                    [h2, a2, ok, msg, unc] = auto_refine_points(gui_data, sl, src, plane, h, a);
-                catch err
-                    ok = false; msg = err.message;
-                end
-                if ok
-                    now_stamp = convertTo(datetime('now'), 'datenum');
-                    h2(:, 1) = sl;      h2(:, 4) = now_stamp;
-                    a2(:, 1) = plane;   a2(:, 4) = now_stamp;
-                    gui_data.histology_control_points{sl} = h2;
-                    gui_data.atlas_control_points{sl}     = a2;
-                    gui_data.provisional(sl) = true;
-                    gui_data.uncertain{sl}   = unc(:);
-                    gui_data.sel_side = '';
-                    gui_data.sel_idx  = 0;
-                    fprintf(['Proposed %d point(s), %d marked ? (the two estimates disagree there -- check those first). ' ...
-                             'Provisional: touch one to keep them, c to discard.\n'], size(h2,1), nnz(unc));
-                    guidata(gui_fig, gui_data);
-                    update_slice(gui_fig);
-                else
-                    fprintf('Proposal failed: %s\n', msg);
-                end
-            end
-        end
-
     % t: take the neighbouring slice's points exactly as they are -- carry-
-    % forward on demand, at the atlas plane on screen, no matcher involved.
-    % The cheap start when the section barely changed, and the fallback when
-    % Python is not there. Same rules as r: provisional, never overwrites.
+    % forward on demand, at the atlas plane on screen. The cheap start when
+    % the section barely changed. Provisional, and never overwrites
+    % hand-placed points.
     case 't'
         sl = gui_data.curr_slice;
         if ~isempty(gui_data.histology_control_points{sl}) && ~gui_data.provisional(sl)
@@ -1382,7 +1325,7 @@ if gui_data.carry_forward && to_slice ~= from_slice
         gui_data.histology_control_points{to_slice} = new_h;
         gui_data.atlas_control_points{to_slice}     = new_a;
         gui_data.provisional(to_slice)              = true;
-        fprintf('Carried %d point(s) from slice %d to %d (atlas plane %d). Press r for a refined proposal.\n', ...
+        fprintf('Carried %d point(s) from slice %d to %d (atlas plane %d).\n', ...
             size(new_h,1), from_slice, to_slice, target_plane);
     end
 end
@@ -1838,75 +1781,6 @@ end
 end
 
 
-function [h, a, ok, msg, unc] = auto_refine_points(gui_data, slice, src, plane, h, a)
-% Hand the panels and the landmarks to the matcher, take back refined
-% coordinates for both sides, plus which points it was unsure about.
-%
-% Point columns here are [slice/plane y x t]; the matcher speaks [x y]. Rows
-% are pairs, so the two lists must have the same count, and any pair whose
-% transfer lands outside the histology panel is dropped from BOTH lists so the
-% pairing stays intact. The plane index and timestamps are kept as they were.
-%
-% Two estimates go in: the atlas plane against this slice, and the SOURCE
-% slice's histology against this slice with the annotator's points on it.
-% Same modality, adjacent sections -- the easier match -- and averaging the
-% two was measured to cut the per-point correction from 9.7 to 7.2 px.
-%
-% The panels are built exactly as the GUI draws them -- adapthisteq on the
-% atlas, the autofluorescence channel of the sample -- because that is what
-% the method was measured on.
-
-ok  = false;
-msg = '';
-unc = false(0, 1);
-
-if isempty(a) || size(h,1) ~= size(a,1)
-    msg = 'histology and atlas point counts differ';
-    return
-end
-if ~exist('landmark_refine', 'file')
-    msg = 'landmark_refine.m is not on the path';
-    return
-end
-
-plane    = min(max(round(plane), 1), size(gui_data.tv, 1));
-atlas_im = adapthisteq(squeeze(gui_data.tv(plane, :, :)));
-hist_im  = squeeze(gui_data.volume(slice, :, :, gui_data.refine_chan));
-labels   = squeeze(gui_data.av(plane, :, :));
-
-opts = struct();
-if src >= 1 && src <= gui_data.Nslices && src ~= slice
-    opts.hist_prev     = squeeze(gui_data.volume(src, :, :, gui_data.refine_chan));
-    opts.hist_pts_prev = h(:, [3 2]);
-end
-
-out = landmark_refine('refine', atlas_im, hist_im, a(:, [3 2]), labels, opts);
-if ~out.ok
-    msg = out.message;
-    return
-end
-
-[H, W] = size(hist_im);
-inside = out.hist_pts(:,1) >= 1 & out.hist_pts(:,1) <= W & ...
-         out.hist_pts(:,2) >= 1 & out.hist_pts(:,2) <= H;
-if nnz(inside) < 3
-    msg = 'the transferred points fell outside the image';
-    return
-end
-
-h = h(inside, :);
-a = a(inside, :);
-a(:, [3 2]) = out.atlas_pts(inside, :);
-h(:, [3 2]) = out.hist_pts(inside, :);
-if isfield(out, 'uncertain') && numel(out.uncertain) == numel(inside)
-    unc = out.uncertain(inside);
-else
-    unc = false(nnz(inside), 1);
-end
-ok = true;
-end
-
-
 function draw_point_numbers(gui_fig)
 % A small index next to every marker on both panels, so the pairing is always
 % visible: the same number is the same correspondence. Orange while the slice
@@ -1924,9 +1798,8 @@ if gui_data.provisional(sl)
 else
     col = [1 1 1];
 end
-% A ? after the number where the proposal was least sure (the matcher's two
-% estimates disagreed, or the automatic annotation's confidence was in the
-% lowest quarter). Kept after the slice is accepted or edited -- reviewing
+% A ? after the number where the proposal was least sure (the automatic
+% annotation's confidence was in the lowest quarter). Kept after the slice is accepted or edited -- reviewing
 % a flagged point should not make the flag vanish -- in red while provisional
 % and yellow once committed. The flags are one per ROW: 'd' removes the
 % deleted row's flag, and a point added or undone at the end is matched by
@@ -1975,7 +1848,7 @@ end
 
 
 function src = source_slice(gui_data, sl)
-% Where r and t take their points from: the slice before if it has any,
+% Where t takes its points from: the slice before if it has any,
 % else the slice after, else 0.
 src = 0;
 if sl > 1 && ~isempty(gui_data.atlas_control_points{sl-1})

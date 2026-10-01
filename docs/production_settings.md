@@ -39,7 +39,6 @@ How to read the tables:
 | `V2_ISH_PANEL` | `v2_ish_regions` | `data\gene_targets.csv` (100 genes) | pass 1 unset; pass 2 `adult_v2\panel\panel_v2.csv` (relative, inside the tree's data) |
 | `V2_ISH_TABLE` | `v2_ish_regions`, `v2_ish_reliability` | `gene_region_table.csv` in `v2_ish_regions`, `gene_region_table_panel.csv` in `v2_ish_reliability` | pass 1 unset; pass 2 `gene_region_table_panel.csv` |
 | `AUTO_ANNOTATION_PYTHON` | `auto_annotate.m` | `auto_annotation\.venv` beside the code | `D:\sep_histology\code\auto_annotation\.venv\Scripts\python.exe` (a worktree has no `.venv`) |
-| `LANDMARK_REFINE_PYTHON` | `landmark_refine*.m` (P4 `annotate`) | the landmark_refine venv | unset: `annotate` is not run |
 
 Both ISH variables must be unset for every script outside pass 2. With
 `V2_ISH_TABLE` left set, pass 1's `v2_ish_regions` would overwrite the

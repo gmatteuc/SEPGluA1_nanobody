@@ -18,7 +18,7 @@ downloaded.
 | `ls_analyze_slice_volume.m` | P0a (reverted) | demo script, back to upstream |
 | `slice_module/alignSliceVolume.m` | P0b, LS2 | registration |
 | `slice_module/registerSlicesToAtlas.m` | LS1 | registration |
-| `control_point_gui/matchControlPointsInSlices.m` | LS3, LS4, LS5, LS8, AA | control-point GUI |
+| `control_point_gui/matchControlPointsInSlices.m` | LS3, LS4, LS5, AA (LS8 removed) | control-point GUI |
 | `slice_module/SliceOrderEditor.m` | LS6 | slice-order GUI |
 
 The history of each change is in this repository's git log: before the
@@ -98,10 +98,17 @@ one block at the bottom of the file plus seven one-line calls marked
 `% montage`; `showMontage = false` restores the original editor. Effect: none.
 (Our copy saves the decisions without upstream's later crop columns; see Z1.)
 
-**LS8. The `r` key: landmark proposals** (`7f42fdf`, 3 Sep 2026). `r` proposes
-points for a slice by matching the neighbouring slice's landmarks through
-`landmark_refine` (Python, at the code root). Project-specific; removed in
-step 6 of the refactor (decision L3), when `t` and `p` stay.
+**LS8. The `r` key: landmark proposals** (`7f42fdf`, 3 Sep 2026; removed in
+step 6 of the refactor, decision L3). `r` proposed points for a slice by
+matching the neighbouring slice's landmarks through an image matcher
+(Python, then at the code root). Removed from the GUI: the key, the function
+that called the matcher (`auto_refine_points`), the channel it matched on,
+the key's block in the controls window (now one for `t`), and the hint
+"Press r for a refined proposal" after a carry-forward. `t`, `p`, the
+numbered labels and the `?` flags stay (LS5, AA). The matcher (its MATLAB
+wrapper and worker, its Python folder, its setup script and the frozen
+requirements of its environment) is in `archive/`, and the registration
+driver's `annotate` mode no longer starts its worker.
 
 **AA. The automatic-annotation layer** (`f437c8a`, `9fc2700`, `7e90bbd`,
 `26ee86d`, `710d6b2`; 29 Sep 2026). About 550 lines: `a` sets a plane anchor

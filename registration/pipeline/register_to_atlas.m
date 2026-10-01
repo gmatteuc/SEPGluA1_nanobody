@@ -278,11 +278,6 @@ tform_name = fullfile(mouse_dir, 'atlas2histology_tform.mat');
 if exist(tform_name, 'file')
     fprintf('  NOTE: control points already exist and will be overwritten on save:\n    %s\n', tform_name);
 end
-% The proposal keys (r, t) call the image matcher through a
-% persistent Python worker; start it now so the first press is
-% fast. Optional: if Python is missing the GUI still opens and
-% r reports why. See landmark_refine/README.md.
-landmark_refine_worker('start');
 if exist(fullfile(mouse_dir, 'cutting_angle_data.mat'), 'file')
     fprintf('  cutting angle: from cutting_angle_data.mat (set by hand).\n');
 else

@@ -36,15 +36,12 @@ clc
 %                                   control points are counted in, so this
 %                                   script refuses it once a mouse has points.
 %   run_mode = 'annotate'  (MANUAL) open the control-point GUI on one mouse.
-%                                   Besides placing points by hand, r proposes
-%                                   points for the slice at the atlas plane on
-%                                   screen (the neighbouring slice's landmarks,
-%                                   refined through the image matcher; a ? marks
-%                                   the ones it was unsure of) and t drops in a
-%                                   plain copy. Both land provisional and are
-%                                   never saved unless touched. Needs the Python
-%                                   side once per machine: setup_landmark_refine.ps1.
-%                                   Writes atlas2histology_tform.mat.
+%                                   Besides placing points by hand, t takes the
+%                                   neighbouring slice's points as they are, at
+%                                   the atlas plane on screen, and p carries
+%                                   them forward as you step. Both land
+%                                   provisional and are never saved unless
+%                                   touched. Writes atlas2histology_tform.mat.
 %
 %                                   AUTOMATIC ALTERNATIVE, in three steps:
 %                                   1 'annotate': only set the atlas plane on the

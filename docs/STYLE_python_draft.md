@@ -916,8 +916,7 @@ Kind A, which should pass the identity check:
 - exception: in a module that uses its docstring at run time, the docstring
   is program output, so editing it is kind B. `auto_annotation/cli.py:157`
   prints the whole docstring as its usage. `build_demba_atlas.py:202` prints
-  the second-to-last line of its docstring. `landmark_refine/cli.py:50` and
-  `landmark_refine/serve.py:109` print theirs. Search for `__doc__` before
+  the second-to-last line of its docstring. Search for `__doc__` before
   editing a docstring.
 
 Kind B, which the check reports as `CODE CHANGED` and which is verified by

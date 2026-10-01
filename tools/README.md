@@ -65,7 +65,7 @@ only show the format):
 old_path,new_path
 P5_collect_data_by_group.m,group_comparison/run_collect_by_group.m
 ,tests/sep_test_path.m
-landmark_refine.m,
+scratch.m,
 ```
 
 An empty old path is a file added on purpose, an empty new path one removed
