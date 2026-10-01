@@ -1031,3 +1031,22 @@ The style pass will add to this list.
   align modes (their code moved into `load_regopts`, `set_cutting_angle`,
   `annotate_control_points`, `refuse_annotated_mice`, `bridge_preprocessing`
   and `align_slices`, statements unchanged), for the hand check.
+- **1 Oct, step 6, the annotation GUI** (`303c566`, `d8356d6`, `b83da33`,
+  `dfef3b5`): the r key and landmark_refine are retired (L3, LS8; files in
+  `archive/`, P4 annotate no longer starts the worker). The automatic
+  annotation left LightSuite's GUI file (-505 lines) for
+  `registration/annotation_gui/auto_annotation_plugin.m`, behind one generic
+  hook (LS7: `value = plugin(event, gui_fig, gui_data, value, info)`, events
+  open, key, planes, title, labels, window, edit, save; without a plugin every
+  call hands its value back), with its settings in `annotation_settings.m`.
+  `annotate` passes the plugin when `auto_annotate('check')` finds the
+  engine, otherwise it says so and opens the plain GUI. Checked by driving
+  the old and new GUI headless through the sandbox's drive scripts plus
+  three new ones (hand annotation, reopening a review, save unchanged), with
+  and without the engine: the same files, apart from click times and the
+  GPU proposal's usual spread. Still by hand: `G:\sep_refactor\gui_check\HAND_CHECK.md`.
+  **For the merge (step 11):** move `code\auto_annotation\.venv` to
+  `registration\auto_annotation\.venv` (git does not move ignored files) and
+  run its self-test before the first `annotate`, or annotate opens without
+  the automatic layer; the leftover `code\landmark_refine\.venv` can be
+  deleted (the root `.gitignore` now ignores both).
