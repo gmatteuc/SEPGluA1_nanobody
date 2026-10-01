@@ -18,7 +18,7 @@ downloaded.
 | `ls_analyze_slice_volume.m` | P0a (reverted) | demo script, back to upstream |
 | `slice_module/alignSliceVolume.m` | P0b, LS2 | registration |
 | `slice_module/registerSlicesToAtlas.m` | LS1 | registration |
-| `control_point_gui/matchControlPointsInSlices.m` | LS3, LS4, LS5, AA (LS8 removed) | control-point GUI |
+| `control_point_gui/matchControlPointsInSlices.m` | LS3, LS4, LS5, LS7 (LS8 removed, AA moved out) | control-point GUI |
 | `slice_module/SliceOrderEditor.m` | LS6 | slice-order GUI |
 
 The history of each change is in this repository's git log: before the
@@ -82,13 +82,18 @@ none when every slice has control points, as every registered brain has.
 (grab and drag a point; `d` deletes it with its pair), ctrl+z takes back the
 last point, `p` carries a slice's points forward and `t` copies the
 neighbour's, both provisional and never saved unless touched; numbered labels
-on both panels with the `?` flags; `h` reopens the controls window; the slice
+on both panels (since step 6 a plugin can add a mark after them, LS7: the
+automatic annotation's `?` flags); `h` reopens the controls window; the slice
 title gives the atlas plane and whether it is anchored; a `*` marks pairs far
 off the slice's own affine, by the same rule the registration driver applies
 before registering (`report_suspect_pairs` in
-`registration/run_register_to_atlas.m`). Effect: none on the registration
-code. One consequence to know: a slice left orange (provisional) at save time
-is saved empty and registers from images alone.
+`registration/pipeline/register_to_atlas.m`). Since step 6 the rule's three
+thresholds are `gui_data.outlier_rule` (3 times the slice's median residual
+and 30 px for a pair, a 20 px median for the whole slice), which a plugin may
+set: ours sets them from `annotation_settings`, the definition
+`report_suspect_pairs` reads too. Effect: none on the registration code. One
+consequence to know: a slice left orange (provisional) at save time is saved
+empty and registers from images alone.
 
 **LS6. SliceOrderEditor montage** (`606d935`, `8ab0873`, `733b4bc`, `8fee90c`;
 12 and 13 Aug 2026). A second window with every slice as a tile, click to
@@ -97,6 +102,52 @@ jump, drag to move, `m` to toggle it, every shortcut in the title, and
 one block at the bottom of the file plus seven one-line calls marked
 `% montage`; `showMontage = false` restores the original editor. Effect: none.
 (Our copy saves the decisions without upstream's later crop columns; see Z1.)
+
+**LS7. A plugin hook in the control-point GUI** (step 6 of the refactor,
+1 Oct 2026). `opts.plugin`, empty by default, is a function handle that adds
+to the GUI without changing it. The GUI calls it as
+
+```
+value = plugin(event, gui_fig, gui_data, value, info)
+```
+
+with `gui_fig` the window, `gui_data` its state at that moment, `value` what
+the GUI goes on with (the plugin returns it, changed or not; `[]` where
+nothing is asked), and `info.gui` three of the GUI's functions:
+`update_slice(gui_fig)`, `update_window_title(gui_fig)` and
+`gui_data = step_slice(gui_data, step)`. A plugin returns `value` unchanged
+for an event it does not know. The calls, eleven in all, each one or two
+lines through the helper `call_plugin`:
+
+| event | where | value, info |
+|---|---|---|
+| `open` | start-up, once the window is built and its state stored, before the first draw | `[]`. The plugin may add fields of its own to `gui_data`, fill slices with points and their provisional flags, set the three fields below, store it with `guidata`, and draw |
+| `key` | `keypress`, any key the GUI does not use (`otherwise`) | `[]`; `info.key`, the key event |
+| `planes` | `update_slice`, before the plane prediction | the atlas plane of each slice with points, NaN elsewhere; the plugin may fix more |
+| `title` | `align_ccf_to_histology`, before the fit's numbers and the `*` warning are added | the two lines of the slice title |
+| `labels` | `draw_point_numbers` | `rows` (one flag per point, all false), `text`, `color`: the numbers of flagged points get `text` after them, in `color` |
+| `window` | `update_window_title`, after `EDIT` and `CARRY FORWARD` | the modes shown in the window title |
+| `edit` | `d` after a pair is removed (`info.row`), `c` and `t` (all of a slice's points replaced, `info.row` empty) | `gui_data`, for a plugin that keeps data per row; `info.slice` |
+| `save` | `s`, and a close that saves, after `atlas2histology_tform.mat` | `[]`; `info.histology`, `info.atlas`, the points as saved |
+
+At `open` a plugin may also set three fields the GUI reads: `outlier_rule`
+(the `*` mark's thresholds, LS5; `factor` 3, `min_px` 30, `slice_px` 20 by
+default), `controls_extra` (lines on top of the right column of the controls
+window; none by default) and `unsaved_hint` (the last line of the note
+printed when a save leaves orange slices out; by default "Grab any point on
+one to accept it as it stands."). Without a plugin every call hands its value
+back as given, so the GUI is LS3 to LS5 alone. The change to the file: the
+contract in the help text, the four fields set at start-up, the eleven
+calls, the helper, `affine_outliers` taking the rule as an argument, and
+`label_points` drawing a plugin's mark where it drew `?`. The file names no
+code of this project. Effect: none.
+
+Our plugin is `registration/annotation_gui/auto_annotation_plugin.m` (the AA
+layer below), with its settings in `registration/annotation_gui/annotation_settings.m`.
+`run_register_to_atlas`'s `annotate` mode passes it when
+`auto_annotate('check')` finds the engine's interpreter, the test every call
+to the engine starts with; without the engine it says so and the GUI opens
+without the plugin.
 
 **LS8. The `r` key: landmark proposals** (`7f42fdf`, 3 Sep 2026; removed in
 step 6 of the refactor, decision L3). `r` proposed points for a slice by
@@ -119,8 +170,23 @@ through `auto_annotate`; saving also writes `plane_anchors.mat`,
 `auto_atlas_planes.mat` and `annotation_provenance.mat`. A brain with no
 anchors and no proposal behaves as before. Effect: none on the registration
 code; the annotation is still an ordinary `atlas2histology_tform.mat`, written
-from what was accepted. In step 6 this layer moves out of this file into
-`registration/annotation_gui/`, behind one generic plugin hook (LS7).
+from what was accepted.
+
+Moved out of this file in step 6 of the refactor (1 Oct 2026), into
+`registration/annotation_gui/auto_annotation_plugin.m`, behind the hook LS7.
+What moved, statements unchanged: the loading of the anchors and the proposal
+(at `open`), the keys `a`, `j`, `k`, `K`, `u`, `U` (at `key`), saving the three
+files (`save_auto_files`, at `save`) and its helpers `remember_proposal`,
+`predict_planes` and `write_atlas_planes`, the review stage in the window
+title (at `window`), and the start-up draw of a brain with anchors or a
+proposal (at `open`). Rewritten as the hook's answers, same results: the
+anchors in the plane prediction (at `planes`), `PROPOSED`/`ACCEPTED`,
+`PLANE ANCHOR`, `SUGGESTED ANCHOR` and "plane changed" in the slice title (at
+`title`), the `?` flags (at `labels`, and kept in step with `d`, `c` and `t`
+at `edit`), the keys in the controls window (`controls_extra`) and the note's
+hint about `k` (`unsaved_hint`). The suggested anchor count (4) and the
+outlier rule are `annotation_settings`. With the plugin the GUI behaves as
+before step 6, without `r`.
 
 ## Changes that do nothing
 
@@ -135,7 +201,8 @@ so it no longer differs from upstream.
 **Step 4 of the refactor** (this commit): the one-line notice at the top of
 each file above (a comment, so the code is identical), and in
 `matchControlPointsInSlices.m` the name of the registration driver in its
-messages and comments (`P4` became `run_register_to_atlas`).
+messages and comments (`P4` became `run_register_to_atlas`). Since step 6
+those messages are the plugin's, and the GUI file no longer names the driver.
 
 ## Upstream contributions (Z2, after the refactor)
 

@@ -53,6 +53,8 @@ clc
 %                                     slice, u re-proposes it at the plane on
 %                                     screen, the usual tools fix points. Only
 %                                     accepted or touched slices are saved.
+%                                   These keys are the GUI's only where the
+%                                   engine (below) is installed.
 %   run_mode = 'autoannotate' (auto) the automatic control points, from the anchor
 %                                   planes: auto_proposal_controlpoints.mat, never
 %                                   atlas2histology_tform.mat itself. Needs the

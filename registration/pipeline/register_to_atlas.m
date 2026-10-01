@@ -267,7 +267,8 @@ determineCuttingAngleGUI(opts);
 end
 
 function annotate_control_points(cohort, mouse_dir, opts, atlas)
-% Mode 'annotate': open LightSuite's control-point GUI on one mouse.
+% Mode 'annotate': open LightSuite's control-point GUI on one mouse, with the
+% automatic annotation's keys when it is installed.
 
 % One GUI at a time, or the control points get placed in the
 % wrong mouse's file.
@@ -282,6 +283,17 @@ if exist(fullfile(mouse_dir, 'cutting_angle_data.mat'), 'file')
     fprintf('  cutting angle: from cutting_angle_data.mat (set by hand).\n');
 else
     fprintf('  cutting angle: the automatic rigid fit''s (no cutting_angle_data.mat; run_mode = ''angle'' to set it by eye).\n');
+end
+% The automatic annotation's part of the GUI (anchors, the review of a
+% proposal, their files) is a plugin, registration\annotation_gui, passed in
+% when the engine is installed: the test auto_annotate runs before every
+% call. Without it the GUI is LightSuite's with our fixes (PATCHES.md).
+engine = auto_annotate('check');
+if engine.ok
+    opts.plugin = @auto_annotation_plugin;
+else
+    fprintf(['  the automatic annotation is not installed (%s):\n' ...
+             '  the GUI opens without its keys (a, j, k, u).\n'], engine.message);
 end
 fprintf('  opening the control-point GUI against atlas ''%s''.\n', atlas.key);
 fprintf('  place points on every slice, then SAVE and CLOSE, and re-run with run_mode = ''register''.\n');
@@ -372,7 +384,9 @@ end
 function report_suspect_pairs(acp, hcp)
 % Per slice: affine from atlas to histology, reweighted a few times so that
 % outliers stop pulling the fit toward themselves, then list any pair further
-% than 3x the slice's median residual (and at least 30 px) from it.
+% than 3x the slice's median residual (and at least 30 px) from it. The
+% thresholds are annotation_settings' outlier_rule, which the GUI's * mark
+% reads too.
 %
 % Two failures that test cannot see, both found on MG910:
 %
@@ -386,6 +400,8 @@ function report_suspect_pairs(acp, hcp)
 %   A slice that is uniformly wrong. The outlier test is relative to the
 %   slice's own median, so when most pairs are bad none of them stands out --
 %   MG910 slice 35 had a median residual of 93 px and was never flagged.
+annot = annotation_settings();
+rule  = annot.outlier_rule;
 for k = 1:numel(acp)
     a = acp{k}; h = hcp{k};
     if size(a,1) < 5 || size(a,1) ~= size(h,1), continue, end
@@ -405,15 +421,16 @@ for k = 1:numel(acp)
         w  = double(r <= 2*s);                      % drop, refit, repeat
         if nnz(w) < 5, break, end
     end
-    bad = find(r > max(3*median(r), 30))';
+    bad = find(r > max(rule.factor*median(r), rule.min_px))';
     if ~isempty(bad)
         fprintf('  CHECK slice %d: pair(s) %s sit %s px off the slice''s own affine (median %.0f). Wrong structure or a left/right swap?\n', ...
             k, mat2str(bad), mat2str(round(r(bad))'), median(r));
     end
-    % A well annotated slice sits at 5-10 px. Past 20 the slice as a whole does
-    % not fit an affine, which usually means the wrong atlas plane rather than
-    % a few wrong points -- and elastix tends to fail outright on those.
-    if median(r) > 20
+    % A well annotated slice sits at 5-10 px. Past 20 (rule.slice_px) the
+    % slice as a whole does not fit an affine, which usually means the wrong
+    % atlas plane rather than a few wrong points -- and elastix tends to fail
+    % outright on those.
+    if median(r) > rule.slice_px
         fprintf(['  CHECK slice %d: the WHOLE slice is off -- median residual %.0f px over %d pairs. ' ...
                  'Wrong atlas plane, or points placed on two planes? Clear and redo it.\n'], ...
                  k, median(r), numel(r));

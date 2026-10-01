@@ -29,6 +29,13 @@ the separate repository `SEPGluA1_autoannotation` (its `LOG.md`).
 
 No file written here ends in `tform.mat`, which `registerSlicesToAtlas` globs for.
 
+The keys `a`, `j`, `k`, `K`, `u`, `U`, the `?` flags and the files written on
+save are a plugin of the GUI (`registration/annotation_gui/`), which
+`annotate` passes in only when this engine is installed
+(`auto_annotate('check')`); without it the GUI opens without them. The plugin
+and the hook it uses are described in its help and in
+`third_party/LightSuite/PATCHES.md` (LS7).
+
 ## What it does, per slice
 
 1. image-only registration onto the slice's plane: NGF affine, then a smooth
@@ -49,6 +56,9 @@ registration/auto_annotation/
   requirements.txt
   setup.ps1          creates the venv (CUDA torch if a GPU), self-test
 registration/pipeline/auto_annotate.m   MATLAB wrapper; out.ok / out.message on any failure
+registration/annotation_gui/
+  auto_annotation_plugin.m   the GUI's automatic-annotation keys, flags and files (opts.plugin)
+  annotation_settings.m      suggested anchor count, the outlier rule (the GUI's * and register's check)
 ```
 
 ## Setup (once per machine)

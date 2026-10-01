@@ -16,6 +16,11 @@ function out = auto_annotate(mode, procpath, slice, plane)
 %   slices at once, each at its plane (vectors, 1-based), for the GUI's U.
 %   out.atlas, out.hist and out.low are cells, one per slice.
 %
+%   out = AUTO_ANNOTATE('check') runs nothing: out.ok says whether the engine
+%   is installed, by the test every other mode starts with (its interpreter is
+%   found). run_register_to_atlas's 'annotate' mode gives the GUI the
+%   automatic annotation's keys (auto_annotation_plugin) only then.
+%
 %   out.ok is false, with out.message saying why, on any failure -- a missing
 %   interpreter, a missing file, a Python error. Callers check it.
 %
@@ -37,6 +42,10 @@ end
 cli = fullfile(pydir, 'cli.py');
 
 switch mode
+    case 'check'
+        % the interpreter was found above; nothing to run
+        out.ok = true;
+
     case 'propose'
         cmd = sprintf('"%s" "%s" propose "%s"', py, cli, procpath);
         [status, log] = system(cmd, '-echo');
@@ -86,7 +95,7 @@ switch mode
         end
 
     otherwise
-        out.message = sprintf('unknown mode ''%s'' (propose | section | sections)', mode);
+        out.message = sprintf('unknown mode ''%s'' (check | propose | section | sections)', mode);
 end
 end
 
