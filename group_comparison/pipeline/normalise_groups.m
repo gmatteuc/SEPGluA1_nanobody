@@ -1,47 +1,19 @@
-clear all
-close all
-clc
+function normalise_groups(run_settings)
+%NORMALISE_GROUPS  Normalise the mice of each group onto a common scale.
+%   NORMALISE_GROUPS(run_settings) does the work of run_normalise_groups,
+%   which sets the fields of run_settings (paths, mice, mousetypes,
+%   mousetypes_list, selected_mice_idx_list, plot_verification_video,
+%   channel, cohort_specs) and says what each one does.
 
-% Where the project lives. Derived from the location of the code rather than
-% written out, so the tree can be moved or copied to another drive as is.
-paths = get_paths();
-
-
-% /// Pipeline script #6: perform final normalization across mice in each group and plot averages ///
-% Run sep_setup_paths first, once per MATLAB session.
-
-%%  Set user-defined parameters
-
-% Set mice and mousetypes
-mice = {'MG691_Gria1', 'MG692_Gria1', 'MG693_Gria1', 'MG736_Gria1', 'MG737_Gria1', 'CGF027_Gria1', 'CGF028_Gria1', 'CGF033_Gria1', 'CGF034_Gria1', 'CGF035_Gria1','MG705_Gria1', 'MG706_Gria1', 'MG709_Gria1', 'MG716_Gria1', 'MG718_Gria1', 'MG725_Gria1', 'MG727_Gria1'};
-mousetypes = {'rws','rws','rws','rws','rws','naive','naive','naive','naive','naive','behavior','behavior','behavior','behavior','behavior','behavior','behavior'};
-mousetypes_list = {'rws','naive','behavior'};
-
-% Set list of selected mice
-selected_mice_idx_list{1} = 1:5; % rws
-selected_mice_idx_list{2} = 1:5; % naive
-selected_mice_idx_list{3} = [1,3,4,5]; % behavior (excluding 3 bad mice)
-
-% Set plotting and saving
-plot_verification_video = false;
-
-% Channel to normalize: 'nano' (default, surface GluA1) or 'auto' (autofluorescence control).
-% Loads <channel>_4d.mat and saves <channel>_4d_normalized.mat in each cohort folder.
-% Pipeline scripts downstream (run_group_differences, P8, P9) read whichever
-% channel they're configured for.
-channel = 'nano'; % 'auto'
-
-% Cohorts to normalise, as specs: an adult group by name ('rws', 'naive',
-% 'behavior'), or the young group with an age ('young_P20'). An adult group
-% keeps the mouse lists and selections above, exactly as before. A young cohort
-% takes the mice run_collect_by_group stacked (collected_mice<tag>.mat), all of
-% them, and its own atlas. See get_cohort_spec.
-cohort_specs = {'rws', 'naive'};
-% Batch runs can pick the cohorts without editing this file:
-%   set SEP_COHORT_SPECS=young_P20   (comma-separated for several)
-if ~isempty(getenv('SEP_COHORT_SPECS'))
-    cohort_specs = strtrim(strsplit(getenv('SEP_COHORT_SPECS'), ','));
-end
+% The settings of run_normalise_groups, under the names the code below uses
+paths = run_settings.paths;
+mice = run_settings.mice;
+mousetypes = run_settings.mousetypes;
+mousetypes_list = run_settings.mousetypes_list;
+selected_mice_idx_list = run_settings.selected_mice_idx_list;
+plot_verification_video = run_settings.plot_verification_video;
+channel = run_settings.channel;
+cohort_specs = run_settings.cohort_specs;
 
 %% Add paths
 
@@ -834,5 +806,7 @@ for ci = 1:numel(cohort_specs)
     clear data_4d_normalized recomputed_bkg_mask_4d save_struct
 
     toc
+
+end
 
 end

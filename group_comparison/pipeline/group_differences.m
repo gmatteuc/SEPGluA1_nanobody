@@ -1,78 +1,30 @@
-clear all
-close all
-clc
+function group_differences(run_settings)
+%GROUP_DIFFERENCES  Left-right differences of two groups, and their comparison.
+%   GROUP_DIFFERENCES(run_settings) does the work of run_group_differences,
+%   which sets the fields of run_settings and says what each one does.
 
-% Where the project lives. Derived from the location of the code rather than
-% written out, so the tree can be moved or copied to another drive as is.
-paths = get_paths();
-
-
-% /// Pipeline script #7: analyze hemispheric differences and compare groups using normalized signal channels (nano or auto) ///
-% Run sep_setup_paths first, once per MATLAB session.
-
-%%  Set user-defined parameters
-
-% Set mice and mousetypes
-mice = {'MG691_Gria1', 'MG692_Gria1', 'MG693_Gria1', 'MG736_Gria1', 'MG737_Gria1',...
-    'CGF027_Gria1', 'CGF028_Gria1', 'CGF033_Gria1', 'CGF034_Gria1', 'CGF035_Gria1',...
-    'MG705_Gria1', 'MG706_Gria1', 'MG709_Gria1', 'MG716_Gria1', 'MG718_Gria1', 'MG725_Gria1', 'MG727_Gria1'};
-mousetypes = {'rws','rws','rws','rws','rws', ...
-    'naive','naive','naive','naive','naive', ...
-    'behavior','behavior','behavior','behavior','behavior','behavior','behavior'};
-mousetypes_list = {'rws','naive','behavior'};
-
-% Define your two groups
-ctrl_type = 'naive';
-exp_type  = 'behavior';
-
-% Selection Filters
-selected_mice_idx_list{1} = 1:5;        % rws
-selected_mice_idx_list{2} = 1:5;        % naive
-selected_mice_idx_list{3} = [1,3,4,5];    % behavior
-
-% Get mousenames
-ctrl_group_idx = find(strcmp(mousetypes_list, ctrl_type));
-all_ctrl_indices = find(strcmp(mousetypes, ctrl_type));
-final_ctrl_indices = all_ctrl_indices(selected_mice_idx_list{ctrl_group_idx});
-ctrl_mousenames = mice(final_ctrl_indices);
-exp_group_idx = find(strcmp(mousetypes_list, exp_type));
-all_exp_indices = find(strcmp(mousetypes, exp_type));
-final_exp_indices = all_exp_indices(selected_mice_idx_list{exp_group_idx});
-exp_mousenames = mice(final_exp_indices);
-
-% Set whether to generate difference videos
-generate_diff_videos = true;
-generate_individual_diff_videos = true;
-generate_t_scored_videos = true;
-generate_surprise_videos = true;
-generate_rolling_videos = true;
-generate_signed_diff_videos = true;
-
-perform_area_based_analysis_fine= false;
-perform_area_based_analysis_coarse = false;
-
-% Smoothing Settings
-apply_smoothing = true;
-smooth_sigma = 5.0;
-
-% Channel to analyze: 'nano' (default, surface GluA1) or 'auto' (autofluorescence control).
-% Loads <channel>_4d_normalized.mat from each cohort folder. The channel is rolled
-% into comp_tag so nano and auto outputs go to separate comparisons/ subfolders.
-channel = 'nano';
-
-% Comparison tag for filenames (includes channel so nano/auto runs don't collide)
-comp_tag = [ctrl_type '_vs_' exp_type '_' channel];
-
-% Base directory (common part)
-base_root = paths.data;
-
-% Construct full paths
-ctrl_dir = fullfile(base_root, ctrl_type);
-exp_dir  = fullfile(base_root, exp_type);
-
-% Define a specific directory for comparison results to avoid clutter
-comp_out_dir = fullfile(base_root, 'comparisons', comp_tag);
-if ~exist(comp_out_dir, 'dir'), mkdir(comp_out_dir); end
+% The settings of run_group_differences, under the names the code below uses
+paths = run_settings.paths;
+ctrl_type = run_settings.ctrl_type;
+exp_type = run_settings.exp_type;
+ctrl_mousenames = run_settings.ctrl_mousenames;
+exp_mousenames = run_settings.exp_mousenames;
+behavior_subset = run_settings.behavior_subset;
+generate_diff_videos = run_settings.generate_diff_videos;
+generate_individual_diff_videos = run_settings.generate_individual_diff_videos;
+generate_t_scored_videos = run_settings.generate_t_scored_videos;
+generate_surprise_videos = run_settings.generate_surprise_videos;
+generate_rolling_videos = run_settings.generate_rolling_videos;
+generate_signed_diff_videos = run_settings.generate_signed_diff_videos;
+perform_area_based_analysis_fine = run_settings.perform_area_based_analysis_fine;
+perform_area_based_analysis_coarse = run_settings.perform_area_based_analysis_coarse;
+apply_smoothing = run_settings.apply_smoothing;
+smooth_sigma = run_settings.smooth_sigma;
+channel = run_settings.channel;
+comp_tag = run_settings.comp_tag;
+ctrl_dir = run_settings.ctrl_dir;
+exp_dir = run_settings.exp_dir;
+comp_out_dir = run_settings.comp_out_dir;
 
 %% Allen atlas setup
 
@@ -111,8 +63,8 @@ if strcmp(exp_type,'rws')
     data_4d_new_exp         = S_exp_vol.(norm_var_name); %(:,:,:,selected_mice_idx_list{exp_group_idx});
     data_4d_new_exp_bkgmask = S_exp_mask.recomputed_bkg_mask_4d;
 elseif strcmp(exp_type,'behavior')
-    data_4d_new_exp         = S_exp_vol.(norm_var_name)(:,:,:,[1,2,3,4]); % NB: for behavior subselect 3 of the originally saved and selected 4 ('MG705_Gria1' 'MG716_Gria1' 'MG718_Gria1')
-    data_4d_new_exp_bkgmask = S_exp_mask.recomputed_bkg_mask_4d(:,:,:,[1,2,3,4]);
+    data_4d_new_exp         = S_exp_vol.(norm_var_name)(:,:,:,behavior_subset); % NB: for behavior subselect 3 of the originally saved and selected 4 ('MG705_Gria1' 'MG716_Gria1' 'MG718_Gria1')
+    data_4d_new_exp_bkgmask = S_exp_mask.recomputed_bkg_mask_4d(:,:,:,behavior_subset);
 end
 clear S_exp_vol S_exp_mask
 fprintf('  Kept %d mice based on selection.\n', size(data_4d_new_exp, 4));
@@ -1699,3 +1651,5 @@ exportgraphics(fig_surp, fullfile(comp_out_dir, ['Region_Surprise_Bar_DiffSum_' 
 
 fprintf('Regional surprise analysis (Diff & Sum) saved to: %s\n', comp_out_dir);
 % clear roi_masks_surp surp_vec valid_pixels pixel_ids vol_surp
+
+end

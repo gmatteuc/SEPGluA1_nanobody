@@ -1,32 +1,14 @@
-clear all
-close all
-clc
+function collect_by_group(run_settings)
+%COLLECT_BY_GROUP  Stack the registered volumes of each group's mice.
+%   COLLECT_BY_GROUP(run_settings) does the work of run_collect_by_group,
+%   which sets the fields of run_settings (paths, mousetypes_list,
+%   age_filter, skip_missing) and says what each one does.
 
-% /// Pipeline script #5: load output of registartion for all mice and assemble 4D volumes stording data from all mice of each group /// 
-% Run sep_setup_paths first, once per MATLAB session.
-
-%% User-defined parameters
-
-% Where the project lives. Derived from the location of the code rather than
-% written out, so the tree can be moved or copied to another drive as is.
-paths = get_paths();
-
-% Cohort selection (mice come from the shared registry get_cohort.m).
-mousetypes_list = {'young'};                    % 'rws' | 'naive' | 'behavior' | 'young'
-
-% Optional age filter, applied within each group above. Leave empty to take the
-% whole group. The young cohort spans P16-P36, but the comparison Sami wants
-% first is the youngest ages against the adults, so a P20-only aggregate is
-% assembled separately rather than diluting it with the P32/P36 brains.
-age_filter = [20];                              % [] = whole group, e.g. [20] or [16 20 22]
-
-% Only mice that actually reached the end of run_register_to_atlas can be
-% collected here; the rest are skipped with a warning rather than killing the
-% run, so the aggregate can be rebuilt as more brains finish registering.
-skip_missing = true;
-
-% Choose correction type
-correction_type = 'slicewise';
+% The settings of run_collect_by_group, under the names the code below uses
+paths = run_settings.paths;
+mousetypes_list = run_settings.mousetypes_list;
+age_filter = run_settings.age_filter;
+skip_missing = run_settings.skip_missing;
 
 %% Add paths
 
@@ -179,5 +161,7 @@ for mousetype_idx = 1:numel(mousetypes_list)
 
     % Clear variables to free memory before next type
     clear nano_4d auto_4d mask_4d diff_4d_new avg_nano avg_auto avg_mask sum_mask_4d avg_diff_new
+
+end
 
 end
