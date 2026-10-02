@@ -32,21 +32,17 @@ few sheets.
 import csv
 import os
 
-import numpy as np
+import h5py
 import matplotlib
+import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from sepmap.volumes.per_mouse import (
-    annotation_20,
-    atlas_grid,
-    MICE,
-    CSV_MAP,
-    DATA,
-    OUT as PER_MOUSE,
-)
-from sepmap.volumes.cohort import COHORTS, OUT_ROOT as CCF_ROOT, PER_MOUSE_CCF
+from sepmap.volumes.cohort import COHORTS, PER_MOUSE_CCF
+from sepmap.volumes.cohort import OUT_ROOT as CCF_ROOT
+from sepmap.volumes.per_mouse import CSV_MAP, DATA, MICE, annotation_20, atlas_grid
+from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 
 OUT = os.path.join(DATA, "comparisons_v2", "processing_diagnostics")
 
@@ -474,8 +470,6 @@ def sheet_mask_vs_p6bis():
     the two masks agree to better than 2% of voxels. Its 10 um mask is brought
     to 20 um as the fraction of tissue in each 2x2x2 block.
     """
-    import h5py
-
     # mouse, its group's background mask file, the mouse's index in it, planes
     cases = [
         (

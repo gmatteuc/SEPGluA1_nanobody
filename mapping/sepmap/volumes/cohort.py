@@ -47,13 +47,15 @@ Output: data/comparisons_v2/ccf/<cohort>/<reading>_{mean,sd,n}.npy and mice.txt.
 Run by run_cohort.py; its cohorts and readings are imported across the package.
 """
 
+import csv
 import os
 
 import numpy as np
 from scipy.ndimage import gaussian_filter
 
 from sepmap.config import SETTINGS
-from sepmap.volumes.per_mouse import DATA, annotation_20, MICE, CSV_MAP, OUT as PER_MOUSE
+from sepmap.volumes.per_mouse import CSV_MAP, DATA, MICE, annotation_20
+from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 
 V2 = os.path.join(DATA, "comparisons_v2")
 PER_MOUSE_CCF = os.path.join(V2, "per_mouse_ccf")
@@ -143,12 +145,11 @@ def mouse_scalars(mouse):
         z = np.load(cache)
         if "src_mtime" in z.files and float(z["src_mtime"]) == os.path.getmtime(src):
             return {k: float(z[k]) for k in z.files if k != "src_mtime"}
-    import csv as _csv
 
     # structure and division of each parcellation index
     stru, divi = {}, {}
     with open(CSV_MAP, newline="", encoding="utf-8") as fh:
-        for r in _csv.DictReader(fh):
+        for r in csv.DictReader(fh):
             i = int(r["parcellation_index"])
             if r["parcellation_term_set_name"] == "structure":
                 stru[i] = r["parcellation_term_acronym"]

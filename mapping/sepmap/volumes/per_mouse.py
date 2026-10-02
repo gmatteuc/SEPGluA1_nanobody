@@ -44,6 +44,7 @@ import time
 
 import nibabel as nib
 import numpy as np
+import tifffile
 
 from sepmap.config import DATA
 
@@ -146,8 +147,6 @@ class Source:
 
     def __init__(self, mouse, group, chan):
         """Open channel `chan` ('nano', 'auto' or 'sep') of `mouse` in `group`."""
-        import tifffile
-
         self.path = channel_path(mouse, group, chan)
         self.t = tifffile.TiffFile(self.path)
         self.n = len(self.t.pages)

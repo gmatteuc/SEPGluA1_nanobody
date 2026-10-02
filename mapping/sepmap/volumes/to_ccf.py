@@ -34,7 +34,8 @@ import time
 
 import numpy as np
 
-from sepmap.volumes.per_mouse import DATA, MICE, OUT as PER_MOUSE, atlas_grid
+from sepmap.volumes.per_mouse import DATA, MICE, atlas_grid
+from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 
 OUT = os.path.join(DATA, "comparisons_v2", "per_mouse_ccf")
 
