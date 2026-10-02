@@ -268,14 +268,13 @@ def main():
         f"  {len(both)} genes measured in both planes -- these are what the "
         f"reliability estimate rests on"
     )
-    print(
-        f"  {len(no_exp)} genes have no usable experiment"
-        + (
-            f": {', '.join(no_exp[:12])}..."
-            if len(no_exp) > 12
-            else (f": {', '.join(no_exp)}" if no_exp else "")
-        )
-    )
+    if len(no_exp) > 12:
+        listed = f": {', '.join(no_exp[:12])}..."
+    elif no_exp:
+        listed = f": {', '.join(no_exp)}"
+    else:
+        listed = ""
+    print(f"  {len(no_exp)} genes have no usable experiment" + listed)
     already = sum(
         1
         for r in rows

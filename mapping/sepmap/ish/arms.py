@@ -108,7 +108,11 @@ def partial_spearman(x, y, z):
     """
     rx, ry, rz = (rankdata(v).astype(float) for v in (x, y, z))
     zc = np.column_stack([rz, np.ones_like(rz)])
-    resid = lambda r: r - zc @ np.linalg.lstsq(zc, r, rcond=None)[0]
+
+    def resid(r):
+        """`r` minus its least-squares fit on the control gene's ranks."""
+        return r - zc @ np.linalg.lstsq(zc, r, rcond=None)[0]
+
     a, b = resid(rx), resid(ry)
     if a.std() == 0 or b.std() == 0:
         return np.nan

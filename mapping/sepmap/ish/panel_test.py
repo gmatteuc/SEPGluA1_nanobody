@@ -111,7 +111,11 @@ def partial(x, y, z):
     """
     rx, ry = rankdata(x).astype(float), rankdata(y).astype(float)
     rz = np.column_stack([rankdata(c) for c in z] + [np.ones(len(rx))])
-    res = lambda r: r - rz @ np.linalg.lstsq(rz, r, rcond=None)[0]
+
+    def res(r):
+        """`r` minus its least-squares fit on the ranks of `z`."""
+        return r - rz @ np.linalg.lstsq(rz, r, rcond=None)[0]
+
     a, b = res(rx), res(ry)
     if a.std() == 0 or b.std() == 0:
         return np.nan
@@ -237,7 +241,7 @@ def main():
     # the test against all controls and against the matched ones; this generator
     # feeds every permutation test below, in this order
     rng = np.random.default_rng(0)
-    print(f"\nTEST -- partial rho given the subunit composite, localisation vs control")
+    print("\nTEST -- partial rho given the subunit composite, localisation vs control")
     results = {}
     for label, cs in (("all controls", ctrl), ("expression-matched", matched_ctrl)):
         a = np.array([by[g]["rho_partial"] for g in loc])

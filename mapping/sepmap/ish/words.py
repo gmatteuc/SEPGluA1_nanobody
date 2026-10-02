@@ -344,7 +344,6 @@ def figure(terms, words, rho):
     )
 
     # one x range for both bar panels, from the intervals of the features shown
-    span = max([r["gap"] for r in terms[:N_SHOWN] + words[:N_SHOWN]] + [0.05])
     xlim = (
         min(-0.02, min(r["gap_lo"] for r in terms[:N_SHOWN] + words[:N_SHOWN]) - 0.02),
         max(r["gap_hi"] for r in terms[:N_SHOWN] + words[:N_SHOWN]) + 0.02,
@@ -429,14 +428,11 @@ def main():
     print(f"\nthe words named in advance, for {PLOT_READING}")
     for word in PREDICTED:
         r = by.get(word)
-        print(
-            f"  {word:15s} "
-            + (
-                f"gap {r['gap']:+.3f}  n={r['n_genes']:3d}  q={r['q']:.3f}"
-                if r
-                else "not tested (too few genes, or absent)"
-            )
-        )
+        if r:
+            result = f"gap {r['gap']:+.3f}  n={r['n_genes']:3d}  q={r['q']:.3f}"
+        else:
+            result = "not tested (too few genes, or absent)"
+        print(f"  {word:15s} " + result)
     for label, sel in (("GO terms", terms), ("words", words)):
         print(f"\ntop {label} for {PLOT_READING}  (gap in median rho, n genes, BH q)")
         for r in sel[:N_SHOWN]:
