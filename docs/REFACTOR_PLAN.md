@@ -884,6 +884,15 @@ geometry; record which version processed which cohort.
   `flipud(gray(256))`; its comment says this avoids white at the low end, but
   level 1 is white and the dark end is cut, so the least reliable structures
   are white bars on white. P8 retires; A4 must not copy the scale.
+- `ArtifactAnnotator` (P3's GUI, unchanged since before the refactor) breaks
+  when Esc is pressed again while its close dialog is open or the window is
+  slow: the queued key presses run the close handler on a deleted figure
+  (`uiresume(src)` on an invalid object), and a second launch can delete its
+  window before `uiwait`. Seen in the step 6 hand check (2 Oct). Fix: a
+  closing flag, `isvalid` before `uiresume`/`delete`, and before `uiwait`.
+- The annotate mode's "the automatic annotation is not installed" line is
+  easy to miss among the start-up messages (Giulio, 2 Oct): make it a
+  `warning` or a banner.
 - `run_nano_equalisation` (P2bis) stops when `save_results` is false:
   `timestamp` is set only in the save branch and the first video needs it.
   Its two videos per mouse cannot be switched off. It also saves the
