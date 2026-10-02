@@ -66,10 +66,10 @@ if not(isempty(locs_max)) && not(isempty(locs_min))
     % idx_max_bis=locs_max(1);
     % idx_min=locs_min(1);
     d1 = diff(vals_smooth);
-    [~, choosen_max_idx] = max(d1(locs_max));
-    idx_max_bis = locs_max(choosen_max_idx);
-    if numel(locs_min)>=choosen_max_idx
-        idx_min = locs_min(choosen_max_idx);
+    [~, chosen_max_idx] = max(d1(locs_max));
+    idx_max_bis = locs_max(chosen_max_idx);
+    if numel(locs_min)>=chosen_max_idx
+        idx_min = locs_min(chosen_max_idx);
     else
         idx_min = max(idx_max_bis-5, 1);
     end
@@ -81,10 +81,10 @@ if not(isempty(locs_max)) && not(isempty(locs_min))
         % idx_max_bis=locs_max(1);
         % idx_min=locs_min(1);
         d1 = diff(vals_smooth);
-        [~, choosen_max_idx] = max(d1(locs_max));
-        idx_max_bis = locs_max(choosen_max_idx);
-        if numel(locs_min)>=choosen_max_idx
-            idx_min = locs_min(choosen_max_idx);
+        [~, chosen_max_idx] = max(d1(locs_max));
+        idx_max_bis = locs_max(chosen_max_idx);
+        if numel(locs_min)>=chosen_max_idx
+            idx_min = locs_min(chosen_max_idx);
         else
             idx_min = max(idx_max_bis-5, 1);
         end
@@ -101,10 +101,10 @@ else
     % idx_max_bis=locs_max(1);
     % idx_min=locs_min(1);
     d1 = diff(vals_smooth);
-    [~, choosen_max_idx] = max(d1(locs_max));
-    idx_max_bis = locs_max(choosen_max_idx);
-    if numel(locs_min)>=choosen_max_idx
-        idx_min = locs_min(choosen_max_idx);
+    [~, chosen_max_idx] = max(d1(locs_max));
+    idx_max_bis = locs_max(chosen_max_idx);
+    if numel(locs_min)>=chosen_max_idx
+        idx_min = locs_min(chosen_max_idx);
     else
         idx_min = max(idx_max_bis-5, 1);
     end
@@ -125,9 +125,9 @@ end
 % the upper end: past the knee's peak of the second derivative (its highest
 % value within 5 percentiles), the first percentile where it rises above it again
 if idx_max_bis<=90
-    win = 5;
-    start_idx = max(1, idx_max_bis - win);
-    end_idx = min(length(d2), idx_max_bis + win);
+    half_window = 5;
+    start_idx = max(1, idx_max_bis - half_window);
+    end_idx = min(length(d2), idx_max_bis + half_window);
     [local_max_val, local_rel_idx] = max(d2(start_idx:end_idx));
     local_max_idx = start_idx + local_rel_idx - 1;
     first_d2_bump_idx = local_max_idx;

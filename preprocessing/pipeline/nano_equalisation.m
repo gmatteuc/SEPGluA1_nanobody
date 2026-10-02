@@ -17,8 +17,8 @@ base_output_dir = run_settings.base_output_dir;
 
 % the atlas folder; nothing below reads it
 atlas = get_atlas(atlas_key);
-allenDir = atlas.dir;
-addpath(allenDir);
+atlas_dir = atlas.dir;
+addpath(atlas_dir);
 
 %% Load the volumes
 
@@ -71,14 +71,14 @@ fprintf('--- Phase 4: Generating Diagnostic Plots ---\n');
 mouse_consensus = repmat(nanmean(intensity_medians, 1), [size(intensity_medians, 1), 1]);
 rel_diff_map = (intensity_medians - mouse_consensus) ./ mouse_consensus;
 
-[f1, f2, f3] = plot_intensity_raw(intensity_medians, rel_diff_map, ...
-    processed_mouse_names, num_mice, MAX_Z);
+[fig_traces, fig_heatmap_abs, fig_heatmap_rel] = plot_intensity_raw(intensity_medians, ...
+    rel_diff_map, processed_mouse_names, num_mice, MAX_Z);
 
 % save them with the statistics, named with the time of the run
 if save_results
     timestamp = save_statistics_raw(base_output_dir, intensity_medians, ...
         intensity_iqrs, rel_diff_map, processed_mouse_names, processed_mouse_groups, ...
-        f1, f2, f3);
+        fig_traces, fig_heatmap_abs, fig_heatmap_rel);
 end
 
 %% Videos before equalisation
@@ -111,14 +111,14 @@ mouse_consensus_eq = repmat(nanmean(intensity_medians_eq, 1), ...
     [size(intensity_medians_eq, 1), 1]); %#ok<*NANMEAN>
 rel_diff_map_eq = (intensity_medians_eq - mouse_consensus_eq) ./ mouse_consensus_eq;
 
-[f4, f5, f6] = plot_intensity_equalised(intensity_medians_eq, rel_diff_map_eq, ...
-    processed_mouse_names, num_mice, MAX_Z);
+[fig_heatmap_abs_eq, fig_heatmap_rel_eq, fig_traces_eq] = plot_intensity_equalised( ...
+    intensity_medians_eq, rel_diff_map_eq, processed_mouse_names, num_mice, MAX_Z);
 
 % save them with the statistics, under the time stamp of the first save
 if save_results
     save_statistics_equalised(base_output_dir, timestamp, intensity_medians_eq, ...
         intensity_iqrs_eq, rel_diff_map_eq, processed_mouse_names, ...
-        processed_mouse_groups, f4, f5, f6);
+        processed_mouse_groups, fig_heatmap_abs_eq, fig_heatmap_rel_eq, fig_traces_eq);
 end
 
 %% Videos after equalisation
@@ -254,16 +254,16 @@ end
 
 end
 
-function [f1, f2, f3] = plot_intensity_raw(intensity_medians, rel_diff_map, ...
-    processed_mouse_names, num_mice, MAX_Z)
-% Heatmaps and profiles of the slice medians, before equalisation: the profiles
-% (f1), the absolute heatmap (f2) and the relative heatmap (f3).
+function [fig_traces, fig_heatmap_abs, fig_heatmap_rel] = plot_intensity_raw( ...
+    intensity_medians, rel_diff_map, processed_mouse_names, num_mice, MAX_Z)
+% Heatmaps and profiles of the slice medians, before equalisation; returns the
+% three figures.
 
 % absolute heatmap
-f2 = figure('Name', 'Intensity Heatmap (Absolute)', 'Color', 'w', ...
+fig_heatmap_abs = figure('Name', 'Intensity Heatmap (Absolute)', 'Color', 'w', ...
     'Units', 'normalized', 'Position', [0.1 0.1 0.5 0.8]);
 imagesc(intensity_medians);
-colormap(f2, hot);
+colormap(fig_heatmap_abs, hot);
 c = colorbar;
 c.Label.String = 'Median Intensity (Raw)';
 xlabel('Mouse');
@@ -275,10 +275,10 @@ xtickangle(45);
 clim([0, max(intensity_medians(:))]);
 
 % relative heatmap
-f3 = figure('Name', 'Intensity Heatmap (Relative)', 'Color', 'w', ...
+fig_heatmap_rel = figure('Name', 'Intensity Heatmap (Relative)', 'Color', 'w', ...
     'Units', 'normalized', 'Position', [0.6 0.1 0.5 0.8]);
 imagesc(rel_diff_map);
-colormap(f3, hot);
+colormap(fig_heatmap_rel, hot);
 c = colorbar;
 c.Label.String = 'Relative Deviation (from Mouse Mean)';
 xlabel('Mouse');
@@ -290,7 +290,7 @@ xtickangle(45);
 clim([-1, 1]);
 
 % profiles, absolute above and relative below, one line per mouse
-f1 = figure('Name', 'Intensity Profiles', 'Color', 'w', 'Units', 'normalized', ...
+fig_traces = figure('Name', 'Intensity Profiles', 'Color', 'w', 'Units', 'normalized', ...
     'Position', [0.1 0.1 0.8 0.8]);
 colors = linspace(0.25, 0.75, num_mice)' * [1, 0, 1];
 
@@ -329,7 +329,7 @@ end
 
 function timestamp = save_statistics_raw(base_output_dir, intensity_medians, ...
     intensity_iqrs, rel_diff_map, processed_mouse_names, processed_mouse_groups, ...
-    f1, f2, f3)
+    fig_traces, fig_heatmap_abs, fig_heatmap_rel)
 % Save the statistics and the three figures from before equalisation; returns the
 % time stamp that names them, which every later file of the run takes.
 
@@ -346,12 +346,12 @@ else
 end
 fprintf('Data saved to: %s\n', savePathData);
 
-exportgraphics(f1, fullfile(base_output_dir, ['Plot_Traces_' timestamp '.png']), ...
+exportgraphics(fig_traces, fullfile(base_output_dir, ['Plot_Traces_' timestamp '.png']), ...
     'Resolution', 300);
-exportgraphics(f2, fullfile(base_output_dir, ['Plot_Heatmap_Abs_' timestamp '.png']), ...
-    'Resolution', 300);
-exportgraphics(f3, fullfile(base_output_dir, ['Plot_Heatmap_Rel_' timestamp '.png']), ...
-    'Resolution', 300);
+exportgraphics(fig_heatmap_abs, fullfile(base_output_dir, ...
+    ['Plot_Heatmap_Abs_' timestamp '.png']), 'Resolution', 300);
+exportgraphics(fig_heatmap_rel, fullfile(base_output_dir, ...
+    ['Plot_Heatmap_Rel_' timestamp '.png']), 'Resolution', 300);
 
 close all
 
@@ -383,10 +383,10 @@ for i = 1:num_mice
     for z = 1:actual_z
 
         % the slice, cropped to the mouse's own size
-        img_uint16 = nano_4d(:, :, z, i);
+        img_raw = nano_4d(:, :, z, i);
         cur_h = dim_store(i, 1);
         cur_w = dim_store(i, 2);
-        img_crop = img_uint16(1:cur_h, 1:cur_w);
+        img_crop = img_raw(1:cur_h, 1:cur_w);
 
         % an empty slice gets a black frame, so frame n stays slice n
         img_single = single(img_crop);
@@ -541,16 +541,17 @@ end
 
 end
 
-function [f4, f5, f6] = plot_intensity_equalised(intensity_medians_eq, ...
-    rel_diff_map_eq, processed_mouse_names, num_mice, MAX_Z)
-% Heatmaps and profiles of the slice medians, after equalisation: the absolute
-% heatmap (f4), the relative heatmap (f5) and the profiles (f6).
+function [fig_heatmap_abs_eq, fig_heatmap_rel_eq, fig_traces_eq] = ...
+    plot_intensity_equalised(intensity_medians_eq, rel_diff_map_eq, ...
+    processed_mouse_names, num_mice, MAX_Z)
+% Heatmaps and profiles of the slice medians, after equalisation; returns the
+% three figures.
 
 % absolute heatmap
-f4 = figure('Name', 'Intensity Heatmap (Absolute - Equalized)', 'Color', 'w', ...
-    'Units', 'normalized', 'Position', [0.1 0.1 0.5 0.8]);
+fig_heatmap_abs_eq = figure('Name', 'Intensity Heatmap (Absolute - Equalized)', ...
+    'Color', 'w', 'Units', 'normalized', 'Position', [0.1 0.1 0.5 0.8]);
 imagesc(intensity_medians_eq);
-colormap(f4, hot);
+colormap(fig_heatmap_abs_eq, hot);
 c = colorbar;
 c.Label.String = 'Median Intensity (Equalized)';
 xlabel('Mouse');
@@ -562,10 +563,10 @@ xtickangle(45);
 clim([0, max(intensity_medians_eq(:))]);
 
 % relative heatmap
-f5 = figure('Name', 'Intensity Heatmap (Relative - Equalized)', 'Color', 'w', ...
-    'Units', 'normalized', 'Position', [0.6 0.1 0.5 0.8]);
+fig_heatmap_rel_eq = figure('Name', 'Intensity Heatmap (Relative - Equalized)', ...
+    'Color', 'w', 'Units', 'normalized', 'Position', [0.6 0.1 0.5 0.8]);
 imagesc(rel_diff_map_eq);
-colormap(f5, hot);
+colormap(fig_heatmap_rel_eq, hot);
 c = colorbar;
 c.Label.String = 'Relative Deviation';
 xlabel('Mouse');
@@ -577,7 +578,7 @@ xtickangle(45);
 clim([-1, 1]);
 
 % profiles, absolute above and relative below, one line per mouse
-f6 = figure('Name', 'Intensity Profiles (Equalized)', 'Color', 'w', ...
+fig_traces_eq = figure('Name', 'Intensity Profiles (Equalized)', 'Color', 'w', ...
     'Units', 'normalized', 'Position', [0.1 0.1 0.8 0.8]);
 colors = linspace(0.25, 0.75, num_mice)' * [1, 0, 1];
 
@@ -614,7 +615,7 @@ end
 
 function save_statistics_equalised(base_output_dir, timestamp, intensity_medians_eq, ...
     intensity_iqrs_eq, rel_diff_map_eq, processed_mouse_names, ...
-    processed_mouse_groups, f4, f5, f6)
+    processed_mouse_groups, fig_heatmap_abs_eq, fig_heatmap_rel_eq, fig_traces_eq)
 % Save the statistics and the three figures from after equalisation, named with
 % the time stamp of the statistics saved before it.
 
@@ -623,12 +624,12 @@ save(savePathData, 'intensity_medians_eq', 'intensity_iqrs_eq', 'rel_diff_map_eq
     'processed_mouse_names', 'processed_mouse_groups', '-v7.3');
 fprintf('Equalized Data saved to: %s\n', savePathData);
 
-exportgraphics(f6, fullfile(base_output_dir, ['Plot_Traces_Equalized_' timestamp ...
-    '.png']), 'Resolution', 300);
-exportgraphics(f4, fullfile(base_output_dir, ['Plot_Heatmap_Abs_Equalized_' timestamp ...
-    '.png']), 'Resolution', 300);
-exportgraphics(f5, fullfile(base_output_dir, ['Plot_Heatmap_Rel_Equalized_' timestamp ...
-    '.png']), 'Resolution', 300);
+exportgraphics(fig_traces_eq, fullfile(base_output_dir, ...
+    ['Plot_Traces_Equalized_' timestamp '.png']), 'Resolution', 300);
+exportgraphics(fig_heatmap_abs_eq, fullfile(base_output_dir, ...
+    ['Plot_Heatmap_Abs_Equalized_' timestamp '.png']), 'Resolution', 300);
+exportgraphics(fig_heatmap_rel_eq, fullfile(base_output_dir, ...
+    ['Plot_Heatmap_Rel_Equalized_' timestamp '.png']), 'Resolution', 300);
 
 close all
 
@@ -728,12 +729,12 @@ for i = 1:num_mice
     current_mouse = cohort(i).name;
     current_type = cohort(i).group;
     base_dir = fullfile(paths.data, current_type);
-    group_output_dir = fullfile(base_dir, current_mouse, 'lightsuite', ...
+    correction_dir = fullfile(base_dir, current_mouse, 'lightsuite', ...
         'correction_output');
 
-    if ~exist(group_output_dir, 'dir')
-        mkdir(group_output_dir);
-        fprintf('  Created directory: %s\n', group_output_dir);
+    if ~exist(correction_dir, 'dir')
+        mkdir(correction_dir);
+        fprintf('  Created directory: %s\n', correction_dir);
     end
 
     fprintf('  Saving data for %s (%d/%d)...\n', current_mouse, i, num_mice);
@@ -751,7 +752,7 @@ for i = 1:num_mice
     stats_intensity_iqr_eq = intensity_iqrs_eq(1:cur_z, i);
 
     % save
-    save_filename = fullfile(group_output_dir, 'equalized_volume.mat');
+    save_filename = fullfile(correction_dir, 'equalized_volume.mat');
 
     save(save_filename, ...
         'equalized_volume', ...

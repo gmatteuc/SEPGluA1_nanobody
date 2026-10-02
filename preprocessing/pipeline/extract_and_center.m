@@ -15,8 +15,8 @@ atlas_key = run_settings.atlas_key;
 % the toolboxes, the reader of the raw .czi files included (BioformatsImage and
 % its bfmatlab), are on the path from sep_setup_paths; only the atlas is added here
 atlas = get_atlas(atlas_key);
-allenDir = atlas.dir;
-addpath(allenDir)
+atlas_dir = atlas.dir;
+addpath(atlas_dir)
 
 %% Resolve cohort
 
@@ -41,19 +41,19 @@ for mouse_idx = 1:numel(cohort)
 
     % the mouse and its folder
     mousename = cohort(mouse_idx).name;
-    dp = cohort(mouse_idx).base_dir;
-    fprintf('\n=== %s (group %s) ===\n%s\n', mousename, cohort(mouse_idx).group, dp);
+    mouse_dir = cohort(mouse_idx).base_dir;
+    fprintf('\n=== %s (group %s) ===\n%s\n', mousename, cohort(mouse_idx).group, mouse_dir);
 
     try
 
-        if ~exist(dp, 'dir')
+        if ~exist(mouse_dir, 'dir')
             error('Mouse dir not found: %s\nCopy the raw .czi from the lab share first.', ...
-                dp);
+                mouse_dir);
         end
 
         % read the extraction settings: from the mouse folder, else from its
         % lightsuite folder, else LightSuite's defaults, which the adults ran on
-        settings_path = resolve_settings_path(dp);
+        settings_path = resolve_settings_path(mouse_dir);
         sliceinfo = parseSettingsFile(settings_path);
         fprintf('  settings: %s\n', settings_path);
         fprintf('  slicethickness=%g px_process=%g px_register=%g px_atlas=%g regchan=%s\n', ...
@@ -62,10 +62,10 @@ for mouse_idx = 1:numel(cohort)
 
         % list the .czi files and find the sections in them (LightSuite)
         sliceinfo.mousename = mousename;
-        filelistcheck = dir(fullfile(dp, '*.czi'));
+        filelistcheck = dir(fullfile(mouse_dir, '*.czi'));
         if isempty(filelistcheck)
             error('No .czi found in %s\nCopy the raw files from the lab share first.', ...
-                dp);
+                mouse_dir);
         end
         filepaths = fullfile({filelistcheck(:).folder}', {filelistcheck(:).name}');
         sliceinfo.filepaths = filepaths;

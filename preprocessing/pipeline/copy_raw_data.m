@@ -82,12 +82,12 @@ for mouse_idx = 1:numel(cohort)
     % check that every file on the share arrived with the same size
     ok = true;
     for k = 1:numel(src_files)
-        d = fullfile(dst_dir, src_files(k).name);
-        if ~exist(d, 'file')
+        dst_file = fullfile(dst_dir, src_files(k).name);
+        if ~exist(dst_file, 'file')
             fprintf('  MISSING  %s\n', src_files(k).name);
             ok = false;
         else
-            dinfo = dir(d);
+            dinfo = dir(dst_file);
             if dinfo.bytes ~= src_files(k).bytes
                 fprintf('  SIZE MISMATCH  %s: src %d vs dst %d\n', ...
                     src_files(k).name, src_files(k).bytes, dinfo.bytes);
