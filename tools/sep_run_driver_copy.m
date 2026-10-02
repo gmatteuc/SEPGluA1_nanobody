@@ -27,6 +27,7 @@ function sep_run_driver_copy(driver, data_root, assign, rewrites)
 %
 %   See also SEP_MAKE_SCRIPT_COPY, SEP_COMPARE_OUTPUTS.
 
+% no settings and no rewrites when left out
 if nargin < 3 || isempty(assign)
     assign = struct();
 end
@@ -41,7 +42,7 @@ production_data = 'D:\sep_histology\data';
 if strcmpi(data_root, production_data) || ...
         startsWith(lower(data_root), lower([production_data '\']))
     error(['sep_run_driver_copy: %s is the production data. A check runs on a copy ' ...
-        '(docs/REFACTOR_PLAN.md, Verification design).'], data_root);
+           '(docs/REFACTOR_PLAN.md, Verification design).'], data_root);
 end
 if startsWith(lower(data_root), lower('G:\sep_histology_snapshot'))
     error('sep_run_driver_copy: %s is inside the snapshot on G:, which is a backup.', ...
@@ -51,10 +52,11 @@ if ~isfolder(data_root)
     error('sep_run_driver_copy: data root not found: %s', data_root);
 end
 
+% the driver, from the path
 src = which([driver '.m']);
 if isempty(src)
     error(['sep_run_driver_copy: driver %s not found on the path. Run ' ...
-        'sep_setup_paths first.'], driver);
+           'sep_setup_paths first.'], driver);
 end
 
 % copy of the driver, next to the data tree
@@ -72,10 +74,12 @@ restore_root = onCleanup(@() setenv('SEP_DATA_ROOT', previous_root));
 p = get_paths();
 if ~strcmpi(canonical(p.data), data_root)
     error(['sep_run_driver_copy: get_paths (%s) resolves the data root to %s, ' ...
-        'not %s. Nothing was run.'], which('get_paths'), p.data, data_root);
+           'not %s. Nothing was run.'], which('get_paths'), p.data, data_root);
 end
+
+% say what runs, from where, on which data
 fprintf(['running %s\n  driver     %s\n  copy       %s\n  data root  %s\n' ...
-    '  get_paths  %s\n'], driver, src, copy_file, p.data, which('get_paths'));
+         '  get_paths  %s\n'], driver, src, copy_file, p.data, which('get_paths'));
 
 % the copy's folder goes first on the path, for this run only
 addpath(copy_folder);
@@ -86,9 +90,8 @@ end
 % ===== Local functions =====
 
 function run_script(name)
-% Run a script in this function's own workspace. Drivers start with clear
-% all, which clears the workspace they run in: here that is this one, not
-% the caller's, where the cleanup that restores SEP_DATA_ROOT lives.
+% Run a script in this function's own workspace: a driver clears the workspace it
+% runs in, and the caller's holds the cleanup that restores SEP_DATA_ROOT.
 
 eval([name ';']);
 end
@@ -97,10 +100,13 @@ function p = absolute_path(p)
 % Absolute path, worked out from the text alone: a relative path is taken
 % from the current folder, and . and .. are resolved.
 
+% a path that starts with neither a drive nor a share is relative
 p = char(p);
 if isempty(regexp(p, '^([A-Za-z]:[\\/]|[\\/][\\/])', 'once'))
     p = fullfile(pwd, p);
 end
+
+% resolve . and .. without looking at the disk
 p = char(java.io.File(p).toPath().normalize().toString());
 end
 

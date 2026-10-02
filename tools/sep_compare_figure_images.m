@@ -44,36 +44,42 @@ function R = sep_compare_figure_images(f_a, f_b, P)
 %
 %   See also SEP_COMPARE_OUTPUTS.
 
+%% Options
+
 if nargin < 3
     P = struct();
 end
 
 % defaults
-d.noise_tol  = 8;
-d.roi        = [0 1];
+d.noise_tol = 8;
+d.roi = [0 1];
 d.diff_image = '';
 
 % fill missing or empty options with the defaults
 f = fieldnames(d);
 for i = 1:numel(f)
-    if ~isfield(P,f{i}) || isempty(P.(f{i}))
+    if ~isfield(P, f{i}) || isempty(P.(f{i}))
         P.(f{i}) = d.(f{i});
     end
 end
 
-R = struct('ok',false, 'verdict','MISSING', 'n_changed',NaN, 'n_real',NaN, ...
-           'max_dist',NaN, 'size_a','', 'size_b','');
+%% Read the two images
+
+% the result as returned when a check below stops early
+R = struct('ok', false, 'verdict', 'MISSING', 'n_changed', NaN, 'n_real', NaN, ...
+    'max_dist', NaN, 'size_a', '', 'size_b', '');
 
 % stop if either file is missing
-if exist(f_a,'file') ~= 2
+if exist(f_a, 'file') ~= 2
     R.verdict = 'ORIGINAL MISSING';
     return;
 end
-if exist(f_b,'file') ~= 2
+if exist(f_b, 'file') ~= 2
     R.verdict = 'REGENERATED MISSING';
     return;
 end
 
+% both as RGB on 0-255
 a = read_rgb(f_a);
 b = read_rgb(f_b);
 R.size_a = mat2str(size(a));
@@ -85,6 +91,8 @@ if ~isequal(size(a), size(b))
     R.verdict = 'DIFFERENT';
     return;
 end
+
+%% Compare the changed pixels
 
 % optional band restriction, for figures whose titles differ by design
 [n_rows, n_cols, n_channels] = size(a);
@@ -102,9 +110,8 @@ changed = find(band & any(a ~= b, 3));
 a_list = reshape(a, [], n_channels);
 b_list = reshape(b, [], n_channels);
 
-% how far each changed pixel is from the closest mix of the original's
-% colours around it; in chunks, so that an image that changed everywhere
-% never needs nine copies of itself at once
+% how far each changed pixel is from the closest mix of the original's colours
+% around it, in chunks, so an image changed everywhere never needs nine copies at once
 D = zeros(numel(changed), 1);
 chunk = 2^18;
 for i0 = 1:chunk:numel(changed)
@@ -114,18 +121,21 @@ for i0 = 1:chunk:numel(changed)
 end
 unexplained = changed(D > P.noise_tol);
 
+% the counts, and the verdict: a match only if every change is a mix
 R.n_changed = numel(changed);
-R.n_real    = numel(unexplained);
-R.max_dist  = max([0; D]);
-R.ok        = R.n_real == 0;
+R.n_real = numel(unexplained);
+R.max_dist = max([0; D]);
+R.ok = R.n_real == 0;
 if R.ok
     R.verdict = 'MATCH';
 else
     R.verdict = 'DIFFERENT';
 end
 
-% difference image: real changes in red on the original, grown by a pixel
-% so that a single one can be seen
+%% Difference image
+
+% real changes in red on the original, grown by a pixel so that a single one
+% can be seen
 if ~isempty(P.diff_image)
     M = false(n_rows, n_cols);
     M(unexplained) = true;
@@ -140,10 +150,10 @@ if ~isempty(P.diff_image)
 
     % save, creating the folder if needed
     dd = fileparts(P.diff_image);
-    if ~isempty(dd) && ~exist(dd,'dir')
+    if ~isempty(dd) && ~exist(dd, 'dir')
         mkdir(dd);
     end
-    imwrite(cat(3,r,g,bl), P.diff_image);
+    imwrite(cat(3, r, g, bl), P.diff_image);
 end
 end
 
@@ -158,15 +168,16 @@ if ~isempty(map)
     I = ind2rgb(I, map);
 end
 I = 255 * im2double(I);
-if size(I,3) == 1
+
+% grey into three equal channels
+if size(I, 3) == 1
     I = repmat(I, 1, 1, 3);
 end
 end
 
 function colours = neighbour_colours(a_list, pixels, n_rows, n_cols)
-% The original's colours in the 3x3 neighbourhood of each pixel (linear
-% indices): one cell per neighbour, the pixel itself included, one row per
-% pixel. The border is repeated at the edges of the image.
+% The original's colours around each pixel (linear indices): one cell per neighbour
+% of the 3x3, the pixel included, one row per pixel; the border repeats at the edges.
 
 [rr, cc] = ind2sub([n_rows n_cols], pixels);
 colours = cell(1, 9);
@@ -182,11 +193,8 @@ end
 end
 
 function D = mix_distance(colours, x)
-% For each row of x, how far that colour is from the closest mix of at most
-% three of the colours in the same row of colours{1}, colours{2}, ...: the
-% largest channel difference. The mixes of three colours fill a triangle,
-% whose sides are the mixes of two; a point outside a triangle is nearest to
-% one of its sides, so the triangles are only needed for their inside.
+% For each row of x, the largest channel difference from the closest mix of at most
+% three of the colours in the same row of colours{1}, colours{2}, ...
 
 n = numel(colours);
 D = inf(size(x, 1), 1);
@@ -207,10 +215,13 @@ for k = 1:size(pairs, 1)
     D = min(D, max(abs(v - t .* u), [], 2));
 end
 
-% mixes of three colours: inside the triangle, c0 + s*u1 + t*u2 with s and
-% t at least 0 and s + t at most 1 (least squares, by the normal equations)
+% mixes of three colours fill a triangle whose sides are the mixes of two above; a
+% point outside is nearest to a side, so only the inside is needed here
 triples = nchoosek(1:n, 3);
 for k = 1:size(triples, 1)
+
+    % the closest point c0 + s*u1 + t*u2 of the triangle's plane, by least squares
+    % (the normal equations); inside the triangle s, t >= 0 and s + t <= 1
     c0 = colours{triples(k, 1)};
     u1 = colours{triples(k, 2)} - c0;
     u2 = colours{triples(k, 3)} - c0;

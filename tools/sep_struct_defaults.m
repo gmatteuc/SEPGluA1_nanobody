@@ -7,6 +7,8 @@ function P = sep_struct_defaults(P, D)
 %       P = sep_struct_defaults(P, struct('max_detail', 5, 'verbose', true));
 
 for f = fieldnames(D)'
-    if ~isfield(P, f{1}), P.(f{1}) = D.(f{1}); end
+    if ~isfield(P, f{1})
+        P.(f{1}) = D.(f{1});
+    end
 end
 end

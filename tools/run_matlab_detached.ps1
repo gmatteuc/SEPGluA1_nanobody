@@ -28,25 +28,26 @@
 # scratch files in the data folder are cleared out.
 
 param(
-    # One script, or several separated by commas, run in order.
-    # Note this has to be a plain string rather than a string[]: powershell -File
-    # binds "a,b" as a single element, so the splitting is done here instead.
+    # one script, or several separated by commas, run in order; a plain string, not a
+    # string[], which powershell -File would fill with "a,b" as one element
     [Parameter(Mandatory = $true)][string]$Script,
     [Parameter(Mandatory = $true)][string]$CodeDir,
     [Parameter(Mandatory = $true)][string]$DataRoot,
     [Parameter(Mandatory = $true)][string]$LogDir,
-    [int]$WaitForPid = 0,          # optional: hold until this process exits first
+
+    # optional: hold the start until this process has ended
+    [int]$WaitForPid = 0,
     [int]$MaxWaitMinutes = 480,
     [string]$MatlabExe = "C:\Program Files\MATLAB\R2024b\bin\matlab.exe"
 )
 
+# the folders a check must not touch
 $ProductionCode = "D:\sep_histology\code"
 $ProductionData = "D:\sep_histology\data"
 $SnapshotPrefix = "G:\sep_histology_snapshot"
 
-# Absolute, with backslashes and no trailing separator, so the checks below
-# see one spelling of each folder. Relative paths are taken from the current
-# location, as PowerShell itself would.
+# Absolute, with backslashes and no trailing separator, so the checks below see one
+# spelling of each folder; a relative path is taken from the current location.
 function Get-CanonicalPath([string]$Path) {
     $full = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
     $full = [System.IO.Path]::GetFullPath($full)
@@ -76,6 +77,7 @@ function Split-Stages([string]$Text) {
     $depth = 0
     $quoted = $false
     foreach ($c in $Text.ToCharArray()) {
+        # a quote opens or closes a text; a bracket outside a text changes the depth
         if ($c -eq "'") {
             $quoted = -not $quoted
         } elseif (-not $quoted -and "([{".Contains([string]$c)) {
@@ -83,6 +85,8 @@ function Split-Stages([string]$Text) {
         } elseif (-not $quoted -and ")]}".Contains([string]$c)) {
             $depth--
         }
+
+        # a comma outside brackets and texts ends a stage
         if ($c -eq ',' -and $depth -eq 0 -and -not $quoted) {
             $stages += $current
             $current = ""
@@ -94,13 +98,13 @@ function Split-Stages([string]$Text) {
     return @($stages | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })
 }
 
+# one spelling of each folder
 $CodeDir = Get-CanonicalPath $CodeDir
 $DataRoot = Get-CanonicalPath $DataRoot
 $LogDir = Get-CanonicalPath $LogDir
 
-# A check's data root is a copy, and its log must not land in the production
-# tree; only the production code runs on the production data (as get_paths
-# also insists); the snapshot on G: is a backup, never run on or written to.
+# only the production code runs on the production data (get_paths insists too), a
+# check's log stays out of it, and the snapshot on G: is never run on or written to
 if ((Test-Inside $DataRoot $ProductionData) -and -not ($CodeDir -ieq $ProductionCode)) {
     Stop-Refused "the code in $CodeDir is a copy, but the data root $DataRoot is the production data. Point it at the copy's own check tree."
 }
@@ -123,9 +127,8 @@ if ($Script.Contains('"')) {
     Stop-Refused "the script contains a double quote, which matlab.exe would not receive intact. Use single quotes."
 }
 
-# @() around the call: with a single script name the function returns a bare
-# string rather than an array, and $scripts[0] then indexes its first character,
-# so every single-stage run logged to _P.log instead of _<script>.log.
+# the stages; @() keeps a single stage an array, since the function then returns a
+# bare string, and $scripts[0] would be its first character
 $scripts = @(Split-Stages $Script)
 if ($scripts.Count -eq 0) {
     Stop-Refused "no script given."
@@ -134,8 +137,8 @@ if (-not (Test-Path -LiteralPath $LogDir -PathType Container)) {
     New-Item -ItemType Directory -Path $LogDir | Out-Null
 }
 
-# A call makes a poor file name: a run('<file>') stage is named after its
-# file, anything else keeps letters, digits, _ and -, at most 60 of them.
+# the log is named after the first stage: a run('<file>') stage after its file,
+# anything else by its letters, digits, _ and -, at most 60 of them
 $logName = $scripts[0]
 if ($logName -match "^run\('([^']+)'\)$") {
     $logName = [System.IO.Path]::GetFileNameWithoutExtension($Matches[1])
@@ -146,10 +149,9 @@ if ($logName.Length -gt 60) {
 }
 $log = Join-Path $LogDir ("_{0}.log" -f $logName)
 
-# The commit the code folder is at, and whether it has uncommitted changes, so
-# the log says which code ran. The check trees sit on G:, an exFAT drive that
-# records no file owners, which git otherwise refuses to read: the folder is
-# marked safe for these two calls only, not in any git configuration.
+# the commit the code is at, and its uncommitted changes, so the log says which code
+# ran; git refuses a folder on exFAT (the check trees on G:), which records no owner,
+# unless it is marked safe: here for these two calls only, never in a git configuration
 $safe = "safe.directory=$($CodeDir.Replace('\', '/'))"
 $commit = (& git -c $safe -C $CodeDir rev-parse HEAD 2>$null)
 if ($LASTEXITCODE -ne 0 -or -not $commit) {
@@ -161,6 +163,7 @@ if ($LASTEXITCODE -ne 0 -or -not $commit) {
     }
 }
 
+# the log's header: when, which code, which data, which commit, which stages
 "" | Out-File -FilePath $log -Encoding utf8 -Append
 "=== run_matlab_detached $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ===" |
     Out-File -FilePath $log -Encoding utf8 -Append
@@ -169,18 +172,19 @@ if ($LASTEXITCODE -ne 0 -or -not $commit) {
 "commit   $commit" | Out-File -FilePath $log -Encoding utf8 -Append
 "scripts  $($scripts -join ' | ')" | Out-File -FilePath $log -Encoding utf8 -Append
 
-# The data root reaches MATLAB through the environment. The previous value is
-# put back at the end, in case this was run from an open PowerShell session.
+# the data root reaches MATLAB through the environment; the previous value is put
+# back at the end, for a run from an open PowerShell session
 $previousDataRoot = $env:SEP_DATA_ROOT
 $env:SEP_DATA_ROOT = $DataRoot
 try {
-    # Chain onto an earlier stage when asked, so a long copy can hand over to
-    # processing without anyone being at the keyboard.
+    # wait for an earlier process when asked, so a long copy can hand over to
+    # processing unattended; one check a minute, at most MaxWaitMinutes
     if ($WaitForPid -gt 0) {
         "waiting for PID $WaitForPid to finish ($(Get-Date -Format 'HH:mm:ss'))" |
             Out-File -FilePath $log -Encoding utf8 -Append
         $waited = 0
-        while ((Get-Process -Id $WaitForPid -ErrorAction SilentlyContinue) -and ($waited -lt $MaxWaitMinutes)) {
+        while ((Get-Process -Id $WaitForPid -ErrorAction SilentlyContinue) -and
+                ($waited -lt $MaxWaitMinutes)) {
             Start-Sleep -Seconds 60
             $waited++
         }
@@ -189,11 +193,12 @@ try {
                 Out-File -FilePath $log -Encoding utf8 -Append
             exit 1
         }
-        "PID $WaitForPid finished after ~$waited min" | Out-File -FilePath $log -Encoding utf8 -Append
+        "PID $WaitForPid finished after ~$waited min" |
+            Out-File -FilePath $log -Encoding utf8 -Append
     }
 
-    # Every session starts from the default path, so nothing a previous run
-    # added can shadow the code under test, and says what it resolved.
+    # every session starts from the default path, so nothing a previous run added
+    # can shadow the code under test, and says what it resolved
     $codeDirMatlab = $CodeDir -replace "'", "''"
     $setup = "restoredefaultpath; cd('$codeDirMatlab'); sep_setup_paths; " +
         "fprintf('code root  %s\n', fileparts(which('sep_setup_paths'))); " +
@@ -201,13 +206,14 @@ try {
         "fprintf('data root  %s\n', get_paths().data); " +
         "fprintf('commit     %s\n', '$commit');"
 
-    # Run the scripts one after another. If one fails we stop rather than feeding a
-    # later stage with half-finished input.
+    # run the stages in order; a failing stage stops the chain, so no later stage
+    # reads half-finished input
     foreach ($s in $scripts) {
         "" | Out-File -FilePath $log -Encoding utf8 -Append
         "=== $s started $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ===" |
             Out-File -FilePath $log -Encoding utf8 -Append
 
+        # a fresh MATLAB for each stage, everything it prints into the log
         & $MatlabExe -batch "$setup $s" 2>&1 |
             Out-File -FilePath $log -Encoding utf8 -Append
 
@@ -215,6 +221,7 @@ try {
         "=== $s finished $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') exit=$code ===" |
             Out-File -FilePath $log -Encoding utf8 -Append
 
+        # stop the chain on a failure
         if ($code -ne 0) {
             "$s did not exit cleanly - stopping, later stages not started" |
                 Out-File -FilePath $log -Encoding utf8 -Append

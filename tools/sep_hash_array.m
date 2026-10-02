@@ -5,14 +5,14 @@ function h = sep_hash_array(x)
 %   Two arrays get the same hash only if class, size and every value are the
 %   same (NaN included).
 
+% an empty array has no bytes: its class and size stand for the hash
 if isempty(x)
     h = sprintf('empty:%s:%s', class(x), mat2str(size(x)));
     return
 end
 
-% class and size of the input itself, before the conversions below: a
-% logical and a uint8 array (or a char and a uint16 array) with the same
-% values have the same bytes, and a complex array loses its shape
+% class and size before the conversions below: logical and uint8 arrays of the same
+% values (or char and uint16) have the same bytes, and a complex array loses its shape
 kind = class(x);
 if isnumeric(x) && ~isreal(x)
     kind = [kind ' complex'];
@@ -26,6 +26,9 @@ end
 if ischar(x)
     x = uint16(x);
 end
+
+% anything else (a struct, a cell, an object) has no bytes to hash; a complex
+% array as its real parts, then its imaginary parts
 assert(isnumeric(x), 'sep_hash_array: unsupported class %s', class(x));
 if ~isreal(x)
     x = [real(x(:)); imag(x(:))];
@@ -40,6 +43,8 @@ for i0 = 1:chunk:n
     part = x(i0:min(n, i0 + chunk - 1));
     md.update(typecast(part(:), 'uint8'));
 end
+
+% class, size and digest in hexadecimal
 digest = typecast(md.digest(), 'uint8');
 h = sprintf('%s:%s:%s', kind, shape, sprintf('%02x', digest));
 end

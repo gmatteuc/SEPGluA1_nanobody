@@ -18,14 +18,18 @@ function out = sep_make_script_copy(src, out, assign, rewrites)
 %
 %   See also SEP_RUN_DRIVER_COPY.
 
+% no settings and no rewrites when left out
 if nargin < 3 || isempty(assign)
     assign = struct();
 end
 if nargin < 4
     rewrites = cell(0, 2);
 end
+
+% the driver as text, in its encoding
 txt = fileread(src, 'Encoding', 'UTF-8');
 
+% replace the assignment to each setting given
 names = fieldnames(assign);
 for k = 1:numel(names)
     name = names{k};
@@ -50,9 +54,9 @@ end
 
 % apply the other rewrites, each of which must match
 for k = 1:size(rewrites, 1)
-    assert(~isempty(regexp(txt, rewrites{k,1}, 'once')), ...
-        'sep_make_script_copy: rewrite "%s" not found in %s', rewrites{k,1}, src);
-    txt = regexprep(txt, rewrites{k,1}, regexptranslate('escape', rewrites{k,2}));
+    assert(~isempty(regexp(txt, rewrites{k, 1}, 'once')), ...
+        'sep_make_script_copy: rewrite "%s" not found in %s', rewrites{k, 1}, src);
+    txt = regexprep(txt, rewrites{k, 1}, regexptranslate('escape', rewrites{k, 2}));
 end
 
 % write the copy, in the source's encoding
