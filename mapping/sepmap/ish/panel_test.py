@@ -70,7 +70,7 @@ MIN_RELIABILITY = 0.3
 N_PERM = 20000
 
 
-def adult_profile(reading):
+def adult_profile(reading: str) -> dict[str, float]:
     """{structure: mean over the adults} of one reading, from the per-mouse table.
 
     A structure's mean is over the adults that have it, however many they are.
@@ -83,7 +83,7 @@ def adult_profile(reading):
     return {s: float(np.mean(v)) for s, v in per.items()}
 
 
-def merged_profiles():
+def merged_profiles() -> tuple[dict[str, dict[str, float]], dict[str, str]]:
     """{gene: {structure: mean rank}} and {gene: role}, from the merged table."""
     per, role = defaultdict(dict), {}
     with open(MERGED, newline="", encoding="utf-8") as fh:
@@ -93,7 +93,7 @@ def merged_profiles():
     return per, role
 
 
-def reliability_and_level():
+def reliability_and_level() -> tuple[dict[str, float], dict[str, float]]:
     """{gene: reliability}, for the genes that have one, and {gene: median energy}."""
     rel, level = {}, {}
     with open(RELIABILITY, newline="", encoding="utf-8") as fh:
@@ -104,7 +104,7 @@ def reliability_and_level():
     return rel, level
 
 
-def partial(x, y, z):
+def partial(x: np.ndarray, y: np.ndarray, z: list[np.ndarray]) -> float:
     """Spearman of `x` and `y` with the columns of `z` removed, on ranks.
 
     Pearson on the rank residuals; NaN when either residual is constant.
@@ -122,7 +122,9 @@ def partial(x, y, z):
     return float(np.corrcoef(a, b)[0, 1])
 
 
-def greedy_match(targets, pool, level):
+def greedy_match(
+    targets: list[str], pool: list[str], level: dict[str, float]
+) -> dict[str, str]:
     """Pair each target with the closest unused control on log expression.
 
     Targets go in order of expression, highest first; returns {target: control}.
@@ -144,7 +146,9 @@ def greedy_match(targets, pool, level):
     return pairs
 
 
-def two_sample(a, b, rng):
+def two_sample(
+    a: np.ndarray, b: np.ndarray, rng: np.random.Generator
+) -> tuple[float, float, np.ndarray]:
     """Median difference of `a` and `b`, its label-permutation p, and the null.
 
     The two sets are pooled and shuffled N_PERM times with `rng`; p is two-sided,
@@ -161,7 +165,7 @@ def two_sample(a, b, rng):
     return obs, p, null
 
 
-def main():
+def main() -> None:
     """Run the test, its sensitivity run and the positive control; write and draw."""
     # the map, the merged gene profiles, each gene's reliability and level
     nano = adult_profile(READING)
@@ -312,7 +316,14 @@ def main():
     figure(results, by, loc, matched_ctrl, ctrl, level)
 
 
-def figure(results, by, loc, matched_ctrl, ctrl, level):
+def figure(
+    results: dict[str, tuple],
+    by: dict[str, dict],
+    loc: list[str],
+    matched_ctrl: list[str],
+    ctrl: list[str],
+    level: dict[str, float],
+) -> None:
     """Draw the matched test, the expression of each set and the null.
 
     Saved as ish_panel_test.png; the jitter has a generator of its own.

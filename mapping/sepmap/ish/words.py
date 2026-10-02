@@ -48,6 +48,7 @@ import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
 from scipy.stats import false_discovery_control, mannwhitneyu
 
 from sepmap.config import DATA
@@ -119,7 +120,7 @@ STOP = {
 }
 
 
-def fetch(symbol):
+def fetch(symbol: str) -> dict:
     """The mygene.info record of one mouse gene, cached on disk.
 
     Cached because it is the only step that needs a server, and a re-run should
@@ -153,7 +154,7 @@ def fetch(symbol):
     return record
 
 
-def go_terms(record):
+def go_terms(record: dict) -> set[str]:
     """Every GO term on the record, as a set of strings.
 
     mygene returns a dict when a gene has one term in a branch and a list when
@@ -170,7 +171,7 @@ def go_terms(record):
     return terms
 
 
-def words_of(terms, name):
+def words_of(terms: set[str], name: str | None) -> set[str]:
     """Single words from the GO terms and the gene's full name."""
     out = set()
     for text in list(terms) + [name or ""]:
@@ -190,7 +191,7 @@ def words_of(terms, name):
     return out
 
 
-def load_rho():
+def load_rho() -> dict[str, dict[str, float]]:
     """{reading: {gene: rho}} from what ish.compare wrote."""
     per = defaultdict(dict)
     with open(RHO, newline="", encoding="utf-8") as fh:
@@ -199,7 +200,9 @@ def load_rho():
     return per
 
 
-def gap_interval(a, b, rng):
+def gap_interval(
+    a: np.ndarray, b: np.ndarray, rng: np.random.Generator
+) -> tuple[float, float]:
     """A 95% percentile bootstrap interval for the difference of the two medians.
 
     Without it the panel misleads: a five-gene group reaches a large median gap
@@ -212,7 +215,7 @@ def gap_interval(a, b, rng):
     return float(lo), float(hi)
 
 
-def test_features(features, rho):
+def test_features(features: dict[str, set[str]], rho: dict[str, float]) -> list[dict]:
     """One row per feature: the two medians, the gap, Mann-Whitney p, BH q.
 
     `features` is {feature: set of genes}. Genes without a rho for this reading are
@@ -260,7 +263,7 @@ def test_features(features, rho):
     return sorted(rows, key=lambda r: -r["gap"])
 
 
-def bars(ax, rows, title, xlim):
+def bars(ax: Axes, rows: list[dict], title: str, xlim: tuple[float, float]) -> None:
     """Draw the top features by effect size as bars; the lower q, the darker."""
     sel = rows[:N_SHOWN][::-1]
     y = np.arange(len(sel))
@@ -286,7 +289,7 @@ def bars(ax, rows, title, xlim):
         ax.spines[side].set_visible(False)
 
 
-def strip(ax, rows, rho):
+def strip(ax: Axes, rows: list[dict], rho: dict[str, float]) -> None:
     """Draw the contrast named in advance as the distributions behind it.
 
     Not whichever feature came first: that one is usually a five-gene group, and
@@ -337,7 +340,7 @@ def strip(ax, rows, rho):
         ax.spines[side].set_visible(False)
 
 
-def figure(terms, words, rho):
+def figure(terms: list[dict], words: list[dict], rho: dict[str, float]) -> None:
     """Draw the two bar panels and the contrast; saved as ish_word_enrichment.png."""
     fig, axes = plt.subplots(
         1, 3, figsize=(15.5, 4.6), gridspec_kw=dict(width_ratios=[1.3, 1.0, 0.8])
@@ -367,7 +370,7 @@ def figure(terms, words, rho):
     print(f"\n{path}")
 
 
-def main():
+def main() -> None:
     """Test every GO term and word against the gene ranking, write, report and draw."""
     # the rho of each gene and reading
     rho = load_rho()

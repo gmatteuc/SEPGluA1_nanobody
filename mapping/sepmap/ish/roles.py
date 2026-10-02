@@ -43,6 +43,7 @@ import csv
 import itertools
 import os
 from collections import defaultdict
+from collections.abc import Sequence
 
 import matplotlib
 import numpy as np
@@ -173,7 +174,7 @@ NICE = {
 }
 
 
-def adult_profile(reading):
+def adult_profile(reading: str) -> dict[str, float]:
     """{structure: mean over the adults} of one reading, from the per-mouse table.
 
     A structure's mean is over the adults that have it, however many they are.
@@ -186,7 +187,7 @@ def adult_profile(reading):
     return {s: float(np.mean(v)) for s, v in per.items()}
 
 
-def gene_profiles():
+def gene_profiles() -> tuple[dict[str, dict[str, float]], dict[str, str]]:
     """{gene: {structure: expression}} and {gene: category}.
 
     Only structures covered by at least MIN_ISH_VOXELS voxels of the gene's grid.
@@ -200,7 +201,7 @@ def gene_profiles():
     return out, cat
 
 
-def role_of(gene, category):
+def role_of(gene: str, category: dict[str, str]) -> str:
     """Curated role where there is one, the original control label otherwise."""
     if gene in ROLES:
         return ROLES[gene]
@@ -208,13 +209,15 @@ def role_of(gene, category):
     return c if c.startswith("control") else "other"
 
 
-def composite(genes, expr, structures):
+def composite(
+    genes: Sequence[str], expr: dict[str, dict[str, float]], structures: list[str]
+) -> np.ndarray:
     """One profile from a set of genes: the mean of their rank profiles."""
     r = [rankdata([expr[g][s] for s in structures]) for g in genes]
     return np.mean(r, axis=0)
 
 
-def r2(y, xs):
+def r2(y: np.ndarray, xs: list[np.ndarray]) -> float:
     """Fraction of the variance of `y` explained linearly by the columns `xs`.
 
     Called on ranks, so it is a rank regression.
@@ -224,7 +227,7 @@ def r2(y, xs):
     return float(1 - resid.var() / y.var())
 
 
-def commonality(y, s, m):
+def commonality(y: np.ndarray, s: np.ndarray, m: np.ndarray) -> dict[str, float]:
     """R2 of each composite and of both, the part unique to each, the part shared.
 
     `s` is the subunit composite and `m` the localisation composite.
@@ -240,7 +243,14 @@ def commonality(y, s, m):
     )
 
 
-def permutation(y, expr, structures, family_genes, n_subunit, observed):
+def permutation(
+    y: np.ndarray,
+    expr: dict[str, dict[str, float]],
+    structures: list[str],
+    family_genes: list[str],
+    n_subunit: int,
+    observed: float,
+) -> tuple[np.ndarray, float]:
     """The statistic for every way of calling `n_subunit` family genes the subunit set.
 
     Splitting the same genes holds their co-expression fixed, the thing that makes
@@ -261,7 +271,13 @@ def permutation(y, expr, structures, family_genes, n_subunit, observed):
     return stats, p
 
 
-def sensitivity(y, expr, structures, family, roles):
+def sensitivity(
+    y: np.ndarray,
+    expr: dict[str, dict[str, float]],
+    structures: list[str],
+    family: list[str],
+    roles: dict[str, str],
+) -> None:
     """Print the commonality and the permutation again, without the quiet family genes.
 
     The obvious objection to a negative result is that the localisation set carries
@@ -304,7 +320,7 @@ def sensitivity(y, expr, structures, family, roles):
     print(f"   observed {observed:+.4f} against {len(stats):,} splits, p = {p:.4f}")
 
 
-def main():
+def main() -> None:
     """Run the three steps and the sensitivity run on the map, write, print and draw."""
     # the map, the gene profiles and each gene's role
     nano = adult_profile(READING)
@@ -421,7 +437,16 @@ def main():
     figure(by_role, c, stats, observed, p, s_comp, m_comp, y)
 
 
-def figure(by_role, c, stats, observed, p, s_comp, m_comp, y):
+def figure(
+    by_role: dict[str, list[float]],
+    c: dict[str, float],
+    stats: np.ndarray,
+    observed: float,
+    p: float,
+    s_comp: np.ndarray,
+    m_comp: np.ndarray,
+    y: np.ndarray,
+) -> None:
     """Draw steps 1 to 3 for the reading of the tests; saved as ish_roles.png."""
     fig, axes = plt.subplots(
         1, 3, figsize=(15.5, 5.2), gridspec_kw=dict(width_ratios=[1.7, 0.8, 1.0])

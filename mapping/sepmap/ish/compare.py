@@ -69,7 +69,7 @@ MIN_GENES = 20
 MACHINERY = ("auxiliary", "trafficking", "scaffold")
 
 
-def adult_profile():
+def adult_profile() -> dict[str, dict[str, float]]:
     """{reading: {structure: mean over the adults}} from the per-mouse table.
 
     A structure's mean is over the adults that have it, however many they are.
@@ -85,7 +85,7 @@ def adult_profile():
     }
 
 
-def gene_profiles():
+def gene_profiles() -> tuple[dict[str, dict[str, float]], dict[str, str]]:
     """{gene: {structure: expression}} and {gene: category}.
 
     Only structures covered by at least MIN_ISH_VOXELS voxels of the gene's grid.
@@ -99,7 +99,11 @@ def gene_profiles():
     return out, cat
 
 
-def correlate(nano, genes, category):
+def correlate(
+    nano: dict[str, dict[str, float]],
+    genes: dict[str, dict[str, float]],
+    category: dict[str, str],
+) -> list[dict]:
     """One row per reading and gene: Spearman over the structures they share.
 
     A gene sharing fewer than MIN_STRUCTURES structures with a reading has no row.
@@ -124,7 +128,7 @@ def correlate(nano, genes, category):
     return rows
 
 
-def old_ranking():
+def old_ranking() -> dict[str, float]:
     """The MATLAB route's distance-weighted Spearman, {gene: rho}, if it is there."""
     if not os.path.exists(OLD):
         return {}
@@ -136,7 +140,7 @@ def old_ranking():
         }
 
 
-def rank_of(sel, gene):
+def rank_of(sel: list[dict], gene: str) -> tuple[int | None, float]:
     """(rank from the top, rho) of one gene in a sorted list of rows.
 
     (None, NaN) when the gene is not in the list.
@@ -147,7 +151,7 @@ def rank_of(sel, gene):
     return None, np.nan
 
 
-def report(rows, old, category):
+def report(rows: list[dict], old: dict[str, float], category: dict[str, str]) -> None:
     """Print what the decision rests on, in the order it gets asked."""
     # each reading's rows, highest rho first
     per_reading = {
@@ -221,7 +225,7 @@ def report(rows, old, category):
         )
 
 
-def figure(rows, old, category):
+def figure(rows: list[dict], old: dict[str, float], category: dict[str, str]) -> None:
     """Draw each gene's old rho against its new one, a panel per reading.
 
     Machinery genes in red; saved as ish_old_vs_new.png.
@@ -303,7 +307,7 @@ def figure(rows, old, category):
     print(f"\n{path}")
 
 
-def main():
+def main() -> None:
     """Correlate every gene with the adult map, write the table, report and draw."""
     # the adult profiles and the gene profiles
     nano = adult_profile()

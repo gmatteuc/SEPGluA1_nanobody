@@ -38,6 +38,7 @@ import time
 import urllib.parse
 import urllib.request
 from collections import defaultdict
+from collections.abc import Callable
 
 from sepmap.config import DATA
 
@@ -87,7 +88,7 @@ ROLE_ORDER = ("subunit", "delta_receptor", "localisation", "control_psd")
 MAX_HITS = 1000
 
 
-def cached(name, fetch):
+def cached(name: str, fetch: Callable[[], list]) -> list:
     """The answer of `fetch()`, cached as <name>.json, so a re-run asks nothing twice."""
     os.makedirs(CACHE, exist_ok=True)
     path = os.path.join(CACHE, name + ".json")
@@ -103,7 +104,7 @@ def cached(name, fetch):
     return value
 
 
-def genes_with_term(term):
+def genes_with_term(term: str) -> list[str]:
     """Every mouse gene annotated to one GO term, as a sorted list of symbols."""
 
     def fetch():
@@ -125,7 +126,7 @@ def genes_with_term(term):
     return cached("term_" + term.replace(":", "_"), fetch)
 
 
-def allen_experiments(symbol):
+def allen_experiments(symbol: str) -> list[dict]:
     """Every usable Allen ISH experiment of one gene: [{"id": ..., "plane": ...}].
 
     Usable means not failed, from the mouse product, with a plane of section.
@@ -151,7 +152,7 @@ def allen_experiments(symbol):
     return cached("allen_" + symbol, fetch)
 
 
-def assign_roles():
+def assign_roles() -> tuple[dict[str, str], dict[str, list[str]]]:
     """{gene: role} and {gene: [terms that claimed it]}, from the ontology alone."""
     # the genes of each term
     members = {term: set(genes_with_term(term)) for term in TERMS}
@@ -188,7 +189,7 @@ def assign_roles():
     return roles, why
 
 
-def main():
+def main() -> None:
     """Build the panel from the ontology and the Allen API; write both tables."""
     # the gene sets
     os.makedirs(OUT, exist_ok=True)

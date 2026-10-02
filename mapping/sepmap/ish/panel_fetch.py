@@ -43,7 +43,7 @@ TIMEOUT = 180
 RETRIES = 2
 
 
-def already_there(eid):
+def already_there(eid: str) -> bool:
     """Whether both files of the experiment's grid are on disk."""
     return all(
         os.path.exists(os.path.join(DEST, f"{eid}_energy{ext}"))
@@ -51,7 +51,7 @@ def already_there(eid):
     )
 
 
-def dims_of(path):
+def dims_of(path: str) -> tuple[int, ...] | None:
     """The DimSize of a MetaImage header as a tuple, or None when it has none."""
     with open(path) as fh:
         for line in fh:
@@ -60,7 +60,7 @@ def dims_of(path):
     return None
 
 
-def fetch(eid):
+def fetch(eid: str) -> str | None:
     """Download and unpack one grid. Returns None on success, else the reason."""
     last = ""
     for attempt in range(RETRIES + 1):
@@ -89,7 +89,7 @@ def fetch(eid):
     return last
 
 
-def main():
+def main() -> None:
     """Download the panel's missing grids and write the failures."""
     # the experiments of the panel not yet on disk
     with open(PANEL, newline="", encoding="utf-8") as fh:

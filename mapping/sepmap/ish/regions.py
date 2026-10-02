@@ -71,7 +71,7 @@ MIN_VOXELS = 3
 GRID_DIMS = (67, 41, 58)
 
 
-def panel_files(name):
+def panel_files(name: str) -> tuple[str, str]:
     """(panel CSV path, output table name) of one panel pass in settings.toml."""
     if name not in ISH_PANELS:
         raise ValueError(
@@ -88,7 +88,7 @@ class NotReferenceGrid(Exception):
     """The experiment was gridded in a box of its own, so it cannot be placed."""
 
 
-def read_energy(experiment_id):
+def read_energy(experiment_id: int | str) -> np.ndarray:
     """One Allen grid as (AP, DV, ML) at 200 um, with missing voxels as NaN.
 
     The header is read rather than trusted: if a future download has a different
@@ -120,7 +120,7 @@ def read_energy(experiment_id):
     return np.where(vol == MISSING, np.nan, vol)
 
 
-def annotation_200():
+def annotation_200() -> np.ndarray:
     """CCF labels on the ISH grid: the 10 um annotation sampled every 20th voxel.
 
     The result is one voxel smaller than the Allen grid in each axis (66 x 40 x 57
@@ -133,7 +133,7 @@ def annotation_200():
     return ann[::20, ::20, ::20]
 
 
-def structure_names():
+def structure_names() -> dict[int, str]:
     """Structure name of each parcellation index, the key the nano table uses."""
     names = {}
     with open(CSV_MAP, newline="", encoding="utf-8") as fh:
@@ -143,7 +143,9 @@ def structure_names():
     return names
 
 
-def region_means(vol, ann, names, eroded_ann):
+def region_means(
+    vol: np.ndarray, ann: np.ndarray, names: dict[int, str], eroded_ann: np.ndarray
+) -> dict[str, tuple[float, float, int, int]]:
     """Full and eroded mean, valid voxels and all voxels of each structure.
 
     Returns {structure name: (full mean, eroded mean, n valid voxels, n voxels in
@@ -175,7 +177,7 @@ def region_means(vol, ann, names, eroded_ann):
     return out
 
 
-def main(only=None, panel_name=DEFAULT_PANEL):
+def main(only: list[str] | None = None, panel_name: str = DEFAULT_PANEL) -> None:
     """Write the region table of one panel pass, and the table of dropped genes.
 
     With `only`, a list of gene symbols, only those genes of the panel.

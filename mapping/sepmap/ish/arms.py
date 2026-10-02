@@ -78,7 +78,7 @@ MIN_STRUCTURES = 50
 MACHINERY = ("auxiliary", "trafficking", "scaffold")
 
 
-def arm_profiles():
+def arm_profiles() -> dict[str, dict[str, float]]:
     """{arm: {structure: mean over the adults}}, from region_means_arms.csv."""
     per = defaultdict(lambda: defaultdict(list))
     with open(ARMS_CSV, newline="", encoding="utf-8") as fh:
@@ -87,7 +87,7 @@ def arm_profiles():
     return {arm: {s: float(np.mean(v)) for s, v in d.items()} for arm, d in per.items()}
 
 
-def gene_profiles():
+def gene_profiles() -> tuple[dict[str, dict[str, float]], dict[str, str]]:
     """{gene: {structure: expression}} and {gene: category}.
 
     Only structures covered by at least MIN_ISH_VOXELS voxels of the gene's grid.
@@ -101,7 +101,7 @@ def gene_profiles():
     return out, cat
 
 
-def partial_spearman(x, y, z):
+def partial_spearman(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> float:
     """Spearman of `x` and `y` with `z` removed: Pearson on the rank residuals.
 
     NaN when either residual is constant.
@@ -119,7 +119,12 @@ def partial_spearman(x, y, z):
     return float(np.corrcoef(a, b)[0, 1])
 
 
-def correlate(arms, genes, category, control):
+def correlate(
+    arms: dict[str, dict[str, float]],
+    genes: dict[str, dict[str, float]],
+    category: dict[str, str],
+    control: str,
+) -> list[dict]:
     """One row per arm and gene: rho, and rho with the control gene removed.
 
     Every arm is restricted to the same structures, those measured in all three
@@ -158,7 +163,7 @@ def correlate(arms, genes, category, control):
     return rows
 
 
-def by_gene(rows, field):
+def by_gene(rows: list[dict], field: str) -> dict[str, dict[str, float]]:
     """{gene: {arm: value}} for one column."""
     out = defaultdict(dict)
     for r in rows:
@@ -166,7 +171,9 @@ def by_gene(rows, field):
     return out
 
 
-def report(rows, category):
+def report(
+    rows: list[dict], category: dict[str, str]
+) -> tuple[dict[str, dict[str, float]], dict[str, dict[str, float]], list[str]]:
     """Print both tests and the paired contrast; return the rho tables and machinery.
 
     Returns ({gene: {arm: rho}}, {gene: {arm: partial rho}}, the machinery genes
@@ -238,7 +245,12 @@ def report(rows, category):
     return plain, partial, mach
 
 
-def figure(plain, partial, mach, category):
+def figure(
+    plain: dict[str, dict[str, float]],
+    partial: dict[str, dict[str, float]],
+    mach: list[str],
+    category: dict[str, str],
+) -> None:
     """Draw the two tests in three panels; saved as arms_vs_genes.png."""
     fig, axes = plt.subplots(1, 3, figsize=(13.2, 4.3))
 
@@ -363,7 +375,7 @@ def figure(plain, partial, mach, category):
     print(f"\n{path}")
 
 
-def main():
+def main() -> None:
     """Correlate every gene with every arm, write the table, report and draw."""
     # the arm profiles and the gene profiles, the control gene among them
     arms = arm_profiles()

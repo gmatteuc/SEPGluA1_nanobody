@@ -54,7 +54,11 @@ MIN_ISH_VOXELS = 10
 MIN_SHARED = 50
 
 
-def load(path):
+def load(
+    path: str,
+) -> tuple[
+    dict[str, dict[str, dict[str, float]]], dict[tuple[str, str], tuple[str, str]]
+]:
     """Each experiment's profile, and each experiment's plane and role.
 
     Returns ({gene: {experiment: {structure: energy}}}, {(gene, experiment):
@@ -71,7 +75,9 @@ def load(path):
     return per, meta
 
 
-def pair_reliability(profiles):
+def pair_reliability(
+    profiles: dict[str, dict[str, float]],
+) -> list[tuple[str, str, float, int]]:
     """(experiment a, experiment b, Spearman, n structures) for each pair of a gene.
 
     A pair sharing fewer than MIN_SHARED structures is left out.
@@ -88,7 +94,9 @@ def pair_reliability(profiles):
     return out
 
 
-def merge(profiles):
+def merge(
+    profiles: dict[str, dict[str, float]],
+) -> tuple[dict[str, float], dict[str, int]]:
     """One profile per gene: the mean of its experiments' ranks.
 
     Ranks rather than values because expression energy carries an arbitrary
@@ -110,7 +118,7 @@ def merge(profiles):
     )
 
 
-def main(panel_name=DEFAULT_PANEL):
+def main(panel_name: str = DEFAULT_PANEL) -> None:
     """Write each gene's reliability and merged profile for one panel pass; draw."""
     # the region table of the panel pass
     table_name = ISH_PANELS[panel_name]["table"]
@@ -201,7 +209,13 @@ def main(panel_name=DEFAULT_PANEL):
     figure(rows, rel, rel_by_pairing, per, meta)
 
 
-def figure(rows, rel, rel_by_pairing, per, meta):
+def figure(
+    rows: list[dict],
+    rel: np.ndarray,
+    rel_by_pairing: dict[str, list[float]],
+    per: dict,
+    meta: dict,
+) -> None:
     """Draw the reliability, its dependence on expression, and the pairings.
 
     Saved as ish_reliability.png.
