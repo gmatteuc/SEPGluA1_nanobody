@@ -369,12 +369,12 @@ def main():
     arms = arm_profiles()
     missing = [a for a in ARMS if a not in arms]
     if missing:
-        raise SystemExit(
+        raise ValueError(
             f"arms missing from {ARMS_CSV}: {missing}. Run run_adult_arms.py"
         )
     genes, category = gene_profiles()
     if CONTROL not in genes:
-        raise SystemExit(f"{CONTROL} is not in the gene table; it is the control here")
+        raise ValueError(f"{CONTROL} is not in the gene table; it is the control here")
     print(
         f"{len(genes)} genes; {CONTROL} measured in {len(genes[CONTROL])} structures; "
         f"arms {ARMS}"

@@ -310,7 +310,7 @@ def main():
     genes, category = gene_profiles()
     missing = [r for r in READINGS if r not in nano]
     if missing:
-        raise SystemExit(f"readings missing from {NANO}: {missing}")
+        raise ValueError(f"readings missing from {NANO}: {missing}")
     print(
         f"{len(genes)} genes, {len(nano['zref'])} adult structures, "
         f"readings {list(READINGS)}"
@@ -319,7 +319,7 @@ def main():
     # one Spearman per gene and reading
     rows = correlate(nano, genes, category)
     if not rows:
-        raise SystemExit("no gene shared enough structures with the nano table")
+        raise ValueError("no gene shared enough structures with the nano table")
 
     path = os.path.join(OUT, "gene_correlations.csv")
     with open(path, "w", newline="", encoding="utf-8") as fh:

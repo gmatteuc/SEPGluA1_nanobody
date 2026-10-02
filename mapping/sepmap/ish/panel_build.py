@@ -119,7 +119,7 @@ def genes_with_term(term):
         with urllib.request.urlopen(f"{MYGENE}?{query}", timeout=90) as fh:
             d = json.load(fh)
         if d.get("total", 0) > MAX_HITS:
-            raise SystemExit(f"{term}: {d['total']} genes, above the {MAX_HITS} cap")
+            raise RuntimeError(f"{term}: {d['total']} genes, above the {MAX_HITS} cap")
         return sorted({h["symbol"] for h in d.get("hits", []) if h.get("symbol")})
 
     return cached("term_" + term.replace(":", "_"), fetch)

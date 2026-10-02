@@ -106,12 +106,12 @@ def read_energy(experiment_id):
     dims = [int(x) for x in hdr["DimSize"].split()]
     spacing = {float(x) for x in hdr["ElementSpacing"].split()}
     if spacing != {float(GRID_UM)}:
-        raise SystemExit(f"{experiment_id}: spacing {spacing} um, expected {GRID_UM}")
+        raise ValueError(f"{experiment_id}: spacing {spacing} um, expected {GRID_UM}")
     if tuple(dims) != GRID_DIMS:
         raise NotReferenceGrid(f"grid is {tuple(dims)}, not {GRID_DIMS}")
     vol = np.fromfile(stem + ".raw", dtype=np.float32)
     if vol.size != np.prod(dims):
-        raise SystemExit(
+        raise ValueError(
             f"{experiment_id}: {vol.size} values, header says {np.prod(dims)}"
         )
 

@@ -116,7 +116,7 @@ def main(panel_name=DEFAULT_PANEL):
     table_name = ISH_PANELS[panel_name]["table"]
     path = os.path.join(OUT, table_name)
     if not os.path.exists(path):
-        raise SystemExit(
+        raise FileNotFoundError(
             f"{path} not found -- run run_ish_regions.py with --panel {panel_name} first"
         )
     per, meta = load(path)
