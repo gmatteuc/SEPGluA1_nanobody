@@ -474,9 +474,9 @@ def band_edges(p3, slab_depth):
         edges[name] = (at, at + bins[name])
         at += bins[name]
     if at != slab_depth:
-        raise SystemExit(
+        raise RuntimeError(
             f"layer bins sum to {at} but the slab is {slab_depth} deep; "
-            f"the band edges cannot be trusted."
+            "the band edges cannot be trusted."
         )
     return edges
 

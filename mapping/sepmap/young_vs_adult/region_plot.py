@@ -319,10 +319,10 @@ def structure_means(mice, names):
         auto = z["auto"].astype(np.float32)
         tissue = z["tissue"]
         if "sepratio" in MODES and "sep" not in z.files:
-            raise SystemExit(
+            raise ValueError(
                 f"{mouse}: no SEP channel in its per-mouse file. Run\n"
-                f"  run_add_sep_channel.m for this brain, then run_per_mouse.py,\n"
-                f"  or drop the reading with V2_READINGS."
+                "  run_add_sep_channel.m for this brain, then run_per_mouse.py,\n"
+                "  or drop the reading with V2_READINGS."
             )
 
         # sums per parcellation index of the voxels, sig and the two ratios
