@@ -84,13 +84,15 @@ def mouse_channels(mouse, names):
     """
     z = np.load(os.path.join(PER_MOUSE, mouse + ".npz"))
     tissue = z["tissue"]
-    ann = annotation_20(MICE[mouse][1])
-    lab = ann[tissue]
-    n = np.bincount(lab, minlength=int(ann.max()) + 1)
+    annotation = annotation_20(MICE[mouse][1])
+    labels = annotation[tissue]
+    n = np.bincount(labels, minlength=int(annotation.max()) + 1)
 
     out = {}
     for key in CHANNELS:
-        s = np.bincount(lab, weights=z[key].astype(np.float32)[tissue], minlength=len(n))
+        s = np.bincount(
+            labels, weights=z[key].astype(np.float32)[tissue], minlength=len(n)
+        )
 
         # pool the indices by structure name (index 0 is outside the brain)
         acc = defaultdict(lambda: [0, 0.0])
@@ -135,15 +137,15 @@ def main():
 
     # per adult: range, correlations between channels and with Gria1, over the
     # structures all three channels have
-    gria = gria1_profile()
+    profile = gria1_profile()
     rows = []
     for mouse in ADULTS:
         ch = per[mouse]
         common = sorted(set.intersection(*[set(ch[k]) for k in CHANNELS]))
         v = {k: np.array([ch[k][s] for s in common]) for k in CHANNELS}
-        withg = [s for s in common if s in gria]
-        g = np.array([gria[s] for s in withg])
-        idx = [common.index(s) for s in withg]
+        with_gria1 = [s for s in common if s in profile]
+        gria1 = np.array([profile[s] for s in with_gria1])
+        idx = [common.index(s) for s in with_gria1]
         res = residual(v["sep"], v["auto"])
         row = dict(
             mouse=mouse,
@@ -154,19 +156,19 @@ def main():
             rho_sep_auto=float(spearmanr(v["sep"], v["auto"]).statistic),
             rho_sep_nano=float(spearmanr(v["sep"], v["sig"]).statistic),
             rho_nano_auto=float(spearmanr(v["sig"], v["auto"]).statistic),
-            rho_nano_gria=float(spearmanr(v["sig"][idx], g).statistic),
-            rho_auto_gria=float(spearmanr(v["auto"][idx], g).statistic),
-            rho_sep_gria=float(spearmanr(v["sep"][idx], g).statistic),
-            rho_sepresid_gria=float(spearmanr(res[idx], g).statistic),
+            rho_nano_gria=float(spearmanr(v["sig"][idx], gria1).statistic),
+            rho_auto_gria=float(spearmanr(v["auto"][idx], gria1).statistic),
+            rho_sep_gria=float(spearmanr(v["sep"][idx], gria1).statistic),
+            rho_sepresid_gria=float(spearmanr(res[idx], gria1).statistic),
             rho_sepresid_nano=float(spearmanr(res, v["sig"]).statistic),
         )
         rows.append(row)
 
     path = os.path.join(OUT, "sep_channel_check.csv")
     with open(path, "w", newline="", encoding="utf-8") as fh:
-        w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
-        w.writeheader()
-        w.writerows(
+        writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(
             {k: (f"{v:.4f}" if isinstance(v, float) else v) for k, v in r.items()}
             for r in rows
         )
@@ -247,11 +249,13 @@ def main():
     )
 
     ax = axes[2]
-    y2 = np.array([ch["sig"][s] for s in common])
-    ax.scatter(y2, y, s=10, facecolor="0.55", edgecolor="0.25", linewidth=0.3)
+    nano = np.array([ch["sig"][s] for s in common])
+    ax.scatter(nano, y, s=10, facecolor="0.55", edgecolor="0.25", linewidth=0.3)
     ax.set_xlabel("log2 nano", fontsize=8)
     ax.set_ylabel("log2 SEP", fontsize=8)
-    ax.set_title(f"SEP against nano, rho = {spearmanr(y2, y).statistic:+.2f}", fontsize=9)
+    ax.set_title(
+        f"SEP against nano, rho = {spearmanr(nano, y).statistic:+.2f}", fontsize=9
+    )
 
     ax = axes[3]
     keys = ("rho_nano_gria", "rho_auto_gria", "rho_sep_gria", "rho_sepresid_gria")

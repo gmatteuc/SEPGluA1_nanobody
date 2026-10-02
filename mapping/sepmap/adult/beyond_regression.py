@@ -284,10 +284,10 @@ def main():
     with open(
         os.path.join(FIGS, "regression_table.csv"), "w", newline="", encoding="utf-8"
     ) as fh:
-        w = csv.writer(fh)
-        w.writerow(["structure", "observed_rank", "predicted_rank", "residual"])
+        writer = csv.writer(fh)
+        writer.writerow(["structure", "observed_rank", "predicted_rank", "residual"])
         for i in np.argsort(-res):
-            w.writerow(
+            writer.writerow(
                 [
                     structures[i],
                     f"{observed[i]:.1f}",

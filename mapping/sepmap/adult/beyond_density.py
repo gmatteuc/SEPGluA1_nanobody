@@ -220,9 +220,9 @@ def autofluorescence(structures):
     for mouse in ADULTS:
         z = np.load(os.path.join(PER_MOUSE, mouse + ".npz"))
         tissue = z["tissue"]
-        ann = annotation_20(MICE[mouse][1])
-        labels = ann[tissue]
-        counts = np.bincount(labels, minlength=int(ann.max()) + 1)
+        annotation = annotation_20(MICE[mouse][1])
+        labels = annotation[tissue]
+        counts = np.bincount(labels, minlength=int(annotation.max()) + 1)
         totals = np.bincount(
             labels, weights=z["auto"].astype(np.float32)[tissue], minlength=len(counts)
         )
@@ -422,9 +422,11 @@ def step0_structures(nano, division, expr):
     with open(
         os.path.join(OUT, "structures_used.csv"), "w", newline="", encoding="utf-8"
     ) as fh:
-        w = csv.DictWriter(fh, fieldnames=["structure", "division", "kept", "reason"])
-        w.writeheader()
-        w.writerows(rows)
+        writer = csv.DictWriter(
+            fh, fieldnames=["structure", "division", "kept", "reason"]
+        )
+        writer.writeheader()
+        writer.writerows(rows)
 
     kept = [r["structure"] for r in rows if r["kept"] == "yes"]
     dropped = [r for r in rows if r["kept"] == "no"]
@@ -569,10 +571,10 @@ def step2_covariates(nano, expr, role, auto, structures, ceiling):
     with open(
         os.path.join(OUT, "variance_partition.csv"), "w", newline="", encoding="utf-8"
     ) as fh:
-        w = csv.writer(fh)
-        w.writerow(["model", "cv_r2", "in_sample_r2", "share_of_ceiling"])
+        writer = csv.writer(fh)
+        writer.writerow(["model", "cv_r2", "in_sample_r2", "share_of_ceiling"])
         for (label, xs), v in zip(models, vals):
-            w.writerow(
+            writer.writerow(
                 [label, f"{v:.4f}", f"{r_squared(y, xs):.4f}", f"{v / ceiling**2:.4f}"]
             )
 
@@ -641,10 +643,10 @@ def step4_where(nano, structures, covariates, expr, role, agreement, raw_agreeme
     with open(
         os.path.join(OUT, "residual_by_structure.csv"), "w", newline="", encoding="utf-8"
     ) as fh:
-        w = csv.writer(fh)
-        w.writerow(["structure", "nano_rank", "predicted_rank", "residual"])
+        writer = csv.writer(fh)
+        writer.writerow(["structure", "nano_rank", "predicted_rank", "residual"])
         for i in np.argsort(-res):
-            w.writerow(
+            writer.writerow(
                 [structures[i], f"{y[i]:.1f}", f"{predicted[i]:.1f}", f"{res[i]:.2f}"]
             )
 

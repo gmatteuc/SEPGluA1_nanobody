@@ -95,12 +95,12 @@ def centroids(structures):
     the atlas gets NaN; None comes back when none of them is.
     """
     names = structure_names()
-    ann = annotation_20("ccf")
+    annotation = annotation_20("ccf")
     coords = {}
 
     # the annotation indices of each structure name
     per_name = defaultdict(list)
-    for idx in np.unique(ann):
+    for idx in np.unique(annotation):
         if idx == 0 or int(idx) not in names:
             continue
         per_name[names[int(idx)]].append(int(idx))
@@ -110,9 +110,9 @@ def centroids(structures):
         return None
 
     # sum the voxel coordinates and count the voxels of each structure; 20 um voxels
-    mask = np.isin(ann, list(flat))
+    mask = np.isin(annotation, list(flat))
     ap, dv, ml = np.nonzero(mask)
-    labels = ann[mask]
+    labels = annotation[mask]
     sums = defaultdict(lambda: np.zeros(4))
     for a, d, m, lab in zip(ap, dv, ml, labels):
         sums[flat[int(lab)]] += (a, d, m, 1)
@@ -637,9 +637,9 @@ def main():
     # the verdicts, a skipped control (None) left out
     path = os.path.join(OUT, "controls.csv")
     with open(path, "w", newline="", encoding="utf-8") as fh:
-        w = csv.DictWriter(fh, fieldnames=["control", "number", "verdict"])
-        w.writeheader()
-        w.writerows([v for v in verdicts if v])
+        writer = csv.DictWriter(fh, fieldnames=["control", "number", "verdict"])
+        writer.writeheader()
+        writer.writerows([v for v in verdicts if v])
     print(f"\n-> {path}")
     failed = [v["control"] for v in verdicts if v and v["verdict"] != "pass"]
     if not failed:

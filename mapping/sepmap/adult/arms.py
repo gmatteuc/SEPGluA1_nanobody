@@ -130,7 +130,7 @@ def mouse_table(mouse, names):
     auto = z["auto"].astype(np.float32)
     sep = z["sep"].astype(np.float32)
     tissue = z["tissue"]
-    ann = annotation_20(MICE[mouse][1])
+    annotation = annotation_20(MICE[mouse][1])
 
     vol = {
         "sepauto": per_unit(sep, auto, tissue),
@@ -139,11 +139,12 @@ def mouse_table(mouse, names):
     }
 
     # voxel count and sum of each arm per annotation index
-    lab = ann[tissue]
-    nlab = int(ann.max()) + 1
-    n = np.bincount(lab, minlength=nlab)
+    labels = annotation[tissue]
+    n_labels = int(annotation.max()) + 1
+    n = np.bincount(labels, minlength=n_labels)
     sums = {
-        arm: np.bincount(lab, weights=vol[arm][tissue], minlength=nlab) for arm in ARMS
+        arm: np.bincount(labels, weights=vol[arm][tissue], minlength=n_labels)
+        for arm in ARMS
     }
 
     # pool the indices by structure name (index 0 is outside the brain)
@@ -305,9 +306,9 @@ def main():
 
     path = os.path.join(OUT, "region_means_arms.csv")
     with open(path, "w", newline="", encoding="utf-8") as fh:
-        w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
-        w.writeheader()
-        w.writerows(rows)
+        writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(rows)
     print(f"\n{len(rows):,} rows -> {path}")
 
     # the check stops the run before the figure when the shared arms have drifted
