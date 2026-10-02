@@ -1078,6 +1078,17 @@ The style pass will add to this list.
   commit checked by a rerun; local variables may be renamed (kind B),
   saved names, columns and settings keep theirs. The procedure is in
   `docs/STYLE_PASS.md` (temporary).
+- **2-3 Oct, step 7, kinds A and B** (refactor `742d7b8`): nine groups
+  restyled in parallel worktrees (comments and layout proven code-identical
+  by the identity tools; small code changes in their own commits: `clear all`
+  in the drivers, QC scripts and test, local renames, isort, type hints,
+  `assert` into `raise`), merged, evened out by a consistency pass, the
+  kind A commits in `.git-blame-ignore-revs`. Checks against the reference:
+  plasticity (every `.mat`, `.fig` and P7bis output identical), P2/P2bis on
+  MG914 (identical), MG914's registration and the GUI drive scripts
+  (identical), the Python route (259 of 267 rewritten outputs identical, the
+  8 known differences; sheet 08's longer title also moves its panels by a
+  fraction of a pixel, proven by redrawing it with the old title).
 - **New order** (Giulio, 2 Oct): merge first, new science after. Step 7's
   kind C and the step 8 fixes go in one batch with one set of reruns (a fix
   that changes production numbers still waits for Giulio); then step 10's
