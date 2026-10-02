@@ -1,10 +1,5 @@
 """How reliable one Allen ISH map is, from the genes measured more than once.
 
-Reads the region table of one panel pass (by default ontology,
-gene_region_table_panel.csv) and writes gene_reliability.csv,
-gene_region_table_merged.csv and ish_reliability.png under adult_v2/ish/;
-the method is in sepmap/ish/reliability.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
@@ -34,10 +29,18 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
 
+Reads the region table of one panel pass (by default ontology,
+gene_region_table_panel.csv); the method is in sepmap/ish/reliability.py. Writes,
+in adult_v2/ish/ under the data root:
+
+    gene_reliability.csv            per gene: experiments, planes, reliability,
+                                    median energy
+    gene_region_table_merged.csv    one profile per gene, its experiments averaged
+    ish_reliability.png             the reliability, and what it depends on
+
     python run_ish_reliability.py [--panel ontology|targets]
 
-V2_ISH_PANEL and V2_ISH_TABLE, which chose the pass before, are refused:
-use --panel.
+V2_ISH_PANEL and V2_ISH_TABLE are refused: the pass is chosen with --panel.
 """
 
 import argparse
@@ -46,12 +49,12 @@ import os
 from sepmap import config
 from sepmap.ish import reliability
 
-# the environment variables that chose the pass before --panel did
+# environment variables that are refused: the pass is chosen with --panel
 OLD_VARIABLES = ("V2_ISH_PANEL", "V2_ISH_TABLE")
 
 
 def main(panel_name):
-    """Gene reliability and the merged gene profiles of one panel pass."""
+    """Print the settings in force, then measure the reliability of one pass."""
     # settings in force
     table = reliability.ISH_PANELS[panel_name]["table"]
     config.print_settings({"panel": panel_name, "table": table})
@@ -62,14 +65,20 @@ def main(panel_name):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="reliability of one Allen ISH map")
-    parser.add_argument("--panel", choices=list(reliability.ISH_PANELS),
-                        default=reliability.DEFAULT_PANEL,
-                        help=f"panel pass (default {reliability.DEFAULT_PANEL})")
+    parser.add_argument(
+        "--panel",
+        choices=list(reliability.ISH_PANELS),
+        default=reliability.DEFAULT_PANEL,
+        help=f"panel pass (default {reliability.DEFAULT_PANEL})",
+    )
     args = parser.parse_args()
+
     # a run that still sets the old variables would silently get the other panel
     old = [name for name in OLD_VARIABLES if os.environ.get(name)]
     if old:
-        parser.error(f"{', '.join(old)}: the panel is no longer chosen through the "
-                     f"environment; unset {'it' if len(old) == 1 else 'them'} and use "
-                     f"--panel {'|'.join(reliability.ISH_PANELS)}")
+        parser.error(
+            f"{', '.join(old)}: the panel is no longer chosen through the "
+            f"environment; unset {'it' if len(old) == 1 else 'them'} and use "
+            f"--panel {'|'.join(reliability.ISH_PANELS)}"
+        )
     main(args.panel)

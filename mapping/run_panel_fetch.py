@@ -1,10 +1,5 @@
 """Download the Allen expression grids the ontology panel asks for, once.
 
-Fetches only the grids missing from atlas_ish/, so it can be re-run after a
-partial run; grids that fail or sit off the reference box are listed in
-adult_v2/panel/fetch_failures.csv. Needs the network; the checks skip it,
-since the grids are cached. Described in sepmap/ish/panel_fetch.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
@@ -34,6 +29,14 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
 
+Fetches only the grids missing from atlas_ish/, so it can be re-run after a
+partial run (the method is in sepmap/ish/panel_fetch.py). Needs the network; the
+checks skip it, since the grids are cached. Writes, under the data root:
+
+    atlas_ish/<id>_energy.mhd, .raw       each grid fetched
+    adult_v2/panel/fetch_failures.csv     the grids that failed or sit off the
+                                          reference box, with the reason
+
     python run_panel_fetch.py
 """
 
@@ -44,7 +47,7 @@ from sepmap.ish import panel_fetch
 
 
 def main():
-    """Download the ontology panel's ISH grids."""
+    """Print the settings in force, then download the missing grids."""
     # settings in force
     config.print_settings({})
 
@@ -53,6 +56,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(
         description="download the ontology panel's ISH grids"
     )

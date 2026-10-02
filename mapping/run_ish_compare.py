@@ -1,11 +1,5 @@
 """The adult nano map against every gene of the 100-gene panel, by structure.
 
-Spearman over structures per gene and reading, from region_means_per_mouse.csv
-(run_region_plot) and gene_region_table.csv (run_ish_regions); writes
-gene_correlations.csv and ish_old_vs_new.png under adult_v2/ish/, the second
-against the old MATLAB ranking (P9's frozen gene_panel_summary.csv). The
-method is in sepmap/ish/compare.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
@@ -35,6 +29,14 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
 
+Spearman over structures per gene and reading, from region_means_per_mouse.csv
+(run_region_plot) and gene_region_table.csv (run_ish_regions); the method is in
+sepmap/ish/compare.py. Writes, in adult_v2/ish/ under the data root:
+
+    gene_correlations.csv    one row per gene and reading
+    ish_old_vs_new.png       each gene's rho against the old MATLAB route's
+                             (P9's frozen gene_panel_summary.csv), when that is there
+
     python run_ish_compare.py
 """
 
@@ -45,7 +47,7 @@ from sepmap.ish import compare
 
 
 def main():
-    """The adult nano map against every gene."""
+    """Print the settings in force, then correlate every gene with the map."""
     # settings in force
     config.print_settings({})
 
@@ -54,6 +56,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(description="the adult nano map against every gene")
     parser.parse_args()
     main()

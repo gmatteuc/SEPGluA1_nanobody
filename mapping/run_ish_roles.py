@@ -1,10 +1,5 @@
 """Subunit genes against localisation genes, on the 100-gene panel.
 
-Rho by curated role, the commonality of the two composites and an exact
-within-family permutation; writes gene_roles.csv, role_summary.csv and
-ish_roles.png under adult_v2/ish/. The roles and the method are in
-sepmap/ish/roles.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
@@ -34,6 +29,14 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
 
+Rho by curated role, the commonality of the two composites and an exact
+within-family permutation; the roles and the method are in sepmap/ish/roles.py.
+Writes, in adult_v2/ish/ under the data root:
+
+    gene_roles.csv      the curated role of each gene, beside its old category
+    role_summary.csv    rho of every gene with every reading, with its role
+    ish_roles.png       the three steps, for zref
+
     python run_ish_roles.py
 """
 
@@ -44,7 +47,7 @@ from sepmap.ish import roles
 
 
 def main():
-    """Subunit against localisation genes."""
+    """Print the settings in force, then run the role tests."""
     # settings in force
     config.print_settings({})
 
@@ -53,6 +56,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(description="subunit against localisation genes")
     parser.parse_args()
     main()

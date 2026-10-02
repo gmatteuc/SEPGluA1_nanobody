@@ -1,11 +1,5 @@
 """Localisation genes against expression-matched controls, on the ontology panel.
 
-Partial rho with the nano map once the subunit composite is removed, compared
-between localisation and control genes by label permutation. Reads
-gene_region_table_merged.csv and gene_reliability.csv (run_ish_reliability)
-and writes panel_test.csv and ish_panel_test.png under adult_v2/ish/; the
-method is in sepmap/ish/panel_test.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
@@ -35,6 +29,15 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
 
+Partial rho with the nano map once the subunit composite is removed, compared
+between localisation and control genes by label permutation, from
+gene_region_table_merged.csv and gene_reliability.csv (run_ish_reliability); the
+method is in sepmap/ish/panel_test.py. Writes, in adult_v2/ish/ under the data
+root:
+
+    panel_test.csv        per gene: rho, partial rho, role, reliability, match
+    ish_panel_test.png    the test, the matching, and the null
+
     python run_ish_panel_test.py
 """
 
@@ -45,7 +48,7 @@ from sepmap.ish import panel_test
 
 
 def main():
-    """Localisation genes against matched controls."""
+    """Print the settings in force, then run the test on the ontology panel."""
     # settings in force
     config.print_settings({})
 
@@ -54,6 +57,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(
         description="localisation genes against matched controls"
     )

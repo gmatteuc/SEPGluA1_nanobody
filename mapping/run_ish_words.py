@@ -1,10 +1,5 @@
 """Annotation words and GO terms at the top of the gene ranking, tested.
 
-Fetches each gene's GO record from mygene.info once (cached under
-adult_v2/ish/annotation/) and writes feature_enrichment.csv and
-ish_word_enrichment.png under adult_v2/ish/; the method is in
-sepmap/ish/words.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
@@ -34,6 +29,15 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
 
+Fetches each gene's GO record from mygene.info once and tests every GO term and
+word against the gene ranking of run_ish_compare; the method is in
+sepmap/ish/words.py. Writes, in adult_v2/ish/ under the data root:
+
+    annotation/<symbol>.json     the cached mygene.info record of each gene
+    feature_enrichment.csv       every feature, every reading
+    ish_word_enrichment.png      the top features and the contrast named in
+                                 advance, for zref
+
     python run_ish_words.py
 
 The bootstrap intervals follow the order of Python sets, which changes with
@@ -49,7 +53,7 @@ from sepmap.ish import words
 
 
 def main():
-    """Annotation words and GO terms against the gene ranking."""
+    """Print the settings in force, then test the GO terms and words."""
     # settings in force
     seed = os.environ.get("PYTHONHASHSEED", "not set, so the intervals vary between runs")
     config.print_settings({"PYTHONHASHSEED": seed})
@@ -59,6 +63,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(description="annotation words of the gene ranking")
     parser.parse_args()
     main()

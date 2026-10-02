@@ -1,10 +1,5 @@
 """The channel arms against the genes: membrane pool or total receptor?
 
-Reads region_means_arms.csv (run_adult_arms) and gene_region_table.csv
-(run_ish_regions); writes arm_gene_correlations.csv and arms_vs_genes.png
-under adult_v2/arms/. The two tests, and which one survives, are in
-sepmap/ish/arms.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
@@ -34,6 +29,13 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
 
+Reads region_means_arms.csv (run_adult_arms) and gene_region_table.csv
+(run_ish_regions); the two tests, and which one holds, are in sepmap/ish/arms.py.
+Writes, in adult_v2/arms/ under the data root:
+
+    arm_gene_correlations.csv    arm by gene, plain and with Gria1 partialled out
+    arms_vs_genes.png            the two tests
+
     python run_ish_arms.py
 """
 
@@ -44,7 +46,7 @@ from sepmap.ish import arms
 
 
 def main():
-    """The channel arms against the genes."""
+    """Print the settings in force, then correlate the arms with the genes."""
     # settings in force
     config.print_settings({})
 
@@ -53,6 +55,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(description="the channel arms against the genes")
     parser.parse_args()
     main()

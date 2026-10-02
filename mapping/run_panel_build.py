@@ -1,10 +1,5 @@
 """The ontology-defined ISH gene panel: genes from GO terms, experiments from Allen.
 
-Queries mygene.info and the Allen API, caching every answer under
-adult_v2/panel/cache/ so a re-run asks nothing twice, and writes panel_v2.csv
-and panel_genes.csv into adult_v2/panel/. The terms, and the one hand-made
-call, are in sepmap/ish/panel_build.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
@@ -34,6 +29,15 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
 
+Builds the gene panel from Gene Ontology terms (the terms, and the one hand-made
+call, are in sepmap/ish/panel_build.py), asking mygene.info and the Allen API and
+caching every answer, so a re-run asks nothing twice. Writes, in adult_v2/panel/
+under the data root:
+
+    panel_v2.csv       one row per experiment: gene, role, id, plane, GO terms
+    panel_genes.csv    one row per gene, with every term that claimed it
+    cache/*.json       every API answer
+
     python run_panel_build.py
 """
 
@@ -44,7 +48,7 @@ from sepmap.ish import panel_build
 
 
 def main():
-    """The ontology-defined ISH gene panel."""
+    """Print the settings in force, then build the panel."""
     # settings in force
     config.print_settings({})
 
@@ -53,6 +57,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(description="the ontology-defined ISH gene panel")
     parser.parse_args()
     main()
