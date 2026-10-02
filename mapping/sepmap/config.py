@@ -21,6 +21,7 @@ too. Imported by every run script and by the modules of the package.
 
 import os
 import tomllib
+from pathlib import Path
 
 PRODUCTION_CODE = r"D:\sep_histology\code"
 PRODUCTION_DATA = r"D:\sep_histology\data"
@@ -87,7 +88,8 @@ def data_root() -> str:
     return data
 
 
-DATA = data_root()
+# the data root as a Path, which every module joins with /
+DATA = Path(data_root())
 
 # the settings file sits next to the package, beside the run scripts
 _SETTINGS_PATH = os.path.join(

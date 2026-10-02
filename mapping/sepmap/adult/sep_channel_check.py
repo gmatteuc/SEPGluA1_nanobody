@@ -35,7 +35,6 @@ Run by run_sep_channel_check.py.
 
 import csv
 import math
-import os
 from collections import defaultdict
 
 import matplotlib.pyplot as plt
@@ -54,8 +53,8 @@ from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 REGION_TABLES = SETTINGS["region_tables"]
 ISH = SETTINGS["ish"]
 
-OUT = os.path.join(DATA, "adult_v2", "arms")
-GENES = os.path.join(DATA, "adult_v2", "ish", "gene_region_table.csv")
+OUT = DATA / "adult_v2" / "arms"
+GENES = DATA / "adult_v2" / "ish" / "gene_region_table.csv"
 
 # the ten adults, naive and rws pooled
 ADULTS = NAIVE + RWS
@@ -72,7 +71,7 @@ def mouse_channels(mouse: str, names: dict[int, str]) -> dict[str, dict[str, flo
     The layer indices of a structure are pooled by name; a structure under
     region_tables.min_vox20 voxels, or with no signal, is left out.
     """
-    z = np.load(os.path.join(PER_MOUSE, mouse + ".npz"))
+    z = np.load(PER_MOUSE / (mouse + ".npz"))
     tissue = z["tissue"]
     annotation = annotation_20(MICE[mouse][1])
     labels = annotation[tissue]
@@ -121,7 +120,7 @@ def residual(y: np.ndarray, x: np.ndarray) -> np.ndarray:
 
 def main() -> None:
     """Measure the three channels per adult, write the table, print and draw it."""
-    os.makedirs(OUT, exist_ok=True)
+    OUT.mkdir(parents=True, exist_ok=True)
 
     # structure means of the three channels per adult
     names, _, _ = structure_terms()
@@ -159,7 +158,7 @@ def main() -> None:
         )
         rows.append(row)
 
-    path = os.path.join(OUT, "sep_channel_check.csv")
+    path = OUT / "sep_channel_check.csv"
     with open(path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
         writer.writeheader()
@@ -284,7 +283,7 @@ def main() -> None:
         fontsize=9,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.92))
-    path = os.path.join(OUT, "sep_channel_check.png")
+    path = OUT / "sep_channel_check.png"
     fig.savefig(path, dpi=200)
     plt.close(fig)
     print(f"\n{path}")

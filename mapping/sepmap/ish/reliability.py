@@ -27,8 +27,8 @@ Run by run_ish_reliability.py.
 
 import csv
 import itertools
-import os
 from collections import defaultdict
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -37,7 +37,7 @@ from scipy.stats import rankdata, spearmanr
 from sepmap.config import DATA, SETTINGS
 from sepmap.plotting import RED, tidy
 
-OUT = os.path.join(DATA, "adult_v2", "ish")
+OUT = DATA / "adult_v2" / "ish"
 
 # the table to read is the one run_ish_regions wrote for a panel pass of
 # settings.toml ([ish_panels]); by default the ontology panel, whose genes include
@@ -50,7 +50,7 @@ ISH = SETTINGS["ish"]
 
 
 def load(
-    path: str,
+    path: Path,
 ) -> tuple[
     dict[str, dict[str, dict[str, float]]], dict[tuple[str, str], tuple[str, str]]
 ]:
@@ -117,8 +117,8 @@ def main(panel_name: str = DEFAULT_PANEL) -> None:
     """Write each gene's reliability and merged profile for one panel pass; draw."""
     # the region table of the panel pass
     table_name = ISH_PANELS[panel_name]["table"]
-    path = os.path.join(OUT, table_name)
-    if not os.path.exists(path):
+    path = OUT / table_name
+    if not path.exists():
         raise FileNotFoundError(
             f"{path} not found -- run run_ish_regions.py with --panel {panel_name} first"
         )
@@ -168,12 +168,12 @@ def main(panel_name: str = DEFAULT_PANEL) -> None:
             )
 
     # the two tables
-    p1 = os.path.join(OUT, "gene_reliability.csv")
+    p1 = OUT / "gene_reliability.csv"
     with open(p1, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
         w.writeheader()
         w.writerows(rows)
-    p2 = os.path.join(OUT, "gene_region_table_merged.csv")
+    p2 = OUT / "gene_region_table_merged.csv"
     with open(p2, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=list(merged_rows[0].keys()))
         w.writeheader()
@@ -273,7 +273,7 @@ def figure(
         fontsize=9,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.92))
-    path = os.path.join(OUT, "ish_reliability.png")
+    path = OUT / "ish_reliability.png"
     fig.savefig(path, dpi=200)
     plt.close(fig)
     print(f"\n{path}")

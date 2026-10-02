@@ -40,7 +40,6 @@ Run by run_ish_arms.py.
 """
 
 import csv
-import os
 from collections import defaultdict
 
 import matplotlib.pyplot as plt
@@ -55,8 +54,8 @@ from sepmap.plotting import DARK_BLUE, RED, tidy
 # structures a gene must share with the arms (and with that gene)
 ISH = SETTINGS["ish"]
 
-ARMS_CSV = os.path.join(DATA, "adult_v2", "arms", "region_means_arms.csv")
-OUT = os.path.join(DATA, "adult_v2", "arms")
+ARMS_CSV = DATA / "adult_v2" / "arms" / "region_means_arms.csv"
+OUT = DATA / "adult_v2" / "arms"
 
 # the arms in the order of test 1, and their labels in the figure
 ARMS = ("sepauto", "ratio", "sepratio")
@@ -348,7 +347,7 @@ def figure(
         fontsize=9,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.93))
-    path = os.path.join(OUT, "arms_vs_genes.png")
+    path = OUT / "arms_vs_genes.png"
     fig.savefig(path, dpi=200)
     plt.close(fig)
     print(f"\n{path}")
@@ -374,7 +373,7 @@ def main() -> None:
 
     # plain and partial rho per arm and gene
     rows = correlate(arms, genes, category, control)
-    path = os.path.join(OUT, "arm_gene_correlations.csv")
+    path = OUT / "arm_gene_correlations.csv"
     with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
         w.writeheader()

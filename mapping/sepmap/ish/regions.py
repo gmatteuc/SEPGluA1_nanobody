@@ -34,9 +34,9 @@ Run by run_ish_regions.py.
 """
 
 import csv
-import os
 import time
 from collections import defaultdict
+from pathlib import Path
 
 import nibabel as nib
 import numpy as np
@@ -48,8 +48,8 @@ from sepmap.volumes.per_mouse import structure_terms
 # the valid voxels a structure needs to get a value
 ISH_REGIONS = SETTINGS["ish_regions"]
 
-ISH_DIR = os.path.join(DATA, "atlas_ish")
-OUT = os.path.join(DATA, "adult_v2", "ish")
+ISH_DIR = DATA / "atlas_ish"
+OUT = DATA / "adult_v2" / "ish"
 
 # the panel passes of settings.toml ([ish_panels]): each names a panel and the
 # table it writes, and is chosen by name (run_ish_regions.py --panel), so both
@@ -71,16 +71,16 @@ MISSING = -1.0
 GRID_DIMS = (67, 41, 58)
 
 
-def panel_files(name: str) -> tuple[str, str]:
+def panel_files(name: str) -> tuple[Path, str]:
     """(panel CSV path, output table name) of one panel pass in settings.toml."""
     if name not in ISH_PANELS:
         raise ValueError(
             f"no ISH panel pass {name!r} in settings.toml; the passes "
             f"are {', '.join(ISH_PANELS)}"
         )
-    panel = os.path.normpath(ISH_PANELS[name]["panel"])
-    if not os.path.isabs(panel):
-        panel = os.path.join(DATA, panel)
+    panel = Path(ISH_PANELS[name]["panel"])
+    if not panel.is_absolute():
+        panel = DATA / panel
     return panel, ISH_PANELS[name]["table"]
 
 
@@ -94,9 +94,10 @@ def read_energy(experiment_id: int | str) -> np.ndarray:
     The header is read rather than trusted: if a future download has a different
     size or spacing, this raises instead of quietly reshaping into nonsense.
     """
-    stem = os.path.join(ISH_DIR, str(experiment_id) + "_energy")
+    mhd = ISH_DIR / f"{experiment_id}_energy.mhd"
+    raw = ISH_DIR / f"{experiment_id}_energy.raw"
     hdr = {}
-    with open(stem + ".mhd") as fh:
+    with open(mhd) as fh:
         for line in fh:
             if "=" in line:
                 k, v = line.split("=", 1)
@@ -109,7 +110,7 @@ def read_energy(experiment_id: int | str) -> np.ndarray:
         raise ValueError(f"{experiment_id}: spacing {spacing} um, expected {GRID_UM}")
     if tuple(dims) != GRID_DIMS:
         raise NotReferenceGrid(f"grid is {tuple(dims)}, not {GRID_DIMS}")
-    vol = np.fromfile(stem + ".raw", dtype=np.float32)
+    vol = np.fromfile(raw, dtype=np.float32)
     if vol.size != np.prod(dims):
         raise ValueError(
             f"{experiment_id}: {vol.size} values, header says {np.prod(dims)}"
@@ -127,9 +128,7 @@ def annotation_200() -> np.ndarray:
     against 67 x 41 x 58) because their box is slightly larger; the offset that
     aligns them is zero, which is what the orientation check measured.
     """
-    ann = np.asarray(
-        nib.load(os.path.join(DATA, "atlas", "annotation_10.nii.gz")).dataobj
-    )
+    ann = np.asarray(nib.load(DATA / "atlas" / "annotation_10.nii.gz").dataobj)
     return ann[::20, ::20, ::20]
 
 
@@ -176,7 +175,7 @@ def main(only: list[str] | None = None, panel_name: str = DEFAULT_PANEL) -> None
     """
     # the panel's experiments, the structure names and the annotation on the grid
     panel_path, table_name = panel_files(panel_name)
-    os.makedirs(OUT, exist_ok=True)
+    OUT.mkdir(parents=True, exist_ok=True)
     panel = [r for r in csv.DictReader(open(panel_path, newline="", encoding="utf-8"))]
     if only:
         want = {g.lower() for g in only}
@@ -239,7 +238,7 @@ def main(only: list[str] | None = None, panel_name: str = DEFAULT_PANEL) -> None
         )
 
     # the region table, and the experiments dropped with their reason
-    path = os.path.join(OUT, table_name)
+    path = OUT / table_name
     with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
         w.writeheader()
@@ -251,7 +250,7 @@ def main(only: list[str] | None = None, panel_name: str = DEFAULT_PANEL) -> None
         flush=True,
     )
 
-    path = os.path.join(OUT, table_name.replace(".csv", "") + "_drops.csv")
+    path = OUT / (table_name.replace(".csv", "") + "_drops.csv")
     with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=["symbol", "experiment_id", "reason"])
         w.writeheader()

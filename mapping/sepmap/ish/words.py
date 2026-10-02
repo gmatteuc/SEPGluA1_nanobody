@@ -37,7 +37,6 @@ Run by run_ish_words.py.
 
 import csv
 import json
-import os
 import re
 import time
 import urllib.parse
@@ -58,9 +57,9 @@ from sepmap.plotting import RED
 ISH = SETTINGS["ish"]
 ISH_WORDS = SETTINGS["ish_words"]
 
-RHO = os.path.join(DATA, "adult_v2", "ish", "gene_correlations.csv")
-OUT = os.path.join(DATA, "adult_v2", "ish")
-CACHE = os.path.join(OUT, "annotation")
+RHO = DATA / "adult_v2" / "ish" / "gene_correlations.csv"
+OUT = DATA / "adult_v2" / "ish"
+CACHE = OUT / "annotation"
 
 MYGENE = "https://mygene.info/v3/query"
 
@@ -113,9 +112,9 @@ def fetch(symbol: str) -> dict:
     not ask 95 times for an answer that does not change. Delete the folder to
     refresh.
     """
-    os.makedirs(CACHE, exist_ok=True)
-    path = os.path.join(CACHE, symbol + ".json")
-    if os.path.exists(path):
+    CACHE.mkdir(parents=True, exist_ok=True)
+    path = CACHE / (symbol + ".json")
+    if path.exists():
         with open(path, encoding="utf-8") as fh:
             return json.load(fh)
 
@@ -353,7 +352,7 @@ def figure(terms: list[dict], words: list[dict], rho: dict[str, float]) -> None:
         fontsize=9,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.90))
-    path = os.path.join(OUT, "ish_word_enrichment.png")
+    path = OUT / "ish_word_enrichment.png"
     fig.savefig(path, dpi=200)
     plt.close(fig)
     print(f"\n{path}")
@@ -390,7 +389,7 @@ def main() -> None:
             for r in test_features(features, rho[reading]):
                 rows.append(dict(reading=reading, kind=kind, **r))
 
-    path = os.path.join(OUT, "feature_enrichment.csv")
+    path = OUT / "feature_enrichment.csv"
     fields = [
         "reading",
         "kind",

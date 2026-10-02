@@ -33,7 +33,6 @@ Run by run_panel_build.py.
 
 import csv
 import json
-import os
 import time
 import urllib.parse
 import urllib.request
@@ -46,11 +45,11 @@ from sepmap.config import DATA, SETTINGS
 # asked per gene
 ISH_PANEL_BUILD = SETTINGS["ish_panel_build"]
 
-OUT = os.path.join(DATA, "adult_v2", "panel")
-CACHE = os.path.join(OUT, "cache")
+OUT = DATA / "adult_v2" / "panel"
+CACHE = OUT / "cache"
 
 # the 100-gene panel, whose category of each gene is recorded beside its new role
-OLD_PANEL = os.path.join(DATA, "gene_targets.csv")
+OLD_PANEL = DATA / "gene_targets.csv"
 
 MYGENE = "https://mygene.info/v3/query"
 ALLEN = "http://api.brain-map.org/api/v2/data/query.json"
@@ -91,9 +90,9 @@ ROLE_ORDER = ("subunit", "delta_receptor", "localisation", "control_psd")
 
 def cached(name: str, fetch: Callable[[], list]) -> list:
     """The answer of `fetch()`, cached as <name>.json, so a re-run asks nothing twice."""
-    os.makedirs(CACHE, exist_ok=True)
-    path = os.path.join(CACHE, name + ".json")
-    if os.path.exists(path):
+    CACHE.mkdir(parents=True, exist_ok=True)
+    path = CACHE / (name + ".json")
+    if path.exists():
         with open(path, encoding="utf-8") as fh:
             return json.load(fh)
     value = fetch()
@@ -196,7 +195,7 @@ def assign_roles() -> tuple[dict[str, str], dict[str, list[str]]]:
 def main() -> None:
     """Build the panel from the ontology and the Allen API; write both tables."""
     # the gene sets
-    os.makedirs(OUT, exist_ok=True)
+    OUT.mkdir(parents=True, exist_ok=True)
     print("gene sets, straight from the ontology:")
     roles, why = assign_roles()
     counts = defaultdict(int)
@@ -247,14 +246,12 @@ def main() -> None:
             print(f"  {i}/{len(roles)} genes resolved", flush=True)
 
     # one row per experiment, one row per gene
-    path = os.path.join(OUT, "panel_v2.csv")
+    path = OUT / "panel_v2.csv"
     with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
         w.writeheader()
         w.writerows(rows)
-    with open(
-        os.path.join(OUT, "panel_genes.csv"), "w", newline="", encoding="utf-8"
-    ) as fh:
+    with open(OUT / "panel_genes.csv", "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=list(per_gene[0].keys()))
         w.writeheader()
         w.writerows(per_gene)
@@ -283,8 +280,6 @@ def main() -> None:
     already = sum(
         1
         for r in rows
-        if os.path.exists(
-            os.path.join(DATA, "atlas_ish", f"{r['experiment_id']}_energy.mhd")
-        )
+        if (DATA / "atlas_ish" / f"{r['experiment_id']}_energy.mhd").exists()
     )
     print(f"  {already} of {len(rows)} grids are already on disk")

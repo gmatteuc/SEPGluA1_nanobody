@@ -44,7 +44,6 @@ Run by run_beyond_regression.py.
 """
 
 import csv
-import os
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -252,7 +251,7 @@ def panel_f(
 
 def main() -> None:
     """Fit the quoted model, write the table, and draw panels E and F."""
-    os.makedirs(FIGS, exist_ok=True)
+    FIGS.mkdir(parents=True, exist_ok=True)
 
     # the structures and the quoted model, as adult.beyond_density builds them
     nano, _, expr, role, auto, structures = prepare()
@@ -281,9 +280,7 @@ def main() -> None:
     )
 
     # every structure, largest residual first
-    with open(
-        os.path.join(FIGS, "regression_table.csv"), "w", newline="", encoding="utf-8"
-    ) as fh:
+    with open(FIGS / "regression_table.csv", "w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
         writer.writerow(["structure", "observed_rank", "predicted_rank", "residual"])
         for i in np.argsort(-res):

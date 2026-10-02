@@ -52,7 +52,6 @@ Run by run_region_plot.py.
 
 import csv
 import math
-import os
 from collections import defaultdict
 from collections.abc import Callable
 
@@ -75,7 +74,7 @@ from sepmap.volumes.cohort import (
 from sepmap.volumes.per_mouse import DATA, MICE, annotation_20, structure_terms
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 
-OUT = os.path.join(DATA, "comparisons_v2", "young_vs_adult")
+OUT = DATA / "comparisons_v2" / "young_vs_adult"
 
 # the smallest structure kept, and the brains a structure needs to be tested
 REGION_TABLES = SETTINGS["region_tables"]
@@ -229,7 +228,7 @@ def structure_means(mice: list[str], names: dict[int, str]) -> dict[str, dict]:
         if atlas_key not in anns:
             anns[atlas_key] = annotation_20(atlas_key)
         ann = anns[atlas_key]
-        z = np.load(os.path.join(PER_MOUSE, mouse + ".npz"))
+        z = np.load(PER_MOUSE / (mouse + ".npz"))
         sig = z["sig"].astype(np.float32)
         auto = z["auto"].astype(np.float32)
         tissue = z["tissue"]
@@ -451,7 +450,7 @@ def region_rows(
 def write_tables(rows_pm: list[tuple], rows_st: list[tuple]) -> None:
     """Write region_means_per_mouse.csv and region_stats.csv into OUT."""
     with open(
-        os.path.join(OUT, "region_means_per_mouse.csv"), "w", newline="", encoding="utf-8"
+        OUT / "region_means_per_mouse.csv", "w", newline="", encoding="utf-8"
     ) as fh:
         w = csv.writer(fh)
         w.writerow(
@@ -468,9 +467,7 @@ def write_tables(rows_pm: list[tuple], rows_st: list[tuple]) -> None:
             ]
         )
         w.writerows([r[:8] + (f"{r[8]:.4f}",) for r in rows_pm])
-    with open(
-        os.path.join(OUT, "region_stats.csv"), "w", newline="", encoding="utf-8"
-    ) as fh:
+    with open(OUT / "region_stats.csv", "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
         w.writerow(
             [
@@ -660,7 +657,7 @@ def plot_regions(
         fontsize=11.5,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.965))
-    save_figure(fig, os.path.join(OUT, "region_plot.png"), dpi=105)
+    save_figure(fig, OUT / "region_plot.png", dpi=105)
 
 
 def main() -> None:
@@ -688,4 +685,4 @@ def main() -> None:
 
     # the dot plot
     plot_regions(rows_st, by_acro, per, norm, refs)
-    print("\nwrote", os.path.join(OUT, "region_plot.png"))
+    print("\nwrote", OUT / "region_plot.png")

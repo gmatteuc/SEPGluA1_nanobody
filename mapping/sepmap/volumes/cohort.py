@@ -61,9 +61,9 @@ from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 READINGS = SETTINGS["readings"]
 REGION_TABLES = SETTINGS["region_tables"]
 
-V2 = os.path.join(DATA, "comparisons_v2")
-PER_MOUSE_CCF = os.path.join(V2, "per_mouse_ccf")
-OUT_ROOT = os.path.join(V2, "ccf")
+V2 = DATA / "comparisons_v2"
+PER_MOUSE_CCF = V2 / "per_mouse_ccf"
+OUT_ROOT = V2 / "ccf"
 
 # every reading the route can compute, in the order of the tables
 ALL_MODES = ("ratio", "sepratio", "cref", "subref", "zref")
@@ -147,14 +147,14 @@ def mouse_scalars(mouse: str) -> dict[str, float]:
     voxel level, so a large structure cannot set the spread on its own; a
     structure counts from region_tables.min_vox20 voxels (settings.toml).
     """
-    src = os.path.join(PER_MOUSE, mouse + ".npz")
-    cache = os.path.join(PER_MOUSE, mouse + "_scalars.npz")
+    src = PER_MOUSE / (mouse + ".npz")
+    cache = PER_MOUSE / (mouse + "_scalars.npz")
 
     # the cache records the date of the file it was computed from, so rerunning
     # run_per_mouse invalidates it rather than leaving a stale cortex mean
-    if os.path.exists(cache):
+    if cache.exists():
         z = np.load(cache)
-        if "src_mtime" in z.files and float(z["src_mtime"]) == os.path.getmtime(src):
+        if "src_mtime" in z.files and float(z["src_mtime"]) == src.stat().st_mtime:
             return {k: float(z[k]) for k in z.files if k != "src_mtime"}
 
     # structure and division of each parcellation index
@@ -162,7 +162,7 @@ def mouse_scalars(mouse: str) -> dict[str, float]:
 
     # voxel count and signal sum per label, over the tissue
     ann = annotation_20(MICE[mouse][1])
-    z = np.load(os.path.join(PER_MOUSE, mouse + ".npz"))
+    z = np.load(PER_MOUSE / (mouse + ".npz"))
     sig = z["sig"].astype(np.float32)
     tissue = z["tissue"]
     labels = ann[tissue]
@@ -197,7 +197,7 @@ def mouse_scalars(mouse: str) -> dict[str, float]:
         z_median=float(med),
         z_spread=float(max(p90 - p10, 1e-6)),
     )
-    np.savez(cache, src_mtime=os.path.getmtime(src), **out)
+    np.savez(cache, src_mtime=src.stat().st_mtime, **out)
     return out
 
 
@@ -235,7 +235,7 @@ def mouse_modes(mouse: str) -> tuple[dict[str, np.ndarray], np.ndarray]:
     Returns ({reading: volume}, tissue) for the readings in MODES; a reading is
     computed only when it is asked for.
     """
-    z = np.load(os.path.join(PER_MOUSE_CCF, mouse + ".npz"))
+    z = np.load(PER_MOUSE_CCF / (mouse + ".npz"))
     sig = z["sig"].astype(np.float32)
     auto = z["auto"].astype(np.float32)
     tissue = z["tissue"]
@@ -278,8 +278,8 @@ def mouse_modes(mouse: str) -> tuple[dict[str, np.ndarray], np.ndarray]:
 def main() -> None:
     """Write the mean, SD and n of every reading for every cohort, a line each."""
     for cohort, mice in COHORTS.items():
-        out = os.path.join(OUT_ROOT, cohort)
-        os.makedirs(out, exist_ok=True)
+        out = OUT_ROOT / cohort
+        out.mkdir(parents=True, exist_ok=True)
 
         # per reading: the sum of the values, the sum of their squares, the count
         acc = None
@@ -305,13 +305,13 @@ def main() -> None:
             nf = np.maximum(n, 1).astype(np.float64)
             mean = np.where(n > 0, s / nf, np.nan).astype(np.float32)
             var = np.where(n > 1, (ss - s * s / nf) / np.maximum(nf - 1, 1), np.nan)
-            np.save(os.path.join(out, f"{k}_mean.npy"), mean)
+            np.save(out / f"{k}_mean.npy", mean)
             np.save(
-                os.path.join(out, f"{k}_sd.npy"),
+                out / f"{k}_sd.npy",
                 np.sqrt(np.maximum(var, 0)).astype(np.float32),
             )
-            np.save(os.path.join(out, f"{k}_n.npy"), n)
-        with open(os.path.join(out, "mice.txt"), "w") as fh:
+            np.save(out / f"{k}_n.npy", n)
+        with open(out / "mice.txt", "w") as fh:
             fh.write("\n".join(mice) + "\n")
         n = acc["cref"][2]
         print(

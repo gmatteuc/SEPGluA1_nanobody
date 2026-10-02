@@ -41,7 +41,6 @@ Run by run_ish_roles.py.
 
 import csv
 import itertools
-import os
 from collections import defaultdict
 from collections.abc import Sequence
 
@@ -56,10 +55,8 @@ from sepmap.plotting import DARK_BLUE, RED, tidy
 # the adult groups, the reading of the tests and the structures a correlation needs
 ISH = SETTINGS["ish"]
 
-NANO = os.path.join(
-    DATA, "comparisons_v2", "young_vs_adult", "region_means_per_mouse.csv"
-)
-OUT = os.path.join(DATA, "adult_v2", "ish")
+NANO = DATA / "comparisons_v2" / "young_vs_adult" / "region_means_per_mouse.csv"
+OUT = DATA / "adult_v2" / "ish"
 
 # the adult groups, pooled, as a tuple; every reading, for the table by role
 ADULT_GROUPS = tuple(ISH["adult_groups"])
@@ -339,7 +336,7 @@ def main() -> None:
                     rho=float(rho),
                 )
             )
-    path = os.path.join(OUT, "role_summary.csv")
+    path = OUT / "role_summary.csv"
     with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
         w.writeheader()
@@ -350,9 +347,7 @@ def main() -> None:
     print(f"{len(rows)} rows -> {path}")
 
     # the curated assignment, so it can be argued with
-    with open(
-        os.path.join(OUT, "gene_roles.csv"), "w", newline="", encoding="utf-8"
-    ) as fh:
+    with open(OUT / "gene_roles.csv", "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
         w.writerow(["symbol", "role", "original_category"])
         for g in sorted(expr):
@@ -518,7 +513,7 @@ def figure(
         fontsize=9,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.89))
-    path = os.path.join(OUT, "ish_roles.png")
+    path = OUT / "ish_roles.png"
     fig.savefig(path, dpi=200)
     plt.close(fig)
     print(f"\n{path}")

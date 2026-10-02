@@ -29,7 +29,6 @@ transform in the same call, so nothing can drift between them.
 Run by run_to_ccf.py.
 """
 
-import os
 import re
 import time
 
@@ -38,7 +37,7 @@ import numpy as np
 from sepmap.volumes.per_mouse import DATA, MICE, atlas_grid
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 
-OUT = os.path.join(DATA, "comparisons_v2", "per_mouse_ccf")
+OUT = DATA / "comparisons_v2" / "per_mouse_ccf"
 
 # every DeMBA age shares this canvas at 20 um
 DEMBA_SHAPE = (705, 400, 570)
@@ -75,11 +74,11 @@ def to_ccf(vol_demba_full: np.ndarray, age: int, is_mask: bool = False) -> np.nd
 
 def main(mice: list[str]) -> None:
     """Write the CCF file of each of `mice`, with one printed line each."""
-    os.makedirs(OUT, exist_ok=True)
+    OUT.mkdir(parents=True, exist_ok=True)
     for mouse in mice:
         t0 = time.time()
         cohort, atlas_key = MICE[mouse][:2]
-        z = np.load(os.path.join(PER_MOUSE, mouse + ".npz"))
+        z = np.load(PER_MOUSE / (mouse + ".npz"))
         sig = z["sig"].astype(np.float32)
         auto = z["auto"].astype(np.float32)
         tissue = z["tissue"]
@@ -120,7 +119,7 @@ def main(mice: list[str]) -> None:
                 out[name] = np.where(out["tissue"], out[name], 0.0)
 
         np.savez_compressed(
-            os.path.join(OUT, mouse + ".npz"),
+            OUT / (mouse + ".npz"),
             tissue=out["tissue"],
             cohort=cohort,
             atlas=atlas_key,

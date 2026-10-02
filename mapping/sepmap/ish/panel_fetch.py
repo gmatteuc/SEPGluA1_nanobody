@@ -18,17 +18,17 @@ Run by run_panel_fetch.py.
 
 import csv
 import io
-import os
 import time
 import urllib.error
 import urllib.request
 import zipfile
+from pathlib import Path
 
 from sepmap.config import DATA
 
-PANEL = os.path.join(DATA, "adult_v2", "panel", "panel_v2.csv")
-DEST = os.path.join(DATA, "atlas_ish")
-OUT = os.path.join(DATA, "adult_v2", "panel")
+PANEL = DATA / "adult_v2" / "panel" / "panel_v2.csv"
+DEST = DATA / "atlas_ish"
+OUT = DATA / "adult_v2" / "panel"
 
 # one zip per experiment id
 URL = "http://api.brain-map.org/grid_data/download/{}"
@@ -45,13 +45,10 @@ RETRIES = 2
 
 def already_there(eid: str) -> bool:
     """Whether both files of the experiment's grid are on disk."""
-    return all(
-        os.path.exists(os.path.join(DEST, f"{eid}_energy{ext}"))
-        for ext in (".mhd", ".raw")
-    )
+    return all((DEST / f"{eid}_energy{ext}").exists() for ext in (".mhd", ".raw"))
 
 
-def dims_of(path: str) -> tuple[int, ...] | None:
+def dims_of(path: Path) -> tuple[int, ...] | None:
     """The DimSize of a MetaImage header as a tuple, or None when it has none."""
     with open(path) as fh:
         for line in fh:
@@ -73,9 +70,9 @@ def fetch(eid: str) -> str | None:
                 src = next((n for n in names if n.endswith(want)), None)
                 if src is None:
                     return f"no {want} in the zip"
-                with open(os.path.join(DEST, f"{eid}_energy{ext}"), "wb") as out:
+                with open(DEST / f"{eid}_energy{ext}", "wb") as out:
                     out.write(z.read(src))
-            dims = dims_of(os.path.join(DEST, f"{eid}_energy.mhd"))
+            dims = dims_of(DEST / f"{eid}_energy.mhd")
             if dims != GRID_DIMS:
                 return f"grid is {dims}, not the reference {GRID_DIMS}"
             return None
@@ -118,9 +115,9 @@ def main() -> None:
 
             # never leave half a grid behind
             for ext in (".mhd", ".raw"):
-                p = os.path.join(DEST, f"{r['experiment_id']}_energy{ext}")
-                if os.path.exists(p):
-                    os.remove(p)
+                p = DEST / f"{r['experiment_id']}_energy{ext}"
+                if p.exists():
+                    p.unlink()
         else:
             done += 1
 
@@ -135,7 +132,7 @@ def main() -> None:
             )
 
     # the failures with their reason, and what is on disk now
-    path = os.path.join(OUT, "fetch_failures.csv")
+    path = OUT / "fetch_failures.csv"
     with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(
             fh, fieldnames=["symbol", "role", "experiment_id", "plane", "reason"]

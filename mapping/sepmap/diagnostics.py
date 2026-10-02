@@ -30,7 +30,6 @@ few sheets.
 """
 
 import csv
-import os
 
 import h5py
 import matplotlib.pyplot as plt
@@ -48,7 +47,7 @@ from sepmap.volumes.per_mouse import (
 )
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 
-OUT = os.path.join(DATA, "comparisons_v2", "processing_diagnostics")
+OUT = DATA / "comparisons_v2" / "processing_diagnostics"
 
 # the young brains are on their own DeMBA atlas, the adults on the CCF
 YOUNG = [m for m, v in MICE.items() if v[1] != "ccf"]
@@ -113,7 +112,7 @@ def sheet_tissue(mouse: str, ann: np.ndarray, z: np.lib.npyio.NpzFile) -> None:
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.94))
-    save_figure(fig, os.path.join(OUT, f"01_tissue_{mouse}.png"), dpi=95, eps=False)
+    save_figure(fig, OUT / f"01_tissue_{mouse}.png", dpi=95, eps=False)
     plt.close(fig)
 
 
@@ -191,7 +190,7 @@ def sheet_levels(mouse: str, ann: np.ndarray, z: np.lib.npyio.NpzFile) -> None:
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.93))
-    save_figure(fig, os.path.join(OUT, f"02_levels_{mouse}.png"), dpi=95, eps=False)
+    save_figure(fig, OUT / f"02_levels_{mouse}.png", dpi=95, eps=False)
     plt.close(fig)
 
 
@@ -211,7 +210,7 @@ def sheet_coverage() -> None:
         for ci, mouse in enumerate(group):
             ann = ANN[MICE[mouse][1]]
             brain = ann > 0
-            t = np.load(os.path.join(PER_MOUSE, mouse + ".npz"))["tissue"]
+            t = np.load(PER_MOUSE / (mouse + ".npz"))["tissue"]
             cov = np.array(
                 [
                     t[k][brain[k]].mean() if brain[k].any() else np.nan
@@ -237,7 +236,7 @@ def sheet_coverage() -> None:
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.95))
-    save_figure(fig, os.path.join(OUT, "03_coverage.png"), dpi=95, eps=False)
+    save_figure(fig, OUT / "03_coverage.png", dpi=95, eps=False)
     plt.close(fig)
 
 
@@ -249,8 +248,8 @@ def sheet_warp(mouse: str) -> None:
     more than 300 tissue voxels on both sides.
     """
     ann_n = ANN[MICE[mouse][1]]
-    zn = np.load(os.path.join(PER_MOUSE, mouse + ".npz"))
-    zc = np.load(os.path.join(PER_MOUSE_CCF, mouse + ".npz"))
+    zn = np.load(PER_MOUSE / (mouse + ".npz"))
+    zc = np.load(PER_MOUSE_CCF / (mouse + ".npz"))
     sig_n, t_n = zn["sig"].astype(np.float32), zn["tissue"]
     sig_c, t_c = zc["sig"].astype(np.float32), zc["tissue"]
 
@@ -301,7 +300,7 @@ def sheet_warp(mouse: str) -> None:
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.93))
-    save_figure(fig, os.path.join(OUT, f"04_warp_{mouse}.png"), dpi=95, eps=False)
+    save_figure(fig, OUT / f"04_warp_{mouse}.png", dpi=95, eps=False)
     plt.close(fig)
 
 
@@ -313,7 +312,7 @@ def sheet_cohort_n() -> None:
         len(cohorts), len(planes), figsize=(4.2 * len(planes), 3.6 * len(cohorts))
     )
     for r, cohort in enumerate(cohorts):
-        n = np.load(os.path.join(CCF_ROOT, cohort, "cref_n.npy"))
+        n = np.load(CCF_ROOT / cohort / "cref_n.npy")
         for c, k in enumerate(planes):
             ax = axes[r, c]
             h = ax.imshow(
@@ -332,7 +331,7 @@ def sheet_cohort_n() -> None:
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.95))
-    save_figure(fig, os.path.join(OUT, "05_cohort_n.png"), dpi=95, eps=False)
+    save_figure(fig, OUT / "05_cohort_n.png", dpi=95, eps=False)
     plt.close(fig)
 
 
@@ -341,7 +340,7 @@ def sheet_scaling() -> None:
     # per brain: mouse, cohort, nano and auto backgrounds, isocortex nano and auto
     rows = []
     for mouse in list(MICE):
-        z = np.load(os.path.join(PER_MOUSE, mouse + ".npz"))
+        z = np.load(PER_MOUSE / (mouse + ".npz"))
         ann = ANN[MICE[mouse][1]]
         iso = z["tissue"] & np.isin(ann, ISO)
         rows.append(
@@ -389,7 +388,7 @@ def sheet_scaling() -> None:
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.9))
-    save_figure(fig, os.path.join(OUT, "06_scaling.png"), dpi=95, eps=False)
+    save_figure(fig, OUT / "06_scaling.png", dpi=95, eps=False)
     plt.close(fig)
 
 
@@ -400,20 +399,16 @@ def sheet_route_agreement() -> None:
     against run_region_plot's region_stats.csv, for structures of at least 500
     voxels at 20 um.
     """
-    d = os.path.join(DATA, "comparisons_v2", "young_vs_adult")
+    d = DATA / "comparisons_v2" / "young_vs_adult"
 
     # acronym -> (log2 difference, division, voxels), and acronym -> difference
     vox = {
         r["acronym"]: (float(r["log2_cref"]), r["division"], int(r["voxels_20um"]))
-        for r in csv.DictReader(
-            open(os.path.join(d, "region_table.csv"), encoding="utf-8")
-        )
+        for r in csv.DictReader(open(d / "region_table.csv", encoding="utf-8"))
     }
     reg = {
         r["acronym"]: float(r["diff_log2"])
-        for r in csv.DictReader(
-            open(os.path.join(d, "region_stats.csv"), encoding="utf-8")
-        )
+        for r in csv.DictReader(open(d / "region_stats.csv", encoding="utf-8"))
         if r["reading"] == "cref"
     }
     keys = [a for a in vox if a in reg and vox[a][2] >= 500]
@@ -441,7 +436,7 @@ def sheet_route_agreement() -> None:
     ax.legend(fontsize=9)
     ax.grid(lw=0.3, alpha=0.6)
     fig.tight_layout()
-    save_figure(fig, os.path.join(OUT, "07_route_agreement.png"), dpi=110, eps=False)
+    save_figure(fig, OUT / "07_route_agreement.png", dpi=110, eps=False)
     plt.close(fig)
 
 
@@ -460,13 +455,13 @@ def sheet_mask_vs_p6bis() -> None:
     cases = [
         (
             "MG903_SepGluA_P20",
-            os.path.join(DATA, "young", "nano_4d_normalized_bkgmask_P20.mat"),
+            DATA / "young" / "nano_4d_normalized_bkgmask_P20.mat",
             1,
             (200, 260, 330),
         ),
         (
             "CGF027_Gria1",
-            os.path.join(DATA, "naive", "nano_4d_normalized_bkgmask.mat"),
+            DATA / "naive" / "nano_4d_normalized_bkgmask.mat",
             0,
             (150, 230, 300),
         ),
@@ -474,7 +469,7 @@ def sheet_mask_vs_p6bis() -> None:
     fig, axes = plt.subplots(2, 3, figsize=(18, 10.5))
     for row, (mouse, mask_file, idx, planes) in enumerate(cases):
         ann = ANN[MICE[mouse][1]]
-        z = np.load(os.path.join(PER_MOUSE, mouse + ".npz"))
+        z = np.load(PER_MOUSE / (mouse + ".npz"))
         mine, sig = z["tissue"], z["sig"].astype(np.float32)
         with h5py.File(mask_file, "r") as f:
             mask_4d = f["recomputed_bkg_mask_4d"]
@@ -524,7 +519,7 @@ def sheet_mask_vs_p6bis() -> None:
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.94))
-    save_figure(fig, os.path.join(OUT, "08_mask_vs_p6bis.png"), dpi=95, eps=False)
+    save_figure(fig, OUT / "08_mask_vs_p6bis.png", dpi=95, eps=False)
     plt.close(fig)
 
 
@@ -537,7 +532,7 @@ def sheet_denominators() -> None:
     # per brain: mouse, cohort, isocortex nano, auto and SEP
     rows = []
     for mouse in list(MICE):
-        z = np.load(os.path.join(PER_MOUSE, mouse + ".npz"))
+        z = np.load(PER_MOUSE / (mouse + ".npz"))
         if "sep" not in z.files:
             continue
         ann = ANN[MICE[mouse][1]]
@@ -586,9 +581,9 @@ def sheet_denominators() -> None:
 
     # the part that matters: does the young-adult difference survive the swap
     ax = axes[2]
-    stats = os.path.join(DATA, "comparisons_v2", "young_vs_adult", "region_stats.csv")
+    stats = DATA / "comparisons_v2" / "young_vs_adult" / "region_stats.csv"
     pairs = {}
-    if os.path.exists(stats):
+    if stats.exists():
         for r in csv.DictReader(open(stats, encoding="utf-8")):
             if r["reading"] in ("ratio", "sepratio"):
                 pairs.setdefault(r["acronym"], {})[r["reading"]] = float(r["diff_log2"])
@@ -629,14 +624,14 @@ def sheet_denominators() -> None:
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.9))
-    save_figure(fig, os.path.join(OUT, "09_denominators.png"), dpi=95, eps=False)
+    save_figure(fig, OUT / "09_denominators.png", dpi=95, eps=False)
     plt.close(fig)
 
 
 def write_index() -> None:
     """Write README.md beside the sheets: what to look for in each, what is wrong."""
     # the README as written; its table rows are longer than a line of code
-    with open(os.path.join(OUT, "README.md"), "w", encoding="utf-8") as fh:
+    with open(OUT / "README.md", "w", encoding="utf-8") as fh:
         fh.write("""# processing diagnostics
 
 One sheet per question, so every step of the v2 route can be checked by eye
@@ -668,7 +663,7 @@ def main(named_mice: list[str]) -> None:
     ANN, which the sheet functions read as module globals, are set here.
     """
     global ISO, ANN
-    os.makedirs(OUT, exist_ok=True)
+    OUT.mkdir(parents=True, exist_ok=True)
 
     # the isocortex labels, and every atlas the brains are on
     ISO = list(isocortex_ids())
@@ -678,7 +673,7 @@ def main(named_mice: list[str]) -> None:
     mice = named_mice or list(MICE)
     for mouse in mice:
         ann = ANN[MICE[mouse][1]]
-        z = np.load(os.path.join(PER_MOUSE, mouse + ".npz"))
+        z = np.load(PER_MOUSE / (mouse + ".npz"))
         sheet_tissue(mouse, ann, z)
         sheet_levels(mouse, ann, z)
         if MICE[mouse][1] != "ccf":

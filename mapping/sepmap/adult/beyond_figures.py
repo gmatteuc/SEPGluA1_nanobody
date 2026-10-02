@@ -36,7 +36,6 @@ Run by run_beyond_figures.py.
 """
 
 import csv
-import os
 from collections.abc import Sequence
 
 import matplotlib.pyplot as plt
@@ -62,7 +61,7 @@ from sepmap.plotting import DARK_GREY, MID_GREY, RED, tidy
 # splits used inside each replicate
 BEYOND_FIGURES = SETTINGS["beyond_figures"]
 
-FIGS = os.path.join(OUT, "for_sami")
+FIGS = OUT / "for_sami"
 
 # the palette of the young-against-adult figures, so the two sets read as one: red
 # for what is shown, dark grey for its comparison, mid grey for context (plotting),
@@ -72,10 +71,10 @@ BLUE = "#2e5f8a"
 
 def save(fig: plt.Figure, name: str) -> None:
     """Save `fig` in FIGS as a PNG at 220 dpi and an EPS to edit, then close it."""
-    os.makedirs(FIGS, exist_ok=True)
-    png = os.path.join(FIGS, name + ".png")
+    FIGS.mkdir(parents=True, exist_ok=True)
+    png = FIGS / (name + ".png")
     fig.savefig(png, dpi=220)
-    fig.savefig(os.path.join(FIGS, name + ".eps"), format="eps")
+    fig.savefig(FIGS / (name + ".eps"), format="eps")
     plt.close(fig)
     print(f"  -> {png}  (+ .eps)")
 
@@ -330,7 +329,7 @@ def panel_d(controls: list[dict[str, str]]) -> None:
 
 def main() -> None:
     """Compute the statistics, draw panels A to D and write the caption numbers."""
-    os.makedirs(FIGS, exist_ok=True)
+    FIGS.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(0)
 
     # the structures and the quoted model, as adult.beyond_density builds them
@@ -413,8 +412,8 @@ def main() -> None:
 
     # panel D needs run_beyond_controls' table
     controls = []
-    path = os.path.join(OUT, "controls.csv")
-    if os.path.exists(path):
+    path = OUT / "controls.csv"
+    if path.exists():
         with open(path, newline="", encoding="utf-8") as fh:
             controls = list(csv.DictReader(fh))
 
@@ -456,8 +455,6 @@ def main() -> None:
         "What this does NOT show: that the leftover is the surface fraction. A residual",
         "is only ever what the model left out.",
     ]
-    with open(
-        os.path.join(FIGS, "numbers_for_the_caption.txt"), "w", encoding="utf-8"
-    ) as fh:
+    with open(FIGS / "numbers_for_the_caption.txt", "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
-    print(f"  -> {os.path.join(FIGS, 'numbers_for_the_caption.txt')}")
+    print(f"  -> {FIGS / 'numbers_for_the_caption.txt'}")

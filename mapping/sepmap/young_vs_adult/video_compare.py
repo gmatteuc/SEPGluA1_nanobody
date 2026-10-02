@@ -24,7 +24,6 @@ for one plane, into comparisons_v2/young_vs_adult/.
 Run by run_video_compare.py.
 """
 
-import os
 import time
 
 import imageio_ffmpeg
@@ -47,7 +46,7 @@ YOUNG_VS_ADULT = SETTINGS["young_vs_adult"]
 READINGS = SETTINGS["readings"]
 VIDEOS = SETTINGS["videos"]
 
-OUT = os.path.join(DATA, "comparisons_v2", "young_vs_adult")
+OUT = DATA / "comparisons_v2" / "young_vs_adult"
 
 
 def main(
@@ -76,19 +75,19 @@ def main(
 
     # the annotation, the half that the folded volumes cover, and the brains with
     # tissue behind each voxel
-    ann = np.asarray(
-        nib.load(os.path.join(DATA, "atlas", "annotation_10.nii.gz")).dataobj
-    )[::2, ::2, ::2]
+    ann = np.asarray(nib.load(DATA / "atlas" / "annotation_10.nii.gz").dataobj)[
+        ::2, ::2, ::2
+    ]
     ann_h = ann[:, :, : ann.shape[2] // 2]
-    y_n = fold_count(np.load(os.path.join(CCF_ROOT, YOUNG, "cref_n.npy")))
-    a_n = fold_count(np.load(os.path.join(CCF_ROOT, "adult", "cref_n.npy")))
+    y_n = fold_count(np.load(CCF_ROOT / YOUNG / "cref_n.npy"))
+    a_n = fold_count(np.load(CCF_ROOT / "adult" / "cref_n.npy"))
 
     for reading in readings:
         t0 = time.time()
 
         # folded means, the voxels where both have enough brains, and the comparison
-        y = fold(np.load(os.path.join(CCF_ROOT, YOUNG, f"{reading}_mean.npy")))
-        a = fold(np.load(os.path.join(CCF_ROOT, "adult", f"{reading}_mean.npy")))
+        y = fold(np.load(CCF_ROOT / YOUNG / f"{reading}_mean.npy"))
+        a = fold(np.load(CCF_ROOT / "adult" / f"{reading}_mean.npy"))
         ok_y = (y_n >= YOUNG_VS_ADULT["min_n_young"]) & np.isfinite(y)
         ok_a = (a_n >= YOUNG_VS_ADULT["min_n_adult"]) & np.isfinite(a)
         both = ok_y & ok_a & (ann_h > 0)
@@ -112,13 +111,13 @@ def main(
             frames = [k for k in range(ann_h.shape[0]) if both[k].sum() > 200]
         tag = "" if vmax is None else f"_vmax{v_mean:g}"
         if plane is None:
-            out = os.path.join(OUT, f"video_side_by_side_{reading}{tag}.mp4")
+            out = OUT / f"video_side_by_side_{reading}{tag}.mp4"
             writer = imageio_ffmpeg.write_frames(
                 out, (1920, 760), fps=VIDEOS["fps"], quality=7, macro_block_size=8
             )
             writer.send(None)
         else:
-            out = os.path.join(OUT, f"plane{plane}_side_by_side_{reading}{tag}.png")
+            out = OUT / f"plane{plane}_side_by_side_{reading}{tag}.png"
             writer = None
 
         # one 1920 x 760 figure, three panels with their colour bars

@@ -35,7 +35,6 @@ Run by run_region_groups.py.
 
 import csv
 import math
-import os
 import re
 from collections import defaultdict
 
@@ -68,7 +67,7 @@ from sepmap.young_vs_adult.region_plot import (
 REGION_TABLES = SETTINGS["region_tables"]
 REGION_GROUPS = SETTINGS["region_groups"]
 
-OUT = os.path.join(DATA, "comparisons_v2", "young_vs_adult")
+OUT = DATA / "comparisons_v2" / "young_vs_adult"
 
 # cortical systems, primary apart from higher order: a thalamorecipient primary area
 # and its higher-order neighbours mature on different schedules, which the
@@ -203,7 +202,7 @@ def group_means(
         if atlas_key not in anns:
             anns[atlas_key] = annotation_20(atlas_key)
         ann = anns[atlas_key]
-        z = np.load(os.path.join(PER_MOUSE, mouse + ".npz"))
+        z = np.load(PER_MOUSE / (mouse + ".npz"))
         sig = z["sig"].astype(np.float32)
         auto = z["auto"].astype(np.float32)
         tissue = z["tissue"]
@@ -395,9 +394,7 @@ def group_stats(
 
 def write_group_stats(rows: list[dict]) -> None:
     """Write group_stats.csv into OUT, floats to four decimals."""
-    with open(
-        os.path.join(OUT, "group_stats.csv"), "w", newline="", encoding="utf-8"
-    ) as fh:
+    with open(OUT / "group_stats.csv", "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
         w.writeheader()
         for r in rows:
@@ -531,7 +528,7 @@ def dotplot(
     axes[-1].set_xticklabels(labels, rotation=55, ha="right", fontsize=9)
     fig.suptitle(title, fontsize=11.5)
     fig.tight_layout(rect=(0, 0, 1, 0.965))
-    save_figure(fig, os.path.join(OUT, fname), dpi=105)
+    save_figure(fig, OUT / fname, dpi=105)
     plt.close(fig)
 
 

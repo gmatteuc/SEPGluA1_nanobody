@@ -35,7 +35,6 @@ Run by run_ish_panel_test.py.
 """
 
 import csv
-import os
 from collections import defaultdict
 
 import matplotlib.pyplot as plt
@@ -50,12 +49,10 @@ from sepmap.plotting import RED, tidy
 ISH = SETTINGS["ish"]
 ISH_PANEL_TEST = SETTINGS["ish_panel_test"]
 
-NANO = os.path.join(
-    DATA, "comparisons_v2", "young_vs_adult", "region_means_per_mouse.csv"
-)
-OUT = os.path.join(DATA, "adult_v2", "ish")
-MERGED = os.path.join(OUT, "gene_region_table_merged.csv")
-RELIABILITY = os.path.join(OUT, "gene_reliability.csv")
+NANO = DATA / "comparisons_v2" / "young_vs_adult" / "region_means_per_mouse.csv"
+OUT = DATA / "adult_v2" / "ish"
+MERGED = OUT / "gene_region_table_merged.csv"
+RELIABILITY = OUT / "gene_reliability.csv"
 
 # the adult groups, pooled, as a tuple
 ADULT_GROUPS = tuple(ISH["adult_groups"])
@@ -213,7 +210,7 @@ def main() -> None:
     matched_ctrl = sorted(set(pairs.values()))
 
     # the per-gene table
-    path = os.path.join(OUT, "panel_test.csv")
+    path = OUT / "panel_test.csv"
     with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(
             fh,
@@ -394,7 +391,7 @@ def figure(
         fontsize=9,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.92))
-    path = os.path.join(OUT, "ish_panel_test.png")
+    path = OUT / "ish_panel_test.png"
     fig.savefig(path, dpi=200)
     plt.close(fig)
     print(f"\n{path}")

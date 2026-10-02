@@ -22,7 +22,6 @@ Writes comparisons_v2/ccf/<cohort>/video_<reading>_<cohort>.mp4.
 Run by run_video.py.
 """
 
-import os
 import time
 
 import imageio_ffmpeg
@@ -44,9 +43,9 @@ VIDEOS = SETTINGS["videos"]
 
 def annotation_ccf20() -> np.ndarray:
     """The full CCF annotation at 20 um, the grid the cohort volumes live on."""
-    return np.asarray(
-        nib.load(os.path.join(DATA, "atlas", "annotation_10.nii.gz")).dataobj
-    )[::2, ::2, ::2]
+    return np.asarray(nib.load(DATA / "atlas" / "annotation_10.nii.gz").dataobj)[
+        ::2, ::2, ::2
+    ]
 
 
 def main(cohorts: list[str]) -> None:
@@ -63,13 +62,13 @@ def main(cohorts: list[str]) -> None:
     ann = annotation_ccf20()
     ann_h = ann[:, :, : ann.shape[2] // 2]
     for cohort in cohorts:
-        n_h = fold_count(np.load(os.path.join(CCF_ROOT, cohort, "cref_n.npy")))
+        n_h = fold_count(np.load(CCF_ROOT / cohort / "cref_n.npy"))
         for reading in MODES:
             t0 = time.time()
 
             # folded mean and SD, and t where there are enough brains and an SD
-            mean = fold(np.load(os.path.join(CCF_ROOT, cohort, f"{reading}_mean.npy")))
-            sd = fold(np.load(os.path.join(CCF_ROOT, cohort, f"{reading}_sd.npy")))
+            mean = fold(np.load(CCF_ROOT / cohort / f"{reading}_mean.npy"))
+            sd = fold(np.load(CCF_ROOT / cohort / f"{reading}_sd.npy"))
             signed = reading in SIGNED_READINGS
             ok = (n_h >= VIDEOS["min_n"][cohort]) & np.isfinite(mean)
             with np.errstate(divide="ignore", invalid="ignore"):
@@ -95,7 +94,7 @@ def main(cohorts: list[str]) -> None:
             # a video of the planes with more than 200 voxels with data, drawn into
             # one 1600 x 800 figure plane by plane
             frames = [k for k in range(ann_h.shape[0]) if ok[k].sum() > 200]
-            out = os.path.join(CCF_ROOT, cohort, f"video_{reading}_{cohort}.mp4")
+            out = CCF_ROOT / cohort / f"video_{reading}_{cohort}.mp4"
             writer = imageio_ffmpeg.write_frames(
                 out, (1600, 800), fps=VIDEOS["fps"], quality=7, macro_block_size=8
             )

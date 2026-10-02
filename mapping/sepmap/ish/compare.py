@@ -28,7 +28,6 @@ Run by run_ish_compare.py.
 """
 
 import csv
-import os
 from collections import defaultdict
 
 import matplotlib.pyplot as plt
@@ -42,17 +41,15 @@ from sepmap.plotting import RED, tidy
 # and the genes two rankings must share to be compared
 ISH = SETTINGS["ish"]
 
-NANO = os.path.join(
-    DATA, "comparisons_v2", "young_vs_adult", "region_means_per_mouse.csv"
+NANO = DATA / "comparisons_v2" / "young_vs_adult" / "region_means_per_mouse.csv"
+GENES = DATA / "adult_v2" / "ish" / "gene_region_table.csv"
+OLD = (
+    DATA
+    / "comparisons"
+    / "merged_naive_rws_vs_ish_summary_nosmooth"
+    / "gene_panel_summary.csv"
 )
-GENES = os.path.join(DATA, "adult_v2", "ish", "gene_region_table.csv")
-OLD = os.path.join(
-    DATA,
-    "comparisons",
-    "merged_naive_rws_vs_ish_summary_nosmooth",
-    "gene_panel_summary.csv",
-)
-OUT = os.path.join(DATA, "adult_v2", "ish")
+OUT = DATA / "adult_v2" / "ish"
 
 # the adult groups, pooled, as a tuple; every reading, in the order of the table
 ADULT_GROUPS = tuple(ISH["adult_groups"])
@@ -124,7 +121,7 @@ def correlate(
 
 def old_ranking() -> dict[str, float]:
     """The MATLAB route's distance-weighted Spearman, {gene: rho}, if it is there."""
-    if not os.path.exists(OLD):
+    if not OLD.exists():
         return {}
     with open(OLD, newline="", encoding="utf-8") as fh:
         return {
@@ -293,7 +290,7 @@ def figure(rows: list[dict], old: dict[str, float], category: dict[str, str]) ->
         fontsize=9,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.93))
-    path = os.path.join(OUT, "ish_old_vs_new.png")
+    path = OUT / "ish_old_vs_new.png"
     fig.savefig(path, dpi=200)
     plt.close(fig)
     print(f"\n{path}")
@@ -317,7 +314,7 @@ def main() -> None:
     if not rows:
         raise ValueError("no gene shared enough structures with the nano table")
 
-    path = os.path.join(OUT, "gene_correlations.csv")
+    path = OUT / "gene_correlations.csv"
     with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
         w.writeheader()

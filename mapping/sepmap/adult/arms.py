@@ -50,7 +50,6 @@ Run by run_adult_arms.py.
 
 import csv
 import math
-import os
 from collections import defaultdict
 
 import matplotlib.pyplot as plt
@@ -65,12 +64,10 @@ from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 # the smallest structure kept, as in young_vs_adult.region_plot
 REGION_TABLES = SETTINGS["region_tables"]
 
-OUT = os.path.join(DATA, "adult_v2", "arms")
+OUT = DATA / "adult_v2" / "arms"
 
 # young_vs_adult.region_plot's per-mouse table, which the shared arms must match
-EXISTING = os.path.join(
-    DATA, "comparisons_v2", "young_vs_adult", "region_means_per_mouse.csv"
-)
+EXISTING = DATA / "comparisons_v2" / "young_vs_adult" / "region_means_per_mouse.csv"
 
 # the ten adults, naive and rws pooled
 ADULTS = NAIVE + RWS
@@ -95,7 +92,7 @@ def mouse_table(
     The layer indices of a structure are pooled by name; a structure under
     region_tables.min_vox20 voxels is left out.
     """
-    z = np.load(os.path.join(PER_MOUSE, mouse + ".npz"))
+    z = np.load(PER_MOUSE / (mouse + ".npz"))
     if "sep" not in z.files:
         raise ValueError(
             f"{mouse}: no SEP channel. Run run_add_sep_channel.m, "
@@ -147,7 +144,7 @@ def check_against_existing(rows: list[dict]) -> dict[str, list[float]]:
     then. Returns the absolute differences per arm, or an empty dict when that
     table does not exist.
     """
-    if not os.path.exists(EXISTING):
+    if not EXISTING.exists():
         print("no existing table to check against -- skipped")
         return {}
     ours = {(r["arm"], r["mouse"], r["structure"]): float(r["log2_value"]) for r in rows}
@@ -248,7 +245,7 @@ def figure(
     for ax in axes:
         tidy(ax)
     fig.tight_layout()
-    path = os.path.join(OUT, "arms_consistency.png")
+    path = OUT / "arms_consistency.png"
     fig.savefig(path, dpi=200)
     plt.close(fig)
     print(f"{path}")
@@ -256,7 +253,7 @@ def figure(
 
 def main() -> None:
     """Write the arms table of the ten adults, check it, and draw the check."""
-    os.makedirs(OUT, exist_ok=True)
+    OUT.mkdir(parents=True, exist_ok=True)
     names, acro, divi = structure_terms()
     meta = {nm: (acro[idx], divi.get(idx, "")) for idx, nm in names.items()}
     group = {m: ("naive" if m in NAIVE else "rws") for m in ADULTS}
@@ -282,7 +279,7 @@ def main() -> None:
                         )
                     )
 
-    path = os.path.join(OUT, "region_means_arms.csv")
+    path = OUT / "region_means_arms.csv"
     with open(path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
         writer.writeheader()

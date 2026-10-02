@@ -20,7 +20,7 @@ environment (young_vs_adult.closeup) can import this module too. Imported by
 the modules that draw.
 """
 
-import os
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -64,7 +64,7 @@ def transparent_bad(name: str) -> Colormap:
 
 def save_figure(
     fig: plt.Figure,
-    path: str,
+    path: Path,
     dpi: int,
     facecolor: str | None = None,
     eps: bool = True,
@@ -89,18 +89,17 @@ def save_figure(
     try:
         fig.savefig(path, dpi=dpi, facecolor=facecolor)
     except OSError:
-        alt = path.replace(".png", "_new.png")
+        alt = path.with_name(path.name.replace(".png", "_new.png"))
         fig.savefig(alt, dpi=dpi, facecolor=facecolor)
         print(
-            f"  NOTE: {os.path.basename(path)} is open elsewhere; "
-            f"wrote {os.path.basename(alt)} instead",
+            f"  NOTE: {path.name} is open elsewhere; wrote {alt.name} instead",
             flush=True,
         )
     if not eps:
         return
 
     # the EPS, with the image layers rasterised
-    eps_path = os.path.splitext(path)[0] + ".eps"
+    eps_path = path.with_suffix(".eps")
     for ax in fig.axes:
         for im in ax.images:
             im.set_rasterized(True)
@@ -108,8 +107,7 @@ def save_figure(
         fig.savefig(eps_path, dpi=dpi, facecolor=fig.get_facecolor(), format="eps")
     except OSError:
         print(
-            f"  NOTE: {os.path.basename(eps_path)} is open elsewhere; "
-            "the PNG was still written",
+            f"  NOTE: {eps_path.name} is open elsewhere; the PNG was still written",
             flush=True,
         )
 

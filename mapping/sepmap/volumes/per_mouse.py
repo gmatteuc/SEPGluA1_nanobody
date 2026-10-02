@@ -42,8 +42,8 @@ Run by run_per_mouse.py.
 """
 
 import csv
-import os
 import time
+from pathlib import Path
 
 import nibabel as nib
 import numpy as np
@@ -53,8 +53,8 @@ from sepmap.config import DATA, SETTINGS
 
 TISSUE = SETTINGS["tissue"]
 
-OUT = os.path.join(DATA, "comparisons_v2", "per_mouse")
-CSV_MAP = os.path.join(DATA, "atlas", "parcellation_to_parcellation_term_membership.csv")
+OUT = DATA / "comparisons_v2" / "per_mouse"
+CSV_MAP = DATA / "atlas" / "parcellation_to_parcellation_term_membership.csv"
 
 # mouse -> (cohort, atlas, group folder under data\). Every brain is read from its
 # own registered tiffs, on the atlas of its own age. MG911 is P16 and MG904 P22:
@@ -95,7 +95,7 @@ MICE = {
 }
 
 
-def atlas_grid(atlas_key: str) -> tuple[str, tuple[int, int], None]:
+def atlas_grid(atlas_key: str) -> tuple[Path, tuple[int, int], None]:
     """(annotation folder, AP crop, None) for an atlas key, read from disk.
 
     The crop, in 10 um planes counted from 1, is whatever build_demba_atlas.py
@@ -104,9 +104,9 @@ def atlas_grid(atlas_key: str) -> tuple[str, tuple[int, int], None]:
     registered against. The third element is always None.
     """
     if atlas_key == "ccf":
-        return os.path.join(DATA, "atlas"), (180, 1079), None
-    d = os.path.join(DATA, "atlas_" + atlas_key)
-    lo, hi = (int(v) for v in open(os.path.join(d, "aplims.txt")).read().split())
+        return DATA / "atlas", (180, 1079), None
+    d = DATA / ("atlas_" + atlas_key)
+    lo, hi = (int(v) for v in open(d / "aplims.txt").read().split())
     return d, (lo, hi), None
 
 
@@ -119,7 +119,7 @@ def annotation_20(atlas_key: str) -> np.ndarray:
     age.
     """
     d, (lo, hi), _ = atlas_grid(atlas_key)
-    ann = np.asarray(nib.load(os.path.join(d, "annotation_10.nii.gz")).dataobj)
+    ann = np.asarray(nib.load(d / "annotation_10.nii.gz").dataobj)
 
     # CCF: 450 x 400 x 570; DeMBA: 497 planes at P20, 478 at P16
     if atlas_key == "ccf":
@@ -190,15 +190,15 @@ class Source:
         return np.asarray(self.t.pages[i].asarray(), dtype=np.float32)
 
 
-def channel_path(mouse: str, group: str, chan: str) -> str:
+def channel_path(mouse: str, group: str, chan: str) -> Path:
     """The registered tiff of channel `chan` of `mouse`, in group folder `group`."""
     sub, name = Source.FILES[chan]
-    return os.path.join(DATA, group, mouse, "lightsuite", sub, name)
+    return DATA / group / mouse / "lightsuite" / sub / name
 
 
 def has_sep(mouse: str) -> bool:
     """Whether run_add_sep_channel has carried the brain's SEP channel across."""
-    return os.path.exists(channel_path(mouse, MICE[mouse][2], "sep"))
+    return channel_path(mouse, MICE[mouse][2], "sep").exists()
 
 
 def block2(a: np.ndarray) -> np.ndarray:
@@ -209,7 +209,7 @@ def block2(a: np.ndarray) -> np.ndarray:
 def main(mice: list[str]) -> None:
     """Write the per-brain file of each of `mice`, with one printed line each."""
     iso = isocortex_ids()
-    os.makedirs(OUT, exist_ok=True)
+    OUT.mkdir(parents=True, exist_ok=True)
     anns = {}
     for mouse in mice:
         t0 = time.time()
@@ -290,7 +290,7 @@ def main(mice: list[str]) -> None:
         else:
             sep_text = "no sep       "
         np.savez_compressed(
-            os.path.join(OUT, mouse + ".npz"),
+            OUT / (mouse + ".npz"),
             sig=sig.astype(np.float16),
             auto=aut.astype(np.float16),
             tissue=tissue,

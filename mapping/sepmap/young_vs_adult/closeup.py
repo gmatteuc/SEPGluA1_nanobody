@@ -32,6 +32,7 @@ rainbow has no neutral middle to read zero against.
 The flatmaps need ccf_streamlines, which brings its own numpy and scikit-image, so
 this module runs in its own environment, tools\\venv_flat (made from
 tools\\requirements_flat.txt), and imports only config, plotting and hemispheres
+from pathlib import Path
 from the package. Its assets, about 0.6 GB, are fetched once into atlas_flatmap/
 under the data root from the Allen Institute's ccf_streamlines_assets folder,
     https://download.alleninstitute.org/informatics-archive/current-release/
@@ -51,8 +52,8 @@ Run by run_closeup.py.
 
 import csv
 import json
-import os
 import time
+from pathlib import Path
 
 import imageio_ffmpeg
 import matplotlib.patheffects as path_effects
@@ -78,10 +79,10 @@ READINGS = SETTINGS["readings"]
 VIDEOS = SETTINGS["videos"]
 YOUNG_VS_ADULT = SETTINGS["young_vs_adult"]
 
-ASSETS = os.path.join(DATA, "atlas_flatmap")
-CCF_ROOT = os.path.join(DATA, "comparisons_v2", "ccf")
-OUT = os.path.join(DATA, "comparisons_v2", "young_vs_adult")
-CSV_MAP = os.path.join(DATA, "atlas", "parcellation_to_parcellation_term_membership.csv")
+ASSETS = DATA / "atlas_flatmap"
+CCF_ROOT = DATA / "comparisons_v2" / "ccf"
+OUT = DATA / "comparisons_v2" / "young_vs_adult"
+CSV_MAP = DATA / "atlas" / "parcellation_to_parcellation_term_membership.csv"
 
 YOUNG, ADULT = "young", "adult"
 
@@ -132,7 +133,7 @@ def cohort_size(cohort: str) -> int:
 
     Counted rather than typed, so a caption cannot go stale when a brain is added.
     """
-    with open(os.path.join(CCF_ROOT, cohort, "mice.txt"), encoding="utf-8") as fh:
+    with open(CCF_ROOT / cohort / "mice.txt", encoding="utf-8") as fh:
         return sum(1 for line in fh if line.strip())
 
 
@@ -151,8 +152,8 @@ def prepare(
         (YOUNG, YOUNG_VS_ADULT["min_n_young"]),
         (ADULT, YOUNG_VS_ADULT["min_n_adult"]),
     ):
-        mean = fold(np.load(os.path.join(CCF_ROOT, cohort, f"{reading}_mean.npy")))
-        n = fold_count(np.load(os.path.join(CCF_ROOT, cohort, f"{reading}_n.npy")))
+        mean = fold(np.load(CCF_ROOT / cohort / f"{reading}_mean.npy"))
+        n = fold_count(np.load(CCF_ROOT / cohort / f"{reading}_n.npy"))
         m = ((n >= min_n) & np.isfinite(mean)).astype(np.float32)
         v = np.where(m > 0, mean, 0).astype(np.float32)
 
@@ -193,9 +194,9 @@ def shown(value: np.ndarray, mask: np.ndarray) -> np.ndarray:
 
 def annotation_half() -> np.ndarray:
     """The CCF annotation at 20 um, the half that the folded volumes cover."""
-    ann = np.asarray(
-        nib.load(os.path.join(DATA, "atlas", "annotation_10.nii.gz")).dataobj
-    )[::2, ::2, ::2]
+    ann = np.asarray(nib.load(DATA / "atlas" / "annotation_10.nii.gz").dataobj)[
+        ::2, ::2, ::2
+    ]
     return ann[:, :, : ann.shape[2] // 2]
 
 
@@ -211,7 +212,7 @@ def coronal(
     want_video: bool,
     n: dict[str, int],
     signed: bool,
-    out_dir: str,
+    out_dir: Path,
 ) -> None:
     """Draw the still at CCF `plane` and, with `want_video`, the video of every plane.
 
@@ -266,15 +267,15 @@ def coronal(
     coronal_frame(
         fig, axes, caxes, k, panels_at(k), ann_h, acro, header_at(k), vector_outline=True
     )
-    out = os.path.join(out_dir, f"detail_plane{plane}_{reading}.png")
+    out = out_dir / f"detail_plane{plane}_{reading}.png"
     save_figure(fig, out, dpi=100, facecolor="k")
-    print(f"  wrote {os.path.basename(out)}", flush=True)
+    print(f"  wrote {out.name}", flush=True)
 
     # the video, redrawing the same figure plane by plane
     if want_video:
         t0 = time.time()
         frames = [i for i in range(ann_h.shape[0]) if both[i].sum() > 200]
-        out = os.path.join(out_dir, f"detail_video_{reading}.mp4")
+        out = out_dir / f"detail_video_{reading}.mp4"
         writer = imageio_ffmpeg.write_frames(
             out, (1920, 760), fps=VIDEOS["fps"], quality=7, macro_block_size=8
         )
@@ -287,8 +288,7 @@ def coronal(
             )
         writer.close()
         print(
-            f"  wrote {os.path.basename(out)}, {len(frames)} frames, "
-            f"{time.time() - t0:.0f} s",
+            f"  wrote {out.name}, {len(frames)} frames, {time.time() - t0:.0f} s",
             flush=True,
         )
     plt.close(fig)
@@ -303,7 +303,7 @@ def layer_thicknesses() -> dict[str, float]:
     The file gives the depth of each layer's lower border below the pia, so the
     thicknesses are the differences between them.
     """
-    d = json.load(open(os.path.join(ASSETS, "avg_layer_depths.json")))
+    d = json.load(open(ASSETS / "avg_layer_depths.json"))
     names = [
         "Isocortex layer 1",
         "Isocortex layer 2/3",
@@ -405,7 +405,7 @@ def flatmaps(
     cmaps: tuple[Colormap, Colormap],
     sigma_txt: str,
     n: dict[str, int],
-    out_dir: str,
+    out_dir: Path,
 ) -> None:
     """Draw the flatmaps of `reading`: through the full depth, and by depth band.
 
@@ -422,13 +422,13 @@ def flatmaps(
     )
 
     cmap_mean, rdbu = cmaps
-    proj_file = os.path.join(ASSETS, "flatmap_butterfly.h5")
-    path_file = os.path.join(ASSETS, "surface_paths_10_v3.h5")
+    proj_file = str(ASSETS / "flatmap_butterfly.h5")
+    path_file = str(ASSETS / "surface_paths_10_v3.h5")
 
     # area borders of both hemispheres, and where each name goes
     bf = BoundaryFinder(
-        projected_atlas_file=os.path.join(ASSETS, "flatmap_butterfly.nrrd"),
-        labels_file=os.path.join(ASSETS, "labelDescription_ITKSNAPColor.txt"),
+        projected_atlas_file=str(ASSETS / "flatmap_butterfly.nrrd"),
+        labels_file=str(ASSETS / "labelDescription_ITKSNAPColor.txt"),
     )
     left = {k: v for k, v in bf.region_boundaries().items() if len(v)}
     right = {
@@ -453,7 +453,7 @@ def flatmaps(
         path_file,
         thickness_type="normalized_layers",
         layer_thicknesses=layer_thicknesses(),
-        streamline_layer_thickness_file=os.path.join(ASSETS, "cortical_layers_10_v2.h5"),
+        streamline_layer_thickness_file=str(ASSETS / "cortical_layers_10_v2.h5"),
         hemisphere="both",
         view_space_for_other_hemisphere="flatmap_butterfly",
     )
@@ -514,7 +514,7 @@ def flatmaps(
     fig.tight_layout(rect=(0, 0, 1, 0.94))
     save_figure(
         fig,
-        os.path.join(out_dir, f"detail_flatmap_{reading}.png"),
+        out_dir / f"detail_flatmap_{reading}.png",
         dpi=110,
         facecolor="k",
     )
@@ -553,7 +553,7 @@ def flatmaps(
     fig.tight_layout(rect=(0, 0, 1, 0.97))
     save_figure(
         fig,
-        os.path.join(out_dir, f"detail_flatmap_layers_{reading}.png"),
+        out_dir / f"detail_flatmap_layers_{reading}.png",
         dpi=110,
         facecolor="k",
     )
@@ -582,8 +582,8 @@ def main(
     """
     # a named colormap sends the whole set to its own subfolder, so the default
     # figures are never overwritten by an experiment with the colours
-    out_dir = OUT if cmap_name is None else os.path.join(OUT, cmap_name)
-    os.makedirs(out_dir, exist_ok=True)
+    out_dir = OUT if cmap_name is None else OUT / cmap_name
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     # hot up to 0.82 of its range; every colormap transparent where there is no value
     hot = hot_cut()

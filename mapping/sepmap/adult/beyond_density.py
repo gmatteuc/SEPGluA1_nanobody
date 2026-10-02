@@ -93,9 +93,9 @@ Run by run_beyond_density.py.
 import csv
 import itertools
 import math
-import os
 from collections import defaultdict
 from collections.abc import Sequence
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -112,11 +112,9 @@ from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 BEYOND = SETTINGS["beyond"]
 REGION_TABLES = SETTINGS["region_tables"]
 
-NANO = os.path.join(
-    DATA, "comparisons_v2", "young_vs_adult", "region_means_per_mouse.csv"
-)
-MERGED_ISH = os.path.join(DATA, "adult_v2", "ish", "gene_region_table_merged.csv")
-OUT = os.path.join(DATA, "adult_v2", "beyond")
+NANO = DATA / "comparisons_v2" / "young_vs_adult" / "region_means_per_mouse.csv"
+MERGED_ISH = DATA / "adult_v2" / "ish" / "gene_region_table_merged.csv"
+OUT = DATA / "adult_v2" / "beyond"
 
 # the ten adults, naive and rws pooled
 ADULTS = NAIVE + RWS
@@ -158,7 +156,7 @@ def nano_per_mouse() -> tuple[dict[str, dict[str, float]], dict[str, str]]:
 
 
 def gene_profiles(
-    path: str = MERGED_ISH,
+    path: Path = MERGED_ISH,
 ) -> tuple[dict[str, dict[str, float]], dict[str, str]]:
     """{gene: {structure: rank_mean}} and {gene: role}; replicates already merged."""
     per, role = defaultdict(dict), {}
@@ -180,7 +178,7 @@ def autofluorescence(structures: set[str]) -> dict[str, dict[str, float]]:
     names, _, _ = structure_terms()
     per = {}
     for mouse in ADULTS:
-        z = np.load(os.path.join(PER_MOUSE, mouse + ".npz"))
+        z = np.load(PER_MOUSE / (mouse + ".npz"))
         tissue = z["tissue"]
         annotation = annotation_20(MICE[mouse][1])
         labels = annotation[tissue]
@@ -366,7 +364,7 @@ def prepare() -> tuple[
 
 def save(fig: plt.Figure, name: str) -> None:
     """Save `fig` as `name` in the output folder at 200 dpi, close it, print the path."""
-    path = os.path.join(OUT, name)
+    path = OUT / name
     fig.savefig(path, dpi=200)
     plt.close(fig)
     print(f"  -> {path}")
@@ -397,9 +395,7 @@ def step0_structures(
                 reason=why,
             )
         )
-    with open(
-        os.path.join(OUT, "structures_used.csv"), "w", newline="", encoding="utf-8"
-    ) as fh:
+    with open(OUT / "structures_used.csv", "w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(
             fh, fieldnames=["structure", "division", "kept", "reason"]
         )
@@ -555,9 +551,7 @@ def step2_covariates(
         f"explainable variance unaccounted for."
     )
 
-    with open(
-        os.path.join(OUT, "variance_partition.csv"), "w", newline="", encoding="utf-8"
-    ) as fh:
+    with open(OUT / "variance_partition.csv", "w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
         writer.writerow(["model", "cv_r2", "in_sample_r2", "share_of_ceiling"])
         for (label, xs), v in zip(models, vals):
@@ -641,9 +635,7 @@ def step4_where(
     predicted = y - res
 
     # the residual per structure, largest first
-    with open(
-        os.path.join(OUT, "residual_by_structure.csv"), "w", newline="", encoding="utf-8"
-    ) as fh:
+    with open(OUT / "residual_by_structure.csv", "w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
         writer.writerow(["structure", "nano_rank", "predicted_rank", "residual"])
         for i in np.argsort(-res):
@@ -731,7 +723,7 @@ def step4_where(
 
 def main() -> None:
     """Run the four steps on the ten adults and write their tables and figures."""
-    os.makedirs(OUT, exist_ok=True)
+    OUT.mkdir(parents=True, exist_ok=True)
     nano, division = nano_per_mouse()
     expr, role = gene_profiles()
 

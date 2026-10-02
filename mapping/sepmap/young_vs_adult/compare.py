@@ -23,8 +23,8 @@ Run by run_compare.py.
 """
 
 import csv
-import os
 import time
+from pathlib import Path
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -42,7 +42,7 @@ from sepmap.young_vs_adult.hemispheres import fold, fold_count
 READINGS = SETTINGS["readings"]
 YOUNG_VS_ADULT = SETTINGS["young_vs_adult"]
 
-OUT = os.path.join(DATA, "comparisons_v2", "young_vs_adult")
+OUT = DATA / "comparisons_v2" / "young_vs_adult"
 
 # start of the adult registered crop along AP, in 10 um planes; added to the plane
 # number in each slice title
@@ -60,14 +60,14 @@ def load_cohort(cohort: str) -> tuple[dict[str, np.ndarray], np.ndarray]:
     Returns ({reading: map}, n), where n counts the brains with tissue (cref_n).
     """
     maps = {
-        reading: fold(np.load(os.path.join(CCF_ROOT, cohort, f"{reading}_mean.npy")))
+        reading: fold(np.load(CCF_ROOT / cohort / f"{reading}_mean.npy"))
         for reading in MODES
     }
-    n = fold_count(np.load(os.path.join(CCF_ROOT, cohort, "cref_n.npy")))
+    n = fold_count(np.load(CCF_ROOT / cohort / "cref_n.npy"))
     return maps, n
 
 
-def draw_figures(maps: dict[str, np.ndarray], out: str) -> None:
+def draw_figures(maps: dict[str, np.ndarray], out: Path) -> None:
     """Draw one slices figure per reading from the saved `maps` into `out`.
 
     Also called by young_vs_adult.replot. Six coronal planes, spread over the
@@ -207,7 +207,7 @@ def draw_figures(maps: dict[str, np.ndarray], out: str) -> None:
             fontsize=10,
         )
         fig.tight_layout(rect=(0, 0, 1, 0.975))
-        save_figure(fig, os.path.join(out, f"slices_{reading}.png"), dpi=105)
+        save_figure(fig, out / f"slices_{reading}.png", dpi=105)
         plt.close(fig)
 
 
@@ -229,13 +229,13 @@ def main() -> None:
     t0 = time.time()
     min_n_young = YOUNG_VS_ADULT["min_n_young"]
     min_n_adult = YOUNG_VS_ADULT["min_n_adult"]
-    os.makedirs(OUT, exist_ok=True)
+    OUT.mkdir(parents=True, exist_ok=True)
 
     # the annotation at 20 um, left half: the young volumes live on the same
     # 660-plane grid as the adults (planes 90-539 hold the adult registered crop)
-    annotation = np.asarray(
-        nib.load(os.path.join(DATA, "atlas", "annotation_10.nii.gz")).dataobj
-    )[::2, ::2, ::2]
+    annotation = np.asarray(nib.load(DATA / "atlas" / "annotation_10.nii.gz").dataobj)[
+        ::2, ::2, ::2
+    ]
     annotation_left = annotation[:, :, :285]
     inside = annotation_left > 0
 
@@ -286,7 +286,7 @@ def main() -> None:
                 np.float32
             )
     np.savez_compressed(
-        os.path.join(OUT, "volumes_ccf20.npz"),
+        OUT / "volumes_ccf20.npz",
         annot20=annotation_left,
         both=compared,
         adult_n=adult_n,
@@ -365,9 +365,7 @@ def main() -> None:
                 )
         rows.append(row)
     rows.sort(key=lambda row: (row["division"], row["acronym"]))
-    with open(
-        os.path.join(OUT, "region_table.csv"), "w", newline="", encoding="utf-8"
-    ) as fh:
+    with open(OUT / "region_table.csv", "w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
         writer.writeheader()
         for row in rows:
@@ -396,10 +394,10 @@ def main() -> None:
             + " ".join(f"{row[f'log2_{reading}']:+10.2f}" for reading in MODES)
             + tag
         )
-    with open(os.path.join(OUT, "cortex_table.txt"), "w") as fh:
+    with open(OUT / "cortex_table.txt", "w") as fh:
         fh.write("\n".join(lines) + "\n")
     print("\n".join(lines))
 
     # figures, from the saved maps
-    draw_figures(dict(np.load(os.path.join(OUT, "volumes_ccf20.npz"))), OUT)
+    draw_figures(dict(np.load(OUT / "volumes_ccf20.npz")), OUT)
     print(f"done  {time.time() - t0:.0f} s")

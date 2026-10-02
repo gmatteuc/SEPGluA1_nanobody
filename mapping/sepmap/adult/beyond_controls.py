@@ -38,7 +38,6 @@ Run by run_beyond_controls.py.
 """
 
 import csv
-import os
 from collections import defaultdict
 from collections.abc import Sequence
 
@@ -679,7 +678,7 @@ def main() -> None:
     verdicts.append(vg)
 
     # the verdicts, a skipped control (None) left out
-    path = os.path.join(OUT, "controls.csv")
+    path = OUT / "controls.csv"
     with open(path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=["control", "number", "verdict"])
         writer.writeheader()
