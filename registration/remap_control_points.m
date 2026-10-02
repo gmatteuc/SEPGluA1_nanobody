@@ -55,25 +55,25 @@ Tnew = readtable(newfile);
 
 % the saved points, histology and atlas, in the old order
 S = load(tformfile);
-hold_pts = S.histology_control_points;
-aold_pts = S.atlas_control_points;
+hist_old_pts = S.histology_control_points;
+atlas_old_pts = S.atlas_control_points;
 
 fprintf('%s\n', repmat('=', 1, 72));
 fprintf('%s\n', mousename);
 fprintf('  old order: %d slices in the volume\n', numel(seqold));
 fprintf('  new order: %d slices in the volume\n', numel(seqnew));
-fprintf('  saved points: %d slices\n', numel(hold_pts));
+fprintf('  saved points: %d slices\n', numel(hist_old_pts));
 
-if numel(hold_pts) ~= numel(seqold)
+if numel(hist_old_pts) ~= numel(seqold)
     warning(['The saved points cover %d slices but the old decisions file ' ...
              'describes %d. The backup may not be the one that was in force ' ...
-             'when these points were placed.'], numel(hold_pts), numel(seqold));
+             'when these points were placed.'], numel(hist_old_pts), numel(seqold));
 end
 
 %% Walk the points across
 
-hnew_pts = repmat({zeros(0,4)}, numel(seqnew), 1);
-anew_pts = repmat({zeros(0,4)}, numel(seqnew), 1);
+hist_new_pts = repmat({zeros(0,4)}, numel(seqnew), 1);
+atlas_new_pts = repmat({zeros(0,4)}, numel(seqnew), 1);
 
 nmoved = 0;
 nsame = 0;
@@ -90,13 +90,13 @@ for q = 1:numel(seqnew)
     orig = seqnew(q);
     p    = find(seqold == orig, 1);
 
-    if isempty(p) || p > numel(hold_pts)
+    if isempty(p) || p > numel(hist_old_pts)
         fprintf('%-6d %-9d %-9s %6s   new to the volume, starts empty\n', ...
             q, orig, '-', '-');
         continue
     end
 
-    npts = size(hold_pts{p}, 1);
+    npts = size(hist_old_pts{p}, 1);
 
     % a flipped slice loses its points
     if flipnew(orig) ~= flipold(orig)
@@ -108,8 +108,8 @@ for q = 1:numel(seqnew)
         continue
     end
 
-    hnew_pts{q} = hold_pts{p};
-    anew_pts{q} = aold_pts{p};
+    hist_new_pts{q} = hist_old_pts{p};
+    atlas_new_pts{q} = atlas_old_pts{p};
 
     if npts == 0
         continue
@@ -123,11 +123,11 @@ for q = 1:numel(seqnew)
 end
 
 % anything annotated in the old volume that has no place in the new one
-for p = 1:min(numel(hold_pts), numel(seqold))
-    if ~isempty(hold_pts{p}) && ~ismember(seqold(p), seqnew)
+for p = 1:min(numel(hist_old_pts), numel(seqold))
+    if ~isempty(hist_old_pts{p}) && ~ismember(seqold(p), seqnew)
         nlost = nlost + 1;
         fprintf('%-6s %-9d %-9d %6d   slice dropped from the volume, points lost\n', ...
-            '-', seqold(p), p, size(hold_pts{p},1));
+            '-', seqold(p), p, size(hist_old_pts{p},1));
     end
 end
 
@@ -148,8 +148,8 @@ copyfile(tformfile, backup);
 
 % the loaded struct goes back whole, not the two arrays alone: some GUI saves put
 % an atlas2histology_tform in the file too, which a save of two variables would drop
-S.histology_control_points = hnew_pts;
-S.atlas_control_points     = anew_pts;
+S.histology_control_points = hist_new_pts;
+S.atlas_control_points     = atlas_new_pts;
 save(tformfile, '-struct', 'S');
 
 fprintf('\nWritten: %s\n', tformfile);
