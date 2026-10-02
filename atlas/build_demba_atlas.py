@@ -34,10 +34,11 @@ The two crop measurements, which agreed for P20 ([63 559] and [62 562]):
 
 Writes atlas_demba_p<age> under the data root: the template, the remapped
 annotation and the original one, aplims.txt (the area-profile crop) and
-source.txt. Runs in tools\\venv_atlas; the atlas is downloaded on first use.
+source.txt. Runs in tools\\venv_atlas, from the code root; the atlas is
+downloaded on first use.
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe atlas\\build_demba_atlas.py 16
-  ... get_atlas then finds the folder by its key, demba_p16.
+    python atlas\\build_demba_atlas.py 16
+    ... then get_atlas('demba_p16') finds the folder by its key.
 """
 
 import csv
@@ -48,6 +49,7 @@ from pathlib import Path
 
 import nibabel as nib
 import numpy as np
+from brainglobe_atlasapi import BrainGlobeAtlas
 
 
 def _data_root():
@@ -93,7 +95,7 @@ def _data_root():
     ):
         raise RuntimeError(
             f"the data root {data} is inside the code folder; set "
-            f"SEP_DATA_ROOT to the check tree"
+            "SEP_DATA_ROOT to the check tree"
         )
     return Path(data)
 
@@ -201,16 +203,14 @@ def main(age):
     name = f"demba_allen_seg_dev_mouse_p{age}_20um"
     out_dir = DATA / f"atlas_demba_p{age}"
     print(f"fetching {name} (downloads on first use) ...", flush=True)
-    from brainglobe_atlasapi import BrainGlobeAtlas
-
     atlas = BrainGlobeAtlas(name)
     tmpl = np.asarray(atlas.template)
     ann = np.asarray(atlas.annotation)
     res = atlas.metadata["resolution"]
-    assert tuple(res) == (20, 20, 20), f"expected 20 um isotropic, got {res}"
-    assert atlas.orientation == "asr", (
-        f"expected asr (AP, DV, ML), got {atlas.orientation}"
-    )
+    if tuple(res) != (20, 20, 20):
+        raise ValueError(f"expected 20 um isotropic, got {res}")
+    if atlas.orientation != "asr":
+        raise ValueError(f"expected asr (AP, DV, ML), got {atlas.orientation}")
     print(
         f"  shape {ann.shape}, orientation {atlas.orientation}, "
         f"{len(np.unique(ann))} labels",
@@ -221,9 +221,9 @@ def main(age):
     sid_to_index = {}
     with open(PARCELLATION, newline="", encoding="utf-8") as fh:
         for row in csv.DictReader(fh):
-            m = re.search(r"AllenCCF-Annotation-\d+-(\d+)$", row["label"])
-            if m:
-                sid_to_index[int(m.group(1))] = int(row["parcellation_index"])
+            match = re.search(r"AllenCCF-Annotation-\d+-(\d+)$", row["label"])
+            if match:
+                sid_to_index[int(match.group(1))] = int(row["parcellation_index"])
     present = np.unique(ann)
     lut = np.array(
         [0 if v == 0 else sid_to_index.get(int(v), 0) for v in present], dtype=np.uint16
@@ -291,12 +291,12 @@ def main(age):
         f"brain spans AP planes {brain[0]}..{brain[1]}\n"
         f"annotation remapped to Allen parcellation_index ({len(present)} ids, "
         f"{len(missing)} untranslatable, {kept:.4f} of labelled voxels kept)\n"
-        f"crop equivalent to the adult CCF [180 1079]:\n"
+        "crop equivalent to the adult CCF [180 1079]:\n"
         f"  area profile : [{lo_a} {hi_a}]  (RMS {rms:.4f})\n"
         f"  region COM   : [{lo_r} {hi_r}]  ({n_reg} regions, slope {slope:.3f}, "
         f"residual {sd:.1f} CCF planes)\n"
-        f"aplims.txt holds the area-profile value, which is what get_atlas uses.\n"
-        f"Built by build_demba_atlas.py.\n"
+        "aplims.txt holds the area-profile value, which is what get_atlas uses.\n"
+        "Built by build_demba_atlas.py.\n"
     )
     print(f"\nwrote {out_dir / 'aplims.txt'} ({lo_a} {hi_a}) and source.txt")
     print(
