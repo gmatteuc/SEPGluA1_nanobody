@@ -1,5 +1,1 @@
-"""The Python route of the project, called by the run_*.py scripts beside it.
-
-Imports nothing, so that the flatmap environment can import sepmap.config
-without the analysis packages.
-"""
+"""The Python route's package; imports nothing, so venv_flat can import sepmap.config."""

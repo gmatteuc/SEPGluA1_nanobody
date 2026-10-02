@@ -58,7 +58,8 @@ def main(mice):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="diagnostic sheets of the route")
-    parser.add_argument("mice", nargs="*",
-                        help="brains whose sheets to refresh (default: every sheet)")
+    parser.add_argument(
+        "mice", nargs="*", help="brains whose sheets to refresh (default: every sheet)"
+    )
     args = parser.parse_args()
     main(args.mice)
