@@ -45,6 +45,9 @@ from scipy.ndimage import binary_erosion
 from sepmap.config import DATA, SETTINGS
 from sepmap.volumes.per_mouse import structure_terms
 
+# the valid voxels a structure needs to get a value
+ISH_REGIONS = SETTINGS["ish_regions"]
+
 ISH_DIR = os.path.join(DATA, "atlas_ish")
 OUT = os.path.join(DATA, "adult_v2", "ish")
 
@@ -63,9 +66,6 @@ GRID_UM = 200
 
 # the Allen flag for "no data here"
 MISSING = -1.0
-
-# valid 200 um voxels a structure needs to get a value
-MIN_VOXELS = 3
 
 # the shared reference box, in the header's (x, y, z) order
 GRID_DIMS = (67, 41, 58)
@@ -141,7 +141,8 @@ def region_means(
     Returns {structure name: (full mean, eroded mean, n valid voxels, n voxels in
     the structure)}, summed over the layer-level indices that share a structure
     name, as on the nano side, so the two tables join on the same key. A structure
-    with fewer than MIN_VOXELS valid voxels is left out; its eroded mean is NaN
+    with fewer than ish_regions.min_voxels valid voxels is left out; its eroded
+    mean is NaN
     when erosion leaves fewer than that.
     """
     out = {}
@@ -161,9 +162,10 @@ def region_means(
         me = (eroded_ann == idx) & valid
         a[2] += float(vol[me].sum())
         a[3] += int(me.sum())
+    min_voxels = ISH_REGIONS["min_voxels"]
     for name, (s, n, se, ne, ntot) in acc.items():
-        if n >= MIN_VOXELS:
-            out[name] = (s / n, (se / ne) if ne >= MIN_VOXELS else np.nan, n, ntot)
+        if n >= min_voxels:
+            out[name] = (s / n, (se / ne) if ne >= min_voxels else np.nan, n, ntot)
     return out
 
 

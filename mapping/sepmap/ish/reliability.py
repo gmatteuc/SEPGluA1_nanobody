@@ -45,11 +45,8 @@ OUT = os.path.join(DATA, "adult_v2", "ish")
 ISH_PANELS = SETTINGS["ish_panels"]
 DEFAULT_PANEL = "ontology"
 
-# 200 um voxels a structure's gene value needs
-MIN_ISH_VOXELS = 10
-
-# structures two experiments must share to be compared
-MIN_SHARED = 50
+# the voxels a gene value needs, and the structures two experiments must share
+ISH = SETTINGS["ish"]
 
 
 def load(
@@ -60,13 +57,13 @@ def load(
     """Each experiment's profile, and each experiment's plane and role.
 
     Returns ({gene: {experiment: {structure: energy}}}, {(gene, experiment):
-    (plane, role)}), structures with fewer than MIN_ISH_VOXELS voxels left out.
+    (plane, role)}), structures with fewer than ish.min_voxels voxels left out.
     """
     per = defaultdict(lambda: defaultdict(dict))
     meta = {}
     with open(path, newline="", encoding="utf-8") as fh:
         for r in csv.DictReader(fh):
-            if int(r["n_voxels"]) < MIN_ISH_VOXELS:
+            if int(r["n_voxels"]) < ISH["min_voxels"]:
                 continue
             per[r["symbol"]][r["experiment_id"]][r["structure"]] = float(r["ish_mean"])
             meta[(r["symbol"], r["experiment_id"])] = (r.get("plane", ""), r["category"])
@@ -78,12 +75,12 @@ def pair_reliability(
 ) -> list[tuple[str, str, float, int]]:
     """(experiment a, experiment b, Spearman, n structures) for each pair of a gene.
 
-    A pair sharing fewer than MIN_SHARED structures is left out.
+    A pair sharing fewer than ish.min_structures_pair structures is left out.
     """
     out = []
     for a, b in itertools.combinations(sorted(profiles), 2):
         shared = sorted(set(profiles[a]) & set(profiles[b]))
-        if len(shared) < MIN_SHARED:
+        if len(shared) < ISH["min_structures_pair"]:
             continue
         rho, _ = spearmanr(
             [profiles[a][s] for s in shared], [profiles[b][s] for s in shared]

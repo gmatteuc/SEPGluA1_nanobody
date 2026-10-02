@@ -29,8 +29,8 @@ from scipy.ndimage import center_of_mass
 
 from sepmap.config import SETTINGS
 
-# 20 um voxels a structure needs in a coronal plane to get its acronym drawn
-MIN_LABEL_AREA = SETTINGS["videos"]["min_label_area"]
+# the 20 um voxels a structure needs in a coronal plane to get its acronym drawn
+VIDEOS = SETTINGS["videos"]
 
 # the palette: red for the young group and for what a figure shows, dark and mid
 # grey for the naive and rws adults and for comparison and context, dark blue for
@@ -156,7 +156,7 @@ def coronal_frame(
     `panels` holds (image, colormap, limits, title) per panel. The atlas is dark
     grey under the data and its borders lie on top: as lines with
     `vector_outline`, otherwise as a pixel overlay. Structures with at least
-    MIN_LABEL_AREA voxels in the plane get their acronym.
+    videos.min_label_area voxels in the plane get their acronym.
     """
     lab = ann_h[k]
     inside = lab > 0
@@ -194,7 +194,7 @@ def coronal_frame(
             if idx == 0:
                 continue
             m = lab == idx
-            if m.sum() < MIN_LABEL_AREA:
+            if m.sum() < VIDEOS["min_label_area"]:
                 continue
             cy, cx = center_of_mass(m)
             ax.text(

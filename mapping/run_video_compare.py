@@ -46,13 +46,13 @@ With no reading named, every reading in force. --plane draws that CCF plane
 colour range of the two means and of the difference for this run only.
 Readings and options can come in any order.
 
-V2_READINGS, a comma-separated subset of the readings (ratio, sepratio,
-cref, subref, zref), limits the readings in force, which a run with no reading
-named draws; the run prints them.
+The readings in force, which a run with no reading named draws, are
+readings.in_force of settings.toml; V2_READINGS, a comma-separated subset of them
+(ratio, sepratio, cref, subref, zref), replaces it for one run. The run prints
+them.
 """
 
 import argparse
-import os
 
 import matplotlib
 
@@ -69,9 +69,7 @@ def main(readings, plane=None, vmax=None, dlim=None):
     readings = readings or list(cohort.MODES)
 
     # settings in force
-    in_force = " ".join(cohort.MODES)
-    if os.environ.get("V2_READINGS", "").strip():
-        in_force += "  (from V2_READINGS)"
+    in_force = cohort.readings_in_force()
     if plane is None:
         plane_text = "every plane, as a video"
     else:

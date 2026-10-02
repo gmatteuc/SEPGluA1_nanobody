@@ -49,20 +49,20 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import rankdata, spearmanr
 
-from sepmap.config import DATA
+from sepmap.config import DATA, SETTINGS
 from sepmap.ish.compare import gene_profiles
 from sepmap.plotting import DARK_BLUE, RED, tidy
+
+# the adult groups, the reading of the tests and the structures a correlation needs
+ISH = SETTINGS["ish"]
 
 NANO = os.path.join(
     DATA, "comparisons_v2", "young_vs_adult", "region_means_per_mouse.csv"
 )
 OUT = os.path.join(DATA, "adult_v2", "ish")
 
-# the adult groups, pooled
-ADULT_GROUPS = ("naive", "rws")
-
-# the reading the project has settled on, for the tests and the figure
-READING = "zref"
+# the adult groups, pooled, as a tuple; every reading, for the table by role
+ADULT_GROUPS = tuple(ISH["adult_groups"])
 ALL_READINGS = ("zref", "cref", "subref", "ratio", "sepratio")
 
 # curated roles, from what the protein does, not from any correlation: subunit and
@@ -304,7 +304,7 @@ def sensitivity(
 def main() -> None:
     """Run the three steps and the sensitivity run on the map, write, print and draw."""
     # the map, the gene profiles and each gene's role
-    nano = adult_profile(READING)
+    nano = adult_profile(ISH["reading"])
     expr, category = gene_profiles()
     roles = {g: role_of(g, category) for g in expr}
 
@@ -314,7 +314,7 @@ def main() -> None:
     structures = sorted(set(nano).intersection(*[set(expr[g]) for g in family]))
     print(
         f"{len(expr)} genes, {len(family)} in the AMPAR family, "
-        f"{len(structures)} shared structures, reading {READING}"
+        f"{len(structures)} shared structures, reading {ISH['reading']}"
     )
     sub = sorted(g for g in family if roles[g] == "subunit")
     loc = sorted(g for g in family if roles[g] == "localisation")
@@ -327,7 +327,7 @@ def main() -> None:
         prof = adult_profile(reading)
         for gene in sorted(expr):
             common = sorted(set(prof) & set(expr[gene]))
-            if len(common) < 50:
+            if len(common) < ISH["min_structures"]:
                 continue
             rho, _ = spearmanr([prof[s] for s in common], [expr[gene][s] for s in common])
             rows.append(
@@ -359,11 +359,11 @@ def main() -> None:
             w.writerow([g, roles[g], category.get(g, "")])
 
     # step 1 printed for the reading of the tests
-    here = [r for r in rows if r["reading"] == READING]
+    here = [r for r in rows if r["reading"] == ISH["reading"]]
     by_role = defaultdict(list)
     for r in here:
         by_role[r["role"]].append(r["rho"])
-    print(f"\n1. rho with the {READING} map, by curated role")
+    print(f"\n1. rho with the {ISH['reading']} map, by curated role")
     for role in ORDER:
         v = by_role.get(role, [])
         if v:
@@ -378,7 +378,7 @@ def main() -> None:
     m_comp = composite(loc, expr, structures)
     c = commonality(y, s_comp, m_comp)
     print(
-        f"\n2. variance of the {READING} map explained "
+        f"\n2. variance of the {ISH['reading']} map explained "
         f"(ranks, {len(structures)} structures)"
     )
     print(f"  subunit composite alone        R2 = {c['r2_subunit']:.3f}")
@@ -458,7 +458,7 @@ def figure(
         rotation=32,
         ha="right",
     )
-    ax.set_ylabel(f"Spearman with the adult {READING} map", fontsize=8)
+    ax.set_ylabel(f"Spearman with the adult {ISH['reading']} map", fontsize=8)
     ax.set_title(
         "1. the map by curated role\n"
         "blue = what sets abundance, red = what sets localisation",

@@ -15,7 +15,7 @@ outlines and acronyms on both.
 
 The colour range of the mean is fixed per reading, so that cohorts can be compared
 by eye; the t panel runs to that cohort's 95th percentile of t. Grey is fewer than
-MIN_N mice with tissue.
+videos.min_n mice with tissue (settings.toml).
 
 Writes comparisons_v2/ccf/<cohort>/video_<reading>_<cohort>.mp4.
 
@@ -37,19 +37,9 @@ from sepmap.volumes.cohort import OUT_ROOT as CCF_ROOT
 from sepmap.volumes.per_mouse import DATA, structure_terms
 from sepmap.young_vs_adult.hemispheres import fold, fold_count
 
-# colour range of the mean per reading, set so that cortex sits near half of it: cref
-# is 1 by construction, adult cortex is 1.01 in ratio and 0.29 in sepratio; the
-# hippocampus saturates by design
-MEAN_VMAX = {"ratio": 2.0, "sepratio": 0.6, "cref": 2.0, "subref": 2.0, "zref": 2.0}
-
-# range of the t panel: 0 to this percentile of t over the cohort's voxels
-T_PCT = 95.0
-
-# brains with tissue that a voxel needs, per cohort
-MIN_N = {"young": 2, "young_P20": 2, "young_P16": 1, "naive": 3, "rws": 3, "adult": 5}
-
-# frames per second
-FPS = SETTINGS["videos"]["fps"]
+# the colour range of the means, the range of the t panel, the brains a voxel needs
+# per cohort and the frame rate
+VIDEOS = SETTINGS["videos"]
 
 
 def annotation_ccf20() -> np.ndarray:
@@ -81,24 +71,25 @@ def main(cohorts: list[str]) -> None:
             mean = fold(np.load(os.path.join(CCF_ROOT, cohort, f"{reading}_mean.npy")))
             sd = fold(np.load(os.path.join(CCF_ROOT, cohort, f"{reading}_sd.npy")))
             signed = reading in SIGNED_READINGS
-            ok = (n_h >= MIN_N[cohort]) & np.isfinite(mean)
+            ok = (n_h >= VIDEOS["min_n"][cohort]) & np.isfinite(mean)
             with np.errstate(divide="ignore", invalid="ignore"):
                 tval = np.where(
                     ok & (sd > 0), mean / (sd / np.sqrt(np.maximum(n_h, 1))), np.nan
                 )
 
-            # colour limits: fixed for the mean; for the t panel the T_PCT percentile
-            # of t, of |t| for a signed reading
+            # colour limits: fixed for the mean; for the t panel the videos.t_pct
+            # percentile of t, of |t| for a signed reading
             t_vmax = float(
                 np.nanpercentile(
-                    np.abs(tval[ok & (sd > 0)]) if signed else tval[ok & (sd > 0)], T_PCT
+                    np.abs(tval[ok & (sd > 0)]) if signed else tval[ok & (sd > 0)],
+                    VIDEOS["t_pct"],
                 )
             )
             cmap_use = puor if signed else hot
             if signed:
-                lim_mean = (-MEAN_VMAX[reading], MEAN_VMAX[reading])
+                lim_mean = (-VIDEOS["mean_vmax"][reading], VIDEOS["mean_vmax"][reading])
             else:
-                lim_mean = (0, MEAN_VMAX[reading])
+                lim_mean = (0, VIDEOS["mean_vmax"][reading])
             lim_t = (-t_vmax, t_vmax) if signed else (0, t_vmax)
 
             # a video of the planes with more than 200 voxels with data, drawn into
@@ -106,7 +97,7 @@ def main(cohorts: list[str]) -> None:
             frames = [k for k in range(ann_h.shape[0]) if ok[k].sum() > 200]
             out = os.path.join(CCF_ROOT, cohort, f"video_{reading}_{cohort}.mp4")
             writer = imageio_ffmpeg.write_frames(
-                out, (1600, 800), fps=FPS, quality=7, macro_block_size=8
+                out, (1600, 800), fps=VIDEOS["fps"], quality=7, macro_block_size=8
             )
             writer.send(None)
             fig = plt.figure(figsize=(16, 8), dpi=100, facecolor="k")
@@ -135,7 +126,7 @@ def main(cohorts: list[str]) -> None:
                         cmap_use,
                         lim_t,
                         f"{title} - reliability t = mean/SEM  "
-                        f"(range = {T_PCT:.0f}th pct)",
+                        f"(range = {VIDEOS['t_pct']:.0f}th pct)",
                     ),
                 )
 

@@ -42,6 +42,7 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 import numpy as np
 
+from sepmap.config import SETTINGS
 from sepmap.plotting import GROUP_COLOURS, save_figure
 from sepmap.volumes.cohort import (
     NAIVE,
@@ -62,6 +63,10 @@ from sepmap.young_vs_adult.region_plot import (
     mannwhitney,
     welch,
 )
+
+# the smallest group (and structure) kept, and the brains a group needs to be tested
+REGION_TABLES = SETTINGS["region_tables"]
+REGION_GROUPS = SETTINGS["region_groups"]
 
 OUT = os.path.join(DATA, "comparisons_v2", "young_vs_adult")
 
@@ -188,9 +193,9 @@ def group_means(
     """Per mouse: the group means, the two references and the structure means of sig.
 
     Returns (per, refs, struct_mean). A group's cell is (voxels, mean sig, mean
-    ratio, mean sepratio), None under 250 voxels; the structure means, of the
-    structures with at least 250 voxels, feed the range match. Stops if a brain has
-    no SEP channel while the sepratio reading is in force.
+    ratio, mean sepratio), None under region_tables.min_vox20 voxels; the structure
+    means, of the structures with at least as many, feed the range match. Stops if
+    a brain has no SEP channel while the sepratio reading is in force.
     """
     anns, per, refs, struct_mean = {}, {}, {}, {}
     for mouse in mice:
@@ -222,12 +227,12 @@ def group_means(
         s_rat = np.bincount(lab, weights=ratio[tissue], minlength=nlab)
         s_sep = np.bincount(lab, weights=sepratio[tissue], minlength=nlab)
 
-        # the voxel-weighted means of each group with at least 250 voxels
+        # the voxel-weighted means of each group large enough
         per[mouse] = {}
         for key, ids in groups.items():
             ids = [i for i in ids if i < nlab]
             c = n[ids].sum()
-            if c >= 250:
+            if c >= REGION_TABLES["min_vox20"]:
                 per[mouse][key] = (
                     int(c),
                     s_sig[ids].sum() / c,
@@ -254,7 +259,11 @@ def group_means(
                 continue
             by_struct[stru[i]][0] += int(n[i])
             by_struct[stru[i]][1] += s_sig[i]
-        struct_mean[mouse] = {k: v[1] / v[0] for k, v in by_struct.items() if v[0] >= 250}
+        struct_mean[mouse] = {
+            k: v[1] / v[0]
+            for k, v in by_struct.items()
+            if v[0] >= REGION_TABLES["min_vox20"]
+        }
         print(
             f"{mouse:20s} {sum(v is not None for v in per[mouse].values())}"
             f"/{len(groups)} groups",
@@ -325,7 +334,8 @@ def group_stats(
 ) -> list[dict]:
     """Per group and reading the young-against-adult tests, as rows of group_stats.csv.
 
-    A group is tested when at least 3 young and 5 adult brains have a value. The
+    A group is tested when at least region_groups.min_young young and min_adult
+    adult brains have a value. The
     Mann-Whitney BH q is taken within each reading and grouping.
     """
     rows = []
@@ -339,7 +349,10 @@ def group_stats(
             ad = [v[m] for m in ADULTS if m in v]
             nv = [v[m] for m in NAIVE if m in v]
             rw = [v[m] for m in RWS if m in v]
-            if len(yo) < 3 or len(ad) < 5:
+            if (
+                len(yo) < REGION_GROUPS["min_young"]
+                or len(ad) < REGION_GROUPS["min_adult"]
+            ):
                 continue
             if len(y20) >= 3:
                 diff_p20only = np.median(y20) - np.median(ad)

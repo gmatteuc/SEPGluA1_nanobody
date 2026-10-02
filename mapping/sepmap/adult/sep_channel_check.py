@@ -42,10 +42,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import spearmanr
 
+from sepmap.config import SETTINGS
 from sepmap.plotting import RED, tidy
 from sepmap.volumes.cohort import NAIVE, RWS
 from sepmap.volumes.per_mouse import DATA, MICE, annotation_20, structure_terms
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
+
+# the smallest structure kept, as in young_vs_adult.region_plot; the ISH voxels a
+# structure needs for its gene value to be used, and the gene the channels are
+# compared with (Gria1)
+REGION_TABLES = SETTINGS["region_tables"]
+ISH = SETTINGS["ish"]
 
 OUT = os.path.join(DATA, "adult_v2", "arms")
 GENES = os.path.join(DATA, "adult_v2", "ish", "gene_region_table.csv")
@@ -58,21 +65,12 @@ ADULTS = NAIVE + RWS
 CHANNELS = ("sig", "auto", "sep")
 NICE = {"sig": "nano", "auto": "autofluo", "sep": "SEP (green)"}
 
-# smallest structure kept, in 20 um voxels, as in young_vs_adult.region_plot
-MIN_VOX = 250
-
-# ISH voxels a structure needs for its Gria1 value to be used
-MIN_ISH_VOXELS = 10
-
-# the gene the channels are compared with
-CONTROL = "Gria1"
-
 
 def mouse_channels(mouse: str, names: dict[int, str]) -> dict[str, dict[str, float]]:
     """{channel: {structure: log2 mean}} for one adult, raw, no denominators.
 
-    The layer indices of a structure are pooled by name; a structure under MIN_VOX
-    voxels, or with no signal, is left out.
+    The layer indices of a structure are pooled by name; a structure under
+    region_tables.min_vox20 voxels, or with no signal, is left out.
     """
     z = np.load(os.path.join(PER_MOUSE, mouse + ".npz"))
     tissue = z["tissue"]
@@ -95,17 +93,22 @@ def mouse_channels(mouse: str, names: dict[int, str]) -> dict[str, dict[str, flo
             a[0] += int(n[i])
             a[1] += s[i]
         out[key] = {
-            k: math.log2(t / c) for k, (c, t) in acc.items() if c >= MIN_VOX and t > 0
+            k: math.log2(t / c)
+            for k, (c, t) in acc.items()
+            if c >= REGION_TABLES["min_vox20"] and t > 0
         }
     return out
 
 
 def gria1_profile() -> dict[str, float]:
-    """Gria1 ISH mean per structure, where the structure has MIN_ISH_VOXELS voxels."""
+    """Gria1 ISH mean per structure, where the structure has ish.min_voxels voxels."""
     prof = {}
     with open(GENES, newline="", encoding="utf-8") as fh:
         for r in csv.DictReader(fh):
-            if r["symbol"] == CONTROL and int(r["n_voxels"]) >= MIN_ISH_VOXELS:
+            if (
+                r["symbol"] == ISH["control_gene"]
+                and int(r["n_voxels"]) >= ISH["min_voxels"]
+            ):
                 prof[r["structure"]] = float(r["ish_mean"])
     return prof
 
@@ -192,7 +195,7 @@ def main() -> None:
         f"  nano ~ autofluo   {say('rho_nano_auto')}   "
         "<- the nano channel is its own thing"
     )
-    print(f"\nagainst {CONTROL} expression")
+    print(f"\nagainst {ISH['control_gene']} expression")
     for k, label in (
         ("rho_nano_gria", "nano"),
         ("rho_auto_gria", "autofluo"),
@@ -267,7 +270,7 @@ def main() -> None:
     ax.axhline(0, color="0.8", lw=0.7, zorder=0)
     ax.set_xticks(range(len(keys)))
     ax.set_xticklabels(labels, fontsize=8)
-    ax.set_ylabel(f"Spearman with {CONTROL} expression", fontsize=8)
+    ax.set_ylabel(f"Spearman with {ISH['control_gene']} expression", fontsize=8)
     ax.set_title(
         "if the green channel were total receptor,\nit would beat nano here",
         fontsize=9,

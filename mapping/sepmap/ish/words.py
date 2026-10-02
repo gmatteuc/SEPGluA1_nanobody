@@ -12,12 +12,13 @@ gene's GO terms from mygene.info, cached one JSON per gene, give two feature set
              "recycling", "endosome", "postsynaptic": coarser, but they pool
              terms that say the same thing differently
 
-For each feature held by at least MIN_GENES genes (and by at most MAX_SHARE of
-them), the genes with it are compared with the genes without it on their rho with
-the adult nano map: Mann-Whitney on rho, the gap between the two medians as the
-effect size with a percentile bootstrap interval, Benjamini-Hochberg across
-features. Ranks rather than means, because 95 genes is small and rho is bounded.
-Sorted by effect size, a five-gene group comes first for free; its interval shows it.
+For each feature held by at least ish_words.min_genes genes (and by at most
+max_share of them), the genes with it are compared with the genes without it on
+their rho with the adult nano map: Mann-Whitney on rho, the gap between the two
+medians as the effect size with a percentile bootstrap interval,
+Benjamini-Hochberg across features. Ranks rather than means, because 95 genes is
+small and rho is bounded. Sorted by effect size, a five-gene group comes first for
+free; its interval shows it.
 
 Genes sharing a GO term are co-expressed, so their rho values are not independent
 draws and the p values are anticonservative by a lot (the null that Fulcher 2021
@@ -48,33 +49,20 @@ import numpy as np
 from matplotlib.axes import Axes
 from scipy.stats import false_discovery_control, mannwhitneyu
 
-from sepmap.config import DATA
+from sepmap.config import DATA, SETTINGS
 from sepmap.plotting import RED
+
+# the reading of the figure and of the printed summary; the genes a feature needs,
+# the largest share it may have, the shortest word, the features shown and the
+# bootstrap resamples
+ISH = SETTINGS["ish"]
+ISH_WORDS = SETTINGS["ish_words"]
 
 RHO = os.path.join(DATA, "adult_v2", "ish", "gene_correlations.csv")
 OUT = os.path.join(DATA, "adult_v2", "ish")
 CACHE = os.path.join(OUT, "annotation")
 
 MYGENE = "https://mygene.info/v3/query"
-
-# genes a feature needs to be tested
-MIN_GENES = 5
-
-# the largest share of the genes a feature may have: one on nearly every gene says
-# nothing
-MAX_SHARE = 0.80
-
-# shortest word kept, in characters; drops "of", "to", "ion" and the like
-MIN_WORD = 4
-
-# the reading of the figure and of the printed summary
-PLOT_READING = "zref"
-
-# features per panel in the figure
-N_SHOWN = 12
-
-# bootstrap resamples behind each feature's interval
-N_BOOT = 2000
 
 # words named before the test was run: if the nanobody reports surface GluA1 at
 # glutamatergic postsynapses, postsynaptic words should track the map and
@@ -174,14 +162,14 @@ def words_of(terms: set[str], name: str | None) -> set[str]:
     out = set()
     for text in list(terms) + [name or ""]:
         for w in re.split(r"[^a-z]+", text.lower()):
-            if len(w) < MIN_WORD or w in STOP:
+            if len(w) < ISH_WORDS["min_word"] or w in STOP:
                 continue
 
             # a very light plural rule: enough to pool "spine" and "spines", held
             # back from "across", "synapsis", "exocytosis" and the like
             if (
                 w.endswith("s")
-                and len(w) > MIN_WORD + 1
+                and len(w) > ISH_WORDS["min_word"] + 1
                 and w[-2:] not in ("ss", "us", "is", "as")
             ):
                 w = w[:-1]
@@ -207,8 +195,9 @@ def gap_interval(
     for nothing, and sorted by effect size such groups come first. The interval
     shows that on the figure.
     """
-    da = np.median(rng.choice(a, (N_BOOT, len(a))), axis=1)
-    db = np.median(rng.choice(b, (N_BOOT, len(b))), axis=1)
+    n_boot = ISH_WORDS["n_boot"]
+    da = np.median(rng.choice(a, (n_boot, len(a))), axis=1)
+    db = np.median(rng.choice(b, (n_boot, len(b))), axis=1)
     lo, hi = np.percentile(da - db, [2.5, 97.5])
     return float(lo), float(hi)
 
@@ -220,6 +209,7 @@ def test_features(features: dict[str, set[str]], rho: dict[str, float]) -> list[
     absent from both sides. Rows come sorted by gap, largest first.
     """
     genes = set(rho)
+    min_genes = ISH_WORDS["min_genes"]
 
     # seeded, so a re-run gives the same intervals (with the features in the same
     # order)
@@ -229,8 +219,8 @@ def test_features(features: dict[str, set[str]], rho: dict[str, float]) -> list[
         inside = sorted(carriers & genes)
         outside = sorted(genes - carriers)
         if (
-            not MIN_GENES <= len(inside) <= MAX_SHARE * len(genes)
-            or len(outside) < MIN_GENES
+            not min_genes <= len(inside) <= ISH_WORDS["max_share"] * len(genes)
+            or len(outside) < min_genes
         ):
             continue
 
@@ -263,7 +253,7 @@ def test_features(features: dict[str, set[str]], rho: dict[str, float]) -> list[
 
 def bars(ax: Axes, rows: list[dict], title: str, xlim: tuple[float, float]) -> None:
     """Draw the top features by effect size as bars; the lower q, the darker."""
-    sel = rows[:N_SHOWN][::-1]
+    sel = rows[: ISH_WORDS["n_shown"]][::-1]
     y = np.arange(len(sel))
     shade = [str(np.clip(0.75 * min(r["q"], 1.0) ** 0.5, 0.05, 0.8)) for r in sel]
     gaps = np.array([r["gap"] for r in sel])
@@ -331,7 +321,7 @@ def strip(ax: Axes, rows: list[dict], rho: dict[str, float]) -> None:
         )
     ax.set_xticks(range(len(labels)))
     ax.set_xticklabels(labels, fontsize=7.5)
-    ax.set_ylabel(f"rho with the adult nano map ({PLOT_READING})", fontsize=8)
+    ax.set_ylabel(f"rho with the adult nano map ({ISH['reading']})", fontsize=8)
     ax.set_title("the contrast predicted in advance", fontsize=9)
     ax.tick_params(axis="y", labelsize=7)
     for side in ("top", "right"):
@@ -345,9 +335,10 @@ def figure(terms: list[dict], words: list[dict], rho: dict[str, float]) -> None:
     )
 
     # one x range for both bar panels, from the intervals of the features shown
+    n_shown = ISH_WORDS["n_shown"]
     xlim = (
-        min(-0.02, min(r["gap_lo"] for r in terms[:N_SHOWN] + words[:N_SHOWN]) - 0.02),
-        max(r["gap_hi"] for r in terms[:N_SHOWN] + words[:N_SHOWN]) + 0.02,
+        min(-0.02, min(r["gap_lo"] for r in terms[:n_shown] + words[:n_shown]) - 0.02),
+        max(r["gap_hi"] for r in terms[:n_shown] + words[:n_shown]) + 0.02,
     )
     bars(axes[0], terms, "GO terms", xlim)
     bars(axes[1], words, "words, from GO terms and gene names", xlim)
@@ -371,8 +362,9 @@ def figure(terms: list[dict], words: list[dict], rho: dict[str, float]) -> None:
 def main() -> None:
     """Test every GO term and word against the gene ranking, write, report and draw."""
     # the rho of each gene and reading
+    plot_reading = ISH["reading"]
     rho = load_rho()
-    genes = sorted(rho[PLOT_READING])
+    genes = sorted(rho[plot_reading])
     print(f"{len(genes)} genes, readings {sorted(rho)}")
 
     # the genes of each GO term and of each word
@@ -423,10 +415,10 @@ def main() -> None:
     print(f"{len(rows)} rows -> {path}")
 
     # the words named in advance, then the top features, for the reading shown
-    terms = [r for r in rows if r["reading"] == PLOT_READING and r["kind"] == "term"]
-    words = [r for r in rows if r["reading"] == PLOT_READING and r["kind"] == "word"]
+    terms = [r for r in rows if r["reading"] == plot_reading and r["kind"] == "term"]
+    words = [r for r in rows if r["reading"] == plot_reading and r["kind"] == "word"]
     by = {r["feature"]: r for r in words}
-    print(f"\nthe words named in advance, for {PLOT_READING}")
+    print(f"\nthe words named in advance, for {plot_reading}")
     for word in PREDICTED:
         r = by.get(word)
         if r:
@@ -435,10 +427,10 @@ def main() -> None:
             result = "not tested (too few genes, or absent)"
         print(f"  {word:15s} " + result)
     for label, sel in (("GO terms", terms), ("words", words)):
-        print(f"\ntop {label} for {PLOT_READING}  (gap in median rho, n genes, BH q)")
-        for r in sel[:N_SHOWN]:
+        print(f"\ntop {label} for {plot_reading}  (gap in median rho, n genes, BH q)")
+        for r in sel[: ISH_WORDS["n_shown"]]:
             print(
                 f"  {r['gap']:+.3f} [{r['gap_lo']:+.2f} {r['gap_hi']:+.2f}]  "
                 f"n={r['n_genes']:3d}  q={r['q']:.3f}  {r['feature']}"
             )
-    figure(terms, words, rho[PLOT_READING])
+    figure(terms, words, rho[plot_reading])

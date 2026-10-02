@@ -47,9 +47,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import rankdata, spearmanr, wilcoxon
 
-from sepmap.config import DATA
+from sepmap.config import DATA, SETTINGS
 from sepmap.ish.compare import gene_profiles
 from sepmap.plotting import DARK_BLUE, RED, tidy
+
+# the gene that stands in for total receptor, partialled out in test 2, and the
+# structures a gene must share with the arms (and with that gene)
+ISH = SETTINGS["ish"]
 
 ARMS_CSV = os.path.join(DATA, "adult_v2", "arms", "region_means_arms.csv")
 OUT = os.path.join(DATA, "adult_v2", "arms")
@@ -61,12 +65,6 @@ LABEL = {
     "ratio": "nano / auto\nsurface receptor",
     "sepratio": "nano / SEP\nsurface fraction",
 }
-
-# the gene that stands in for total receptor, partialled out in test 2
-CONTROL = "Gria1"
-
-# structures a gene must share with the arms (and with the control gene)
-MIN_STRUCTURES = 50
 
 # the genes the prediction is about: AMPAR anchoring and trafficking, named in
 # gene_targets.csv, not chosen after seeing this result
@@ -120,7 +118,7 @@ def correlate(
             common = sorted(shared_arms & set(expr))
         else:
             common = sorted(shared_arms & set(expr) & set(genes[control]))
-        if len(common) < MIN_STRUCTURES:
+        if len(common) < ISH["min_structures"]:
             continue
 
         # the gene, the control gene, and each arm, on the same structures
@@ -160,6 +158,7 @@ def report(
     Returns ({gene: {arm: rho}}, {gene: {arm: partial rho}}, the machinery genes
     sorted by their sepratio rho, highest first).
     """
+    control = ISH["control_gene"]
     plain, partial = by_gene(rows, "rho"), by_gene(rows, "rho_partial")
     mach = sorted(
         (g for g in plain if category[g] in MACHINERY),
@@ -172,7 +171,7 @@ def report(
         f"  {'':12s} {'sepauto':>9s} {'ratio':>9s} {'sepratio':>9s}   "
         f"{'sepratio-sepauto':>17s}"
     )
-    named = [CONTROL] + mach[:6]
+    named = [control] + mach[:6]
     for gene in named:
         rhos = plain[gene]
         print(
@@ -183,12 +182,12 @@ def report(
     # test 1: the swing towards the surface fraction, Gria1 against the machinery
     swing = {g: plain[g]["sepratio"] - plain[g]["sepauto"] for g in plain}
     mach_swing = [swing[g] for g in plain if category[g] in MACHINERY]
-    print(f"\n  {CONTROL} swing towards the surface fraction: {swing[CONTROL]:+.3f}")
+    print(f"\n  {control} swing towards the surface fraction: {swing[control]:+.3f}")
     print(
         f"  machinery genes (n = {len(mach_swing)}):  "
         f"median {np.median(mach_swing):+.3f}, "
-        f"{sum(1 for v in mach_swing if v > swing[CONTROL])} of {len(mach_swing)} "
-        f"above {CONTROL}"
+        f"{sum(1 for v in mach_swing if v > swing[control])} of {len(mach_swing)} "
+        f"above {control}"
     )
     print(
         "  the prediction is that Gria1 swings DOWN and the machinery swings up "
@@ -196,7 +195,7 @@ def report(
     )
 
     # test 2: what is left of the machinery genes with Gria1 partialled out
-    print(f"\nTEST 2 -- with {CONTROL} partialled out, what is left")
+    print(f"\nTEST 2 -- with {control} partialled out, what is left")
     print(f"  {'':12s} {'sepauto':>9s} {'ratio':>9s} {'sepratio':>9s}")
     for gene in mach[:8]:
         rhos = partial[gene]
@@ -233,13 +232,14 @@ def figure(
     category: dict[str, str],
 ) -> None:
     """Draw the two tests in three panels; saved as arms_vs_genes.png."""
+    control = ISH["control_gene"]
     fig, axes = plt.subplots(1, 3, figsize=(13.2, 4.3))
 
     # left: every gene's rho across the three arms, Gria1 and machinery picked out
     ax = axes[0]
     x = np.arange(len(ARMS))
     for gene in sorted(plain):
-        if gene == CONTROL or category[gene] in MACHINERY:
+        if gene == control or category[gene] in MACHINERY:
             continue
         ax.plot(x, [plain[gene][a] for a in ARMS], color="0.85", lw=0.7, zorder=1)
     for gene in mach:
@@ -253,7 +253,7 @@ def figure(
         )
     ax.plot(
         x,
-        [plain[CONTROL][a] for a in ARMS],
+        [plain[control][a] for a in ARMS],
         color=DARK_BLUE,
         lw=2.4,
         zorder=4,
@@ -261,8 +261,8 @@ def figure(
         ms=5,
     )
     ax.annotate(
-        CONTROL,
-        (2, plain[CONTROL]["sepratio"]),
+        control,
+        (2, plain[control]["sepratio"]),
         color=DARK_BLUE,
         fontsize=9,
         xytext=(6, -2),
@@ -281,7 +281,7 @@ def figure(
     ax = axes[1]
     swing = {g: plain[g]["sepratio"] - plain[g]["sepauto"] for g in plain}
     groups = [
-        [swing[g] for g in plain if category[g] not in MACHINERY and g != CONTROL],
+        [swing[g] for g in plain if category[g] not in MACHINERY and g != control],
         [swing[g] for g in mach],
     ]
     rng = np.random.default_rng(0)
@@ -298,10 +298,10 @@ def figure(
         ax.plot(
             [i - 0.28, i + 0.28], [np.median(vals)] * 2, color="0.15", lw=1.7, zorder=3
         )
-    ax.axhline(swing[CONTROL], color=DARK_BLUE, lw=1.4, ls="--", zorder=1)
+    ax.axhline(swing[control], color=DARK_BLUE, lw=1.4, ls="--", zorder=1)
     ax.annotate(
-        CONTROL,
-        (1.35, swing[CONTROL]),
+        control,
+        (1.35, swing[control]),
         color=DARK_BLUE,
         fontsize=8,
         va="bottom",
@@ -334,8 +334,8 @@ def figure(
     ax.axhline(0, color="0.8", lw=0.7, zorder=0)
     ax.set_xticks(range(len(ARMS)))
     ax.set_xticklabels([LABEL[a] for a in ARMS], fontsize=7.5)
-    ax.set_ylabel(f"partial rho with {CONTROL} removed", fontsize=8)
-    ax.set_title(f"Test 2: machinery genes, {CONTROL} partialled out", fontsize=9)
+    ax.set_ylabel(f"partial rho with {control} removed", fontsize=8)
+    ax.set_title(f"Test 2: machinery genes, {control} partialled out", fontsize=9)
 
     for ax in axes:
         tidy(ax)
@@ -356,6 +356,7 @@ def figure(
 
 def main() -> None:
     """Correlate every gene with every arm, write the table, report and draw."""
+    control = ISH["control_gene"]
     # the arm profiles and the gene profiles, the control gene among them
     arms = arm_profiles()
     missing = [a for a in ARMS if a not in arms]
@@ -364,15 +365,15 @@ def main() -> None:
             f"arms missing from {ARMS_CSV}: {missing}. Run run_adult_arms.py"
         )
     genes, category = gene_profiles()
-    if CONTROL not in genes:
-        raise ValueError(f"{CONTROL} is not in the gene table; it is the control here")
+    if control not in genes:
+        raise ValueError(f"{control} is not in the gene table; it is the control here")
     print(
-        f"{len(genes)} genes; {CONTROL} measured in {len(genes[CONTROL])} structures; "
+        f"{len(genes)} genes; {control} measured in {len(genes[control])} structures; "
         f"arms {ARMS}"
     )
 
     # plain and partial rho per arm and gene
-    rows = correlate(arms, genes, category, CONTROL)
+    rows = correlate(arms, genes, category, control)
     path = os.path.join(OUT, "arm_gene_correlations.csv")
     with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))

@@ -101,10 +101,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import rankdata, spearmanr
 
+from sepmap.config import SETTINGS
 from sepmap.plotting import DARK_BLUE, RED, tidy
 from sepmap.volumes.cohort import NAIVE, RWS
 from sepmap.volumes.per_mouse import DATA, MICE, annotation_20, structure_terms
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
+
+# the reading, the half-cohorts, the grey-matter divisions and the gene sets; the
+# smallest structure kept, as in young_vs_adult.region_plot
+BEYOND = SETTINGS["beyond"]
+REGION_TABLES = SETTINGS["region_tables"]
 
 NANO = os.path.join(
     DATA, "comparisons_v2", "young_vs_adult", "region_means_per_mouse.csv"
@@ -112,51 +118,15 @@ NANO = os.path.join(
 MERGED_ISH = os.path.join(DATA, "adult_v2", "ish", "gene_region_table_merged.csv")
 OUT = os.path.join(DATA, "adult_v2", "beyond")
 
-# the ten adults, naive and rws pooled, and the reading analysed
+# the ten adults, naive and rws pooled
 ADULTS = NAIVE + RWS
-READING = "zref"
 
-# smallest structure kept, in 20 um voxels, as in young_vs_adult.region_plot
-MIN_VOX = 250
-
-# animals per half when the cohort is split
-HALF = 5
-
-# divisions that are grey matter; everything else (the fibre tracts lfbs, mfbs, eps,
-# scwm, cbf and cm, the ventricles VL and V3, the brain-wide catch-all) is dropped,
-# because a synaptic-density covariate means nothing in white matter or in CSF
-GREY = {
-    "Isocortex",
-    "OLF",
-    "HPF",
-    "CTXsp",
-    "STR",
-    "PAL",
-    "TH",
-    "HY",
-    "MB",
-    "P",
-    "MY",
-    "CB",
-}
-
-# the gene sets standing in for the two explanations
-SUBUNITS = ("Gria1", "Gria2", "Gria3", "Gria4")
-MARKERS = (
-    # presynaptic
-    "Syp",
-    "Syn1",
-    "Vamp2",
-    "Bsn",
-    "Syt1",
-    # postsynaptic
-    "Dlg4",
-    "Homer1",
-    "Shank2",
-    "Shank3",
-    "Nlgn1",
-    "Camk2a",
-)
+# the grey-matter divisions as a set, and the gene sets standing in for the two
+# explanations (receptor abundance, synaptic density) as tuples, as other modules use
+# them
+GREY = set(BEYOND["grey"])
+SUBUNITS = tuple(BEYOND["subunits"])
+MARKERS = tuple(BEYOND["markers"])
 
 
 # ===== Loading =====
@@ -181,7 +151,7 @@ def nano_per_mouse() -> tuple[dict[str, dict[str, float]], dict[str, str]]:
     per, division = defaultdict(dict), {}
     with open(NANO, newline="", encoding="utf-8") as fh:
         for r in csv.DictReader(fh):
-            if r["reading"] == READING and r["mouse"] in ADULTS:
+            if r["reading"] == BEYOND["reading"] and r["mouse"] in ADULTS:
                 per[r["mouse"]][r["structure"]] = float(r["log2_value"])
                 division[r["structure"]] = r["division"]
     return per, division
@@ -230,7 +200,7 @@ def autofluorescence(structures: set[str]) -> dict[str, dict[str, float]]:
         per[mouse] = {
             k: math.log2(t / c)
             for k, (c, t) in acc.items()
-            if c >= MIN_VOX and t > 0 and k in structures
+            if c >= REGION_TABLES["min_vox20"] and t > 0 and k in structures
         }
     return per
 
@@ -321,7 +291,7 @@ def half_splits() -> list[tuple[list[int], list[int]]]:
     """
     return [
         (list(p), [i for i in range(len(ADULTS)) if i not in p])
-        for p in itertools.combinations(range(len(ADULTS)), HALF)
+        for p in itertools.combinations(range(len(ADULTS)), BEYOND["half"])
         if 0 in p
     ]
 

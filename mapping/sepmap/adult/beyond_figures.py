@@ -55,7 +55,12 @@ from sepmap.adult.beyond_density import (
     residual,
     spearman_brown,
 )
+from sepmap.config import SETTINGS
 from sepmap.plotting import DARK_GREY, MID_GREY, RED, tidy
+
+# the bootstrap replicates, the permutations of the noise null, and the half-cohort
+# splits used inside each replicate
+BEYOND_FIGURES = SETTINGS["beyond_figures"]
 
 FIGS = os.path.join(OUT, "for_sami")
 
@@ -63,15 +68,6 @@ FIGS = os.path.join(OUT, "for_sami")
 # for what is shown, dark grey for its comparison, mid grey for context (plotting),
 # and this blue only for the signed panel, where red-blue has a zero
 BLUE = "#2e5f8a"
-
-# bootstrap replicates, over structures
-N_BOOT = 2000
-
-# permutations for the "could it be noise" null
-N_PERM = 10000
-
-# half-cohort splits used inside each bootstrap replicate
-BOOT_SPLITS = 20
 
 
 def save(fig: plt.Figure, name: str) -> None:
@@ -97,13 +93,14 @@ def bootstrap_models(
 ) -> tuple[list[float], list[tuple[float, float]]]:
     """Cross-validated R2 of each model, with an interval, resampling structures.
 
-    Each of the N_BOOT replicates ranks `y` and every predictor again over the
+    Each of the beyond_figures.n_boot replicates ranks `y` and every predictor
+    again over the
     structures it drew. Returns the point values and the (low, high) intervals.
     """
     point = [cv_r2(y, xs) for _, xs in models]
     n = len(y)
-    draws = np.empty((N_BOOT, len(models)))
-    for b in range(N_BOOT):
+    draws = np.empty((BEYOND_FIGURES["n_boot"], len(models)))
+    for b in range(BEYOND_FIGURES["n_boot"]):
         take = rng.integers(0, n, n)
         yb = rankdata(y[take])
         for j, (_, xs) in enumerate(models):
@@ -120,8 +117,8 @@ def bootstrap_replication(
 ) -> tuple[float, tuple[float, float]]:
     """Half-against-half agreement of the leftover, with an interval.
 
-    The point value uses every split; the 300 replicates each resample the
-    structures and use the same BOOT_SPLITS random splits.
+    The point value uses every split; the beyond_figures.n_boot_halves replicates
+    each resample the structures and use the same boot_splits random splits.
     """
 
     def agreement(idx, use_splits):
@@ -141,10 +138,13 @@ def bootstrap_replication(
 
     full = np.arange(len(structures))
     point = agreement(full, splits)
-    few = [splits[i] for i in rng.choice(len(splits), BOOT_SPLITS, replace=False)]
+    few = [
+        splits[i]
+        for i in rng.choice(len(splits), BEYOND_FIGURES["boot_splits"], replace=False)
+    ]
     draws = [
         agreement(rng.integers(0, len(structures), len(structures)), few)
-        for _ in range(300)
+        for _ in range(BEYOND_FIGURES["n_boot_halves"])
     ]
     return point, percentile_interval(draws)
 
@@ -161,17 +161,20 @@ def noise_null(
     Shuffling which structure is which in one half breaks the correspondence
     between the two halves while leaving both leftovers exactly as they are, so
     the null says "these two are unrelated" and nothing else. Uses the first
-    split; returns the observed agreement, the N_PERM null values and the
+    split; returns the observed agreement, the beyond_figures.n_perm null values and
+    the
     two-sided p.
     """
     a, b = splits[0]
     ra = residual(half_map(nano, a, structures), predictors)
     rb = residual(half_map(nano, b, structures), predictors)
     observed = float(spearmanr(ra, rb).statistic)
-    null = np.empty(N_PERM)
-    for i in range(N_PERM):
+    null = np.empty(BEYOND_FIGURES["n_perm"])
+    for i in range(BEYOND_FIGURES["n_perm"]):
         null[i] = spearmanr(ra, rng.permutation(rb)).statistic
-    p = float((np.sum(np.abs(null) >= abs(observed)) + 1) / (N_PERM + 1))
+    p = float(
+        (np.sum(np.abs(null) >= abs(observed)) + 1) / (BEYOND_FIGURES["n_perm"] + 1)
+    )
     return observed, null, p
 
 
@@ -340,17 +343,21 @@ def main() -> None:
         f"{len(structures)} structures, {len(ADULTS)} adults, {len(splits)} half-splits"
     )
 
-    # the ceiling, with an interval over structures (300 replicates)
+    # the ceiling, with an interval over structures (beyond_figures.n_boot_halves
+    # replicates)
     map_agreement = [
         spearmanr(half_map(nano, a, structures), half_map(nano, b, structures)).statistic
         for a, b in splits
     ]
     ceiling = spearman_brown(float(np.mean(map_agreement))) ** 2
     boot_ceiling = []
-    for _ in range(300):
+    for _ in range(BEYOND_FIGURES["n_boot_halves"]):
         take = rng.integers(0, len(structures), len(structures))
         picked = [structures[i] for i in take]
-        few = [splits[i] for i in rng.choice(len(splits), BOOT_SPLITS, replace=False)]
+        few = [
+            splits[i]
+            for i in rng.choice(len(splits), BEYOND_FIGURES["boot_splits"], replace=False)
+        ]
         boot_ceiling.append(
             spearman_brown(
                 float(

@@ -1,23 +1,139 @@
-# Settings of the Python route, read once by sepmap/config.py into SETTINGS.
-# For now it holds only the values that two modules used to keep in step by
-# hand, and the two passes of the ISH chain. Every other parameter is still a
-# constant in its module; moving them here is a later step of the refactor
-# (docs/REFACTOR_PLAN.md).
+# Settings of the Python route, read once by sepmap/config.py into SETTINGS: the
+# analysis parameters, a table per stage, in run order. A module names each table it
+# reads after its imports (YOUNG_VS_ADULT = SETTINGS["young_vs_adult"]). Figure sizes
+# and colours stay in the code (sepmap/plotting.py), and so do the lists that define
+# an analysis beside the comments that justify them (the areas of a figure, the
+# curated gene roles, the GO terms of the panel).
+
+# the tissue mask of each brain (volumes.per_mouse)
+[tissue]
+mad_k = 4.0                # tissue: auto above its off-tissue median by this many MADs, scaled to SDs
+min_nonzero = 0.5          # tissue: at least this fraction of a 20 um voxel's eight 10 um voxels with nano non-zero
+min_reached = 0.5          # a section reached a plane when nano is non-zero on more than this fraction of its atlas brain
 
 [readings]
 # Readings that are a signed position within a brain's own range rather than an
 # intensity: young and adult are compared by difference rather than log2 ratio,
 # and drawn on a diverging scale centred on zero, from -v to +v.
 signed = ["zref"]
+# The readings computed, tabled and drawn: a subset of these five, in this order.
+# V2_READINGS, a comma-separated subset, replaces it for one run, and the run says so.
+in_force = ["ratio", "sepratio", "cref", "subref", "zref"]
 log2_floor = 0.02          # floor under a value before its log2: zref, and the young/adult log2 ratios
+ratio_clip = 20.0          # ratio and sepratio clipped to +-this, so a near-empty reference voxel cannot dominate a mean
+ref_sigma = 1.0            # Gaussian sigma of a reference channel before it divides, in 20 um voxels
+
+# the per-structure tables of each brain (young_vs_adult.region_plot and region_groups,
+# volumes.cohort's range match, adult.arms, sep_channel_check and beyond_density)
+[region_tables]
+min_vox20 = 250            # smallest structure (or group of structures) kept, in 20 um voxels: 2 nl, the volume of the earlier tables
 
 [young_vs_adult]
 min_n_young = 2            # young brains with tissue that a voxel needs to be compared
 min_n_adult = 5            # adult brains with tissue that a voxel needs to be compared
+smooth = 1.0               # Gaussian sigma of the young/adult map, in 20 um voxels, over the compared voxels only
+min_table_vox20 = 100      # compared 20 um voxels a structure needs to enter region_table.csv
+
+[region_plot]
+min_young = 2              # young brains with a value that a structure needs to be tested
+min_adult = 4              # adult brains with a value that a structure needs to be tested
+
+[region_groups]
+min_young = 3              # young brains with a value that a group needs to be tested
+min_adult = 5              # adult brains with a value that a group needs to be tested
 
 [videos]
 fps = 12                   # frames per second of the plane-by-plane videos
 min_label_area = 150       # 20 um voxels a structure needs in a coronal plane to get its acronym drawn
+t_pct = 95.0               # the t panel of a cohort video runs from 0 to this percentile of t
+log2_lim = 1.5             # colour range of the young/adult comparison beside the two means, +-this
+# colour range of a cohort mean per reading, fixed so that cohorts compare by eye: cortex
+# sits near half of it (cref is 1 by construction, adult cortex is 1.01 in ratio and
+# 0.29 in sepratio); the hippocampus saturates by design
+mean_vmax = { ratio = 2.0, sepratio = 0.6, cref = 2.0, subref = 2.0, zref = 2.0 }
+# brains with tissue that a voxel of a cohort video needs, per cohort
+min_n = { young = 2, young_P20 = 2, young_P16 = 1, naive = 3, rws = 3, adult = 5 }
+
+[closeup]
+plane = 790                # CCF plane of the still, at 10 um, where RL and AL are cut
+# Gaussian sigma in 20 um voxels along (AP, DV, ML), anisotropic because the artefact
+# is: sections sit about 150 um (7.5 voxels) apart and the registered volumes
+# interpolate between them, so the banding runs along AP only. 3 voxels of AP blur is
+# 60 um, well under a section spacing and two orders below the distance from V1 to RL.
+smooth = [3.0, 1.0, 1.0]
+# colour ranges of the means and of the difference, per reading, tightened for cortex
+vmax = { zref = 0.9, cref = 2.0, subref = 2.0, ratio = 2.0, sepratio = 0.6 }
+dlim = { zref = 0.5, cref = 1.0, subref = 1.0, ratio = 1.0, sepratio = 1.0 }
+
+# the ISH chain (ish.*, and adult.sep_channel_check for the gene it compares with)
+[ish]
+min_voxels = 10            # 200 um voxels a structure's gene value needs to be used
+adult_groups = ["naive", "rws"]  # the adult groups, pooled
+reading = "zref"           # the reading the tests and the figures use
+control_gene = "Gria1"     # the gene that stands in for total receptor
+min_structures = 50        # structures a gene must share with the map (or the arms) to be correlated
+min_genes_ranking = 20     # genes the old and the new ranking must share to be compared
+min_structures_pair = 50   # structures two experiments of one gene must share to be compared
+
+[ish_regions]
+min_voxels = 3             # valid 200 um voxels a structure needs to get a value at all
+
+[ish_words]
+min_genes = 5              # genes a feature needs to be tested
+max_share = 0.8            # the largest share of the genes a feature may have: one on nearly every gene says nothing
+min_word = 4               # shortest word kept, in characters; drops "of", "to", "ion" and the like
+n_shown = 12               # features per panel in the figure
+n_boot = 2000              # bootstrap resamples behind each feature's interval
+
+[ish_panel_build]
+max_hits = 1000            # genes asked of mygene.info per GO term; a term with more stops the run
+allen_rows = 50            # experiments asked of the Allen API per gene
+
+[ish_panel_test]
+min_structures = 80        # structures a gene must share with the map and the subunit composite
+min_reliability = 0.3      # reliability a gene needs in the sensitivity run (a gene without one is left out)
+n_perm = 20000             # label permutations per test
+min_sensitivity_genes = 10 # genes on each side that the sensitivity run needs
+min_control_genes = 30     # control genes with a reliability that the positive control needs
+
+[beyond]
+reading = "zref"           # the reading analysed
+half = 5                   # animals per half when the cohort is split
+# divisions that are grey matter; everything else (the fibre tracts lfbs, mfbs, eps,
+# scwm, cbf and cm, the ventricles VL and V3, the brain-wide catch-all) is dropped,
+# because a synaptic-density covariate means nothing in white matter or in CSF
+grey = ["Isocortex", "OLF", "HPF", "CTXsp", "STR", "PAL", "TH", "HY", "MB", "P", "MY", "CB"]
+# the gene sets standing in for the two explanations: receptor abundance, and
+# synaptic density (Syp to Syt1 presynaptic, Dlg4 to Camk2a postsynaptic)
+subunits = ["Gria1", "Gria2", "Gria3", "Gria4"]
+markers = ["Syp", "Syn1", "Vamp2", "Bsn", "Syt1", "Dlg4", "Homer1", "Shank2", "Shank3", "Nlgn1", "Camk2a"]
+
+[beyond_controls]
+max_pcs = 25               # the largest gene-space model of control F, in components
+min_centroids = 50         # A: structures with a centroid that the control needs
+gradient_r2 = 0.5          # A: a smooth quadratic in position explaining more than this, a gradient could explain it
+size_rho = 0.4             # B: |rho| of the residual with structure volume above this, size drives it
+pair_rho = 0.1             # C: two mice whose leftovers agree below this, one animal may carry it
+groups_rho = 0.5           # D: naive and RWS leftovers agreeing below this, the pooling hides something
+curvature_gain = 0.05      # E: cross-validated R2 gained by fifth powers above this, the model is not bent enough
+replication = 0.5          # F: the whole-panel model's leftover replicating below this, the panel accounts for the map
+readings_replication = 0.8 # G: every reading's leftover must replicate above this
+
+[beyond_figures]
+n_boot = 2000              # bootstrap replicates over structures, panel A
+n_perm = 10000             # permutations of the "could it be noise" null
+boot_splits = 20           # half-cohort splits used inside each bootstrap replicate
+n_boot_halves = 300        # bootstrap replicates of the ceiling and of the leftover's replication
+
+[beyond_regression]
+# coronal planes to draw, in 20 um planes of the cropped CCF grid (450 of them): cortex
+# with hippocampus beneath it and thalamus at the midline, where the residual is
+# largest in both directions
+planes = [215, 265, 315]
+# the brain sits on black, because hot ends in white and the brightest structures
+# would vanish into a white page; hot also begins in black, so the floor is set below
+# the data and rank 1 lands about a tenth of the way up the colormap
+floor = 0.12
 
 # The ISH chain runs twice: on the hand-written 100-gene panel, then on the
 # 390-gene ontology panel that run_panel_build writes. run_ish_regions.py and

@@ -38,13 +38,13 @@ Writes, in comparisons_v2/ccf/<cohort>/ under the data root:
 
 With no cohort named: young, adult, young_P20, naive and rws.
 
-V2_READINGS, a comma-separated subset of the readings (ratio, sepratio,
-cref, subref, zref), leaves the others out of this step; the run prints the
-readings in force.
+The readings are readings.in_force of settings.toml; V2_READINGS, a
+comma-separated subset of them (ratio, sepratio, cref, subref, zref), replaces it
+for one run and leaves the others out of this step. The run prints the readings in
+force.
 """
 
 import argparse
-import os
 
 import matplotlib
 
@@ -63,9 +63,7 @@ def main(cohorts):
     cohorts = cohorts or DEFAULT_COHORTS
 
     # settings in force
-    readings = " ".join(cohort.MODES)
-    if os.environ.get("V2_READINGS", "").strip():
-        readings += "  (from V2_READINGS)"
+    readings = cohort.readings_in_force()
     config.print_settings({"cohorts": " ".join(cohorts), "readings": readings})
 
     # one video per cohort and reading

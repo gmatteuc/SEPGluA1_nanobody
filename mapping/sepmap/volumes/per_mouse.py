@@ -49,13 +49,12 @@ import nibabel as nib
 import numpy as np
 import tifffile
 
-from sepmap.config import DATA
+from sepmap.config import DATA, SETTINGS
+
+TISSUE = SETTINGS["tissue"]
 
 OUT = os.path.join(DATA, "comparisons_v2", "per_mouse")
 CSV_MAP = os.path.join(DATA, "atlas", "parcellation_to_parcellation_term_membership.csv")
-
-# tissue threshold: off-tissue autofluorescence median plus this many MADs
-MAD_K = 4.0
 
 # mouse -> (cohort, atlas, group folder under data\). Every brain is read from its
 # own registered tiffs, on the atlas of its own age. MG911 is P16 and MG904 P22:
@@ -253,9 +252,10 @@ def main(mice: list[str]) -> None:
                 sp[:, :, j] = g / 2
 
         # planes a section reached: nano non-zero on more than half the atlas brain
+        min_reached = TISSUE["min_reached"]
         reached = np.array(
             [
-                (nz[k][brain[k]] > 0).mean() > 0.5 if brain[k].any() else False
+                (nz[k][brain[k]] > 0).mean() > min_reached if brain[k].any() else False
                 for k in range(n_ap)
             ]
         )
@@ -270,7 +270,9 @@ def main(mice: list[str]) -> None:
         # the tissue mask, on the autofluorescence even with SEP, so that swapping the
         # reference changes only the divisor; without 'reached', which guards only the
         # off-tissue sampling: a plane a section covers at 45% is real data (MG897, MG913)
-        tissue = brain & (nz >= 0.5) & (aut > bg_a + MAD_K * mad_a)
+        tissue = (
+            brain & (nz >= TISSUE["min_nonzero"]) & (aut > bg_a + TISSUE["mad_k"] * mad_a)
+        )
         sig -= bg_n
         aut -= bg_a
 

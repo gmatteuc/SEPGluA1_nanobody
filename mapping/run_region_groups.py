@@ -43,13 +43,13 @@ and an .eps beside each PNG.
 
     python run_region_groups.py
 
-V2_READINGS, a comma-separated subset of the readings (ratio, sepratio,
-cref, subref, zref), leaves the others out of this step; the run prints the
-readings in force.
+The readings are readings.in_force of settings.toml; V2_READINGS, a
+comma-separated subset of them (ratio, sepratio, cref, subref, zref), replaces it
+for one run and leaves the others out of this step. The run prints the readings in
+force.
 """
 
 import argparse
-import os
 
 import matplotlib
 
@@ -61,9 +61,7 @@ from sepmap.young_vs_adult import region_groups
 def main():
     """Print the readings in force, then pool the statistics by system and by layer."""
     # settings in force
-    readings = " ".join(cohort.MODES)
-    if os.environ.get("V2_READINGS", "").strip():
-        readings += "  (from V2_READINGS)"
+    readings = cohort.readings_in_force()
     config.print_settings({"readings": readings})
 
     # systems and layers

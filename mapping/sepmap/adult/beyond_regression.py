@@ -63,19 +63,15 @@ from sepmap.adult.beyond_density import (
     residual,
 )
 from sepmap.adult.beyond_figures import FIGS, save
+from sepmap.config import SETTINGS
 from sepmap.plotting import DARK_GREY, MID_GREY, RED, tidy
 from sepmap.volumes.per_mouse import annotation_20, structure_terms
 
-# coronal planes to draw, in 20 um planes of the cropped CCF grid (450 of them):
-# cortex with hippocampus beneath it and thalamus at the midline, where the residual
-# is largest in both directions
-PLANES = (215, 265, 315)
+# the coronal planes drawn, and the floor of the colour scale (settings.toml says why)
+BEYOND_REGRESSION = SETTINGS["beyond_regression"]
 
-# the brain sits on black, as in the young-against-adult detail figures, because hot
-# ends in white and the brightest structures would vanish into a white page; hot
-# also begins in black, so the floor is set below the data and rank 1 lands about a
-# tenth of the way up the colormap, a dark red that still reads against the black
-FLOOR = 0.12
+# the planes as a tuple, in 20 um planes of the cropped CCF grid
+PLANES = tuple(BEYOND_REGRESSION["planes"])
 
 
 def paint(
@@ -207,7 +203,7 @@ def panel_f(
             img = paint(plane, values, names)
             ax = axes[r, c]
             if span is None:
-                lo = 1 - FLOOR * (len(structures) - 1)
+                lo = 1 - BEYOND_REGRESSION["floor"] * (len(structures) - 1)
                 im = ax.imshow(
                     img, cmap=cmap, vmin=lo, vmax=len(structures), interpolation="nearest"
                 )

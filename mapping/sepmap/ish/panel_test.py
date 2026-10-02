@@ -42,8 +42,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import rankdata, spearmanr
 
-from sepmap.config import DATA
+from sepmap.config import DATA, SETTINGS
 from sepmap.plotting import RED, tidy
+
+# the adult groups and the reading; the structures a gene needs, the reliability of
+# the sensitivity run, the permutations and the genes each check needs
+ISH = SETTINGS["ish"]
+ISH_PANEL_TEST = SETTINGS["ish_panel_test"]
 
 NANO = os.path.join(
     DATA, "comparisons_v2", "young_vs_adult", "region_means_per_mouse.csv"
@@ -52,20 +57,8 @@ OUT = os.path.join(DATA, "adult_v2", "ish")
 MERGED = os.path.join(OUT, "gene_region_table_merged.csv")
 RELIABILITY = os.path.join(OUT, "gene_reliability.csv")
 
-# the adult groups, pooled
-ADULT_GROUPS = ("naive", "rws")
-
-# the reading the test uses
-READING = "zref"
-
-# structures a gene must share with the map and the subunit composite
-MIN_STRUCTURES = 80
-
-# reliability a gene needs in the sensitivity run (a gene without one is left out)
-MIN_RELIABILITY = 0.3
-
-# label permutations per test
-N_PERM = 20000
+# the adult groups, pooled, as a tuple
+ADULT_GROUPS = tuple(ISH["adult_groups"])
 
 
 def adult_profile(reading: str) -> dict[str, float]:
@@ -149,24 +142,26 @@ def two_sample(
 ) -> tuple[float, float, np.ndarray]:
     """Median difference of `a` and `b`, its label-permutation p, and the null.
 
-    The two sets are pooled and shuffled N_PERM times with `rng`; p is two-sided,
+    The two sets are pooled and shuffled ish_panel_test.n_perm times with `rng`; p
+    is two-sided,
     one added to both counts.
     """
     obs = float(np.median(a) - np.median(b))
     pool = np.concatenate([a, b])
     n = len(a)
-    null = np.empty(N_PERM)
-    for i in range(N_PERM):
+    n_perm = ISH_PANEL_TEST["n_perm"]
+    null = np.empty(n_perm)
+    for i in range(n_perm):
         rng.shuffle(pool)
         null[i] = np.median(pool[:n]) - np.median(pool[n:])
-    p = float((np.sum(np.abs(null) >= abs(obs)) + 1) / (N_PERM + 1))
+    p = float((np.sum(np.abs(null) >= abs(obs)) + 1) / (n_perm + 1))
     return obs, p, null
 
 
 def main() -> None:
     """Run the test, its sensitivity run and the positive control; write and draw."""
     # the map, the merged gene profiles, each gene's reliability and level
-    nano = adult_profile(READING)
+    nano = adult_profile(ISH["reading"])
     expr, role = merged_profiles()
     rel, level = reliability_and_level()
 
@@ -176,7 +171,7 @@ def main() -> None:
     ctrl = sorted(g for g in expr if role[g] == "control_psd")
     print(
         f"{len(expr)} genes: {len(subunit)} subunit, {len(loc)} localisation, "
-        f"{len(ctrl)} control; reading {READING}"
+        f"{len(ctrl)} control; reading {ISH['reading']}"
     )
     print(f"  subunits: {', '.join(subunit)}")
 
@@ -190,7 +185,7 @@ def main() -> None:
     rows = []
     for gene in loc + ctrl:
         shared = [s for s in common if s in expr[gene]]
-        if len(shared) < MIN_STRUCTURES:
+        if len(shared) < ISH_PANEL_TEST["min_structures"]:
             continue
         idx = [common.index(s) for s in shared]
         g = np.array([expr[gene][s] for s in shared])
@@ -272,14 +267,16 @@ def main() -> None:
     )
 
     # sensitivity: only genes whose map has been shown to be reproducible
-    good_loc = [g for g in loc if by[g]["reliability"] >= MIN_RELIABILITY]
-    good_ctrl = [g for g in matched_ctrl if by[g]["reliability"] >= MIN_RELIABILITY]
-    if len(good_loc) >= 10 and len(good_ctrl) >= 10:
+    min_rel = ISH_PANEL_TEST["min_reliability"]
+    min_genes = ISH_PANEL_TEST["min_sensitivity_genes"]
+    good_loc = [g for g in loc if by[g]["reliability"] >= min_rel]
+    good_ctrl = [g for g in matched_ctrl if by[g]["reliability"] >= min_rel]
+    if len(good_loc) >= min_genes and len(good_ctrl) >= min_genes:
         a = np.array([by[g]["rho_partial"] for g in good_loc])
         b = np.array([by[g]["rho_partial"] for g in good_ctrl])
         obs2, p2, _ = two_sample(a, b, rng)
         print(
-            f"\n  sensitivity, reliability >= {MIN_RELIABILITY}: "
+            f"\n  sensitivity, reliability >= {min_rel}: "
             f"{len(good_loc)} vs {len(good_ctrl)} genes, "
             f"difference {obs2:+.3f}, p = {p2:.4f}"
         )
@@ -288,7 +285,7 @@ def main() -> None:
     # control genes, those with a reproducible map should correlate better with
     # anything than the others; if not, the test detects nothing at all
     have = [g for g in ctrl if np.isfinite(by[g]["reliability"])]
-    if len(have) >= 30:
+    if len(have) >= ISH_PANEL_TEST["min_control_genes"]:
         cut = float(np.median([by[g]["reliability"] for g in have]))
         hi = np.array([abs(by[g]["rho"]) for g in have if by[g]["reliability"] >= cut])
         lo = np.array([abs(by[g]["rho"]) for g in have if by[g]["reliability"] < cut])

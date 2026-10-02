@@ -40,7 +40,11 @@ import urllib.request
 from collections import defaultdict
 from collections.abc import Callable
 
-from sepmap.config import DATA
+from sepmap.config import DATA, SETTINGS
+
+# the genes asked per GO term (a term with more stops the run), and the experiments
+# asked per gene
+ISH_PANEL_BUILD = SETTINGS["ish_panel_build"]
 
 OUT = os.path.join(DATA, "adult_v2", "panel")
 CACHE = os.path.join(OUT, "cache")
@@ -84,9 +88,6 @@ OVERRIDE = {"Grid1": "delta_receptor", "Grid2": "delta_receptor"}
 # the roles in the order they are printed
 ROLE_ORDER = ("subunit", "delta_receptor", "localisation", "control_psd")
 
-# genes asked of mygene.info per term; a term with more stops the run
-MAX_HITS = 1000
-
 
 def cached(name: str, fetch: Callable[[], list]) -> list:
     """The answer of `fetch()`, cached as <name>.json, so a re-run asks nothing twice."""
@@ -109,18 +110,19 @@ def genes_with_term(term: str) -> list[str]:
 
     def fetch():
         """Ask mygene.info for the term's genes."""
+        max_hits = ISH_PANEL_BUILD["max_hits"]
         query = urllib.parse.urlencode(
             {
                 "q": "go:" + term.split(":")[-1],
                 "species": "mouse",
                 "fields": "symbol",
-                "size": MAX_HITS,
+                "size": max_hits,
             }
         )
         with urllib.request.urlopen(f"{MYGENE}?{query}", timeout=90) as fh:
             d = json.load(fh)
-        if d.get("total", 0) > MAX_HITS:
-            raise RuntimeError(f"{term}: {d['total']} genes, above the {MAX_HITS} cap")
+        if d.get("total", 0) > max_hits:
+            raise RuntimeError(f"{term}: {d['total']} genes, above the {max_hits} cap")
         return sorted({h["symbol"] for h in d.get("hits", []) if h.get("symbol")})
 
     return cached("term_" + term.replace(":", "_"), fetch)
@@ -140,7 +142,9 @@ def allen_experiments(symbol: str) -> list[dict]:
             f"genes[acronym$eq'{symbol}'],"
             "rma::include,plane_of_section,genes"
         )
-        query = urllib.parse.urlencode({"criteria": crit, "num_rows": 50})
+        query = urllib.parse.urlencode(
+            {"criteria": crit, "num_rows": ISH_PANEL_BUILD["allen_rows"]}
+        )
         with urllib.request.urlopen(f"{ALLEN}?{query}", timeout=90) as fh:
             d = json.load(fh)
         return [

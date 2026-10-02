@@ -33,7 +33,7 @@ ratio and the consistency check are needed either way; read
 adult.sep_channel_check before using either.
 
 The arithmetic is the same as young_vs_adult.region_plot's: the same 20 um
-annotation, the same MIN_VOX, the same mask-normalised smoothing of the
+annotation, the same smallest structure, the same mask-normalised smoothing of the
 denominator, structures keyed by name over their layer indices. The module checks
 itself against that table for the two arms both compute, and prints the
 difference, since a silent divergence would invalidate every comparison
@@ -56,10 +56,14 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 import numpy as np
 
+from sepmap.config import SETTINGS
 from sepmap.plotting import RED, tidy
 from sepmap.volumes.cohort import NAIVE, RWS, per_unit
 from sepmap.volumes.per_mouse import DATA, MICE, annotation_20, structure_terms
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
+
+# the smallest structure kept, as in young_vs_adult.region_plot
+REGION_TABLES = SETTINGS["region_tables"]
 
 OUT = os.path.join(DATA, "adult_v2", "arms")
 
@@ -67,9 +71,6 @@ OUT = os.path.join(DATA, "adult_v2", "arms")
 EXISTING = os.path.join(
     DATA, "comparisons_v2", "young_vs_adult", "region_means_per_mouse.csv"
 )
-
-# smallest structure kept, in 20 um voxels, as in young_vs_adult.region_plot
-MIN_VOX = 250
 
 # the ten adults, naive and rws pooled
 ADULTS = NAIVE + RWS
@@ -91,8 +92,8 @@ def mouse_table(
 ) -> dict[str, tuple[int, dict[str, float]]]:
     """The mean of each arm per structure for one adult: {name: (n voxels, {arm: mean})}.
 
-    The layer indices of a structure are pooled by name; a structure under MIN_VOX
-    voxels is left out.
+    The layer indices of a structure are pooled by name; a structure under
+    region_tables.min_vox20 voxels is left out.
     """
     z = np.load(os.path.join(PER_MOUSE, mouse + ".npz"))
     if "sep" not in z.files:
@@ -133,7 +134,7 @@ def mouse_table(
     return {
         k: (v[0], {arm: v[j] / v[0] for j, arm in enumerate(ARMS, 1)})
         for k, v in acc.items()
-        if v[0] >= MIN_VOX
+        if v[0] >= REGION_TABLES["min_vox20"]
     }
 
 

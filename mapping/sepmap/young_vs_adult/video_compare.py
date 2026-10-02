@@ -37,19 +37,17 @@ from sepmap.plotting import coronal_figure, coronal_frame, hot_cut, transparent_
 from sepmap.volumes.cohort import COHORTS, SIGNED_READINGS
 from sepmap.volumes.cohort import OUT_ROOT as CCF_ROOT
 from sepmap.volumes.per_mouse import DATA, structure_terms
-from sepmap.young_vs_adult.compare import MIN_N_ADULT, MIN_N_YOUNG, YOUNG
+from sepmap.young_vs_adult.compare import YOUNG
 from sepmap.young_vs_adult.hemispheres import fold, fold_count
 
+# the brains a voxel needs, as in young_vs_adult.compare; the log2 floor of
+# volumes.cohort; the fixed colour ranges of the means and of the comparison, the
+# same as the cohort videos', and the frame rate
+YOUNG_VS_ADULT = SETTINGS["young_vs_adult"]
+READINGS = SETTINGS["readings"]
+VIDEOS = SETTINGS["videos"]
+
 OUT = os.path.join(DATA, "comparisons_v2", "young_vs_adult")
-
-# colour range of the two means per reading, fixed and shared
-MEAN_VMAX = {"ratio": 2.0, "sepratio": 0.6, "cref": 2.0, "subref": 2.0, "zref": 2.0}
-
-# colour range of the comparison, symmetric about zero
-LOG2_LIM = 1.5
-
-# frames per second
-FPS = SETTINGS["videos"]["fps"]
 
 
 def main(
@@ -60,7 +58,8 @@ def main(
 ) -> None:
     """Young beside adult for each of `readings`: a video, or a still of CCF `plane`.
 
-    `plane` is numbered at 10 um; `vmax` and `dlim` replace MEAN_VMAX and LOG2_LIM
+    `plane` is numbered at 10 um; `vmax` and `dlim` replace videos.mean_vmax and
+    videos.log2_lim
     for this run.
     """
     # acronyms by parcellation index
@@ -90,19 +89,20 @@ def main(
         # folded means, the voxels where both have enough brains, and the comparison
         y = fold(np.load(os.path.join(CCF_ROOT, YOUNG, f"{reading}_mean.npy")))
         a = fold(np.load(os.path.join(CCF_ROOT, "adult", f"{reading}_mean.npy")))
-        ok_y = (y_n >= MIN_N_YOUNG) & np.isfinite(y)
-        ok_a = (a_n >= MIN_N_ADULT) & np.isfinite(a)
+        ok_y = (y_n >= YOUNG_VS_ADULT["min_n_young"]) & np.isfinite(y)
+        ok_a = (a_n >= YOUNG_VS_ADULT["min_n_adult"]) & np.isfinite(a)
         both = ok_y & ok_a & (ann_h > 0)
         signed = reading in SIGNED_READINGS
+        floor = READINGS["log2_floor"]
         log2 = np.where(
             both,
-            (y - a) if signed else np.log2(np.maximum(y, 0.02) / np.maximum(a, 0.02)),
+            (y - a) if signed else np.log2(np.maximum(y, floor) / np.maximum(a, floor)),
             np.nan,
         )
 
         # colour ranges of this run
-        v_mean = MEAN_VMAX[reading] if vmax is None else vmax
-        v_diff = LOG2_LIM if dlim is None else dlim
+        v_mean = VIDEOS["mean_vmax"][reading] if vmax is None else vmax
+        v_diff = VIDEOS["log2_lim"] if dlim is None else dlim
 
         # a still of one plane, or a video of the planes with more than 200 compared
         # voxels; a CCF plane is quoted at 10 um in every caption, the volumes are 20 um
@@ -114,7 +114,7 @@ def main(
         if plane is None:
             out = os.path.join(OUT, f"video_side_by_side_{reading}{tag}.mp4")
             writer = imageio_ffmpeg.write_frames(
-                out, (1920, 760), fps=FPS, quality=7, macro_block_size=8
+                out, (1920, 760), fps=VIDEOS["fps"], quality=7, macro_block_size=8
             )
             writer.send(None)
         else:

@@ -58,37 +58,39 @@ from sepmap.config import SETTINGS
 from sepmap.volumes.per_mouse import DATA, MICE, annotation_20, structure_terms
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 
+READINGS = SETTINGS["readings"]
+REGION_TABLES = SETTINGS["region_tables"]
+
 V2 = os.path.join(DATA, "comparisons_v2")
 PER_MOUSE_CCF = os.path.join(V2, "per_mouse_ccf")
 OUT_ROOT = os.path.join(V2, "ccf")
 
-# ratio and sepratio clipped to +-20, so a near-empty reference voxel cannot
-# dominate a mean
-RATIO_CLIP = 20.0
-
-# floor of sig / cortex mean, so log2 stays finite in the dimmest tissue
-Z_FLOOR = SETTINGS["readings"]["log2_floor"]
-MODES = ("ratio", "sepratio", "cref", "subref", "zref")
+# every reading the route can compute, in the order of the tables
+ALL_MODES = ("ratio", "sepratio", "cref", "subref", "zref")
 
 # the readings that are a signed position rather than an intensity: young and adult
 # are compared by difference, not log2 ratio, on a diverging scale centred on zero.
 # Defined once, in settings.toml, because one script getting it wrong would look like
 # a result, not a bug; the chain imports it from here, and young_vs_adult.closeup
 # reads the same key.
-SIGNED_READINGS = tuple(SETTINGS["readings"]["signed"])
+SIGNED_READINGS = tuple(READINGS["signed"])
 
-# V2_READINGS, a comma-separated subset of MODES ($env:V2_READINGS = 'ratio,cref' in
-# PowerShell), drops the other readings from every figure, table and video without
+# the readings in force, readings.in_force of settings.toml, or for one run
+# V2_READINGS, a comma-separated subset ($env:V2_READINGS = 'ratio,cref' in
+# PowerShell). The others are dropped from every figure, table and video without
 # touching the data; young_vs_adult.region_plot and region_groups follow it too.
 _want = os.environ.get("V2_READINGS", "").strip()
 if _want:
-    chosen = tuple(s.strip() for s in _want.split(",") if s.strip())
-    unknown = [c for c in chosen if c not in MODES]
-    if unknown:
-        raise ValueError(
-            f"V2_READINGS: no such reading {unknown}; choose from {list(MODES)}"
-        )
-    MODES = chosen
+    MODES = tuple(s.strip() for s in _want.split(",") if s.strip())
+    _source = "V2_READINGS"
+else:
+    MODES = tuple(READINGS["in_force"])
+    _source = "settings.toml, readings.in_force"
+_unknown = [c for c in MODES if c not in ALL_MODES]
+if _unknown:
+    raise ValueError(
+        f"{_source}: no such reading {_unknown}; choose from {list(ALL_MODES)}"
+    )
 
 # divisions left out of the subcortex reference of subref ('' is a structure that
 # belongs to no division)
@@ -127,6 +129,14 @@ COHORTS = {
 }
 
 
+def readings_in_force() -> str:
+    """The readings in force as a run prints them, marked when V2_READINGS set them."""
+    text = " ".join(MODES)
+    if os.environ.get("V2_READINGS", "").strip():
+        text += "  (from V2_READINGS)"
+    return text
+
+
 def mouse_scalars(mouse: str) -> dict[str, float]:
     """The per-brain numbers the readings divide by, cached beside the per-mouse file.
 
@@ -135,7 +145,7 @@ def mouse_scalars(mouse: str) -> dict[str, float]:
     describe the brain's distribution across structures of log2(structure mean
     / cortex mean), which is what the range match needs. Structure level, not
     voxel level, so a large structure cannot set the spread on its own; a
-    structure counts from 250 voxels.
+    structure counts from region_tables.min_vox20 voxels (settings.toml).
     """
     src = os.path.join(PER_MOUSE, mouse + ".npz")
     cache = os.path.join(PER_MOUSE, mouse + "_scalars.npz")
@@ -177,7 +187,7 @@ def mouse_scalars(mouse: str) -> dict[str, float]:
         [
             np.log2(t / c / cortex_mean)
             for c, t in per_struct.values()
-            if c >= 250 and t > 0
+            if c >= REGION_TABLES["min_vox20"] and t > 0
         ]
     )
     p10, med, p90 = np.percentile(vals, [10, 50, 90])
@@ -200,22 +210,23 @@ def per_unit(
 ) -> np.ndarray:
     """`num` per unit of the reference channel `ref`, voxel by voxel.
 
-    The denominator is smoothed by one 20 um voxel first, so a single dark voxel
-    in the reference cannot blow the ratio up; the smoothing is normalised by
-    `tissue`, so tissue at the edge is not divided by the black outside it. The
-    ratio is clipped to +-RATIO_CLIP. Where the smoothed reference is not
-    positive it is `fill`, and with `tissue_only` off tissue too: the cohort
-    volumes take NaN there, the region tables (young_vs_adult.region_plot and
-    region_groups, adult.arms) 0.
+    The denominator is smoothed first (readings.ref_sigma, one 20 um voxel), so a
+    single dark voxel in the reference cannot blow the ratio up; the smoothing is
+    normalised by `tissue`, so tissue at the edge is not divided by the black
+    outside it. The ratio is clipped to +-readings.ratio_clip. Where the smoothed
+    reference is not positive it is `fill`, and with `tissue_only` off tissue too:
+    the cohort volumes take NaN there, the region tables (young_vs_adult.region_plot
+    and region_groups, adult.arms) 0.
     """
-    ref_s = gaussian_filter(np.where(tissue, ref, 0), 1.0) / np.maximum(
-        gaussian_filter(tissue.astype(np.float32), 1.0), 1e-3
+    sigma = READINGS["ref_sigma"]
+    ref_s = gaussian_filter(np.where(tissue, ref, 0), sigma) / np.maximum(
+        gaussian_filter(tissue.astype(np.float32), sigma), 1e-3
     )
     keep = ref_s > 0
     if tissue_only:
         keep = tissue & keep
     r = np.where(keep, num / np.maximum(ref_s, 1e-3), fill)
-    return np.clip(r, -RATIO_CLIP, RATIO_CLIP)
+    return np.clip(r, -READINGS["ratio_clip"], READINGS["ratio_clip"])
 
 
 def mouse_modes(mouse: str) -> tuple[dict[str, np.ndarray], np.ndarray]:
@@ -241,7 +252,8 @@ def mouse_modes(mouse: str) -> tuple[dict[str, np.ndarray], np.ndarray]:
     scalars = mouse_scalars(mouse)
     cref = np.where(tissue, sig / scalars["cortex_mean"], np.nan)
     subref = np.where(tissue, sig / scalars["subcortex_mean"], np.nan)
-    floored = np.maximum(sig / scalars["cortex_mean"], Z_FLOOR)
+    # floor of sig / cortex mean, so log2 stays finite in the dimmest tissue
+    floored = np.maximum(sig / scalars["cortex_mean"], READINGS["log2_floor"])
     zref = np.where(
         tissue,
         (np.log2(floored) - scalars["z_median"]) / scalars["z_spread"],

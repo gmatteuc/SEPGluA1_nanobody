@@ -35,8 +35,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import spearmanr
 
-from sepmap.config import DATA
+from sepmap.config import DATA, SETTINGS
 from sepmap.plotting import RED, tidy
+
+# the voxels a gene value needs, the adult groups, the structures a correlation needs
+# and the genes two rankings must share to be compared
+ISH = SETTINGS["ish"]
 
 NANO = os.path.join(
     DATA, "comparisons_v2", "young_vs_adult", "region_means_per_mouse.csv"
@@ -50,18 +54,9 @@ OLD = os.path.join(
 )
 OUT = os.path.join(DATA, "adult_v2", "ish")
 
-# the adult groups, pooled
-ADULT_GROUPS = ("naive", "rws")
+# the adult groups, pooled, as a tuple; every reading, in the order of the table
+ADULT_GROUPS = tuple(ISH["adult_groups"])
 READINGS = ("zref", "cref", "subref", "ratio", "sepratio")
-
-# 200 um voxels a structure's gene value needs
-MIN_ISH_VOXELS = 10
-
-# structures a gene must share with the nano map to be correlated
-MIN_STRUCTURES = 50
-
-# genes the old and new rankings must share to be compared
-MIN_GENES = 20
 
 # the categories that carry the prediction, from gene_targets.csv
 MACHINERY = ("auxiliary", "trafficking", "scaffold")
@@ -86,12 +81,12 @@ def adult_profile() -> dict[str, dict[str, float]]:
 def gene_profiles() -> tuple[dict[str, dict[str, float]], dict[str, str]]:
     """{gene: {structure: expression}} and {gene: category}.
 
-    Only structures covered by at least MIN_ISH_VOXELS voxels of the gene's grid.
+    Only structures covered by at least ish.min_voxels voxels of the gene's grid.
     """
     out, cat = defaultdict(dict), {}
     with open(GENES, newline="", encoding="utf-8") as fh:
         for r in csv.DictReader(fh):
-            if int(r["n_voxels"]) >= MIN_ISH_VOXELS:
+            if int(r["n_voxels"]) >= ISH["min_voxels"]:
                 out[r["symbol"]][r["structure"]] = float(r["ish_mean"])
                 cat[r["symbol"]] = r["category"]
     return out, cat
@@ -104,14 +99,15 @@ def correlate(
 ) -> list[dict]:
     """One row per reading and gene: Spearman over the structures they share.
 
-    A gene sharing fewer than MIN_STRUCTURES structures with a reading has no row.
+    A gene sharing fewer than ish.min_structures structures with a reading has no
+    row.
     """
     rows = []
     for reading in READINGS:
         profile = nano[reading]
         for gene, expr in sorted(genes.items()):
             shared = sorted(set(profile) & set(expr))
-            if len(shared) < MIN_STRUCTURES:
+            if len(shared) < ISH["min_structures"]:
                 continue
             rho, _ = spearmanr([profile[s] for s in shared], [expr[s] for s in shared])
             rows.append(
@@ -175,7 +171,7 @@ def report(rows: list[dict], old: dict[str, float], category: dict[str, str]) ->
         for reading, sel in per_reading.items():
             new = {r["symbol"]: float(r["rho"]) for r in sel}
             both = sorted(set(old) & set(new))
-            if len(both) < MIN_GENES:
+            if len(both) < ISH["min_genes_ranking"]:
                 continue
             rho, _ = spearmanr([old[g] for g in both], [new[g] for g in both])
             print(

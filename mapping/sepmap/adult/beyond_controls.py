@@ -63,15 +63,16 @@ from sepmap.adult.beyond_density import (
     save,
     spearman_brown,
 )
+from sepmap.config import SETTINGS
 from sepmap.plotting import RED, tidy
 from sepmap.volumes.per_mouse import annotation_20, structure_terms
+
+# the largest gene-space model of control F, and the threshold of each verdict
+BEYOND_CONTROLS = SETTINGS["beyond_controls"]
 
 # folds of the cross-validated controls E and F (not passed on: cv_r2 uses its own
 # default, also 5)
 N_FOLDS = 5
-
-# the largest gene-space model tried in control F, in components
-MAX_PCS = 25
 
 # a generator nothing in this module draws from (cv_r2 makes its own)
 RNG = np.random.default_rng(0)
@@ -158,13 +159,14 @@ def control_a_space(
 ) -> dict[str, str] | None:
     """Control A: whether the leftover is just a smooth gradient across the block.
 
-    Returns the verdict row, or None when fewer than 50 structures have a centroid.
+    Returns the verdict row, or None when fewer than beyond_controls.min_centroids
+    structures have a centroid.
     """
     print("\nA  is it a smooth spatial gradient? (a clearing or illumination artefact)")
     coords = centroids(structures)
     xyz = np.array([coords[s] for s in structures])
     ok = np.all(np.isfinite(xyz), axis=1)
-    if ok.sum() < 50:
+    if ok.sum() < BEYOND_CONTROLS["min_centroids"]:
         print("   not enough centroids; skipped")
         return None
 
@@ -188,7 +190,7 @@ def control_a_space(
         f"   and with position added as a covariate the leftover still replicates "
         f"at {with_pos:.3f}"
     )
-    if smooth > 0.5:
+    if smooth > BEYOND_CONTROLS["gradient_r2"]:
         verdict = "a gradient could explain it -- LOOK CLOSER"
     else:
         verdict = "not a gradient; position is a weak predictor of it"
@@ -196,7 +198,7 @@ def control_a_space(
     return dict(
         control="A spatial gradient",
         number=f"smooth R2 {smooth:.3f}, replication with position {with_pos:.3f}",
-        verdict="pass" if smooth <= 0.5 else "CHECK",
+        verdict="pass" if smooth <= BEYOND_CONTROLS["gradient_r2"] else "CHECK",
     )
 
 
@@ -218,7 +220,7 @@ def control_b_size(
         f"   |residual| in the larger half {np.median(np.abs(res[ok][big])):.1f} ranks, "
         f"smaller half {np.median(np.abs(res[ok][~big])):.1f}"
     )
-    if abs(rho) > 0.4:
+    if abs(rho) > BEYOND_CONTROLS["size_rho"]:
         verdict = "size drives it -- LOOK CLOSER"
     else:
         verdict = "size is not what the leftover is made of"
@@ -226,7 +228,7 @@ def control_b_size(
     return dict(
         control="B structure size",
         number=f"rho with volume {rho:+.3f}",
-        verdict="pass" if abs(rho) <= 0.4 else "CHECK",
+        verdict="pass" if abs(rho) <= BEYOND_CONTROLS["size_rho"] else "CHECK",
     )
 
 
@@ -264,7 +266,7 @@ def control_c_mice(
         f"range {min(pairs):+.3f} to {max(pairs):+.3f}"
     )
     print(f"   least typical animal: {worst[1]} at {worst[0]:+.3f} mean agreement")
-    if min(pairs) < 0.1:
+    if min(pairs) < BEYOND_CONTROLS["pair_rho"]:
         verdict = "one animal may be carrying it -- LOOK CLOSER"
     else:
         verdict = "every animal shows the same leftover"
@@ -273,7 +275,7 @@ def control_c_mice(
         dict(
             control="C single animals",
             number=f"pairwise median {np.median(pairs):+.3f}, min {min(pairs):+.3f}",
-            verdict="pass" if min(pairs) >= 0.1 else "CHECK",
+            verdict="pass" if min(pairs) >= BEYOND_CONTROLS["pair_rho"] else "CHECK",
         ),
         per,
         pairs,
@@ -299,7 +301,7 @@ def control_d_groups(
     )
     rho = spearmanr(naive, rws).statistic
     print(f"   leftover from the five naive against the five RWS: rho {rho:+.3f}")
-    if rho < 0.5:
+    if rho < BEYOND_CONTROLS["groups_rho"]:
         verdict = "the groups disagree -- pooling is hiding something"
     else:
         verdict = "both groups give the same leftover, so it is not the manipulation"
@@ -308,7 +310,7 @@ def control_d_groups(
         dict(
             control="D naive vs RWS",
             number=f"rho {rho:+.3f}",
-            verdict="pass" if rho >= 0.5 else "CHECK",
+            verdict="pass" if rho >= BEYOND_CONTROLS["groups_rho"] else "CHECK",
         ),
         naive,
         rws,
@@ -334,7 +336,8 @@ def control_e_curvature(
     print(f"   cross-validated R2, straight              {linear:+.3f}")
     print(f"   cross-validated R2, squares and cubes     {cubic:+.3f}   <- the model")
     print(f"   cross-validated R2, up to fifth powers    {quintic:+.3f}")
-    if quintic - cubic > 0.05:
+    gain = BEYOND_CONTROLS["curvature_gain"]
+    if quintic - cubic > gain:
         verdict = "more curvature still pays -- the model is not bent enough"
     else:
         verdict = "further bending buys nothing, so the model is adequate"
@@ -344,7 +347,7 @@ def control_e_curvature(
             control="E curvature",
             number=f"CV R2 {linear:.3f} straight, {cubic:.3f} cubic, "
             f"{quintic:.3f} quintic",
-            verdict="pass" if quintic - cubic <= 0.05 else "CHECK",
+            verdict="pass" if quintic - cubic <= gain else "CHECK",
         ),
         cubic,
         quintic,
@@ -362,7 +365,8 @@ def control_f_gene_space(
     """Control F, the strongest: any combination of the panel's genes may try.
 
     The genes measured in every structure are reduced to principal components;
-    models of 1 to MAX_PCS components are scored by cross-validation, and the
+    models of 1 to beyond_controls.max_pcs components are scored by
+    cross-validation, and the
     leftover of the best is tested for replication. Returns the verdict row, the
     (components, fitted R2, cross-validated R2) curve and the best number of
     components.
@@ -374,7 +378,7 @@ def control_f_gene_space(
     _, _, vt = np.linalg.svd(m - m.mean(axis=0), full_matrices=False)
 
     curve = []
-    for k in range(1, MAX_PCS + 1):
+    for k in range(1, BEYOND_CONTROLS["max_pcs"] + 1):
         pcs = [vt[i] for i in range(k)]
         curve.append((k, r_squared(y, pcs), cv_r2(y, pcs)))
     best_k, _, best_cv = max(curve, key=lambda t: t[2])
@@ -392,7 +396,7 @@ def control_f_gene_space(
 
     # the question is not whether a model this rich explains a lot (with 253 genes
     # it should) but whether it explains the map completely
-    if rep < 0.5:
+    if rep < BEYOND_CONTROLS["replication"]:
         verdict = "the gene panel accounts for the map; the leftover is gone"
     else:
         verdict = "even the whole panel leaves a leftover that replicates"
@@ -402,7 +406,7 @@ def control_f_gene_space(
             control="F whole gene space",
             number=f"{best_k} components, CV R2 {best_cv:.3f} "
             f"({best_cv / ceiling**2:.0%} of ceiling), replication {rep:.3f}",
-            verdict="pass" if rep >= 0.5 else "CHECK",
+            verdict="pass" if rep >= BEYOND_CONTROLS["replication"] else "CHECK",
         ),
         curve,
         best_k,
@@ -452,7 +456,7 @@ def control_g_readings(
             f"   {reading:9s} covariates explain R2 {out[-1][1]:.3f}; map replicates "
             f"{raw:.3f}, leftover {rep:.3f}"
         )
-    agree = all(r > 0.8 for _, _, _, r in out)
+    agree = all(r > BEYOND_CONTROLS["readings_replication"] for _, _, _, r in out)
     if agree:
         verdict = "the leftover replicates under every reading"
     else:

@@ -31,9 +31,11 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
 
 All four views come from one set of prepared cohort volumes, with the colour
 range tightened for cortex and a light smoothing that every title declares. The
-flatmaps need ccf_streamlines, so this runs in tools\\venv_flat and imports only
-sepmap.config and its own module; the method, and the flatmap assets it needs in
-atlas_flatmap/, are described in sepmap/young_vs_adult/closeup.py. Writes, in
+flatmaps need ccf_streamlines, so this runs in tools\\venv_flat and imports from
+the package only sepmap.config and its own module, which needs only plotting and
+hemispheres; the method, and the flatmap assets it needs in atlas_flatmap/, are
+described in sepmap/young_vs_adult/closeup.py. Its defaults are the closeup table
+of settings.toml. Writes, in
 comparisons_v2/young_vs_adult/ under the data root, or in a subfolder named after
 --cmap:
 
@@ -63,6 +65,8 @@ import matplotlib
 from sepmap import config
 from sepmap.young_vs_adult import closeup
 
+CLOSEUP = config.SETTINGS["closeup"]
+
 
 def smoothing(text):
     """The --smooth value as a list of sigmas: one number, or three comma separated."""
@@ -76,7 +80,7 @@ def main(readings, plane, vmax, dlim, smooth, want_video, want_flatmap, cmap_nam
     for the default.
     """
     readings = readings or ["zref"]
-    sigmas = smooth if smooth is not None else list(closeup.SMOOTH)
+    sigmas = smooth if smooth is not None else list(CLOSEUP["smooth"])
     sigma = sigmas[0] if len(sigmas) == 1 else sigmas
 
     # settings in force
@@ -115,8 +119,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--plane",
         type=int,
-        default=closeup.PLANE,
-        help=f"CCF plane at 10 um (default {closeup.PLANE})",
+        default=CLOSEUP["plane"],
+        help=f"CCF plane at 10 um (default {CLOSEUP['plane']})",
     )
     parser.add_argument("--vmax", type=float, help="colour range of the means")
     parser.add_argument("--dlim", type=float, help="colour range of the difference")

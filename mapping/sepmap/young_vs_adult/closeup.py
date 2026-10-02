@@ -73,6 +73,11 @@ from sepmap.plotting import (
 )
 from sepmap.young_vs_adult.hemispheres import fold, fold_count
 
+CLOSEUP = SETTINGS["closeup"]
+READINGS = SETTINGS["readings"]
+VIDEOS = SETTINGS["videos"]
+YOUNG_VS_ADULT = SETTINGS["young_vs_adult"]
+
 ASSETS = os.path.join(DATA, "atlas_flatmap")
 CCF_ROOT = os.path.join(DATA, "comparisons_v2", "ccf")
 OUT = os.path.join(DATA, "comparisons_v2", "young_vs_adult")
@@ -81,37 +86,13 @@ CSV_MAP = os.path.join(DATA, "atlas", "parcellation_to_parcellation_term_members
 YOUNG, ADULT = "young", "adult"
 
 # this module runs in the flatmap environment and cannot import the analysis chain,
-# so what it shares with the chain comes from settings.toml, which both read
-
-# brains with tissue that a voxel needs, as in young_vs_adult.compare, so the maps
-# agree
-MIN_N_YOUNG = SETTINGS["young_vs_adult"]["min_n_young"]
-MIN_N_ADULT = SETTINGS["young_vs_adult"]["min_n_adult"]
-
-# floor that keeps log2 finite where a reading is near zero, the value volumes.cohort
-# uses; only the readings compared as a ratio meet it, never zref
-LOG2_FLOOR = SETTINGS["readings"]["log2_floor"]
+# so what it shares with the chain comes from settings.toml, which both read: the
+# brains a voxel needs (young_vs_adult, as in compare, so the maps agree) and the
+# log2 floor (readings, the value volumes.cohort uses)
 
 # readings that are a position within a brain's own range, as volumes.cohort's
 # SIGNED_READINGS: compared by difference, drawn diverging from -v to +v
-SIGNED_READINGS = tuple(SETTINGS["readings"]["signed"])
-
-# colour ranges of the means and of the difference, per reading, tightened for cortex
-VMAX = {"zref": 0.9, "cref": 2.0, "subref": 2.0, "ratio": 2.0, "sepratio": 0.6}
-DLIM = {"zref": 0.5, "cref": 1.0, "subref": 1.0, "ratio": 1.0, "sepratio": 1.0}
-
-# CCF plane of the still, at 10 um, where RL and AL are cut
-PLANE = 790
-
-# Gaussian sigma in 20 um voxels along (AP, DV, ML), anisotropic because the artefact
-# is: sections sit about 150 um (7.5 voxels) apart and the registered volumes
-# interpolate between them, so the banding runs along AP only. 3 voxels of AP blur
-# is 60 um, well under a section spacing and two orders below the distance from V1
-# to RL.
-SMOOTH = (3.0, 1.0, 1.0)
-
-# frames per second of the video
-FPS = SETTINGS["videos"]["fps"]
+SIGNED_READINGS = tuple(READINGS["signed"])
 
 # the areas the argument is about, outlined brighter on the flatmaps
 HIGHLIGHT = ("VISp", "VISrl", "VISal", "SSp-bfd")
@@ -166,7 +147,10 @@ def prepare(
     value inside the tissue is cosmetic, growing the tissue would not be.
     """
     out = {}
-    for cohort, min_n in ((YOUNG, MIN_N_YOUNG), (ADULT, MIN_N_ADULT)):
+    for cohort, min_n in (
+        (YOUNG, YOUNG_VS_ADULT["min_n_young"]),
+        (ADULT, YOUNG_VS_ADULT["min_n_adult"]),
+    ):
         mean = fold(np.load(os.path.join(CCF_ROOT, cohort, f"{reading}_mean.npy")))
         n = fold_count(np.load(os.path.join(CCF_ROOT, cohort, f"{reading}_n.npy")))
         m = ((n >= min_n) & np.isfinite(mean)).astype(np.float32)
@@ -187,14 +171,15 @@ def difference(
     """Young against adult where both cohorts have a value (NaN elsewhere), and that mask.
 
     A signed reading is compared by difference, the others by log2 ratio, each value
-    floored at LOG2_FLOOR.
+    floored at readings.log2_floor.
     """
     y, a = vals[YOUNG], vals[ADULT]
     both = (y[1] > 0) & (a[1] > 0)
     if signed:
         d = y[0] - a[0]
     else:
-        d = np.log2(np.maximum(y[0], LOG2_FLOOR) / np.maximum(a[0], LOG2_FLOOR))
+        floor = READINGS["log2_floor"]
+        d = np.log2(np.maximum(y[0], floor) / np.maximum(a[0], floor))
     return np.where(both, d, np.nan), both
 
 
@@ -291,7 +276,7 @@ def coronal(
         frames = [i for i in range(ann_h.shape[0]) if both[i].sum() > 200]
         out = os.path.join(out_dir, f"detail_video_{reading}.mp4")
         writer = imageio_ffmpeg.write_frames(
-            out, (1920, 760), fps=FPS, quality=7, macro_block_size=8
+            out, (1920, 760), fps=VIDEOS["fps"], quality=7, macro_block_size=8
         )
         writer.send(None)
         for i in frames:
@@ -502,7 +487,8 @@ def flatmaps(
         if signed:
             return y - a
         else:
-            return np.log2(np.maximum(y, LOG2_FLOOR) / np.maximum(a, LOG2_FLOOR))
+            floor = READINGS["log2_floor"]
+            return np.log2(np.maximum(y, floor) / np.maximum(a, floor))
 
     # through the full depth: young, adult, difference
     fig, axes = plt.subplots(1, 3, figsize=(19, 5.2), facecolor="k")
@@ -590,9 +576,9 @@ def main(
 ) -> None:
     """Draw the close-up views of each of `readings`.
 
-    `vmax` and `dlim` replace VMAX and DLIM when given; `sigma` is one sigma or
-    three, in 20 um voxels, 0 for none. With `cmap_name` the mean panels use that
-    colormap and the set goes into a subfolder of that name.
+    `vmax` and `dlim` replace closeup.vmax and closeup.dlim when given; `sigma` is
+    one sigma or three, in 20 um voxels, 0 for none. With `cmap_name` the mean
+    panels use that colormap and the set goes into a subfolder of that name.
     """
     # a named colormap sends the whole set to its own subfolder, so the default
     # figures are never overwritten by an experiment with the colours
@@ -623,8 +609,8 @@ def main(
 
         # colour limits and colormaps of this reading
         signed = reading in SIGNED_READINGS
-        vm = VMAX[reading] if vmax is None else vmax
-        dl = DLIM[reading] if dlim is None else dlim
+        vm = CLOSEUP["vmax"][reading] if vmax is None else vmax
+        dl = CLOSEUP["dlim"][reading] if dlim is None else dlim
         lim_mean = ((-vm, vm) if signed else (0, vm), (-dl, dl))
         if cmap_name is None:
             cmap_mean = puor if signed else hot

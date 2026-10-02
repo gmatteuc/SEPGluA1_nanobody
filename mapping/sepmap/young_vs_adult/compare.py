@@ -5,7 +5,8 @@ This module folds the two hemispheres, compares the young cohort with the adults
 reading by reading, and writes the maps, figures and tables run_compare.py lists.
 An intensity reading is compared by a ratio, a signed one by a difference:
 
-    ratio, sepratio, cref, subref:   log2(young / adult), each floored at Z_FLOOR
+    ratio, sepratio, cref, subref:   log2(young / adult), each floored at
+                                     readings.log2_floor (settings.toml)
     zref:                            young - adult
 
 ratio (nano over autofluorescence) is the closest to an absolute level; cref
@@ -15,8 +16,8 @@ The floor is the one volumes.cohort applies, so a map and a table agree.
 
 The young group pools the P16, P20 and P22 brains (YOUNG); the P20 brains alone
 (YOUNG_ALT) are compared too, to show what the other ages do to the answer. A
-voxel is compared only where at least MIN_N_YOUNG young and MIN_N_ADULT adult
-brains have tissue; the figures show the rest in grey.
+voxel is compared only where at least young_vs_adult.min_n_young young and
+min_n_adult adult brains have tissue; the figures show the rest in grey.
 
 Run by run_compare.py.
 """
@@ -33,24 +34,19 @@ from scipy.ndimage import gaussian_filter
 
 from sepmap.config import SETTINGS
 from sepmap.plotting import NO_DATA_GREY, hot_cut, save_figure, transparent_bad
-from sepmap.volumes.cohort import COHORTS, MODES, SIGNED_READINGS, Z_FLOOR
+from sepmap.volumes.cohort import COHORTS, MODES, SIGNED_READINGS
 from sepmap.volumes.cohort import OUT_ROOT as CCF_ROOT
 from sepmap.volumes.per_mouse import DATA, isocortex_ids, structure_terms
 from sepmap.young_vs_adult.hemispheres import fold, fold_count
+
+READINGS = SETTINGS["readings"]
+YOUNG_VS_ADULT = SETTINGS["young_vs_adult"]
 
 OUT = os.path.join(DATA, "comparisons_v2", "young_vs_adult")
 
 # start of the adult registered crop along AP, in 10 um planes; added to the plane
 # number in each slice title
 CROP_START_PLANE = 180
-
-# brains with tissue that a voxel needs to be compared, from settings.toml, the
-# same keys young_vs_adult.closeup reads
-MIN_N_YOUNG = SETTINGS["young_vs_adult"]["min_n_young"]
-MIN_N_ADULT = SETTINGS["young_vs_adult"]["min_n_adult"]
-
-# Gaussian sigma in 20 um voxels, applied to the log2 map only
-SMOOTH = 1.0
 
 # the pooled young cohort (P16, P20 and P22 brains), and the P20 brains alone as
 # the sensitivity check
@@ -86,6 +82,8 @@ def draw_figures(maps: dict[str, np.ndarray], out: str) -> None:
     """
     annotation_left, compared = maps["annot20"], maps["both"]
     inside = annotation_left > 0
+    min_n_young = YOUNG_VS_ADULT["min_n_young"]
+    min_n_adult = YOUNG_VS_ADULT["min_n_adult"]
 
     # hot up to 0.82 of its range, transparent where there is no value
     hot = hot_cut()
@@ -201,7 +199,7 @@ def draw_figures(maps: dict[str, np.ndarray], out: str) -> None:
                     what[reading] + ".",
                     "Hemispheres averaged; every brain carried into the adult CCF "
                     "individually.  "
-                    f"Grey = no data (fewer than {MIN_N_YOUNG} young or {MIN_N_ADULT} "
+                    f"Grey = no data (fewer than {min_n_young} young or {min_n_adult} "
                     "adults with tissue).",
                     scale_note,
                 )
@@ -216,7 +214,8 @@ def draw_figures(maps: dict[str, np.ndarray], out: str) -> None:
 def main() -> None:
     """Compare young with adult and write the maps, the tables and the figures.
 
-    The maps are compared voxel by voxel and smoothed (Gaussian, SMOOTH), with
+    The maps are compared voxel by voxel and smoothed (Gaussian,
+    young_vs_adult.smooth), with
     the voxels outside the compared mask given no weight. The tables average
     per structure, not per parcellation index: in this ontology the layers of
     an area are separate indices that share one structure name, and a table of
@@ -224,9 +223,12 @@ def main() -> None:
     grouping once, and bincount then sums 18 million voxels without a Python
     loop. A group with no value at a voxel (the P20 group inside the pooled
     group's mask) is left out of its own count rather than poisoning its mean.
-    Only structures with at least 100 compared voxels enter the table.
+    Only structures with at least young_vs_adult.min_table_vox20 compared voxels
+    enter the table.
     """
     t0 = time.time()
+    min_n_young = YOUNG_VS_ADULT["min_n_young"]
+    min_n_adult = YOUNG_VS_ADULT["min_n_adult"]
     os.makedirs(OUT, exist_ok=True)
 
     # the annotation at 20 um, left half: the young volumes live on the same
@@ -243,22 +245,22 @@ def main() -> None:
     young_alt, young_alt_n = load_cohort(YOUNG_ALT)
     compared = (
         inside
-        & (young_n >= MIN_N_YOUNG)
-        & (adult_n >= MIN_N_ADULT)
+        & (young_n >= min_n_young)
+        & (adult_n >= min_n_adult)
         & np.isfinite(young["cref"])
         & np.isfinite(adult["cref"])
     )
     print(
         f"voxels compared: {compared.sum():,} of {inside.sum():,} inside the atlas "
-        f"(young n>={MIN_N_YOUNG}: {(inside & (young_n >= MIN_N_YOUNG)).sum():,}; "
-        f"adult n>={MIN_N_ADULT}: {(inside & (adult_n >= MIN_N_ADULT)).sum():,})   "
+        f"(young n>={min_n_young}: {(inside & (young_n >= min_n_young)).sum():,}; "
+        f"adult n>={min_n_adult}: {(inside & (adult_n >= min_n_adult)).sum():,})   "
         f"{time.time() - t0:.0f} s",
         flush=True,
     )
 
     # young against adult per voxel, then smoothed inside the compared mask; the
     # floor is the one volumes.cohort applies, so a map and a table agree
-    floor = Z_FLOOR
+    floor = READINGS["log2_floor"]
     log2, log2_alt = {}, {}
     for reading in MODES:
         for src, dst in ((young, log2), (young_alt, log2_alt)):
@@ -276,8 +278,10 @@ def main() -> None:
 
             # smooth the contrast over the compared voxels only, then mask again
             weights = compared.astype(np.float32)
-            num = gaussian_filter(np.nan_to_num(contrast) * weights, SMOOTH)
-            den = gaussian_filter(weights, SMOOTH)
+            num = gaussian_filter(
+                np.nan_to_num(contrast) * weights, YOUNG_VS_ADULT["smooth"]
+            )
+            den = gaussian_filter(weights, YOUNG_VS_ADULT["smooth"])
             dst[reading] = np.where(compared, num / np.maximum(den, 1e-3), np.nan).astype(
                 np.float32
             )
@@ -332,9 +336,9 @@ def main() -> None:
                     count > 0, total / np.maximum(count, 1), np.nan
                 )
 
-    # one row per structure of at least 100 voxels, compared as the maps are
+    # one row per structure with enough voxels, compared as the maps are
     rows = []
-    for structure in np.nonzero(n_vox >= 100)[0]:
+    for structure in np.nonzero(n_vox >= YOUNG_VS_ADULT["min_table_vox20"])[0]:
         name, acronym, division = struct_names[structure]
         row = {
             "structure": name,

@@ -59,6 +59,7 @@ from collections.abc import Callable
 import matplotlib.pyplot as plt
 import numpy as np
 
+from sepmap.config import SETTINGS
 from sepmap.plotting import GROUP_COLOURS, save_figure
 from sepmap.volumes.cohort import (
     MODES,
@@ -76,8 +77,9 @@ from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 
 OUT = os.path.join(DATA, "comparisons_v2", "young_vs_adult")
 
-# smallest structure kept, in 20 um voxels: 2 nl, the volume of the earlier tables
-MIN_VOX = 250
+# the smallest structure kept, and the brains a structure needs to be tested
+REGION_TABLES = SETTINGS["region_tables"]
+REGION_PLOT = SETTINGS["region_plot"]
 
 # areas of the printed table and the figure: cortex, then after "|" the subcortex
 AREAS = [
@@ -143,8 +145,8 @@ READINGS = [
     ),
 ]
 
-# V2_READINGS (volumes.cohort) drops a reading from the tables and figures too, so
-# one variable covers the chain; young_vs_adult.region_groups follows this list
+# only the readings in force (volumes.cohort: settings.toml, or V2_READINGS for one
+# run), so one setting covers the chain; young_vs_adult.region_groups follows this list
 READINGS = [r for r in READINGS if r[0] in MODES]
 
 # the groups: every young brain (P16, P20, P22) against the adults, naive and rws
@@ -215,7 +217,8 @@ def welch(a: list[float], b: list[float]) -> float:
 def structure_means(mice: list[str], names: dict[int, str]) -> dict[str, dict]:
     """Per mouse and structure: tissue voxels, and the mean of sig, ratio and sepratio.
 
-    Each brain on its own atlas; structures under MIN_VOX voxels are left out. The
+    Each brain on its own atlas; structures under region_tables.min_vox20 voxels
+    are left out. The
     layers of an area are separate parcellation indices with one structure name,
     and are pooled under that name. Stops if a brain has no SEP channel while the
     sepratio reading is in force.
@@ -263,7 +266,7 @@ def structure_means(mice: list[str], names: dict[int, str]) -> dict[str, dict]:
         per[mouse] = {
             k: (v[0], v[1] / v[0], v[2] / v[0], v[3] / v[0])
             for k, v in d.items()
-            if v[0] >= MIN_VOX
+            if v[0] >= REGION_TABLES["min_vox20"]
         }
         print(f"{mouse:20s} {atlas_key:10s} {len(per[mouse])} structures", flush=True)
     return per
@@ -374,7 +377,8 @@ def region_rows(
 ) -> tuple[list[tuple], list[tuple]]:
     """The per-mouse rows, and per structure and reading the young-against-adult tests.
 
-    A structure is tested when at least 2 young and 4 adult brains have a value.
+    A structure is tested when at least region_plot.min_young young and min_adult
+    adult brains have a value.
     The test rows carry the BH q of the Welch and of the Mann-Whitney p, taken
     within each reading.
     """
@@ -407,7 +411,7 @@ def region_rows(
             ad = [v[m] for m in ADULTS if m in v]
             nv = [v[m] for m in NAIVE if m in v]
             rw = [v[m] for m in RWS if m in v]
-            if len(yo) < 2 or len(ad) < 4:
+            if len(yo) < REGION_PLOT["min_young"] or len(ad) < REGION_PLOT["min_adult"]:
                 continue
 
             # one row per structure, in the columns of region_stats.csv but the
