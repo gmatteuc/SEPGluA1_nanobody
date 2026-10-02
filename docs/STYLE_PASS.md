@@ -100,8 +100,7 @@ adjacent literals (run the check for an f-string).
 One exception: a docstring used at run time is program output, so editing it
 is kind B. Search for `__doc__` first: `registration/auto_annotation/cli.py:157`
 prints its whole docstring as its usage, and
-`atlas/build_demba_atlas.py:241` the second-to-last line of its own;
-`landmark_refine/cli.py:50` and `landmark_refine/serve.py:109` print theirs.
+`atlas/build_demba_atlas.py:241` the second-to-last line of its own.
 
 **Kind B: small code changes inside one file.** Only where the assignment
 allows it, verified by rerunning and comparing the outputs with
@@ -290,3 +289,43 @@ change:
 tools\venv_dev\Scripts\python -m ruff format <files>
 tools\venv_dev\Scripts\python -m ruff check <files>
 ```
+
+## Renames proposed for the reference examples (approved 2 Oct, kind B)
+
+Renames of local names (saved variables, struct fields, columns and
+settings keep theirs):
+
+| file | now | suggested |
+|---|---|---|
+| `collect_by_group.m` | `current_mouse_type`, `mousetype_idx` | `group`, `group_idx` |
+| | `num_current` | `n_mice` |
+| | `file1_name`, `file2_name`, `file4_name` | `nano_file`, `auto_file`, `mask_file` |
+| | `nanoVols_type` (and auto, mask) | `nano_vols` |
+| | `allenDir` (not a LightSuite name) | `atlas_dir` |
+| | `has_reg`, `min_num_contrib` | `is_registered`, `min_n_mice` |
+| | `diff_4d_new`, `avg_diff_new` | `rel_diff_4d`, `avg_rel_diff` |
+| `compare.py` | `m` (a reading), `z` (the saved maps) | `reading`, `maps` |
+| | `both` (the voxels compared) | `compared` |
+| | `r`: the comparison map at 332, a row at 403 | `contrast`, `row` |
+| | `w`: the weights at 339, the CSV writer at 422 | `weights`, `writer` |
+| | `a`, `p` (the adult and young maps, 327-328; `p` reads as a p-value) | `adult_v`, `young_v` |
+| | `eps` (the floor; `eps` is also the EPS path in `save_figure`) | `floor` |
+| | `ann`, `ann_h`, `iso`, `cov`, `ok`, `labs` | `annotation`, `annotation_left`, `isocortex`, `coverage`, `covered`, `structure_of_voxel` |
+| | `nm, ac, dv`, `g`, `tot`, `cnt`, `lim2` | `name, acronym, division`, `structure`, `total`, `count`, `diff_lim` |
+
+Renames of names used outside their module:
+
+| name | used by | suggested |
+|---|---|---|
+| `compare.fold_n` | imported by `video_compare.py:43`; defined again in `closeup.py` and `video.py` | `fold_count`, with the import changed (better: one copy, kind C) |
+| `compare.CCF_AP0` | a module constant | `CROP_START_PLANE` |
+
+Also: the `log2_zref` column of `region_table.csv` holds a difference, not a
+log2 ratio (a column name, so it stays unless the table changes anyway).
+
+Code changes the "do not copy" list (STYLE_PASS.md) names: `clear all`
+(choice 3); in `compare.py`, imports in isort order with
+`LinearSegmentedColormap` at the top, the four multi-line conditional
+expressions into `if`/`else` and type hints (kind B), and the backend,
+`os.path`, `SMOOTH` and the 100-voxel minimum, the settings table, the
+drawing and `save_figure`, and the two long functions (kind C, choice 6).
