@@ -1078,3 +1078,8 @@ The style pass will add to this list.
   commit checked by a rerun; local variables may be renamed (kind B),
   saved names, columns and settings keep theirs. The procedure is in
   `docs/STYLE_PASS.md` (temporary).
+- **For step 10** (Giulio, 2 Oct): the README's cover image is the slice-order
+  montage on Giulio's desktop (`slice_order_montage.png`, 1 Oct), copied to
+  `assets/` and shown on the README's first lines as the imaging repository
+  does (`![...](assets/example.png)`); Giulio can also set it as the GitHub
+  social preview (repository settings).
