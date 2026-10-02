@@ -70,35 +70,59 @@ def main(readings, plane, vmax, dlim, smooth, want_video, want_flatmap, cmap_nam
     sigma = sigmas[0] if len(sigmas) == 1 else sigmas
 
     # settings in force
-    config.print_settings({
-        "readings": " ".join(readings),
-        "plane": plane,
-        "vmax": "per reading" if vmax is None else vmax,
-        "dlim": "per reading" if dlim is None else dlim,
-        "smooth": sigma,
-        "cmap": "default" if cmap_name is None else cmap_name,
-        "video": "yes" if want_video else "no",
-        "flatmap": "yes" if want_flatmap else "no",
-    })
+    config.print_settings(
+        {
+            "readings": " ".join(readings),
+            "plane": plane,
+            "vmax": "per reading" if vmax is None else vmax,
+            "dlim": "per reading" if dlim is None else dlim,
+            "smooth": sigma,
+            "cmap": "default" if cmap_name is None else cmap_name,
+            "video": "yes" if want_video else "no",
+            "flatmap": "yes" if want_flatmap else "no",
+        }
+    )
 
     # close-up views
-    closeup.main(readings, plane=plane, vmax=vmax, dlim=dlim, sigma=sigma,
-                 want_video=want_video, want_flatmap=want_flatmap, cmap_name=cmap_name)
+    closeup.main(
+        readings,
+        plane=plane,
+        vmax=vmax,
+        dlim=dlim,
+        sigma=sigma,
+        want_video=want_video,
+        want_flatmap=want_flatmap,
+        cmap_name=cmap_name,
+    )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="one reading looked at closely")
     parser.add_argument("readings", nargs="*", help="readings to draw (default: zref)")
-    parser.add_argument("--plane", type=int, default=closeup.PLANE,
-                        help=f"CCF plane at 10 um (default {closeup.PLANE})")
+    parser.add_argument(
+        "--plane",
+        type=int,
+        default=closeup.PLANE,
+        help=f"CCF plane at 10 um (default {closeup.PLANE})",
+    )
     parser.add_argument("--vmax", type=float, help="colour range of the means")
     parser.add_argument("--dlim", type=float, help="colour range of the difference")
-    parser.add_argument("--smooth", type=smoothing,
-                        help="sigma in 20 um voxels: one, or three comma separated")
+    parser.add_argument(
+        "--smooth",
+        type=smoothing,
+        help="sigma in 20 um voxels: one, or three comma separated",
+    )
     parser.add_argument("--cmap", help="matplotlib colormap of the mean panels")
     parser.add_argument("--no-video", action="store_true", help="no video")
     parser.add_argument("--no-flatmap", action="store_true", help="no flatmaps")
     args = parser.parse_intermixed_args()
-    main(args.readings, args.plane, args.vmax, args.dlim, args.smooth,
-         want_video=not args.no_video, want_flatmap=not args.no_flatmap,
-         cmap_name=args.cmap)
+    main(
+        args.readings,
+        args.plane,
+        args.vmax,
+        args.dlim,
+        args.smooth,
+        want_video=not args.no_video,
+        want_flatmap=not args.no_flatmap,
+        cmap_name=args.cmap,
+    )

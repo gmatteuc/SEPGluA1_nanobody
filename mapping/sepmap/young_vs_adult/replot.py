@@ -1,8 +1,10 @@
-"""
-Redraw the v2 slice figures from the saved volumes, without redoing the
-ten-minute transform. The figure code lives in young_vs_adult.compare.draw_figures.
+"""Redraw the young against adult slice figures from the maps run_compare.py saved.
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_replot.py
+A change to the figures does not need the comparison again: the maps come from
+volumes_ccf20.npz and the figures from young_vs_adult.compare.draw_figures, the
+same code as in a full run.
+
+Run by run_replot.py.
 """
 
 import os
@@ -14,6 +16,6 @@ from sepmap.young_vs_adult.compare import OUT, draw_figures
 
 def main():
     """Redraw the slice figures from the volumes young_vs_adult.compare saved."""
-    z = np.load(os.path.join(OUT, 'volumes_ccf20.npz'))
+    z = np.load(os.path.join(OUT, "volumes_ccf20.npz"))
     draw_figures({k: z[k] for k in z.files}, OUT)
-    print('figures redrawn in', OUT)
+    print("figures redrawn in", OUT)

@@ -66,7 +66,10 @@ def main(cohorts):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="cohort videos, plane by plane")
-    parser.add_argument("cohorts", nargs="*",
-                        help="cohorts to draw (default: young adult young_P20 naive rws)")
+    parser.add_argument(
+        "cohorts",
+        nargs="*",
+        help="cohorts to draw (default: young adult young_P20 naive rws)",
+    )
     args = parser.parse_args()
     main(args.cohorts)

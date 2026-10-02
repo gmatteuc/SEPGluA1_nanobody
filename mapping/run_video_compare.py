@@ -58,13 +58,17 @@ def main(readings, plane=None, vmax=None, dlim=None):
     in_force = " ".join(cohort.MODES)
     if os.environ.get("V2_READINGS", "").strip():
         in_force += "  (from V2_READINGS)"
-    config.print_settings({
-        "readings": " ".join(readings),
-        "in force": in_force,
-        "plane": "every plane, as a video" if plane is None else f"{plane}, as a still",
-        "vmax": "per reading" if vmax is None else vmax,
-        "dlim": "default" if dlim is None else dlim,
-    })
+    config.print_settings(
+        {
+            "readings": " ".join(readings),
+            "in force": in_force,
+            "plane": "every plane, as a video"
+            if plane is None
+            else f"{plane}, as a still",
+            "vmax": "per reading" if vmax is None else vmax,
+            "dlim": "default" if dlim is None else dlim,
+        }
+    )
 
     # young beside adult
     video_compare.main(readings, plane=plane, vmax=vmax, dlim=dlim)

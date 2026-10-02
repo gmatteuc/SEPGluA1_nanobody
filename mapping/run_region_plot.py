@@ -64,6 +64,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(description="per-mouse region statistics")
     parser.parse_args()
     main()

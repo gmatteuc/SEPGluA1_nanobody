@@ -1,68 +1,53 @@
-"""
-v2, per-mouse region statistics and dot plot, computed on each brain's OWN
-atlas -- no warping anywhere.
+"""Per-mouse region statistics and dot plot, each brain measured on its own atlas.
 
-This is where the numbers to quote come from. A region-wise comparison only
-needs every voxel's label, and the DeMBA annotations were remapped to Allen
-parcellation_index when they were built, so VISp in a P16 brain is measured
-against the P16 annotation, VISp in a P20 brain against the P20 one, and only
-the resulting per-mouse means are compared. Pooling ages is therefore clean
-here in a way it is not for a voxelwise map, where the young brains have to be
-carried into the CCF first (volumes.to_ccf).
+This is where the numbers to quote come from. A region-wise comparison needs only
+every voxel's label, and the DeMBA annotations were remapped to the Allen
+parcellation_index when they were built, so VISp in a P16 brain is measured on
+the P16 annotation, VISp in a P20 brain on the P20 one, and only the per-mouse
+means are compared. Pooling ages is therefore clean here, as it is not for a
+voxelwise map, where the young brains must first be carried into the CCF
+(volumes.to_ccf). Nothing is warped.
 
-Per mouse and structure: the mean of sig, of sig/auto and of sig/SEP over the
-tissue voxels, then per mouse
-  ratio                       nano per unit autofluorescence, no reference.
-                              Not an absolute measure: the young cortex is
-                              2.0 log2 below the adult in nano and 1.0 log2
-                              below it in auto, so the denominator carries its
-                              own age effect (see volumes.cohort).
-  sepratio                    nano per unit SEP. This was meant to be receptor
-                              on the membrane per unit receptor expressed, SEP
-                              being the tag on GluA1 itself, and it is not:
-                              adult.sep_channel_check finds the green channel
-                              dominated by autofluorescence in this tissue, so
-                              the reading behaves as a second nano/autofluo.
-                              The description that follows is what it was
-                              intended to be, kept because the reading is still
-                              computed and plotted: it
-                              be part of what is being looked for.
-  sig / isocortex mean        share of the cortex
-  sig / subcortex-HPF-STR     share of the subcortex without the two
-                              structures that dominate the scale
-  zref                        range-matched: the same cortex-relative values,
-                              minus that brain's median over structures and
-                              divided by its own p90-p10 spread. Every brain
-                              then has the same level AND the same dynamic
-                              range, so the question becomes where a region
-                              sits inside its own brain's range.
-                              Why it is needed: the pup brain is genuinely
-                              flatter, p90-p10 = 0.89 +- 0.25 log2 against
-                              1.79 +- 0.24 in adults, and no single-number
-                              reference can touch that -- dividing by cortex,
-                              by subcortex or by the hippocampus shifts every
-                              point equally and only moves where zero sits.
-                              What it costs: that compression is defined away,
-                              so this reading can show re-ordering but says
-                              nothing about amplitude.
-and per structure a Welch test of the young group against the adults, with the
-naive-vs-rws difference printed beside it as the size of a difference that
-carries no developmental meaning. The young group pools every registered
-young brain whatever its age, and each is one mouse like any other -- same
-marker, counted in the median and in the tests. The P20-only contrast stays in
-the CSV, so what the off-age brains do to the answer can still be checked.
+Per mouse and structure, the mean of sig, of sig/auto and of sig/SEP over the
+tissue voxels, and from them per mouse:
 
-The figure marks each region with the Mann-Whitney (rank-sum) test of the
-young group against the adults, uncorrected: * p<0.05, ** p<0.01. Ranks rather
-than means because the samples are small and log ratios are not guaranteed
-normal. Every count in the figure is computed from the cohort lists, never
-written into a caption. region_stats.csv carries the Welch p, the Mann-Whitney p and the
-Benjamini-Hochberg q of each, so a corrected reading is one column away.
+    ratio      nano per unit autofluorescence, no reference. Not an absolute
+               measure: the young cortex is 2.0 log2 below the adult in nano and
+               1.0 log2 below it in autofluorescence, so the denominator carries
+               an age effect of its own (see volumes.cohort).
+    sepratio   nano per unit SEP, meant as membrane receptor per unit receptor
+               expressed, SEP being the tag on GluA1 itself. It is not that:
+               adult.sep_channel_check finds the green channel dominated by
+               autofluorescence in this tissue, so the reading behaves as a
+               second nano over autofluorescence.
+    cref       sig over the brain's isocortex mean: a share of the cortex.
+    subref     sig over the mean of the subcortex without HPF and STR, the two
+               structures that would dominate the scale.
+    zref       range-matched: the cortex-relative values minus the brain's
+               median over structures, divided by its own p90-p10 spread.
+
+zref gives every brain the same level and the same dynamic range, so the question
+becomes where a region sits within its own brain's range. The young brain is
+flatter, p90-p10 = 0.89 +- 0.25 log2 against 1.79 +- 0.24 in adults, and no
+one-number reference can touch that: dividing by cortex, subcortex or hippocampus
+shifts every point equally and only moves the zero. The price is that the
+compression is defined away, so zref can show a reordering but says nothing about
+amplitude.
+
+Per structure, the young group is tested against the adults (Welch), with the
+naive-minus-rws difference beside it as the size of a difference that carries no
+developmental meaning. The young group pools every registered young brain
+whatever its age, each one mouse like any other in the median and the tests; the
+P20-only contrast stays in the CSV, so what the other ages do to the answer can be
+checked. The figure marks each region with the Mann-Whitney (rank-sum) test,
+uncorrected: ranks rather than means, because the samples are small and log
+ratios need not be normal. region_stats.csv carries the Welch p, the Mann-Whitney
+p and the Benjamini-Hochberg q of each, so a corrected reading is one column away.
 
 Writes region_means_per_mouse.csv, region_stats.csv and region_plot.png into
-data/comparisons_v2/young_vs_adult/.
+comparisons_v2/young_vs_adult/.
 
-  D:\\sep_histology\\code\\tools\\venv_atlas\\Scripts\\python.exe mapping\\run_region_plot.py
+Run by run_region_plot.py.
 """
 
 import csv
@@ -73,66 +58,164 @@ from collections import defaultdict
 import numpy as np
 from scipy.ndimage import gaussian_filter
 import matplotlib
-matplotlib.use('Agg')
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from sepmap.volumes.per_mouse import annotation_20, MICE, CSV_MAP, OUT as PER_MOUSE, DATA
-from sepmap.volumes.cohort import RATIO_CLIP, YOUNG_P20, YOUNG_P16, YOUNG_P22, NAIVE, RWS, MODES, SIGNED_READINGS
+from sepmap.volumes.cohort import (
+    RATIO_CLIP,
+    YOUNG_P20,
+    YOUNG_P16,
+    YOUNG_P22,
+    NAIVE,
+    RWS,
+    MODES,
+    SIGNED_READINGS,
+)
 
-OUT = os.path.join(DATA, 'comparisons_v2', 'young_vs_adult')
-MIN_VOX = 250      # 20 um voxels = 2 nl, the same volume as the earlier tables
-AREAS = ['VISp', 'VISl', 'VISal', 'VISrl', 'VISpm', 'VISam', 'SSp-bfd', 'SSp-ul', 'SSp-ll', 'SSp-m', 'SSp-n', 'SSs',
-         'AUDp', 'AUDd', 'MOp', 'MOs', 'RSPd', 'RSPv', 'ACAd', 'ACAv', 'PL', 'ILA', 'ORBl',
-         '|', 'VPM', 'VPL', 'LGd', 'LP', 'CP', 'ACB', 'CA1', 'CA3', 'DG', 'GPe', 'PVH', 'ZI']
-NOT_SUBCORTEX = {'Isocortex', 'HPF', 'STR', 'OLF', 'CTXsp', 'fiber tracts', 'VS', 'CB', ''}
-READINGS = [('ratio', 'nanobody / autofluorescence, both background-subtracted  (log2)'),
-            ('sepratio', 'nanobody / SEP  -  NOT a surface fraction: SEP is mostly autofluorescence here  (log2)'),
-            ('cref', 'background-subtracted nanobody, relative to the mouse\'s own isocortex  (log2)'),
-            ('subref', 'background-subtracted nanobody, relative to subcortex excluding HPF and STR  (log2)'),
-            ('zref', "range-matched: cortex-relative, then centred and scaled by each brain's own spread")]
-# V2_READINGS (see volumes.cohort) drops a reading from the tables and figures as
-# well, so one variable covers the whole chain. young_vs_adult.region_groups
-# imports this list and follows it.
+OUT = os.path.join(DATA, "comparisons_v2", "young_vs_adult")
+
+# smallest structure kept, in 20 um voxels: 2 nl, the volume of the earlier tables
+MIN_VOX = 250
+
+# areas of the printed table and the figure: cortex, then after "|" the subcortex
+AREAS = [
+    "VISp",
+    "VISl",
+    "VISal",
+    "VISrl",
+    "VISpm",
+    "VISam",
+    "SSp-bfd",
+    "SSp-ul",
+    "SSp-ll",
+    "SSp-m",
+    "SSp-n",
+    "SSs",
+    "AUDp",
+    "AUDd",
+    "MOp",
+    "MOs",
+    "RSPd",
+    "RSPv",
+    "ACAd",
+    "ACAv",
+    "PL",
+    "ILA",
+    "ORBl",
+    "|",
+    "VPM",
+    "VPL",
+    "LGd",
+    "LP",
+    "CP",
+    "ACB",
+    "CA1",
+    "CA3",
+    "DG",
+    "GPe",
+    "PVH",
+    "ZI",
+]
+
+# divisions left out of the subcortex reference (subref); "" is a structure without
+# a division
+NOT_SUBCORTEX = {
+    "Isocortex",
+    "HPF",
+    "STR",
+    "OLF",
+    "CTXsp",
+    "fiber tracts",
+    "VS",
+    "CB",
+    "",
+}
+
+# the readings and their panel titles
+READINGS = [
+    ("ratio", "nanobody / autofluorescence, both background-subtracted  (log2)"),
+    (
+        "sepratio",
+        "nanobody / SEP  -  NOT a surface fraction: SEP is mostly autofluorescence "
+        "here  (log2)",
+    ),
+    (
+        "cref",
+        "background-subtracted nanobody, relative to the mouse's own isocortex  (log2)",
+    ),
+    (
+        "subref",
+        "background-subtracted nanobody, relative to subcortex excluding HPF and STR  "
+        "(log2)",
+    ),
+    (
+        "zref",
+        "range-matched: cortex-relative, then centred and scaled by each brain's own "
+        "spread",
+    ),
+]
+
+# V2_READINGS (volumes.cohort) drops a reading from the tables and figures too, so
+# one variable covers the chain; young_vs_adult.region_groups follows this list
 READINGS = [r for r in READINGS if r[0] in MODES]
-GROUPS = {'young': YOUNG_P20 + YOUNG_P16 + YOUNG_P22, 'naive': NAIVE, 'rws': RWS}
+
+# the groups: every young brain (P16, P20, P22) against the adults, naive and rws
+GROUPS = {"young": YOUNG_P20 + YOUNG_P16 + YOUNG_P22, "naive": NAIVE, "rws": RWS}
 ADULTS = NAIVE + RWS
-COL = {'young': '#c0392b', 'naive': '#555555', 'rws': '#9a9a9a'}
-LABEL = {'young': f'young P16-P22 (n = {len(YOUNG_P20) + len(YOUNG_P16) + len(YOUNG_P22)})',
-         'naive': f'adult naive (n = {len(NAIVE)})', 'rws': f'adult rws (n = {len(RWS)})'}
+
+# group colours, and legend labels with the counts computed from the lists
+COL = {"young": "#c0392b", "naive": "#555555", "rws": "#9a9a9a"}
+LABEL = {
+    "young": f"young P16-P22 (n = {len(YOUNG_P20) + len(YOUNG_P16) + len(YOUNG_P22)})",
+    "naive": f"adult naive (n = {len(NAIVE)})",
+    "rws": f"adult rws (n = {len(RWS)})",
+}
 
 
 def save_figure(fig, path):
-    """Save, and if the file is open in a viewer say so instead of dying.
+    """Save `fig` as a PNG at `path` and as an EPS beside it.
 
-    Windows refuses to overwrite a PNG that an image viewer holds open, and a
-    run that writes several figures should not lose the rest because one of
-    them was being looked at.
+    Windows refuses to overwrite a PNG that an image viewer holds open. The
+    figure then goes to <name>_new.png, with a note, so a run that writes
+    several figures does not lose the rest because one of them was being
+    looked at.
+
+    The EPS is what goes into a figure for a paper. PostScript has no
+    transparency, so the image layers are rasterised and composited by Agg
+    first; otherwise a no-data region, transparent here, would come out opaque
+    black instead of showing the ground beneath it. Text, lines and axes stay
+    vector, the part that has to be editable.
     """
     try:
         fig.savefig(path, dpi=105)
     except OSError:
-        alt = path.replace('.png', '_new.png')
+        alt = path.replace(".png", "_new.png")
         fig.savefig(alt, dpi=105)
-        print(f'  NOTE: {os.path.basename(path)} is open elsewhere; wrote {os.path.basename(alt)} instead', flush=True)
+        print(
+            f"  NOTE: {os.path.basename(path)} is open elsewhere; "
+            f"wrote {os.path.basename(alt)} instead",
+            flush=True,
+        )
 
-    # An EPS beside it, because that is what goes into a figure. PostScript has
-    # no transparency, so the image layers are rasterised and composited by Agg
-    # first -- otherwise a no-data region, which is transparent here, would come
-    # out opaque black instead of showing the ground beneath it. Text, lines and
-    # axes stay vector, which is the part that has to be editable.
-    eps = os.path.splitext(path)[0] + '.eps'
+    # the EPS, with the image layers rasterised
+    eps = os.path.splitext(path)[0] + ".eps"
     for ax in fig.axes:
         for im in ax.images:
             im.set_rasterized(True)
     try:
-        fig.savefig(eps, dpi=105, facecolor=fig.get_facecolor(), format='eps')
+        fig.savefig(eps, dpi=105, facecolor=fig.get_facecolor(), format="eps")
     except OSError:
-        print(f'  NOTE: {os.path.basename(eps)} is open elsewhere; the PNG was still written', flush=True)
-
+        print(
+            f"  NOTE: {os.path.basename(eps)} is open elsewhere; "
+            "the PNG was still written",
+            flush=True,
+        )
 
 
 def bh_fdr(p):
-    """Benjamini-Hochberg q-values for one family of tests.
+    """Benjamini-Hochberg q-values for one family of tests; NaN where p is NaN.
 
     A few hundred structures are tested per reading, so a handful of p < 0.05
     is expected from noise alone. The q-value is what should be quoted for
@@ -143,11 +226,14 @@ def bh_fdr(p):
     q = np.full(p.shape, np.nan)
     if ok.sum() == 0:
         return q
+
+    # p times n over its rank, made monotone from the largest p down, at most 1
     order = np.argsort(p[ok])
     ranked = p[ok][order]
     n = len(ranked)
     adj = np.minimum.accumulate((ranked * n / np.arange(1, n + 1))[::-1])[::-1]
-    out = np.empty(n); out[order] = np.minimum(adj, 1.0)
+    out = np.empty(n)
+    out[order] = np.minimum(adj, 1.0)
     q[ok] = out
     return q
 
@@ -155,21 +241,29 @@ def bh_fdr(p):
 def mannwhitney(a, b):
     """Two-sided rank-sum p for two independent samples, or NaN if too small."""
     if len(a) < 2 or len(b) < 2:
-        return float('nan')
+        return float("nan")
     from scipy.stats import mannwhitneyu
-    return float(mannwhitneyu(a, b, alternative='two-sided').pvalue)
+
+    return float(mannwhitneyu(a, b, alternative="two-sided").pvalue)
 
 
 def welch(a, b):
+    """Two-sided Welch t-test p for two independent samples.
+
+    NaN when a sample has fewer than two values or neither varies.
+    """
     a, b = np.asarray(a, float), np.asarray(b, float)
     if len(a) < 2 or len(b) < 2:
-        return float('nan')
+        return float("nan")
     va, vb = a.var(ddof=1) / len(a), b.var(ddof=1) / len(b)
     if va + vb == 0:
-        return float('nan')
+        return float("nan")
+
+    # t with unequal variances, and the Welch-Satterthwaite degrees of freedom
     t = (a.mean() - b.mean()) / math.sqrt(va + vb)
-    df = (va + vb) ** 2 / (va ** 2 / (len(a) - 1) + vb ** 2 / (len(b) - 1))
+    df = (va + vb) ** 2 / (va**2 / (len(a) - 1) + vb**2 / (len(b) - 1))
     from scipy.stats import t as tdist
+
     return float(2 * tdist.sf(abs(t), df))
 
 
@@ -179,30 +273,39 @@ def load_structure_terms():
     Read from the parcellation term membership table (CSV_MAP).
     """
     names, acro, divi = {}, {}, {}
-    with open(CSV_MAP, newline='', encoding='utf-8') as fh:
+    with open(CSV_MAP, newline="", encoding="utf-8") as fh:
         for row in csv.DictReader(fh):
-            idx = int(row['parcellation_index'])
-            if row['parcellation_term_set_name'] == 'structure':
-                names[idx] = row['parcellation_term_name']; acro[idx] = row['parcellation_term_acronym']
-            elif row['parcellation_term_set_name'] == 'division':
-                divi[idx] = row['parcellation_term_acronym']
+            idx = int(row["parcellation_index"])
+            if row["parcellation_term_set_name"] == "structure":
+                names[idx] = row["parcellation_term_name"]
+                acro[idx] = row["parcellation_term_acronym"]
+            elif row["parcellation_term_set_name"] == "division":
+                divi[idx] = row["parcellation_term_acronym"]
     return names, acro, divi
 
 
-# sig divided by a reference CHANNEL, voxel by voxel: the denominator is
-# smoothed by one 20 um voxel and mask-normalised, exactly as volumes.cohort
-# does it, so a region mean here and a voxel there mean the same thing.
 def per_unit(ref, sig, tissue):
-    """`sig` per unit of the channel `ref` within `tissue`, clipped to RATIO_CLIP."""
+    """`sig` per unit of the channel `ref` within `tissue`, clipped to RATIO_CLIP.
+
+    Voxel by voxel; the denominator is smoothed by one 20 um voxel and
+    mask-normalised, as volumes.cohort does it, so a region mean here and a voxel
+    there mean the same thing.
+    """
     ref_s = gaussian_filter(np.where(tissue, ref, 0), 1.0) / np.maximum(
-        gaussian_filter(tissue.astype(np.float32), 1.0), 1e-3)
-    return np.clip(np.where(ref_s > 0, sig / np.maximum(ref_s, 1e-3), 0), -RATIO_CLIP, RATIO_CLIP)
+        gaussian_filter(tissue.astype(np.float32), 1.0), 1e-3
+    )
+    return np.clip(
+        np.where(ref_s > 0, sig / np.maximum(ref_s, 1e-3), 0), -RATIO_CLIP, RATIO_CLIP
+    )
 
 
 def structure_means(mice, names):
     """Per mouse and structure: tissue voxels, and the mean of sig, ratio and sepratio.
 
-    Each brain on its own atlas; structures under MIN_VOX voxels are left out.
+    Each brain on its own atlas; structures under MIN_VOX voxels are left out. The
+    layers of an area are separate parcellation indices with one structure name,
+    and are pooled under that name. Stops if a brain has no SEP channel while the
+    sepratio reading is in force.
     """
     anns, per = {}, {}
     for mouse in mice:
@@ -210,30 +313,47 @@ def structure_means(mice, names):
         if atlas_key not in anns:
             anns[atlas_key] = annotation_20(atlas_key)
         ann = anns[atlas_key]
-        z = np.load(os.path.join(PER_MOUSE, mouse + '.npz'))
-        sig = z['sig'].astype(np.float32); auto = z['auto'].astype(np.float32); tissue = z['tissue']
-        if 'sepratio' in MODES and 'sep' not in z.files:
-            raise SystemExit(f'{mouse}: no SEP channel in its per-mouse file. Run\n'
-                             f'  run_add_sep_channel.m for this brain, then run_per_mouse.py,\n'
-                             f'  or drop the reading with V2_READINGS.')
+        z = np.load(os.path.join(PER_MOUSE, mouse + ".npz"))
+        sig = z["sig"].astype(np.float32)
+        auto = z["auto"].astype(np.float32)
+        tissue = z["tissue"]
+        if "sepratio" in MODES and "sep" not in z.files:
+            raise SystemExit(
+                f"{mouse}: no SEP channel in its per-mouse file. Run\n"
+                f"  run_add_sep_channel.m for this brain, then run_per_mouse.py,\n"
+                f"  or drop the reading with V2_READINGS."
+            )
 
+        # sums per parcellation index of the voxels, sig and the two ratios
         ratio = per_unit(auto, sig, tissue)
-        sepratio = per_unit(z['sep'].astype(np.float32), sig, tissue) if 'sep' in z.files else np.zeros_like(sig)
-        lab = ann[tissue]; nlab = int(ann.max()) + 1
+        sepratio = (
+            per_unit(z["sep"].astype(np.float32), sig, tissue)
+            if "sep" in z.files
+            else np.zeros_like(sig)
+        )
+        lab = ann[tissue]
+        nlab = int(ann.max()) + 1
         n = np.bincount(lab, minlength=nlab)
         s_sig = np.bincount(lab, weights=sig[tissue], minlength=nlab)
         s_rat = np.bincount(lab, weights=ratio[tissue], minlength=nlab)
         s_sep = np.bincount(lab, weights=sepratio[tissue], minlength=nlab)
+
+        # pooled per structure name, then the means of the structures large enough
         d = defaultdict(lambda: [0, 0.0, 0.0, 0.0])
         for idx in np.nonzero(n)[0]:
             if idx == 0:
                 continue
-            key = names.get(int(idx), f'id{idx}')
-            d[key][0] += int(n[idx]); d[key][1] += s_sig[idx]
-            d[key][2] += s_rat[idx]; d[key][3] += s_sep[idx]
-        per[mouse] = {k: (v[0], v[1] / v[0], v[2] / v[0], v[3] / v[0])
-                      for k, v in d.items() if v[0] >= MIN_VOX}
-        print(f'{mouse:20s} {atlas_key:10s} {len(per[mouse])} structures', flush=True)
+            key = names.get(int(idx), f"id{idx}")
+            d[key][0] += int(n[idx])
+            d[key][1] += s_sig[idx]
+            d[key][2] += s_rat[idx]
+            d[key][3] += s_sep[idx]
+        per[mouse] = {
+            k: (v[0], v[1] / v[0], v[2] / v[0], v[3] / v[0])
+            for k, v in d.items()
+            if v[0] >= MIN_VOX
+        }
+        print(f"{mouse:20s} {atlas_key:10s} {len(per[mouse])} structures", flush=True)
     return per
 
 
@@ -244,18 +364,23 @@ def ref(m, pred, per, meta):
     """
     s = c = 0.0
     for k, (n, ms, _, _) in per[m].items():
-        if pred(meta.get(k, ('', ''))[1]):
-            s += ms * n; c += n
-    return s / c if c else float('nan')
+        if pred(meta.get(k, ("", ""))[1]):
+            s += ms * n
+            c += n
+    return s / c if c else float("nan")
 
 
 def brain_references(mice, per, meta):
     """Per mouse the two one-number references: mean sig of isocortex and subcortex."""
-    # Each reference is a single number per brain, so every reading is a pure
-    # scale and region ratios inside a brain survive it exactly. What changes
-    # between them is only the question being asked -- see the header.
-    refs = {m: {'cref': ref(m, lambda d: d == 'Isocortex', per, meta),
-                'subref': ref(m, lambda d: d not in NOT_SUBCORTEX, per, meta)} for m in mice}
+    # one number per brain, so every reading is a pure scale and region ratios within
+    # a brain survive it exactly; only the question asked changes (module docstring)
+    refs = {
+        m: {
+            "cref": ref(m, lambda d: d == "Isocortex", per, meta),
+            "subref": ref(m, lambda d: d not in NOT_SUBCORTEX, per, meta),
+        }
+        for m in mice
+    }
     return refs
 
 
@@ -264,26 +389,34 @@ def range_match(mice, per, refs):
 
     Taken over the structures every brain has, and printed.
     """
-    # The range match needs two numbers per brain rather than one, and they have
-    # to come from the same set of structures in every brain or the spread would
-    # depend on which regions a section happened to cover.
+    # the same structures in every brain, or the spread would depend on which
+    # regions the sections happened to cover
     common = set.intersection(*[set(per[m]) for m in mice])
     norm = {}
     for m in mice:
-        v = np.array([math.log2(per[m][k][1] / refs[m]['cref']) for k in sorted(common)
-                      if per[m][k][1] > 0])
+        v = np.array(
+            [
+                math.log2(per[m][k][1] / refs[m]["cref"])
+                for k in sorted(common)
+                if per[m][k][1] > 0
+            ]
+        )
         p10, med, p90 = np.percentile(v, [10, 50, 90])
         norm[m] = (med, max(p90 - p10, 1e-6))
-    print('dynamic range per brain (p90-p10 of log2 over %d shared structures):' % len(common))
+    print(
+        "dynamic range per brain (p90-p10 of log2 over %d shared structures):"
+        % len(common)
+    )
     for m in mice:
-        print(f'  {m:20s} median {norm[m][0]:+.2f}   spread {norm[m][1]:.2f}')
+        print(f"  {m:20s} median {norm[m][0]:+.2f}   spread {norm[m][1]:.2f}")
     return norm
 
 
 def value(reading, m, k, per, norm, refs):
     """Value of `reading` for mouse `m` in structure `k`, or None.
 
-    log2 for every reading but the signed ones, which are range-matched.
+    log2 for every reading but the signed ones, which are range-matched. None when
+    the structure is missing in that brain or its value is not positive.
     """
     if k is None or k not in per[m]:
         return None
@@ -292,11 +425,12 @@ def value(reading, m, k, per, norm, refs):
         if ms <= 0:
             return None
         med, spread = norm[m]
-        return (math.log2(ms / refs[m]['cref']) - med) / spread
+        return (math.log2(ms / refs[m]["cref"]) - med) / spread
+
     # ratio and sepratio are already ratios, taken voxel by voxel against a
     # channel; the rest divide sig by a single number measured on this brain
-    if reading in ('ratio', 'sepratio'):
-        v = mr if reading == 'ratio' else msep
+    if reading in ("ratio", "sepratio"):
+        v = mr if reading == "ratio" else msep
     else:
         v = ms / refs[m][reading]
     return math.log2(v) if v > 0 else None
@@ -305,16 +439,34 @@ def value(reading, m, k, per, norm, refs):
 def region_rows(mice, meta, group_of, per, norm, refs):
     """The per-mouse rows, and per structure and reading the young-against-adult tests.
 
-    The test rows carry the BH q of the Welch and the Mann-Whitney p, within each reading.
+    A structure is tested when at least 2 young and 4 adult brains have a value.
+    The test rows carry the BH q of the Welch and of the Mann-Whitney p, taken
+    within each reading.
     """
     rows_pm, rows_st = [], []
     for k in sorted(meta, key=lambda k: (meta[k][1], meta[k][0])):
         for reading, _ in READINGS:
             v = {m: value(reading, m, k, per, norm, refs) for m in mice}
             v = {m: x for m, x in v.items() if x is not None}
+
+            # one row per mouse, in the columns of region_means_per_mouse.csv
             for m, x in v.items():
-                rows_pm.append((reading, group_of[m], MICE[m][0], m, k, meta[k][0], meta[k][1], per[m][k][0], x))
-            yo = [v[m] for m in GROUPS['young'] if m in v]
+                rows_pm.append(
+                    (
+                        reading,
+                        group_of[m],
+                        MICE[m][0],
+                        m,
+                        k,
+                        meta[k][0],
+                        meta[k][1],
+                        per[m][k][0],
+                        x,
+                    )
+                )
+
+            # the values of each group and subgroup
+            yo = [v[m] for m in GROUPS["young"] if m in v]
             y20 = [v[m] for m in YOUNG_P20 if m in v]
             p16 = [v[m] for m in YOUNG_P16 if m in v]
             ad = [v[m] for m in ADULTS if m in v]
@@ -322,13 +474,30 @@ def region_rows(mice, meta, group_of, per, norm, refs):
             rw = [v[m] for m in RWS if m in v]
             if len(yo) < 2 or len(ad) < 4:
                 continue
-            rows_st.append((reading, k, meta[k][0], meta[k][1], len(yo), len(ad),
-                            np.mean(yo), np.mean(ad), np.mean(yo) - np.mean(ad),
-                            np.median(yo) - np.median(ad), welch(yo, ad), mannwhitney(yo, ad),
-                            (np.mean(y20) - np.mean(ad)) if len(y20) >= 2 else float('nan'),
-                            welch(y20, ad) if len(y20) >= 2 else float('nan'),
-                            (p16[0] - np.mean(ad)) if p16 else float('nan'),
-                            (np.mean(nv) - np.mean(rw)) if nv and rw else float('nan')))
+
+            # one row per structure, in the columns of region_stats.csv but the
+            # q-values, which go in after the Mann-Whitney p below
+            rows_st.append(
+                (
+                    reading,
+                    k,
+                    meta[k][0],
+                    meta[k][1],
+                    len(yo),
+                    len(ad),
+                    np.mean(yo),
+                    np.mean(ad),
+                    np.mean(yo) - np.mean(ad),
+                    np.median(yo) - np.median(ad),
+                    welch(yo, ad),
+                    mannwhitney(yo, ad),
+                    (np.mean(y20) - np.mean(ad)) if len(y20) >= 2 else float("nan"),
+                    welch(y20, ad) if len(y20) >= 2 else float("nan"),
+                    (p16[0] - np.mean(ad)) if p16 else float("nan"),
+                    (np.mean(nv) - np.mean(rw)) if nv and rw else float("nan"),
+                )
+            )
+
     # q-values within each reading, so the brain-wide lists can be read honestly
     q_welch, q_mw = {}, {}
     for reading, _ in READINGS:
@@ -342,96 +511,211 @@ def region_rows(mice, meta, group_of, per, norm, refs):
 
 def write_tables(rows_pm, rows_st):
     """Write region_means_per_mouse.csv and region_stats.csv into OUT."""
-    with open(os.path.join(OUT, 'region_means_per_mouse.csv'), 'w', newline='', encoding='utf-8') as fh:
+    with open(
+        os.path.join(OUT, "region_means_per_mouse.csv"), "w", newline="", encoding="utf-8"
+    ) as fh:
         w = csv.writer(fh)
-        w.writerow(['reading', 'group', 'cohort', 'mouse', 'structure', 'acronym', 'division', 'n_vox20', 'log2_value'])
-        w.writerows([r[:8] + (f'{r[8]:.4f}',) for r in rows_pm])
-    with open(os.path.join(OUT, 'region_stats.csv'), 'w', newline='', encoding='utf-8') as fh:
+        w.writerow(
+            [
+                "reading",
+                "group",
+                "cohort",
+                "mouse",
+                "structure",
+                "acronym",
+                "division",
+                "n_vox20",
+                "log2_value",
+            ]
+        )
+        w.writerows([r[:8] + (f"{r[8]:.4f}",) for r in rows_pm])
+    with open(
+        os.path.join(OUT, "region_stats.csv"), "w", newline="", encoding="utf-8"
+    ) as fh:
         w = csv.writer(fh)
-        w.writerow(['reading', 'structure', 'acronym', 'division', 'n_young', 'n_adult',
-                    'young_mean_log2', 'adult_mean_log2', 'diff_log2', 'diff_median_log2',
-                    'welch_p', 'mannwhitney_p', 'welch_q_BH', 'mannwhitney_q_BH',
-                    'diff_log2_P20only', 'welch_p_P20only', 'diff_log2_P16_single', 'naive_minus_rws_log2'])
-        w.writerows([r[:6] + tuple(f'{x:.4f}' for x in r[6:]) for r in rows_st])
+        w.writerow(
+            [
+                "reading",
+                "structure",
+                "acronym",
+                "division",
+                "n_young",
+                "n_adult",
+                "young_mean_log2",
+                "adult_mean_log2",
+                "diff_log2",
+                "diff_median_log2",
+                "welch_p",
+                "mannwhitney_p",
+                "welch_q_BH",
+                "mannwhitney_q_BH",
+                "diff_log2_P20only",
+                "welch_p_P20only",
+                "diff_log2_P16_single",
+                "naive_minus_rws_log2",
+            ]
+        )
+        w.writerows([r[:6] + tuple(f"{x:.4f}" for x in r[6:]) for r in rows_st])
 
 
 def print_cortex_table(rows_st):
     """Print log2(young / adult) of each area in AREAS and reading, with its stars."""
     st = {(r[0], r[2]): r for r in rows_st}
-    print(f'\nCORTEX  log2(young / adult), young = {len(GROUPS["young"])} mice (P20 + P16) vs {len(ADULTS)} adults '
-          '(* p<0.05, ** p<0.01, Mann-Whitney, uncorrected; q in the CSV). '
-          'P20only = without the P16 brain; P16 = that brain alone; naive-rws = the null scale.')
-    print(f'  {"area":9s} ' + ' '.join(f'{r:>10s}' for r, _ in READINGS) + f' {"P20only":>9s} {"P16":>7s} {"naive-rws":>10s}')
+    print(
+        f"\nCORTEX  log2(young / adult), young = {len(GROUPS['young'])} mice (P20 + P16) "
+        f"vs {len(ADULTS)} adults "
+        "(* p<0.05, ** p<0.01, Mann-Whitney, uncorrected; q in the CSV). "
+        "P20only = without the P16 brain; P16 = that brain alone; "
+        "naive-rws = the null scale."
+    )
+    print(
+        f"  {'area':9s} "
+        + " ".join(f"{r:>10s}" for r, _ in READINGS)
+        + f" {'P20only':>9s} {'P16':>7s} {'naive-rws':>10s}"
+    )
     for a in AREAS:
-        if a == '|':
-            print('  ' + '-' * 60); continue
+        if a == "|":
+            print("  " + "-" * 60)
+            continue
         cells = []
         for reading, _ in READINGS:
             r = st.get((reading, a))
             if r is None:
-                cells.append(f'{"--":>10s}'); continue
-            star = '**' if r[11] < 0.01 else ('*' if r[11] < 0.05 else '')      # rank-sum p
-            cells.append(f'{r[8]:+7.2f}{star:3s}')
-        r = st.get(('cref', a))
-        tail = f'{r[14]:+9.2f} {r[16]:+7.2f} {r[17]:+10.2f}' if r else ''
-        print(f'  {a:9s} ' + ' '.join(cells) + ' ' + tail)
+                cells.append(f"{'--':>10s}")
+                continue
+
+            # stars from the rank-sum p
+            star = "**" if r[11] < 0.01 else ("*" if r[11] < 0.05 else "")
+            cells.append(f"{r[8]:+7.2f}{star:3s}")
+        r = st.get(("cref", a))
+        tail = f"{r[14]:+9.2f} {r[16]:+7.2f} {r[17]:+10.2f}" if r else ""
+        print(f"  {a:9s} " + " ".join(cells) + " " + tail)
 
 
 def plot_regions(rows_st, by_acro, per, norm, refs):
     """Draw region_plot.png: a panel per reading, a dot per mouse in each of AREAS."""
-    # Every mouse is a dot of the same size, the P16 brain included: it is one
-    # young animal among six. The bar is the group MEDIAN, to match the rank-sum
-    # test that puts the stars on.
-    star_of = {(r[0], r[2]): ('**' if r[11] < 0.01 else ('*' if r[11] < 0.05 else '')) for r in rows_st}
-    ylab = {'ratio': 'log2  nano / auto', 'sepratio': 'log2  nano / SEP',
-            'cref': 'log2  relative to own isocortex',
-            'subref': 'log2  relative to subcortex', 'zref': 'range-matched (median 0, spread 1)'}
-    fig, axes = plt.subplots(len(READINGS), 1, figsize=(15, 3.8 * len(READINGS)), sharex=True)
-    xs = [i for i, a in enumerate(AREAS) if a != '|']
+    # every mouse a dot of the same size, the P16 brain included; the bar is the
+    # group median, to match the rank-sum test that sets the stars
+    star_of = {
+        (r[0], r[2]): ("**" if r[11] < 0.01 else ("*" if r[11] < 0.05 else ""))
+        for r in rows_st
+    }
+    ylab = {
+        "ratio": "log2  nano / auto",
+        "sepratio": "log2  nano / SEP",
+        "cref": "log2  relative to own isocortex",
+        "subref": "log2  relative to subcortex",
+        "zref": "range-matched (median 0, spread 1)",
+    }
+    fig, axes = plt.subplots(
+        len(READINGS), 1, figsize=(15, 3.8 * len(READINGS)), sharex=True
+    )
+    xs = [i for i, a in enumerate(AREAS) if a != "|"]
     for ax, (reading, title) in zip(axes, READINGS):
-        for g in ('naive', 'rws', 'young'):
+        # each group's mice, side by side, and its median as a bar
+        for g in ("naive", "rws", "young"):
             ms = GROUPS[g]
             jit = np.linspace(-0.22, 0.22, len(ms))
-            xo = 0.28 if g == 'young' else -0.1
+            xo = 0.28 if g == "young" else -0.1
             mids = []
             for i, a in enumerate(AREAS):
-                if a == '|':
-                    mids.append(np.nan); continue
-                k = by_acro.get(a); ys = []
+                if a == "|":
+                    mids.append(np.nan)
+                    continue
+                k = by_acro.get(a)
+                ys = []
                 for j, m in enumerate(ms):
                     y = value(reading, m, k, per, norm, refs)
                     if y is None:
                         continue
                     ys.append(y)
-                    ax.plot(i + jit[j] + xo, y, 'o', ms=4.5, color=COL[g], alpha=0.9, mec='none')
+                    ax.plot(
+                        i + jit[j] + xo,
+                        y,
+                        "o",
+                        ms=4.5,
+                        color=COL[g],
+                        alpha=0.9,
+                        mec="none",
+                    )
                 mids.append(np.median(ys) if ys else np.nan)
-            ax.plot(np.array(xs) + xo, [mids[i] for i in xs], '_', ms=14, mew=2.2, color=COL[g], label=LABEL[g])
+            ax.plot(
+                np.array(xs) + xo,
+                [mids[i] for i in xs],
+                "_",
+                ms=14,
+                mew=2.2,
+                color=COL[g],
+                label=LABEL[g],
+            )
+
         # stars for the young-vs-adult rank-sum test, just under the top of the panel
         lo, hi = ax.get_ylim()
         ax.set_ylim(lo, hi + 0.12 * (hi - lo))
         lo, hi = ax.get_ylim()
         for i, a in enumerate(AREAS):
-            st = star_of.get((reading, a), '')
+            st = star_of.get((reading, a), "")
             if st:
-                ax.text(i, hi - 0.04 * (hi - lo), st, ha='center', va='top', fontsize=11, color=COL['young'])
-        ax.axhline(0, color='k', lw=0.6)
-        sep = AREAS.index('|'); ax.axvline(sep, color='k', lw=0.6, ls=':')
-        box = dict(facecolor='w', edgecolor='none', alpha=0.85, pad=1.5)
-        ax.text(sep - 0.5, lo + 0.02 * (hi - lo), 'cortex', ha='right', va='bottom', fontsize=9, color='#333', bbox=box)
-        ax.text(sep + 0.5, lo + 0.02 * (hi - lo), 'subcortex', ha='left', va='bottom', fontsize=9, color='#333', bbox=box)
-        ax.set_title(title, fontsize=10.5, loc='left')
+                ax.text(
+                    i,
+                    hi - 0.04 * (hi - lo),
+                    st,
+                    ha="center",
+                    va="top",
+                    fontsize=11,
+                    color=COL["young"],
+                )
+
+        # zero line, and the cortex-subcortex divide
+        ax.axhline(0, color="k", lw=0.6)
+        sep = AREAS.index("|")
+        ax.axvline(sep, color="k", lw=0.6, ls=":")
+        box = dict(facecolor="w", edgecolor="none", alpha=0.85, pad=1.5)
+        ax.text(
+            sep - 0.5,
+            lo + 0.02 * (hi - lo),
+            "cortex",
+            ha="right",
+            va="bottom",
+            fontsize=9,
+            color="#333",
+            bbox=box,
+        )
+        ax.text(
+            sep + 0.5,
+            lo + 0.02 * (hi - lo),
+            "subcortex",
+            ha="left",
+            va="bottom",
+            fontsize=9,
+            color="#333",
+            bbox=box,
+        )
+        ax.set_title(title, fontsize=10.5, loc="left")
         ax.set_ylabel(ylab[reading], fontsize=10)
-        ax.grid(axis='y', lw=0.3, alpha=0.6)
+        ax.grid(axis="y", lw=0.3, alpha=0.6)
         ax.set_xlim(-0.8, len(AREAS) - 0.2)
-    axes[0].legend(loc='lower left', fontsize=9, frameon=True, framealpha=0.9, edgecolor='none', ncol=3)
+    axes[0].legend(
+        loc="lower left",
+        fontsize=9,
+        frameon=True,
+        framealpha=0.9,
+        edgecolor="none",
+        ncol=3,
+    )
     axes[-1].set_xticks(range(len(AREAS)))
-    axes[-1].set_xticklabels(['' if a == '|' else a for a in AREAS], rotation=60, ha='right', fontsize=9)
-    fig.suptitle('Young vs adult, nano channel: one dot per mouse, each brain measured on the atlas of its own age\n'
-                 f'Bars are group medians.  * p<0.05, ** p<0.01, Mann-Whitney '
-                 f'{len(GROUPS["young"])} vs {len(ADULTS)}, uncorrected',
-                 fontsize=11.5)
+    axes[-1].set_xticklabels(
+        ["" if a == "|" else a for a in AREAS], rotation=60, ha="right", fontsize=9
+    )
+    fig.suptitle(
+        "Young vs adult, nano channel: one dot per mouse, "
+        "each brain measured on the atlas of its own age\n"
+        f"Bars are group medians.  * p<0.05, ** p<0.01, Mann-Whitney "
+        f"{len(GROUPS['young'])} vs {len(ADULTS)}, uncorrected",
+        fontsize=11.5,
+    )
     fig.tight_layout(rect=(0, 0, 1, 0.965))
-    save_figure(fig, os.path.join(OUT, 'region_plot.png'))
+    save_figure(fig, os.path.join(OUT, "region_plot.png"))
 
 
 def main():
@@ -442,7 +726,7 @@ def main():
     # per mouse: structure means, each brain on its own atlas
     mice = [m for g in GROUPS.values() for m in g]
     per = structure_means(mice, names)
-    meta = {nm: (acro[idx], divi.get(idx, '')) for idx, nm in names.items()}
+    meta = {nm: (acro[idx], divi.get(idx, "")) for idx, nm in names.items()}
     by_acro = {meta[k][0]: k for k in meta}
     group_of = {m: g for g, ms in GROUPS.items() for m in ms}
 
@@ -450,13 +734,13 @@ def main():
     refs = brain_references(mice, per, meta)
     norm = range_match(mice, per, refs)
 
-    # ------------------------------------------------------- tables
+    # per structure: the values of each mouse and the tests, as two tables
     rows_pm, rows_st = region_rows(mice, meta, group_of, per, norm, refs)
     write_tables(rows_pm, rows_st)
 
     # cortex summary, printed
     print_cortex_table(rows_st)
 
-    # ------------------------------------------------------- figure
+    # the dot plot
     plot_regions(rows_st, by_acro, per, norm, refs)
-    print('\nwrote', os.path.join(OUT, 'region_plot.png'))
+    print("\nwrote", os.path.join(OUT, "region_plot.png"))

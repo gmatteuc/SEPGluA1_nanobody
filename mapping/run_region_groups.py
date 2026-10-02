@@ -63,6 +63,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(
         description="region statistics by system and by layer"
     )
