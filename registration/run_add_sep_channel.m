@@ -62,9 +62,7 @@
 % sep_setup_paths first, once per MATLAB session; the code is in
 % pipeline\add_sep_channel.m.
 
-clear all
-close all
-clc
+clear; clc; close all;
 
 %% Settings
 

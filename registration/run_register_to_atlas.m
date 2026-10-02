@@ -63,9 +63,7 @@
 % stay on the CCF. Run sep_setup_paths first, once per MATLAB session; the code
 % is in pipeline\register_to_atlas.m.
 
-clear all
-close all
-clc
+clear; clc; close all;
 
 %% Settings
 
