@@ -95,6 +95,7 @@ import itertools
 import math
 import os
 from collections import defaultdict
+from collections.abc import Sequence
 
 import matplotlib
 import numpy as np
@@ -162,7 +163,7 @@ MARKERS = (
 # ===== Loading =====
 
 
-def keep_structure(name, division):
+def keep_structure(name: str, division: str) -> tuple[bool, str]:
     """Whether a structure is in the analysis: (keep, reason why not).
 
     Two rules, both applied before any fitting so neither can be tuned to the
@@ -176,7 +177,7 @@ def keep_structure(name, division):
     return True, ""
 
 
-def nano_per_mouse():
+def nano_per_mouse() -> tuple[dict[str, dict[str, float]], dict[str, str]]:
     """{mouse: {structure: zref}} and {structure: division}, for the ten adults."""
     per, division = defaultdict(dict), {}
     with open(NANO, newline="", encoding="utf-8") as fh:
@@ -187,7 +188,9 @@ def nano_per_mouse():
     return per, division
 
 
-def gene_profiles(path=MERGED_ISH):
+def gene_profiles(
+    path: str = MERGED_ISH,
+) -> tuple[dict[str, dict[str, float]], dict[str, str]]:
     """{gene: {structure: rank_mean}} and {gene: role}; replicates already merged."""
     per, role = defaultdict(dict), {}
     with open(path, newline="", encoding="utf-8") as fh:
@@ -197,7 +200,7 @@ def gene_profiles(path=MERGED_ISH):
     return per, role
 
 
-def structure_names():
+def structure_names() -> dict[int, str]:
     """Structure name of each parcellation index, the key both tables use."""
     names = {}
     with open(CSV_MAP, newline="", encoding="utf-8") as fh:
@@ -207,7 +210,7 @@ def structure_names():
     return names
 
 
-def autofluorescence(structures):
+def autofluorescence(structures: set[str]) -> dict[str, dict[str, float]]:
     """{mouse: {structure: log2 mean autofluorescence}}, from the same ten brains.
 
     Worth more as a density proxy than it looks: every gene covariate is a
@@ -246,7 +249,9 @@ def autofluorescence(structures):
 # ===== Statistics =====
 
 
-def composite(genes, expr, structures):
+def composite(
+    genes: Sequence[str], expr: dict[str, dict[str, float]], structures: list[str]
+) -> np.ndarray:
     """One predictor from a set of genes: the mean of their rank profiles.
 
     Ranks rather than values because each Allen experiment carries its own
@@ -256,7 +261,9 @@ def composite(genes, expr, structures):
     return np.mean([rankdata([expr[g][s] for s in structures]) for g in genes], axis=0)
 
 
-def first_pc(genes, expr, structures):
+def first_pc(
+    genes: Sequence[str], expr: dict[str, dict[str, float]], structures: list[str]
+) -> tuple[np.ndarray, float]:
     """The dominant shared axis of a gene set, and the share of variance it carries.
 
     Used for the 188 postsynaptic-density genes: rather than naming a handful of
@@ -274,18 +281,18 @@ def first_pc(genes, expr, structures):
     return pc, float(sv[0] ** 2 / (sv**2).sum())
 
 
-def residual(y, predictors):
+def residual(y: np.ndarray, predictors: Sequence[np.ndarray]) -> np.ndarray:
     """What is left of y after least squares on the predictors, plus an intercept."""
     design = np.column_stack(list(predictors) + [np.ones(len(y))])
     return y - design @ np.linalg.lstsq(design, y, rcond=None)[0]
 
 
-def r_squared(y, predictors):
+def r_squared(y: np.ndarray, predictors: Sequence[np.ndarray]) -> float:
     """Variance explained on the data the fit was made from, so optimistic."""
     return float(1 - residual(y, predictors).var() / y.var())
 
 
-def flexible(predictors):
+def flexible(predictors: Sequence[np.ndarray]) -> list[np.ndarray]:
     """The same covariates, allowed to bend: x, x^2 and x^3 of each.
 
     A straight line through two rank variables assumes the relationship is not
@@ -297,7 +304,7 @@ def flexible(predictors):
     return list(predictors) + [x**2 for x in predictors] + [x**3 for x in predictors]
 
 
-def cv_r2(y, predictors, folds=5):
+def cv_r2(y: np.ndarray, predictors: Sequence[np.ndarray], folds: int = 5) -> float:
     """Variance explained on structures the fit has never seen.
 
     The number to quote once a model has many terms: adding predictors always
@@ -318,7 +325,7 @@ def cv_r2(y, predictors, folds=5):
     return float(1 - np.var(y - predicted) / np.var(y))
 
 
-def half_splits():
+def half_splits() -> list[tuple[list[int], list[int]]]:
     """Every way of cutting ten animals into two fives, each split counted once.
 
     A split is counted once by keeping only the halves that hold animal 0.
@@ -330,19 +337,27 @@ def half_splits():
     ]
 
 
-def spearman_brown(r):
+def spearman_brown(r: float) -> float:
     """Reliability of a whole cohort from the agreement of its two halves; NaN at -1."""
     return 2 * r / (1 + r) if r > -1 else float("nan")
 
 
-def half_map(nano, indices, structures):
+def half_map(
+    nano: dict[str, dict[str, float]], indices: Sequence[int], structures: list[str]
+) -> np.ndarray:
     """The mean zref map of one half-cohort, as ranks."""
     return rankdata(
         [float(np.mean([nano[ADULTS[i]][s] for i in indices])) for s in structures]
     )
 
 
-def build_covariates(nano, expr, role, auto, structures):
+def build_covariates(
+    nano: dict[str, dict[str, float]],
+    expr: dict[str, dict[str, float]],
+    role: dict[str, str],
+    auto: dict[str, dict[str, float]],
+    structures: list[str],
+) -> tuple[dict[str, np.ndarray], list[str], float]:
     """The four predictors, built in one place so every module builds them alike.
 
     Returns the predictors by name, the postsynaptic-density genes behind psd_pc1,
@@ -368,7 +383,14 @@ def build_covariates(nano, expr, role, auto, structures):
     )
 
 
-def prepare():
+def prepare() -> tuple[
+    dict[str, dict[str, float]],
+    dict[str, str],
+    dict[str, dict[str, float]],
+    dict[str, str],
+    dict[str, dict[str, float]],
+    list[str],
+]:
     """Everything the analysis and the controls both need, loaded once."""
     nano, division = nano_per_mouse()
     expr, role = gene_profiles()
@@ -383,14 +405,14 @@ def prepare():
 # ===== Drawing =====
 
 
-def tidy(ax):
+def tidy(ax: plt.Axes) -> None:
     """Small tick labels, no top or right spine."""
     ax.tick_params(labelsize=7)
     for side in ("top", "right"):
         ax.spines[side].set_visible(False)
 
 
-def save(fig, name):
+def save(fig: plt.Figure, name: str) -> None:
     """Save `fig` as `name` in the output folder at 200 dpi, close it, print the path."""
     path = os.path.join(OUT, name)
     fig.savefig(path, dpi=200)
@@ -401,7 +423,11 @@ def save(fig, name):
 # ===== Steps =====
 
 
-def step0_structures(nano, division, expr):
+def step0_structures(
+    nano: dict[str, dict[str, float]],
+    division: dict[str, str],
+    expr: dict[str, dict[str, float]],
+) -> list[str]:
     """Choose the structures, and show what the choice threw away."""
     print("\nSTEP 0  which structures the analysis may use")
     everywhere = set.intersection(*[set(nano[m]) for m in ADULTS])
@@ -484,7 +510,9 @@ def step0_structures(nano, division, expr):
     return kept
 
 
-def step1_ceiling(nano, structures):
+def step1_ceiling(
+    nano: dict[str, dict[str, float]], structures: list[str]
+) -> tuple[float, list[tuple[list[int], list[int]]], list[float]]:
     """How reproducible the map itself is: nothing below can beat this."""
     print("\nSTEP 1  the ceiling -- how much of this map is explainable at all")
 
@@ -518,7 +546,14 @@ def step1_ceiling(nano, structures):
     return full, splits, agreement
 
 
-def step2_covariates(nano, expr, role, auto, structures, ceiling):
+def step2_covariates(
+    nano: dict[str, dict[str, float]],
+    expr: dict[str, dict[str, float]],
+    role: dict[str, str],
+    auto: dict[str, dict[str, float]],
+    structures: list[str],
+    ceiling: float,
+) -> tuple[dict[str, np.ndarray], np.ndarray]:
     """What receptor abundance and synaptic density account for."""
     print("\nSTEP 2  what the two boring explanations buy")
     covariates, controls, share = build_covariates(nano, expr, role, auto, structures)
@@ -607,7 +642,13 @@ def step2_covariates(nano, expr, role, auto, structures, ceiling):
     return covariates, y
 
 
-def step3_residual(nano, structures, covariates, splits, raw_agreement):
+def step3_residual(
+    nano: dict[str, dict[str, float]],
+    structures: list[str],
+    covariates: dict[str, np.ndarray],
+    splits: list[tuple[list[int], list[int]]],
+    raw_agreement: list[float],
+) -> list[float]:
     """The claim: what is left over replicates across independent animals."""
     print("\nSTEP 3  does the leftover replicate?   <- this is the claim")
 
@@ -632,7 +673,15 @@ def step3_residual(nano, structures, covariates, splits, raw_agreement):
     return agreement
 
 
-def step4_where(nano, structures, covariates, expr, role, agreement, raw_agreement):
+def step4_where(
+    nano: dict[str, dict[str, float]],
+    structures: list[str],
+    covariates: dict[str, np.ndarray],
+    expr: dict[str, dict[str, float]],
+    role: dict[str, str],
+    agreement: list[float],
+    raw_agreement: list[float],
+) -> None:
     """Which structures carry the leftover, and whether any single gene is behind it."""
     print("\nSTEP 4  where the leftover lives")
     y = half_map(nano, range(len(ADULTS)), structures)
@@ -728,7 +777,7 @@ def step4_where(nano, structures, covariates, expr, role, agreement, raw_agreeme
     save(fig, "fig3_residual.png")
 
 
-def main():
+def main() -> None:
     """Run the four steps on the ten adults and write their tables and figures."""
     os.makedirs(OUT, exist_ok=True)
     nano, division = nano_per_mouse()

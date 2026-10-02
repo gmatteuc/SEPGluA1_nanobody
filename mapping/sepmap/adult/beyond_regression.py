@@ -85,7 +85,9 @@ PLANES = (215, 265, 315)
 FLOOR = 0.12
 
 
-def paint(plane, value_by_name, names):
+def paint(
+    plane: int, value_by_name: dict[str, float], names: dict[int, str]
+) -> np.ndarray:
     """One coronal slice with each structure filled by its value, NaN elsewhere."""
     labels = annotation_20("ccf")[plane]
     out = np.full(labels.shape, np.nan, np.float32)
@@ -98,7 +100,14 @@ def paint(plane, value_by_name, names):
     return out
 
 
-def panel_e(observed, predicted, res, structures, fitted_r2, cv):
+def panel_e(
+    observed: np.ndarray,
+    predicted: np.ndarray,
+    res: np.ndarray,
+    structures: list[str],
+    fitted_r2: float,
+    cv: float,
+) -> None:
     """Draw panel E: observed against predicted, the diagnostic, the residuals."""
     fig, axes = plt.subplots(1, 3, figsize=(13.4, 4.3))
 
@@ -169,7 +178,9 @@ def panel_e(observed, predicted, res, structures, fitted_r2, cv):
     save(fig, "E_regression")
 
 
-def panel_f(observed, predicted, res, structures):
+def panel_f(
+    observed: np.ndarray, predicted: np.ndarray, res: np.ndarray, structures: list[str]
+) -> None:
     """Draw panel F: observed, predicted and residual maps on the PLANES."""
     names = structure_names()
 
@@ -244,7 +255,7 @@ def panel_f(observed, predicted, res, structures):
     save(fig, "F_maps")
 
 
-def main():
+def main() -> None:
     """Fit the quoted model, write the table, and draw panels E and F."""
     os.makedirs(FIGS, exist_ok=True)
 

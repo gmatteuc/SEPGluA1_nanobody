@@ -66,7 +66,7 @@ MIN_ISH_VOXELS = 10
 CONTROL = "Gria1"
 
 
-def structure_names():
+def structure_names() -> dict[int, str]:
     """Structure name of each parcellation index."""
     names = {}
     with open(CSV_MAP, newline="", encoding="utf-8") as fh:
@@ -76,7 +76,7 @@ def structure_names():
     return names
 
 
-def mouse_channels(mouse, names):
+def mouse_channels(mouse: str, names: dict[int, str]) -> dict[str, dict[str, float]]:
     """{channel: {structure: log2 mean}} for one adult, raw, no denominators.
 
     The layer indices of a structure are pooled by name; a structure under MIN_VOX
@@ -108,7 +108,7 @@ def mouse_channels(mouse, names):
     return out
 
 
-def gria1_profile():
+def gria1_profile() -> dict[str, float]:
     """Gria1 ISH mean per structure, where the structure has MIN_ISH_VOXELS voxels."""
     prof = {}
     with open(GENES, newline="", encoding="utf-8") as fh:
@@ -118,13 +118,13 @@ def gria1_profile():
     return prof
 
 
-def residual(y, x):
+def residual(y: np.ndarray, x: np.ndarray) -> np.ndarray:
     """log2(SEP) with the part predicted by log2(auto) taken out, linearly."""
     a = np.column_stack([x, np.ones_like(x)])
     return y - a @ np.linalg.lstsq(a, y, rcond=None)[0]
 
 
-def main():
+def main() -> None:
     """Measure the three channels per adult, write the table, print and draw it."""
     os.makedirs(OUT, exist_ok=True)
 

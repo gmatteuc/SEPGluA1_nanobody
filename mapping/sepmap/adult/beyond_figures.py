@@ -37,6 +37,7 @@ Run by run_beyond_figures.py.
 
 import csv
 import os
+from collections.abc import Sequence
 
 import matplotlib
 import numpy as np
@@ -84,7 +85,7 @@ N_PERM = 10000
 BOOT_SPLITS = 20
 
 
-def save(fig, name):
+def save(fig: plt.Figure, name: str) -> None:
     """Save `fig` in FIGS as a PNG at 220 dpi and an EPS to edit, then close it."""
     os.makedirs(FIGS, exist_ok=True)
     png = os.path.join(FIGS, name + ".png")
@@ -94,12 +95,17 @@ def save(fig, name):
     print(f"  -> {png}  (+ .eps)")
 
 
-def percentile_interval(values):
+def percentile_interval(values: Sequence[float] | np.ndarray) -> tuple[float, float]:
     """The 95% interval of `values`, from the 2.5th to the 97.5th percentile."""
     return float(np.percentile(values, 2.5)), float(np.percentile(values, 97.5))
 
 
-def bootstrap_models(y, models, ceiling, rng):
+def bootstrap_models(
+    y: np.ndarray,
+    models: list[tuple[str, list[np.ndarray]]],
+    ceiling: float,
+    rng: np.random.Generator,
+) -> tuple[list[float], list[tuple[float, float]]]:
     """Cross-validated R2 of each model, with an interval, resampling structures.
 
     Each of the N_BOOT replicates ranks `y` and every predictor again over the
@@ -116,7 +122,13 @@ def bootstrap_models(y, models, ceiling, rng):
     return point, [percentile_interval(draws[:, j]) for j in range(len(models))]
 
 
-def bootstrap_replication(nano, structures, predictors, splits, rng):
+def bootstrap_replication(
+    nano: dict[str, dict[str, float]],
+    structures: list[str],
+    predictors: list[np.ndarray],
+    splits: list[tuple[list[int], list[int]]],
+    rng: np.random.Generator,
+) -> tuple[float, tuple[float, float]]:
     """Half-against-half agreement of the leftover, with an interval.
 
     The point value uses every split; the 300 replicates each resample the
@@ -148,7 +160,13 @@ def bootstrap_replication(nano, structures, predictors, splits, rng):
     return point, percentile_interval(draws)
 
 
-def noise_null(nano, structures, predictors, splits, rng):
+def noise_null(
+    nano: dict[str, dict[str, float]],
+    structures: list[str],
+    predictors: list[np.ndarray],
+    splits: list[tuple[list[int], list[int]]],
+    rng: np.random.Generator,
+) -> tuple[float, np.ndarray, float]:
     """How well the two halves would agree if the leftover were noise, and the p.
 
     Shuffling which structure is which in one half breaks the correspondence
@@ -171,7 +189,13 @@ def noise_null(nano, structures, predictors, splits, rng):
 # ===== The panels =====
 
 
-def panel_a(point, intervals, labels, ceiling, ceiling_ci):
+def panel_a(
+    point: list[float],
+    intervals: list[tuple[float, float]],
+    labels: list[str],
+    ceiling: float,
+    ceiling_ci: tuple[float, float],
+) -> None:
     """Draw panel A: each explanation's cross-validated R2 against the ceiling."""
     fig, ax = plt.subplots(figsize=(7.8, 4.4))
     y = np.arange(len(labels))
@@ -212,7 +236,14 @@ def panel_a(point, intervals, labels, ceiling, ceiling_ci):
     save(fig, "A_what_explains")
 
 
-def panel_b(map_agreement, leftover_agreement, null, p, rep_point, rep_ci):
+def panel_b(
+    map_agreement: list[float],
+    leftover_agreement: list[float],
+    null: np.ndarray,
+    p: float,
+    rep_point: float,
+    rep_ci: tuple[float, float],
+) -> None:
     """Draw panel B: the agreement of the map, of the leftover and of the noise null."""
     fig, ax = plt.subplots(figsize=(7.4, 4.4))
     bins = np.linspace(-0.45, 1.0, 120)
@@ -250,7 +281,7 @@ def panel_b(map_agreement, leftover_agreement, null, p, rep_point, rep_ci):
     save(fig, "B_leftover_real")
 
 
-def panel_c(res, structures, n_show=9):
+def panel_c(res: np.ndarray, structures: list[str], n_show: int = 9) -> None:
     """Draw panel C: the `n_show` largest residuals of each sign."""
     order = np.argsort(-res)
     show = list(order[:n_show]) + list(order[-n_show:])
@@ -276,7 +307,7 @@ def panel_c(res, structures, n_show=9):
     save(fig, "C_where")
 
 
-def panel_d(controls):
+def panel_d(controls: list[dict[str, str]]) -> None:
     """Draw panel D: the rows of controls.csv as a table of verdicts."""
     fig, ax = plt.subplots(figsize=(9.4, 4.0))
     ax.axis("off")
@@ -305,7 +336,7 @@ def panel_d(controls):
     save(fig, "D_controls")
 
 
-def main():
+def main() -> None:
     """Compute the statistics, draw panels A to D and write the caption numbers."""
     os.makedirs(FIGS, exist_ok=True)
     rng = np.random.default_rng(0)

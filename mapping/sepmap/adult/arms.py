@@ -85,7 +85,7 @@ LABEL = {
 SHARED = {"ratio": "ratio", "sepratio": "sepratio"}
 
 
-def structure_meta():
+def structure_meta() -> tuple[dict[int, str], dict[int, str], dict[int, str]]:
     """Name, acronym and division acronym of each parcellation index, as three dicts."""
     names, acro, divi = {}, {}, {}
     with open(CSV_MAP, newline="", encoding="utf-8") as fh:
@@ -99,7 +99,7 @@ def structure_meta():
     return names, acro, divi
 
 
-def per_unit(num, ref, tissue):
+def per_unit(num: np.ndarray, ref: np.ndarray, tissue: np.ndarray) -> np.ndarray:
     """Voxelwise `num` / `ref`, as volumes.cohort and young_vs_adult.region_plot do it.
 
     The denominator is smoothed by one 20 um voxel so that a single dark voxel
@@ -114,7 +114,9 @@ def per_unit(num, ref, tissue):
     return np.clip(r, -RATIO_CLIP, RATIO_CLIP)
 
 
-def mouse_table(mouse, names):
+def mouse_table(
+    mouse: str, names: dict[int, str]
+) -> dict[str, tuple[int, dict[str, float]]]:
     """The mean of each arm per structure for one adult: {name: (n voxels, {arm: mean})}.
 
     The layer indices of a structure are pooled by name; a structure under MIN_VOX
@@ -163,7 +165,7 @@ def mouse_table(mouse, names):
     }
 
 
-def check_against_existing(rows):
+def check_against_existing(rows: list[dict]) -> dict[str, list[float]]:
     """Check that the two arms young_vs_adult.region_plot also computes are identical.
 
     They are computed here from the same per-mouse files with the same
@@ -201,7 +203,9 @@ def check_against_existing(rows):
     return diffs
 
 
-def figure(per, diffs):
+def figure(
+    per: dict[str, dict[str, tuple[int, dict[str, float]]]], diffs: dict[str, list[float]]
+) -> None:
     """Draw the self-check: the shared arms' agreement and the log-space identity."""
     fig, axes = plt.subplots(1, 3, figsize=(12.6, 3.9))
 
@@ -276,7 +280,7 @@ def figure(per, diffs):
     print(f"{path}")
 
 
-def main():
+def main() -> None:
     """Write the arms table of the ten adults, check it, and draw the check."""
     os.makedirs(OUT, exist_ok=True)
     names, acro, divi = structure_meta()

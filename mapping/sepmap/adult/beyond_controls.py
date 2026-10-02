@@ -40,6 +40,7 @@ Run by run_beyond_controls.py.
 import csv
 import os
 from collections import defaultdict
+from collections.abc import Sequence
 
 import matplotlib
 import numpy as np
@@ -86,7 +87,7 @@ RNG = np.random.default_rng(0)
 # ===== Utilities =====
 
 
-def centroids(structures):
+def centroids(structures: list[str]) -> dict[str, np.ndarray] | None:
     """Mean (AP, DV, ML) position of each structure, in mm, from the CCF itself.
 
     Needed by control A: if the leftover were an imaging or clearing artefact it
@@ -124,7 +125,12 @@ def centroids(structures):
     return coords
 
 
-def replication(nano, structures, predictors, splits):
+def replication(
+    nano: dict[str, dict[str, float]],
+    structures: list[str],
+    predictors: Sequence[np.ndarray],
+    splits: list[tuple[list[int], list[int]]],
+) -> float:
     """How well the leftover of one half-cohort matches the leftover of the other."""
     return float(
         np.mean(
@@ -139,7 +145,9 @@ def replication(nano, structures, predictors, splits):
     )
 
 
-def gene_matrix(expr, structures, genes):
+def gene_matrix(
+    expr: dict[str, dict[str, float]], structures: list[str], genes: list[str]
+) -> np.ndarray:
     """Rank profiles of many genes as one array, genes by structures."""
     return np.array([rankdata([expr[g][s] for s in structures]) for g in genes])
 
@@ -147,7 +155,14 @@ def gene_matrix(expr, structures, genes):
 # ===== Controls =====
 
 
-def control_a_space(res, structures, y, covariates, nano, splits):
+def control_a_space(
+    res: np.ndarray,
+    structures: list[str],
+    y: np.ndarray,
+    covariates: dict[str, np.ndarray],
+    nano: dict[str, dict[str, float]],
+    splits: list[tuple[list[int], list[int]]],
+) -> dict[str, str] | None:
     """Control A: whether the leftover is just a smooth gradient across the block.
 
     Returns the verdict row, or None when fewer than 50 structures have a centroid.
@@ -192,7 +207,9 @@ def control_a_space(res, structures, y, covariates, nano, splits):
     )
 
 
-def control_b_size(res, structures, nano_rows):
+def control_b_size(
+    res: np.ndarray, structures: list[str], nano_rows: dict[str, float]
+) -> dict[str, str]:
     """Control B: whether the leftover comes from small or poorly covered structures.
 
     `nano_rows` holds each structure's mean volume in 20 um voxels. Returns the
@@ -220,7 +237,11 @@ def control_b_size(res, structures, nano_rows):
     )
 
 
-def control_c_mice(nano, structures, covariates):
+def control_c_mice(
+    nano: dict[str, dict[str, float]],
+    structures: list[str],
+    covariates: dict[str, np.ndarray],
+) -> tuple[dict[str, str], dict[str, np.ndarray], list[float]]:
     """Control C: whether the leftover is carried by one or two animals.
 
     Returns the verdict row, each mouse's leftover, and the agreement of every
@@ -266,7 +287,11 @@ def control_c_mice(nano, structures, covariates):
     )
 
 
-def control_d_groups(nano, structures, covariates):
+def control_d_groups(
+    nano: dict[str, dict[str, float]],
+    structures: list[str],
+    covariates: dict[str, np.ndarray],
+) -> tuple[dict[str, str], np.ndarray, np.ndarray]:
     """Control D: whether the leftover is the whisker manipulation, not the anatomy.
 
     Returns the verdict row and the leftovers of the naive and the RWS group.
@@ -297,7 +322,9 @@ def control_d_groups(nano, structures, covariates):
     )
 
 
-def control_e_curvature(y, covariates):
+def control_e_curvature(
+    y: np.ndarray, covariates: dict[str, np.ndarray]
+) -> tuple[dict[str, str], float, float]:
     """Control E: whether the bending model bends enough.
 
     As straight lines the covariates reach a cross-validated 0.42, with squares and
@@ -331,7 +358,14 @@ def control_e_curvature(y, covariates):
     )
 
 
-def control_f_gene_space(nano, expr, structures, y, ceiling, splits):
+def control_f_gene_space(
+    nano: dict[str, dict[str, float]],
+    expr: dict[str, dict[str, float]],
+    structures: list[str],
+    y: np.ndarray,
+    ceiling: float,
+    splits: list[tuple[list[int], list[int]]],
+) -> tuple[dict[str, str], list[tuple[int, float, float]], int]:
     """Control F, the strongest: any combination of the panel's genes may try.
 
     The genes measured in every structure are reduced to principal components;
@@ -382,7 +416,13 @@ def control_f_gene_space(nano, expr, structures, y, ceiling, splits):
     )
 
 
-def control_g_readings(expr, role, auto, structures, splits):
+def control_g_readings(
+    expr: dict[str, dict[str, float]],
+    role: dict[str, str],
+    auto: dict[str, dict[str, float]],
+    structures: list[str],
+    splits: list[tuple[list[int], list[int]]],
+) -> tuple[dict[str, str], list[tuple[str, float, float, float]]]:
     """Control G: whether any of this is specific to zref.
 
     The same covariates, ceiling and replication for each reading measured in
@@ -438,7 +478,16 @@ def control_g_readings(expr, role, auto, structures, splits):
 # ===== Figures =====
 
 
-def figure_artefacts(res, structures, sizes, per_mouse, pairs, naive, rws, coords):
+def figure_artefacts(
+    res: np.ndarray,
+    structures: list[str],
+    sizes: np.ndarray,
+    per_mouse: dict[str, np.ndarray],
+    pairs: list[float],
+    naive: np.ndarray,
+    rws: np.ndarray,
+    coords: dict[str, np.ndarray],
+) -> None:
     """Draw controls A to D: position, size, pairs of mice, naive against RWS."""
     fig, axes = plt.subplots(1, 4, figsize=(15.5, 3.9))
 
@@ -491,7 +540,13 @@ def figure_artefacts(res, structures, sizes, per_mouse, pairs, naive, rws, coord
     save(fig, "fig4_controls.png")
 
 
-def figure_model_space(curve, best_k, ceiling, cubic, quintic):
+def figure_model_space(
+    curve: list[tuple[int, float, float]],
+    best_k: int,
+    ceiling: float,
+    cubic: float,
+    quintic: float,
+) -> None:
     """Draw controls F and E: the gene-space curve, and bending further."""
     fig, axes = plt.subplots(1, 2, figsize=(11.0, 4.2))
     ks = [c[0] for c in curve]
@@ -533,7 +588,7 @@ def figure_model_space(curve, best_k, ceiling, cubic, quintic):
     save(fig, "fig5_model_space.png")
 
 
-def figure_readings(rows):
+def figure_readings(rows: list[tuple[str, float, float, float]]) -> None:
     """Draw control G: per reading, the map's and the leftover's replication, and R2."""
     fig, ax = plt.subplots(figsize=(7.0, 4.0))
     labels = [r[0] for r in rows]
@@ -575,7 +630,7 @@ def figure_readings(rows):
     save(fig, "fig6_readings.png")
 
 
-def main():
+def main() -> None:
     """Run the seven controls, write their verdicts and draw them."""
     # the structures and the quoted model, as adult.beyond_density builds them
     nano, division = nano_per_mouse()
