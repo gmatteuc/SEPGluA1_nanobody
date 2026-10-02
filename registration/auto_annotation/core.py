@@ -75,7 +75,7 @@ TTA = [(dy, dx) for dy in (-6, 0, 6) for dx in (-6, 0, 6)]
 LOW_CONFIDENCE = 0.25
 
 
-def device():
+def device() -> str:
     """The torch device: the GPU when there is one, else the CPU."""
     return "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -83,7 +83,7 @@ def device():
 # ===== Images =====
 
 
-def section_image(rgb):
+def section_image(rgb: np.ndarray) -> np.ndarray:
     """The DAPI channel of a volume_for_inspection page (H, W, 3), scaled 0-1.
 
     The 1st and 99.5th percentiles go to 0 and 1, and values beyond them are
@@ -94,7 +94,7 @@ def section_image(rgb):
     return np.clip((f - lo) / max(hi - lo, 1e-6), 0, 1).astype(np.float32)
 
 
-def blur(x, sigma):
+def blur(x: torch.Tensor, sigma: float) -> torch.Tensor:
     """Separable Gaussian blur of a (B, 1, H, W) tensor, `sigma` in px (none at 0)."""
     if sigma <= 0:
         return x
@@ -112,7 +112,7 @@ def blur(x, sigma):
 # ===== Registration =====
 
 
-def ngf(a, b, m):
+def ngf(a: torch.Tensor, b: torch.Tensor, m: torch.Tensor) -> torch.Tensor:
     """Normalised gradient fields: do the edges line up, whatever their contrast.
 
     Per image of the batch, the mean over the mask `m` of the squared cosine
@@ -148,7 +148,7 @@ def ngf(a, b, m):
     return (dot * dot * mm).sum(dim=(1, 2, 3)) / mm.sum(dim=(1, 2, 3)).clamp_min(1)
 
 
-def register_affine(moving, fixed):
+def register_affine(moving: torch.Tensor, fixed: torch.Tensor) -> torch.Tensor:
     """Affine theta (B, 2, 3), normalised coordinates, atlas -> section.
 
     Fitted coarse to fine (AFFINE_SCALES) with Adam, on `moving` (the sections)
@@ -174,7 +174,7 @@ def register_affine(moving, fixed):
     return (eye + delta).detach()
 
 
-def bending(field):
+def bending(field: torch.Tensor) -> torch.Tensor:
     """Bending energy of a (B, 2, rows, cols) displacement grid, one value per image.
 
     The mean squared second difference along y plus the same along x.
@@ -184,12 +184,14 @@ def bending(field):
     return (dyy**2).mean(dim=(1, 2, 3)) + (dxx**2).mean(dim=(1, 2, 3))
 
 
-def upsample(field, h, w):
+def upsample(field: torch.Tensor, h: int, w: int) -> torch.Tensor:
     """The (B, 2, rows, cols) displacement grid resampled to (h, w), bicubic."""
     return F.interpolate(field, size=(h, w), mode="bicubic", align_corners=True)
 
 
-def register_deform(moving, fixed, theta):
+def register_deform(
+    moving: torch.Tensor, fixed: torch.Tensor, theta: torch.Tensor
+) -> torch.Tensor:
     """A smooth displacement (B, 2, GRID), normalised units, added to the affine.
 
     Fitted coarse to fine (DEFORM_SCALES) as register_affine is, with the bending
@@ -216,7 +218,9 @@ def register_deform(moving, fixed, theta):
     return field.detach()
 
 
-def register(sections, planes):
+def register(
+    sections: list[np.ndarray], planes: list[np.ndarray]
+) -> tuple[torch.Tensor, torch.Tensor]:
     """Register every section onto its atlas plane, BATCH sections at a time.
 
     `sections` and `planes` are lists of (H, W) float images, 0-1. Returns the
@@ -233,7 +237,9 @@ def register(sections, planes):
     return torch.cat(thetas), torch.cat(fields)
 
 
-def warp_to_atlas(section, theta, field):
+def warp_to_atlas(
+    section: np.ndarray, theta: torch.Tensor, field: torch.Tensor
+) -> np.ndarray:
     """The section resampled into the atlas frame by the registration."""
     h, w = section.shape
     grid = F.affine_grid(theta[None], (1, 1, h, w), align_corners=False) + upsample(
@@ -243,7 +249,13 @@ def warp_to_atlas(section, theta, field):
     return F.grid_sample(img, grid, align_corners=False)[0, 0].cpu().numpy()
 
 
-def map_points(theta, field, pts, h, w):
+def map_points(
+    theta: torch.Tensor | np.ndarray,
+    field: torch.Tensor,
+    pts: np.ndarray,
+    h: int,
+    w: int,
+) -> np.ndarray:
     """Atlas (y, x) points through affine + displacement into the section.
 
     `pts` is (n, 2) in pixels of the (h, w) frame; the result is too.
@@ -270,7 +282,7 @@ def map_points(theta, field, pts, h, w):
 class LandmarkNet(nn.Module):
     """Small U-Net: atlas plane -> where a human would click (logits)."""
 
-    def __init__(self, c=(16, 32, 64, 96)):
+    def __init__(self, c: tuple[int, ...] = (16, 32, 64, 96)) -> None:
         """Four levels down and three up, with `c` channels per level."""
         super().__init__()
 
@@ -293,7 +305,7 @@ class LandmarkNet(nn.Module):
         )
         self.out = nn.Conv2d(c[0], 1, 1)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """The logits of the landmark map, the size of the input plane."""
         skips = []
         for k, d in enumerate(self.down):
@@ -308,7 +320,12 @@ class LandmarkNet(nn.Module):
         return self.out(x)
 
 
-def pick_peaks(prob, tissue, n=N_POINTS, min_dist=MIN_DIST):
+def pick_peaks(
+    prob: np.ndarray,
+    tissue: np.ndarray,
+    n: int = N_POINTS,
+    min_dist: float = MIN_DIST,
+) -> np.ndarray:
     """Greedy peaks of the landmark map, at least `min_dist` apart, inside the tissue.
 
     At most `n` of them, strongest first, as (n, 2) float (y, x).
@@ -325,7 +342,7 @@ def pick_peaks(prob, tissue, n=N_POINTS, min_dist=MIN_DIST):
 
 
 @torch.no_grad()
-def landmarks(net, plane_u8):
+def landmarks(net: nn.Module, plane_u8: np.ndarray) -> np.ndarray:
     """Landmarks of a uint8 atlas plane: the network map's peaks inside the brain."""
     img = plane_u8.astype(np.float32) / 255
     prob = (
@@ -342,7 +359,7 @@ def landmarks(net, plane_u8):
 class MatchNet(nn.Module):
     """Small ConvNet: (atlas patch, registered-section patch) -> shift (dy, dx) in px."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Five levels of two convolutions and a max pool, then a linear head."""
         super().__init__()
         c = [2, 32, 64, 96, 128, 160]
@@ -364,7 +381,7 @@ class MatchNet(nn.Module):
             nn.Flatten(), nn.Linear(160 * 9, 128), nn.ReLU(), nn.Linear(128, 2)
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """The predicted shift (dy, dx) of each pair of patches, (n, 2)."""
         return self.head(self.features(x))
 
@@ -388,7 +405,9 @@ def _patches(warped, atlas01, pts):
 
 
 @torch.no_grad()
-def correct(net, warped, atlas01, pts):
+def correct(
+    net: nn.Module, warped: np.ndarray, atlas01: np.ndarray, pts: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
     """The learned shift of every landmark, and its spread.
 
     The shift is in the atlas frame, relative to the landmark pixel, (n, 2); the
@@ -415,7 +434,7 @@ def correct(net, warped, atlas01, pts):
 # ===== The chain =====
 
 
-def load_models(landmark_path, matcher_path):
+def load_models(landmark_path: str, matcher_path: str) -> tuple[LandmarkNet, MatchNet]:
     """The landmark and matcher networks with their trained weights, in eval mode."""
     dev = device()
     lnet, mnet = LandmarkNet().to(dev), MatchNet().to(dev)
@@ -428,7 +447,12 @@ def load_models(landmark_path, matcher_path):
     return lnet.eval(), mnet.eval()
 
 
-def propose(sections_rgb, planes_u8, lnet, mnet):
+def propose(
+    sections_rgb: list[np.ndarray],
+    planes_u8: list[np.ndarray],
+    lnet: LandmarkNet,
+    mnet: MatchNet,
+) -> list[dict[str, np.ndarray]]:
     """Control points for every section.
 
     `sections_rgb` is a list of (H, W, 3) uint8 volume_for_inspection pages and
