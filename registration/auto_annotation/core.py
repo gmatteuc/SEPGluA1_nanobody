@@ -464,10 +464,9 @@ def propose(sections_rgb, planes_u8, lnet, mnet):
         # least confident share of them
         ok = (p[:, 0] >= 0) & (p[:, 0] < h) & (p[:, 1] >= 0) & (p[:, 1] < w)
         a, p, spread = a[ok], p[ok], spread[ok]
-        low = (
-            spread > np.quantile(spread, 1 - LOW_CONFIDENCE)
-            if len(spread)
-            else np.zeros(0, bool)
-        )
+        if len(spread):
+            low = spread > np.quantile(spread, 1 - LOW_CONFIDENCE)
+        else:
+            low = np.zeros(0, bool)
         out.append(dict(atlas=a, hist=p, spread=spread, low=low))
     return out

@@ -105,9 +105,9 @@ def planes_from_anchors(folder, n_slices, n_planes):
 def model_version():
     """The text of weights/VERSION.txt, or "unversioned" without one."""
     f = os.path.join(WEIGHTS, "VERSION.txt")
-    return (
-        open(f, encoding="utf-8").read().strip() if os.path.exists(f) else "unversioned"
-    )
+    if os.path.exists(f):
+        return open(f, encoding="utf-8").read().strip()
+    return "unversioned"
 
 
 def propose(folder):
