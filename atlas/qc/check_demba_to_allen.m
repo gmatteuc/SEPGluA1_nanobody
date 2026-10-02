@@ -26,9 +26,7 @@
 % repository; re-run it if the atlas or its crop changes. Run sep_setup_paths
 % first, once per MATLAB session.
 
-clear all
-close all
-clc
+clear; clc; close all;
 
 %% Settings
 

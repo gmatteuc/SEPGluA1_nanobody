@@ -14,9 +14,7 @@
 % reads the lab share, when it is reachable, to find each young mouse's raw
 % files. Run sep_setup_paths first, once per MATLAB session.
 
-clear all
-close all
-clc
+clear; clc; close all;
 
 %% The code under test
 

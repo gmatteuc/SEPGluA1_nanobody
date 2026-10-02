@@ -21,9 +21,7 @@
 % Setup: the adult CCF against DeMBA P20, sections 150 um apart. Run
 % sep_setup_paths first, once per MATLAB session.
 
-clear all
-close all
-clc
+clear; clc; close all;
 
 %% Settings
 

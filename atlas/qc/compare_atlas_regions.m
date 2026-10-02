@@ -43,9 +43,7 @@
 % Setup: the adult CCF against DeMBA P20. Run sep_setup_paths first, once
 % per MATLAB session.
 
-clear all
-close all
-clc
+clear; clc; close all;
 
 %% Settings
 
