@@ -196,6 +196,20 @@ end
 
 % ===== Local functions: before equalisation =====
 
+function [pmax_val, pmin_val] = background_window(z)
+% The percentile window of the background search in slice z: the 15th to the
+% 75th percentile in the first nine slices, the 15th to the 50th after.
+
+if z < 10
+    pmax_val = 75;
+    pmin_val = 15;
+else
+    pmax_val = 50;
+    pmin_val = 15;
+end
+
+end
+
 function [intensity_medians, intensity_iqrs] = slice_statistics_raw(nano_4d, ...
     dim_store, num_mice, MAX_Z, processed_mouse_names)
 % Median and inter-quartile range of each slice's tissue pixels, before
@@ -230,13 +244,7 @@ for i = 1:num_mice
 
         % background between the 15th and the 75th percentile in the first nine
         % slices, the 50th after, with the padding set to the slice's mode
-        if z < 10
-            pmax_val = 75;
-            pmin_val = 15;
-        else
-            pmax_val = 50;
-            pmin_val = 15;
-        end
+        [pmax_val, pmin_val] = background_window(z);
         img(isnan(img)) = mode(img(:));
         bg_mask = select_background_pixels(img, pmin_val, pmax_val);
 
@@ -401,13 +409,7 @@ for i = 1:num_mice
         end
 
         % background mask, as for the statistics
-        if z < 10
-            pmax_val = 75;
-            pmin_val = 15;
-        else
-            pmax_val = 50;
-            pmin_val = 15;
-        end
+        [pmax_val, pmin_val] = background_window(z);
         img_single(isnan(img_single)) = mode(img_single(:));
         bg_mask = select_background_pixels(img_single, pmin_val, pmax_val);
 
@@ -514,13 +516,8 @@ for i = 1:num_mice
             continue;
         end
 
-        if z < 10
-            pmax_val = 75;
-            pmin_val = 15;
-        else
-            pmax_val = 50;
-            pmin_val = 15;
-        end
+        % the background window, as before equalisation
+        [pmax_val, pmin_val] = background_window(z);
 
         % background mask, from a copy with the padding set to the slice's mode
         img_temp = img;
@@ -679,13 +676,7 @@ for i = 1:num_mice
         end
 
         % background mask, on the equalised slice
-        if z < 10
-            pmax_val = 75;
-            pmin_val = 15;
-        else
-            pmax_val = 50;
-            pmin_val = 15;
-        end
+        [pmax_val, pmin_val] = background_window(z);
         img_single(isnan(img_single)) = mode(img_single(:));
         bg_mask = select_background_pixels(img_single, pmin_val, pmax_val);
 

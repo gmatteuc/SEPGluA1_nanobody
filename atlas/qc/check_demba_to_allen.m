@@ -149,10 +149,14 @@ fprintf('  %-8s %8.4f %8d %9.0f%% %9.0f%%\n', 'after', median(rec_after), ...
 %% Overlap matrices
 
 fprintf('\ncomputing overlap matrices...\n');
-mat_div_before = overlap_matrix(csv_dir, adult_before, trans_before, regions_of_interest);
-mat_div_after  = overlap_matrix(csv_dir, adult_after,  trans_after,  regions_of_interest);
-mat_ctx_before = overlap_matrix(csv_dir, adult_before, trans_before, cortical_areas);
-mat_ctx_after  = overlap_matrix(csv_dir, adult_after,  trans_after,  cortical_areas);
+mat_div_before = region_overlap_matrix(csv_dir, adult_before, trans_before, ...
+    regions_of_interest);
+mat_div_after  = region_overlap_matrix(csv_dir, adult_after,  trans_after,  ...
+    regions_of_interest);
+mat_ctx_before = region_overlap_matrix(csv_dir, adult_before, trans_before, ...
+    cortical_areas);
+mat_ctx_after  = region_overlap_matrix(csv_dir, adult_after,  trans_after,  ...
+    cortical_areas);
 
 fprintf('\n--- diagonal, major divisions ---\n');
 fprintf('  %-24s %8s %8s\n', 'region', 'before', 'after');
@@ -176,12 +180,14 @@ tl = tiledlayout(fig, 2, 3, 'TileSpacing', 'compact', 'Padding', 'compact');
 
 % the major divisions, before and after
 nexttile(tl);
-draw_matrix(mat_div_before, regions_of_interest, 7.5, 7);
+draw_overlap_matrix(mat_div_before, regions_of_interest, regions_of_interest, 7.5, 7, ...
+    'called this in the transformed DeMBA');
 title({'Major divisions BEFORE', sprintf('crop alignment only, diagonal median %.2f', ...
        median(diag(mat_div_before)))}, 'FontSize', 10)
 
 nexttile(tl);
-draw_matrix(mat_div_after, regions_of_interest, 7.5, 7);
+draw_overlap_matrix(mat_div_after, regions_of_interest, regions_of_interest, 7.5, 7, ...
+    'called this in the transformed DeMBA');
 title({'Major divisions AFTER', sprintf('CCF Translator, diagonal median %.2f', ...
        median(diag(mat_div_after)))}, 'FontSize', 10)
 
@@ -205,12 +211,14 @@ box off
 
 % the visual and somatosensory areas, before and after
 nexttile(tl);
-draw_matrix(mat_ctx_before, cortical_labels, 7, 6);
+draw_overlap_matrix(mat_ctx_before, cortical_labels, cortical_labels, 7, 6, ...
+    'called this in the transformed DeMBA');
 title({'Visual + somatosensory BEFORE', sprintf('diagonal median %.2f', ...
        median(diag(mat_ctx_before)))}, 'FontSize', 10)
 
 nexttile(tl);
-draw_matrix(mat_ctx_after, cortical_labels, 7, 6);
+draw_overlap_matrix(mat_ctx_after, cortical_labels, cortical_labels, 7, 6, ...
+    'called this in the transformed DeMBA');
 title({'Visual + somatosensory AFTER', sprintf('diagonal median %.2f', ...
        median(diag(mat_ctx_after)))}, 'FontSize', 10)
 
@@ -263,64 +271,5 @@ for k = 1:numel(labels)
     end
     recovery(end+1, 1) = nnz(m & test == labels(k)) / n; %#ok<AGROW>
 end
-
-end
-
-function m = overlap_matrix(csv_dir, av_ref, av_test, region_names)
-% Fraction of each named region of av_ref (rows) that av_test calls each named
-% region (columns).
-
-n = numel(region_names);
-mask_ref  = cell(1, n);
-mask_test = cell(1, n);
-for i = 1:n
-    mask_ref{i}  = get_allen_region_mask(csv_dir, av_ref,  region_names(i), av_ref > 0);
-    mask_test{i} = get_allen_region_mask(csv_dir, av_test, region_names(i), av_test > 0);
-end
-m = zeros(n);
-for i = 1:n
-    denom = nnz(mask_ref{i});
-    if denom == 0
-        continue
-    end
-    for j = 1:n
-        m(i, j) = nnz(mask_ref{i} & mask_test{j}) / denom;
-    end
-end
-
-end
-
-function draw_matrix(m, labels, tick_font, cell_font)
-% Draw one overlap matrix in hot, with each value worth reading printed in its
-% cell.
-
-imagesc(m, [0 1]);
-colormap(gca, sep_palette('intensity'));
-axis square
-n = size(m, 1);
-set(gca, 'XTick', 1:n, 'XTickLabel', labels, 'YTick', 1:n, 'YTickLabel', labels, ...
-         'TickLabelInterpreter', 'none', 'FontSize', tick_font);
-xtickangle(45)
-for i = 1:n
-    for j = 1:n
-        v = m(i, j);
-        if v < 0.02
-            continue
-        end
-
-        % black on the bright cells, white on the dark ones
-        if v > 0.55
-            c = [0 0 0];
-        else
-            c = [1 1 1];
-        end
-        text(j, i, sprintf('%.2f', v), 'HorizontalAlignment', 'center', ...
-             'FontSize', cell_font, 'Color', c);
-    end
-end
-cb = colorbar;
-cb.Label.String = 'fraction of the adult region';
-xlabel('called this in the transformed DeMBA')
-ylabel('adult CCF region')
 
 end

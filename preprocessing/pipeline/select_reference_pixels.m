@@ -62,32 +62,14 @@ win = (p >= p_min) & (p <= p_max);
 % found again with prominence 5 when that dip comes first, 5 then 2 when none is found
 if not(isempty(locs_max)) && not(isempty(locs_min))
 
-    % off: the first peak and dip instead (reason not recorded)
-    % idx_max_bis=locs_max(1);
-    % idx_min=locs_min(1);
-    d1 = diff(vals_smooth);
-    [~, chosen_max_idx] = max(d1(locs_max));
-    idx_max_bis = locs_max(chosen_max_idx);
-    if numel(locs_min)>=chosen_max_idx
-        idx_min = locs_min(chosen_max_idx);
-    else
-        idx_min = max(idx_max_bis-5, 1);
-    end
+    % the knee and its dip
+    [idx_max_bis, idx_min] = knee_and_dip(vals_smooth, locs_max, locs_min);
     if idx_max_bis>idx_min
         [~, locs_max] = findpeaks(d2 .* win, 'MinPeakProminence', 5);
         [~, locs_min] = findpeaks(-(d2 .* win), 'MinPeakProminence', 5);
 
-        % off: the first peak and dip instead (reason not recorded)
-        % idx_max_bis=locs_max(1);
-        % idx_min=locs_min(1);
-        d1 = diff(vals_smooth);
-        [~, chosen_max_idx] = max(d1(locs_max));
-        idx_max_bis = locs_max(chosen_max_idx);
-        if numel(locs_min)>=chosen_max_idx
-            idx_min = locs_min(chosen_max_idx);
-        else
-            idx_min = max(idx_max_bis-5, 1);
-        end
+        % the knee and its dip again
+        [idx_max_bis, idx_min] = knee_and_dip(vals_smooth, locs_max, locs_min);
     end
 else
     [~, locs_max] = findpeaks(d2 .* win, 'MinPeakProminence', 5);
@@ -97,17 +79,8 @@ else
         [~, locs_min] = findpeaks(-(d2 .* win), 'MinPeakProminence', 2);
     end
 
-    % off: the first peak and dip instead (reason not recorded)
-    % idx_max_bis=locs_max(1);
-    % idx_min=locs_min(1);
-    d1 = diff(vals_smooth);
-    [~, chosen_max_idx] = max(d1(locs_max));
-    idx_max_bis = locs_max(chosen_max_idx);
-    if numel(locs_min)>=chosen_max_idx
-        idx_min = locs_min(chosen_max_idx);
-    else
-        idx_min = max(idx_max_bis-5, 1);
-    end
+    % the knee and its dip
+    [idx_max_bis, idx_min] = knee_and_dip(vals_smooth, locs_max, locs_min);
 end
 
 % no knee found (every findpeaks above came back empty): the knee falls back to
@@ -220,6 +193,26 @@ if plot_flag
     title(sprintf('Percentiles (knee at p=%d, thr=%.3g)', idx_max_bis, val_max_bis));
     hold off;
     title(t, 'Reference pixels estimation diagnostics');
+end
+
+end
+
+% ===== Local functions =====
+
+function [idx_max_bis, idx_min] = knee_and_dip(vals_smooth, locs_max, locs_min)
+% The knee, the peak of the second derivative where the smoothed curve rises
+% fastest, and the dip of the same rank (5 percentiles below the knee if none).
+
+% off: the first peak and dip instead (reason not recorded)
+% idx_max_bis=locs_max(1);
+% idx_min=locs_min(1);
+d1 = diff(vals_smooth);
+[~, chosen_max_idx] = max(d1(locs_max));
+idx_max_bis = locs_max(chosen_max_idx);
+if numel(locs_min)>=chosen_max_idx
+    idx_min = locs_min(chosen_max_idx);
+else
+    idx_min = max(idx_max_bis-5, 1);
 end
 
 end

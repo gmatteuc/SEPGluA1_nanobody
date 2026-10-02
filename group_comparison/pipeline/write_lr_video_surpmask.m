@@ -15,17 +15,8 @@ function write_lr_video_surpmask(lr_diff_vol, lr_sum_vol, atlas_vol, brain_mask,
 %
 %   See also WRITE_LR_VIDEO, WRITE_LR_VIDEO_SURPMASK_ROLLING.
 
-% create the folder if needed
-if ~exist(save_dir, 'dir')
-    mkdir(save_dir);
-end
-
-% open the video
-full_video_path = fullfile(save_dir, video_filename);
-vidObj = VideoWriter(full_video_path, 'MPEG-4');
-vidObj.FrameRate = 15;
-vidObj.Quality = 95;
-open(vidObj);
+% open the video, in a folder made if needed
+[vidObj, full_video_path] = open_lr_video(save_dir, video_filename);
 n_slices = size(lr_diff_vol, 1);
 
 fprintf('Writing video: %s\n', video_filename);
@@ -38,10 +29,7 @@ for j = 1:n_slices
     end
 
     % atlas boundaries: where the annotation changes along ML
-    atlasim = squeeze(atlas_vol(j, :, :));
-    atlasim = single(atlasim);
-    av_warp_boundaries = gradient(atlasim) ~= 0 & (atlasim > 1);
-    [row, col] = ind2sub(size(atlasim), find(av_warp_boundaries));
+    [row, col] = lr_atlas_boundaries(atlas_vol, j);
 
     % opacity from the surprise, clipped to 0-1, and transparent where it is NaN
     surp_slice = squeeze(surp_vol(j, :, :));
@@ -68,15 +56,7 @@ for j = 1:n_slices
     set(h1, 'AlphaData', alpha_mask);
 
     % blue-red for symmetric limits (jet if the colormap function is missing)
-    if abs(clim_values(1)) == abs(clim_values(2))
-        try
-            colormap(gca, sep_palette('difference'));
-        catch
-            colormap(gca, jet);
-        end
-    else
-        colormap(gca, sep_palette('intensity'));
-    end
+    set_lr_colormap(clim_values);
 
     ax1 = gca;
     ax1.Color = 'k';
@@ -103,15 +83,7 @@ for j = 1:n_slices
 
     set(h2, 'AlphaData', alpha_mask);
 
-    if abs(clim_values(1)) == abs(clim_values(2))
-        try
-            colormap(gca, sep_palette('difference'));
-        catch
-            colormap(gca, jet);
-        end
-    else
-        colormap(gca, sep_palette('intensity'));
-    end
+    set_lr_colormap(clim_values);
 
     ax2 = gca;
     ax2.Color = 'k';

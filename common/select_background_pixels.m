@@ -78,6 +78,9 @@ g = g / sum(g);
 vals_smooth = conv(vals, g, 'same');
 d2 = [0 diff(diff(vals_smooth)) 0];
 
+% its first derivative, for the knee search
+d1 = [0, diff(vals_smooth)];
+
 % peaks and troughs of the second derivative in the percentile window
 win = (p >= p_min) & (p <= p_max);
 [~, locs_max] = findpeaks(d2 .* win, 'MinPeakProminence', 10);
@@ -85,65 +88,16 @@ win = (p >= p_min) & (p <= p_max);
 
 if not(isempty(locs_max)) && not(isempty(locs_min))
 
-    % the knee: the peak with the steepest first derivative within 7 percentiles
-    % off: the first derivative at the peak itself (reason not recorded)
-    % [~, chosen_max_idx] = max(max_vals_in_range);
-    % d1 = [0, diff(vals_smooth)];
-    % [~,chosen_max_idx] = max(d1(locs_max));
-    % idx_max_bis = locs_max(chosen_max_idx);
-    d1 = [0, diff(vals_smooth)];
-    tol_range = 7;
-    max_vals_in_range = zeros(size(locs_max));
-    for k = 1:length(locs_max)
-        idx_start = max(p_min + 1, locs_max(k) - tol_range);
-        idx_end   = min(p_max, locs_max(k) + tol_range);
-        max_vals_in_range(k) = max(d1(idx_start:idx_end));
-    end
-    [~, chosen_max_idx] = max(max_vals_in_range);
-
-    % that peak is the knee, which sets the background threshold
-    idx_max_bis = locs_max(chosen_max_idx);
-
-    % the trough nearest to it
-    % off: the trough of the same rank, or 5 percentiles below the knee (reason
-    % not recorded)
-    % if numel(locs_min) >= chosen_max_idx
-    %     idx_min = locs_min(chosen_max_idx);
-    % else
-    %     idx_min = max(idx_max_bis-5, 1);
-    % end
-    [~, idx_idx_min] = min(abs(locs_min - idx_max_bis));
-    idx_min = locs_min(idx_idx_min);
+    % the knee and its nearest trough, the derivative searched within the window
+    [idx_max_bis, idx_min] = knee_and_trough(d1, locs_max, locs_min, p_min + 1, p_max);
 
     % a knee above its trough is inconsistent: redo with a lower prominence
     if idx_max_bis > idx_min
         [~, locs_max] = findpeaks(d2 .* win, 'MinPeakProminence', 5);
         [~, locs_min] = findpeaks(-(d2 .* win), 'MinPeakProminence', 5);
 
-        % off, as above
-        % [~, chosen_max_idx] = max(max_vals_in_range);
-        % d1 = [0, diff(vals_smooth)];
-        % [~,chosen_max_idx] = max(d1(locs_max));
-        % idx_max_bis = locs_max(chosen_max_idx);
-        d1 = [0, diff(vals_smooth)];
-        tol_range = 7;
-        max_vals_in_range = zeros(size(locs_max));
-        for k = 1:length(locs_max)
-            idx_start = max(1, locs_max(k) - tol_range);
-            idx_end   = min(length(d1), locs_max(k) + tol_range);
-            max_vals_in_range(k) = max(d1(idx_start:idx_end));
-        end
-        [~, chosen_max_idx] = max(max_vals_in_range);
-        idx_max_bis = locs_max(chosen_max_idx);
-
-        % off, as above
-        % if numel(locs_min) >= chosen_max_idx
-        %     idx_min = locs_min(chosen_max_idx);
-        % else
-        %     idx_min = max(idx_max_bis-5, 1);
-        % end
-        [~, idx_idx_min] = min(abs(locs_min - idx_max_bis));
-        idx_min = locs_min(idx_idx_min);
+        % the knee again, the derivative searched over every percentile
+        idx_max_bis = knee_and_trough(d1, locs_max, locs_min, 1, length(d1));
     end
 else
 
@@ -155,30 +109,8 @@ else
         [~, locs_min] = findpeaks(-(d2 .* win), 'MinPeakProminence', 2);
     end
 
-    % off, as above
-    % [~, chosen_max_idx] = max(max_vals_in_range);
-    % d1 = [0, diff(vals_smooth)];
-    % [~,chosen_max_idx] = max(d1(locs_max));
-    % idx_max_bis = locs_max(chosen_max_idx);
-    d1 = [0, diff(vals_smooth)];
-    tol_range = 7;
-    max_vals_in_range = zeros(size(locs_max));
-    for k = 1:length(locs_max)
-        idx_start = max(1, locs_max(k) - tol_range);
-        idx_end   = min(length(d1), locs_max(k) + tol_range);
-        max_vals_in_range(k) = max(d1(idx_start:idx_end));
-    end
-    [~, chosen_max_idx] = max(max_vals_in_range);
-    idx_max_bis = locs_max(chosen_max_idx);
-
-    % off, as above
-    % if numel(locs_min) >= chosen_max_idx
-    %     idx_min = locs_min(chosen_max_idx);
-    % else
-    %     idx_min = max(idx_max_bis-5, 1);
-    % end
-    [~, idx_idx_min] = min(abs(locs_min - idx_max_bis));
-    idx_min = locs_min(idx_idx_min);
+    % the knee, the derivative searched over every percentile (its trough is not used)
+    idx_max_bis = knee_and_trough(d1, locs_max, locs_min, 1, length(d1));
 end
 
 % no knee at any prominence (it happens on faint channels such as the
@@ -247,5 +179,42 @@ if plot_flag
     title(t, 'Reference Pixels Estimation Diagnostics', 'FontSize', 14, ...
         'FontWeight', 'bold');
 end
+
+end
+
+% ===== Local functions =====
+
+function [idx_max_bis, idx_min] = knee_and_trough(d1, locs_max, locs_min, idx_low, ...
+    idx_high)
+% The knee, the peak whose neighbourhood (7 percentiles each way, kept within
+% idx_low to idx_high) has the steepest first derivative d1, and its nearest trough.
+
+% off: the first derivative at the peak itself (reason not recorded)
+% [~, chosen_max_idx] = max(max_vals_in_range);
+% d1 = [0, diff(vals_smooth)];
+% [~,chosen_max_idx] = max(d1(locs_max));
+% idx_max_bis = locs_max(chosen_max_idx);
+tol_range = 7;
+max_vals_in_range = zeros(size(locs_max));
+for k = 1:length(locs_max)
+    idx_start = max(idx_low, locs_max(k) - tol_range);
+    idx_end   = min(idx_high, locs_max(k) + tol_range);
+    max_vals_in_range(k) = max(d1(idx_start:idx_end));
+end
+[~, chosen_max_idx] = max(max_vals_in_range);
+
+% that peak is the knee, which sets the background threshold
+idx_max_bis = locs_max(chosen_max_idx);
+
+% the trough nearest to it
+% off: the trough of the same rank, or 5 percentiles below the knee (reason
+% not recorded)
+% if numel(locs_min) >= chosen_max_idx
+%     idx_min = locs_min(chosen_max_idx);
+% else
+%     idx_min = max(idx_max_bis-5, 1);
+% end
+[~, idx_idx_min] = min(abs(locs_min - idx_max_bis));
+idx_min = locs_min(idx_idx_min);
 
 end

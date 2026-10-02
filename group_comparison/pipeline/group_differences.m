@@ -262,16 +262,7 @@ fprintf('  Kept %d mice based on selection.\n', size(data_4d_new_exp, 4));
 % each control mouse's mean tissue intensity per plane, on the saved masks (they
 % are not recomputed, whatever the message says)
 fprintf('Recomputing background masks controls (%s)...\n', ctrl_type);
-med_data_4d_ctrl = nan(size(data_4d_new_ctrl, 1), size(data_4d_new_ctrl, 4));
-total_slices = size(data_4d_new_ctrl, 1);
-for iii = 1:size(data_4d_new_ctrl, 4)
-    fprintf('  Processing Mouse %d ...\n', iii);
-    for slice_idx_loop = 1:total_slices
-        img_data = squeeze(data_4d_new_ctrl(slice_idx_loop, :, :, iii));
-        bg_mask = squeeze(data_4d_new_ctrl_bkgmask(slice_idx_loop, :, :, iii));
-        med_data_4d_ctrl(slice_idx_loop, iii) = nanmean(img_data(~bg_mask));
-    end
-end
+med_data_4d_ctrl = plane_tissue_means(data_4d_new_ctrl, data_4d_new_ctrl_bkgmask);
 
 % the saved masks are the ones used from here on
 recomputed_bkg_mask_4d_ctrl = data_4d_new_ctrl_bkgmask;
@@ -279,18 +270,25 @@ clear data_4d_new_ctrl_bkgmask
 
 % the same for each experimental mouse
 fprintf('Recomputing background masks experimentals (%s)...\n', exp_type);
-med_data_4d_exp = nan(size(data_4d_new_exp, 1), size(data_4d_new_exp, 4));
-total_slices = size(data_4d_new_exp, 1);
-for iii = 1:size(data_4d_new_exp, 4)
-    fprintf('  Processing Mouse %d ...\n', iii);
-    for slice_idx_loop = 1:total_slices
-        img_data = squeeze(data_4d_new_exp(slice_idx_loop, :, :, iii));
-        bg_mask = squeeze(data_4d_new_exp_bkgmask(slice_idx_loop, :, :, iii));
-        med_data_4d_exp(slice_idx_loop, iii) = nanmean(img_data(~bg_mask));
-    end
-end
+med_data_4d_exp = plane_tissue_means(data_4d_new_exp, data_4d_new_exp_bkgmask);
 recomputed_bkg_mask_4d_exp = data_4d_new_exp_bkgmask;
 clear data_4d_new_exp_bkgmask
+end
+
+function med_data_4d = plane_tissue_means(data_4d, bkgmask_4d)
+% Each mouse's mean tissue intensity per plane (planes x mice), outside its
+% background mask.
+
+med_data_4d = nan(size(data_4d, 1), size(data_4d, 4));
+total_slices = size(data_4d, 1);
+for iii = 1:size(data_4d, 4)
+    fprintf('  Processing Mouse %d ...\n', iii);
+    for slice_idx_loop = 1:total_slices
+        img_data = squeeze(data_4d(slice_idx_loop, :, :, iii));
+        bg_mask = squeeze(bkgmask_4d(slice_idx_loop, :, :, iii));
+        med_data_4d(slice_idx_loop, iii) = nanmean(img_data(~bg_mask));
+    end
+end
 end
 
 function [data_4d_new_ctrl, data_4d_new_exp] = smooth_groups(data_4d_new_ctrl, ...
@@ -311,14 +309,8 @@ nan_smooth_3d = @(v, sig) imgaussfilt3(fillmissing(v, 'constant', 0), sig) ./ ..
 fprintf('  Processing Control group...\n');
 for i = 1:size(data_4d_new_ctrl, 4)
     tic
-    vol = data_4d_new_ctrl(:, :, :, i);
-    bg_mask = recomputed_bkg_mask_4d_ctrl(:, :, :, i);
-    is_valid_tissue = brainMask & ~bg_mask;
-    vol(~is_valid_tissue) = NaN;
-    vol_smoothed = nan_smooth_3d(vol, smooth_sigma);
-    vol_smoothed(~is_valid_tissue) = 0;
-    vol_smoothed(isnan(vol_smoothed)) = 0;
-    data_4d_new_ctrl(:, :, :, i) = vol_smoothed;
+    data_4d_new_ctrl(:, :, :, i) = smooth_tissue(data_4d_new_ctrl(:, :, :, i), ...
+        recomputed_bkg_mask_4d_ctrl(:, :, :, i), brainMask, nan_smooth_3d, smooth_sigma);
     toc
 end
 
@@ -326,18 +318,24 @@ end
 fprintf('  Processing Experimental group...\n');
 for i = 1:size(data_4d_new_exp, 4)
     tic
-    vol = data_4d_new_exp(:, :, :, i);
-    bg_mask = recomputed_bkg_mask_4d_exp(:, :, :, i);
-    is_valid_tissue = brainMask & ~bg_mask;
-    vol(~is_valid_tissue) = NaN;
-    vol_smoothed = nan_smooth_3d(vol, smooth_sigma);
-    vol_smoothed(~is_valid_tissue) = 0;
-    vol_smoothed(isnan(vol_smoothed)) = 0;
-    data_4d_new_exp(:, :, :, i) = vol_smoothed;
+    data_4d_new_exp(:, :, :, i) = smooth_tissue(data_4d_new_exp(:, :, :, i), ...
+        recomputed_bkg_mask_4d_exp(:, :, :, i), brainMask, nan_smooth_3d, smooth_sigma);
     toc
 end
 
 fprintf('  Smoothing complete.\n');
+end
+
+function vol_smoothed = smooth_tissue(vol, bg_mask, brainMask, nan_smooth_3d, ...
+    smooth_sigma)
+% One mouse's volume with its tissue (in the atlas brain, outside its background)
+% smoothed by nan_smooth_3d, and every other voxel 0.
+
+is_valid_tissue = brainMask & ~bg_mask;
+vol(~is_valid_tissue) = NaN;
+vol_smoothed = nan_smooth_3d(vol, smooth_sigma);
+vol_smoothed(~is_valid_tissue) = 0;
+vol_smoothed(isnan(vol_smoothed)) = 0;
 end
 
 function [interest_region, norm_ctrl, norm_exp, slope, intercept, norm_ctrl_med_fact, ...
@@ -793,17 +791,27 @@ function [leaf_stats_ctrl, leaf_stats_exp] = leaf_region_stats(input_4d_ctrl, ..
 % Per mouse and leaf region, the mean and four quantiles of the absolute
 % left-right values in the tissue.
 
-% region x mouse x statistic
-leaf_stats_ctrl = nan(n_unique_regions, n_ctrl, n_metrics);
-leaf_stats_exp = nan(n_unique_regions, n_exp, n_metrics);
-
 % the control group, one mouse at a time
 fprintf('  Computing stats for control group (%s)...\n', res_type);
-for m = 1:n_ctrl
+leaf_stats_ctrl = group_leaf_stats(input_4d_ctrl, bg_mask_ctrl_left, valid_mask, ...
+    id_indices, n_unique_regions, n_ctrl, n_metrics, funcs);
+
+% the same for the experimental group
+fprintf('  Computing stats for experimental group (%s)...\n', res_type);
+leaf_stats_exp = group_leaf_stats(input_4d_exp, bg_mask_exp_left, valid_mask, ...
+    id_indices, n_unique_regions, n_exp, n_metrics, funcs);
+end
+
+function leaf_stats = group_leaf_stats(input_4d, bg_mask_left, valid_mask, id_indices, ...
+    n_unique_regions, n_mice, n_metrics, funcs)
+% One group's statistics per leaf region and mouse (region x mouse x statistic).
+
+leaf_stats = nan(n_unique_regions, n_mice, n_metrics);
+for m = 1:n_mice
 
     % the mouse's absolute values in the atlas, NaN on its background
-    vol_data = abs(input_4d_ctrl(:, :, :, m));
-    vol_bg = bg_mask_ctrl_left(:, :, :, m);
+    vol_data = abs(input_4d(:, :, :, m));
+    vol_bg = bg_mask_left(:, :, :, m);
     data_vec = vol_data(valid_mask);
     bg_vec = vol_bg(valid_mask);
     data_vec(bg_vec) = NaN;
@@ -811,31 +819,11 @@ for m = 1:n_ctrl
     % the mean of each region
     sums = accumarray(id_indices, data_vec, [n_unique_regions 1], @nansum); %#ok<*NANSUM>
     counts = accumarray(id_indices, ~isnan(data_vec), [n_unique_regions 1], @sum);
-    leaf_stats_ctrl(:, m, 1) = sums ./ counts;
+    leaf_stats(:, m, 1) = sums ./ counts;
 
     % the median and quantiles of each region
     for f = 1:length(funcs)
-        leaf_stats_ctrl(:, m, f+1) = accumarray(id_indices, data_vec, ...
-            [n_unique_regions 1], funcs{f});
-    end
-end
-
-% the same for the experimental group
-fprintf('  Computing stats for experimental group (%s)...\n', res_type);
-for m = 1:n_exp
-    vol_data = abs(input_4d_exp(:, :, :, m));
-    vol_bg = bg_mask_exp_left(:, :, :, m);
-
-    data_vec = vol_data(valid_mask);
-    bg_vec = vol_bg(valid_mask);
-    data_vec(bg_vec) = NaN;
-
-    sums = accumarray(id_indices, data_vec, [n_unique_regions 1], @nansum);
-    counts = accumarray(id_indices, ~isnan(data_vec), [n_unique_regions 1], @sum);
-    leaf_stats_exp(:, m, 1) = sums ./ counts;
-
-    for f = 1:length(funcs)
-        leaf_stats_exp(:, m, f+1) = accumarray(id_indices, data_vec, ...
+        leaf_stats(:, m, f+1) = accumarray(id_indices, data_vec, ...
             [n_unique_regions 1], funcs{f});
     end
 end
@@ -1003,15 +991,17 @@ for a_idx = 1:length(analysis_types)
             'Position', [100 100 300*max(n_ctrl, n_exp) 600]);
     end
 
-    % the control group
-    roi_stats_ctrl = coarse_stats_ctrl(roi_stats_ctrl, input_vol_ctrl, bg_mask_ctrl, ...
-        valid_pixels, roi_masks, roi_pixel_counts, n_rois, n_ctrl, n_exp, ...
-        inspect_indices, inspect_figs, hist_xlim, ctrl_mousenames, res_type);
+    % the control group, in the top row of the inspection figures
+    roi_stats_ctrl = coarse_group_stats(roi_stats_ctrl, input_vol_ctrl, bg_mask_ctrl, ...
+        valid_pixels, roi_masks, roi_pixel_counts, n_rois, n_ctrl, n_ctrl, n_exp, ...
+        inspect_indices, inspect_figs, hist_xlim, ctrl_mousenames, res_type, 0, ...
+        sep_palette('control'), 'Control');
 
-    % the experimental group
-    roi_stats_exp = coarse_stats_exp(roi_stats_exp, input_vol_exp, bg_mask_exp, ...
-        valid_pixels, roi_masks, roi_pixel_counts, n_rois, n_ctrl, n_exp, ...
-        inspect_indices, inspect_figs, hist_xlim, exp_mousenames, res_type);
+    % the experimental group, in the bottom row
+    roi_stats_exp = coarse_group_stats(roi_stats_exp, input_vol_exp, bg_mask_exp, ...
+        valid_pixels, roi_masks, roi_pixel_counts, n_rois, n_exp, n_ctrl, n_exp, ...
+        inspect_indices, inspect_figs, hist_xlim, exp_mousenames, res_type, ...
+        max(n_ctrl, n_exp), sep_palette('experimental'), 'Exp');
 
     % save the inspection figures
     for k = 1:length(inspect_figs)
@@ -1143,18 +1133,19 @@ if ~isempty(empty_rois)
 end
 end
 
-function roi_stats_ctrl = coarse_stats_ctrl(roi_stats_ctrl, input_vol_ctrl, ...
-    bg_mask_ctrl, valid_pixels, roi_masks, roi_pixel_counts, n_rois, n_ctrl, n_exp, ...
-    inspect_indices, inspect_figs, hist_xlim, ctrl_mousenames, res_type)
-% Per control mouse and region, the mean and four quantiles of the absolute
-% values, with the distributions drawn into the inspection figures.
+function roi_stats = coarse_group_stats(roi_stats, input_vol, bg_mask, valid_pixels, ...
+    roi_masks, roi_pixel_counts, n_rois, n_mice, n_ctrl, n_exp, inspect_indices, ...
+    inspect_figs, hist_xlim, mousenames, res_type, row_offset, face_color, group_label)
+% Per mouse of one group and region, the mean and four quantiles of the absolute
+% values, with the distributions drawn into the inspection figures: the control
+% group in the top row (row_offset 0), the experimental one below.
 
-for m = 1:n_ctrl
+for m = 1:n_mice
     tic
 
     % the mouse's values in the atlas, NaN on its background
-    vol_data = input_vol_ctrl(:, :, :, m);
-    vol_bg = bg_mask_ctrl(:, :, :, m);
+    vol_data = input_vol(:, :, :, m);
+    vol_bg = bg_mask(:, :, :, m);
 
     data_vec = vol_data(valid_pixels);
     bg_vec = vol_bg(valid_pixels);
@@ -1167,101 +1158,40 @@ for m = 1:n_ctrl
 
         % the region's values, their mean
         roi_vals = data_vec(roi_masks(:, r));
-        roi_stats_ctrl(r, m, 1) = mean(roi_vals, 'omitnan');
+        roi_stats(r, m, 1) = mean(roi_vals, 'omitnan');
 
         % the median and quantiles, without the NaN
         roi_vals_clean = roi_vals(~isnan(roi_vals));
         if ~isempty(roi_vals_clean)
-            roi_stats_ctrl(r, m, 2) = median(roi_vals_clean);
-            roi_stats_ctrl(r, m, 3) = quantile(roi_vals_clean, 0.25);
-            roi_stats_ctrl(r, m, 4) = quantile(roi_vals_clean, 0.75);
-            roi_stats_ctrl(r, m, 5) = quantile(roi_vals_clean, 0.99);
+            roi_stats(r, m, 2) = median(roi_vals_clean);
+            roi_stats(r, m, 3) = quantile(roi_vals_clean, 0.25);
+            roi_stats(r, m, 4) = quantile(roi_vals_clean, 0.75);
+            roi_stats(r, m, 5) = quantile(roi_vals_clean, 0.99);
 
-            % the histogram, in the top row of the region's inspection figure
+            % the histogram, in the group's row of the region's inspection figure
             if ismember(r, inspect_indices)
                 k_fig = find(inspect_indices == r);
                 set(0, 'CurrentFigure', inspect_figs(k_fig));
-                subplot(2, max(n_ctrl, n_exp), m);
+                subplot(2, max(n_ctrl, n_exp), m + row_offset);
                 histogram(roi_vals_clean, 100, 'EdgeColor', 'none', 'FaceColor', ...
-                    sep_palette('control'));
+                    face_color);
                 hold on;
-                xline(roi_stats_ctrl(r, m, 1), 'k-', 'LineWidth', 1.5);
-                xline(roi_stats_ctrl(r, m, 2), 'k--', 'LineWidth', 1.5);
-                xline(roi_stats_ctrl(r, m, 5), '-', 'LineWidth', 1.5, 'Color', [1, 0, 1]);
+                xline(roi_stats(r, m, 1), 'k-', 'LineWidth', 1.5);
+                xline(roi_stats(r, m, 2), 'k--', 'LineWidth', 1.5);
+                xline(roi_stats(r, m, 5), '-', 'LineWidth', 1.5, 'Color', [1, 0, 1]);
                 xlim(hist_xlim);
-                txt_str = [sprintf('Mean: %.2f\nP99: %.2f', roi_stats_ctrl(r, m, 1), ...
-                    roi_stats_ctrl(r, m, 5)), ' (N=', ...
-                    num2str(numel(roi_vals_clean)), ')'];
+                txt_str = [sprintf('Mean: %.2f\nP99: %.2f', roi_stats(r, m, 1), ...
+                    roi_stats(r, m, 5)), ' (N=', num2str(numel(roi_vals_clean)), ')'];
                 text(0.95, 0.9, txt_str, 'Units', 'normalized', 'HorizontalAlignment', ...
                     'right', 'FontSize', 8, 'BackgroundColor', 'w', 'EdgeColor', 'k');
-                if exist('ctrl_mousenames', 'var')
-                    t_str = ctrl_mousenames{m};
+                if exist('mousenames', 'var')
+                    t_str = mousenames{m};
                 else
                     t_str = sprintf('M%d', m);
                 end
                 title(t_str, 'Interpreter', 'none', 'FontSize', 8);
                 if m==1
-                    ylabel(['Control (' res_type ')'], 'FontWeight', 'bold');
-                end
-                grid on;
-            end
-        end
-    end
-    toc
-end
-end
-
-function roi_stats_exp = coarse_stats_exp(roi_stats_exp, input_vol_exp, bg_mask_exp, ...
-    valid_pixels, roi_masks, roi_pixel_counts, n_rois, n_ctrl, n_exp, ...
-    inspect_indices, inspect_figs, hist_xlim, exp_mousenames, res_type)
-% Per experimental mouse and region, the mean and four quantiles of the
-% absolute values, with the distributions drawn into the inspection figures.
-
-for m = 1:n_exp
-    tic
-    vol_data = input_vol_exp(:, :, :, m);
-    vol_bg = bg_mask_exp(:, :, :, m);
-    data_vec = vol_data(valid_pixels);
-    bg_vec = vol_bg(valid_pixels);
-    data_vec(bg_vec) = NaN;
-    for r = 1:n_rois
-        if roi_pixel_counts(r) == 0
-            continue;
-        end
-        roi_vals = data_vec(roi_masks(:, r));
-        roi_stats_exp(r, m, 1) = mean(roi_vals, 'omitnan');
-
-        roi_vals_clean = roi_vals(~isnan(roi_vals));
-        if ~isempty(roi_vals_clean)
-            roi_stats_exp(r, m, 2) = median(roi_vals_clean);
-            roi_stats_exp(r, m, 3) = quantile(roi_vals_clean, 0.25);
-            roi_stats_exp(r, m, 4) = quantile(roi_vals_clean, 0.75);
-            roi_stats_exp(r, m, 5) = quantile(roi_vals_clean, 0.99);
-
-            % the histogram, in the bottom row of the region's inspection figure
-            if ismember(r, inspect_indices)
-                k_fig = find(inspect_indices == r);
-                set(0, 'CurrentFigure', inspect_figs(k_fig));
-                subplot(2, max(n_ctrl, n_exp), m + max(n_ctrl, n_exp));
-                histogram(roi_vals_clean, 100, 'EdgeColor', 'none', 'FaceColor', ...
-                    sep_palette('experimental'));
-                hold on;
-                xline(roi_stats_exp(r, m, 1), 'k-', 'LineWidth', 1.5);
-                xline(roi_stats_exp(r, m, 2), 'k--', 'LineWidth', 1.5);
-                xline(roi_stats_exp(r, m, 5), '-', 'LineWidth', 1.5, 'Color', [1, 0, 1]);
-                xlim(hist_xlim);
-                txt_str = [sprintf('Mean: %.2f\nP99: %.2f', roi_stats_exp(r, m, 1), ...
-                    roi_stats_exp(r, m, 5)), ' (N=', num2str(numel(roi_vals_clean)), ')'];
-                text(0.95, 0.9, txt_str, 'Units', 'normalized', 'HorizontalAlignment', ...
-                    'right', 'FontSize', 8, 'BackgroundColor', 'w', 'EdgeColor', 'k');
-                if exist('exp_mousenames', 'var')
-                    t_str = exp_mousenames{m};
-                else
-                    t_str = sprintf('M%d', m);
-                end
-                title(t_str, 'Interpreter', 'none', 'FontSize', 8);
-                if m==1
-                    ylabel(['Exp (' res_type ')'], 'FontWeight', 'bold');
+                    ylabel([group_label ' (' res_type ')'], 'FontWeight', 'bold');
                 end
                 grid on;
             end
@@ -1328,12 +1258,7 @@ ylim([0 length(sorted_rois)+1]);
 
 % the regions expected to change, labelled in bold magenta
 switch exp_type
-    case 'rws'
-        highlighted_areas = {'Primary somatosensory area, barrel field', ...
-            'Ventral posteromedial nucleus of the thalamus', ...
-            'Posterior complex of the thalamus', 'Supplemental somatosensory area', ...
-            'Zona incerta'};
-    case 'behavior'
+    case {'rws', 'behavior'}
         highlighted_areas = {'Primary somatosensory area, barrel field', ...
             'Ventral posteromedial nucleus of the thalamus', ...
             'Posterior complex of the thalamus', 'Supplemental somatosensory area', ...
@@ -1924,64 +1849,7 @@ function [roi_list_surp, n_rois_surp, valid_pixels, roi_masks_surp, ...
 % and which of them fall in each region.
 
 % the regions, as in the coarse analysis
-roi_list_surp = { ...
-    'Primary somatosensory area, barrel field', ...
-    'Primary somatosensory area, trunk', ...
-    'Primary somatosensory area, upper limb', ...
-    'Primary somatosensory area, lower limb', ...
-    'Supplemental somatosensory area', ...
-    'Primary motor area', ...
-    'Secondary motor area', ...
-    'Primary visual area', ...
-    'Lateral visual area', ...
-    'Anterolateral visual area', ...
-    'Anteromedial visual area', ...
-    'Primary auditory area', ...
-    'Dorsal auditory area', ...
-    'Ventral auditory area', ...
-    'Anterior cingulate area', ...
-    'Olfactory tubercle', ...
-    'Prelimbic area', ...
-    'Infralimbic area', ...
-    'Visceral area', ...
-    'Gustatory areas', ...
-    'Piriform area', ...
-    'Subiculum', ...
-    'Orbital area', ...
-    'Claustrum', ...
-    'Agranular insular area', ...
-    'Anterior area', ...
-    'Rostrolateral visual area', ...
-    'Temporal association areas', ...
-    'Perirhinal area', ...
-    'Ectorhinal area', ...
-    'Retrosplenial area', ...
-    'Nucleus accumbens', ...
-    'Caudoputamen', ...
-    'Globus pallidus, external segment', ...
-    'Subthalamic nucleus', ...
-    'Ventral posteromedial nucleus of the thalamus', ...
-    'Ventral posterolateral nucleus of the thalamus', ...
-    'Ventral medial nucleus of the thalamus', ...
-    'Zona incerta', ...
-    'Posterior complex of the thalamus', ...
-    'Lateral posterior nucleus of the thalamus', ...
-    'Lateral dorsal nucleus of thalamus', ...
-    'Ventral anterior-lateral complex of the thalamus', ...
-    'Mediodorsal nucleus of the thalamus', ...
-    'Parafascicular nucleus', ...
-    'Nucleus of reuniens', ...
-    'Central lateral nucleus of the thalamus', ...
-    'Reticular nucleus of the thalamus', ...
-    'Geniculate group, dorsal thalamus', ...
-    'Midbrain, motor related', ...
-    'Superior colliculus, motor related', ...
-    'Superior colliculus, sensory related', ...
-    'Hippocampal formation', ...
-    'Basolateral amygdalar nucleus', ...
-    'Parafascicular nucleus', ...
-    'Hypothalamus' ...
-    };
+roi_list_surp = coarse_roi_list();
 n_rois_surp = length(roi_list_surp);
 
 % the left hemisphere's atlas voxels, as a vector
@@ -2094,13 +1962,7 @@ for m_idx = 1:2
 
     % the regions expected to change, labelled in bold magenta
     switch exp_type
-        case 'rws'
-            highlighted_areas = {'Primary somatosensory area, barrel field', ...
-                'Ventral posteromedial nucleus of the thalamus', ...
-                'Posterior complex of the thalamus', ...
-                'Supplemental somatosensory area', 'Zona incerta', ...
-                'Rostrolateral visual area'};
-        case 'behavior'
+        case {'rws', 'behavior'}
             highlighted_areas = {'Primary somatosensory area, barrel field', ...
                 'Ventral posteromedial nucleus of the thalamus', ...
                 'Posterior complex of the thalamus', ...

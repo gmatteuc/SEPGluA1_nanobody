@@ -18,17 +18,8 @@ function write_lr_video(lr_diff_vol, lr_sum_vol, atlas_vol, brain_mask, save_dir
 %
 %   Run by group_differences, and by P8.
 
-% create the folder if needed
-if ~exist(save_dir, 'dir')
-    mkdir(save_dir);
-end
-
-% open the video
-full_video_path = fullfile(save_dir, video_filename);
-vidObj = VideoWriter(full_video_path, 'MPEG-4');
-vidObj.FrameRate = 15;
-vidObj.Quality = 95;
-open(vidObj);
+% open the video, in a folder made if needed
+[vidObj, full_video_path] = open_lr_video(save_dir, video_filename);
 n_slices = size(lr_diff_vol, 1);
 
 fprintf('Writing video: %s\n', video_filename);
@@ -41,10 +32,7 @@ for j = 1:n_slices
     end
 
     % atlas boundaries: where the annotation changes along ML
-    atlasim = squeeze(atlas_vol(j, :, :));
-    atlasim = single(atlasim);
-    av_warp_boundaries = gradient(atlasim) ~= 0 & (atlasim > 1);
-    [row, col] = ind2sub(size(atlasim), find(av_warp_boundaries));
+    [row, col] = lr_atlas_boundaries(atlas_vol, j);
 
     fh = figure('visible', 'off', 'units', 'normalized', 'outerposition', [0 0 1 1], ...
         'Color', 'k');
@@ -59,15 +47,7 @@ for j = 1:n_slices
     set(h1, 'AlphaData', squeeze(brain_mask(j, :, 1:size(lr_diff_vol, 3))));
 
     % blue-red for symmetric limits (jet if the colormap function is missing)
-    if abs(clim_values(1)) == abs(clim_values(2))
-        try
-            colormap(gca, sep_palette('difference'));
-        catch
-            colormap(gca, jet);
-        end
-    else
-        colormap(gca, sep_palette('intensity'));
-    end
+    set_lr_colormap(clim_values);
 
     ax1 = gca;
     ax1.Color = 'k';
@@ -95,15 +75,7 @@ for j = 1:n_slices
 
     set(h2, 'AlphaData', squeeze(brain_mask(j, :, 1:size(lr_sum_vol, 3))));
 
-    if abs(clim_values(1)) == abs(clim_values(2))
-        try
-            colormap(gca, sep_palette('difference'));
-        catch
-            colormap(gca, jet);
-        end
-    else
-        colormap(gca, sep_palette('intensity'));
-    end
+    set_lr_colormap(clim_values);
 
     ax2 = gca;
     ax2.Color = 'k';

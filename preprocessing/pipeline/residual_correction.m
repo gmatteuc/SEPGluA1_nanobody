@@ -292,16 +292,7 @@ colormap(sep_palette('anatomy'));
 title('Base image (I)');
 clim(used_clim*1/slope);
 hold on;
-[rows, cols] = find(ref_pix_mask);
-if ~isempty(rows)
-
-    % one red square per reference pixel
-    x = [cols-0.5, cols+0.5, cols+0.5, cols-0.5]';
-    y = [rows-0.5, rows-0.5, rows+0.5, rows+0.5]';
-    faces = reshape(1:numel(cols)*4, 4, [])';
-    patch('Faces', faces, 'Vertices', [x(:), y(:)], ...
-        'FaceColor', 'r', 'FaceAlpha', 0.6, 'EdgeColor', 'none');
-end
+draw_reference_squares(ref_pix_mask);
 hold off;
 colorbar;
 
@@ -313,6 +304,15 @@ colormap(sep_palette('anatomy'));
 title('Signal image (J)');
 clim(used_clim);
 hold on;
+draw_reference_squares(ref_pix_mask);
+hold off;
+colorbar;
+
+end
+
+function draw_reference_squares(ref_pix_mask)
+% One red square per reference pixel, on the current axes.
+
 [rows, cols] = find(ref_pix_mask);
 if ~isempty(rows)
     x = [cols-0.5, cols+0.5, cols+0.5, cols-0.5]';
@@ -321,8 +321,6 @@ if ~isempty(rows)
     patch('Faces', faces, 'Vertices', [x(:), y(:)], ...
         'FaceColor', 'r', 'FaceAlpha', 0.6, 'EdgeColor', 'none');
 end
-hold off;
-colorbar;
 
 end
 

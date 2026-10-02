@@ -16,17 +16,8 @@ function write_lr_indiv_video(lr_diff_4d, lr_sum_4d, mask_bg_4d, atlas_vol, ...
 %
 %   Run by group_differences.
 
-% create the folder if needed
-if ~exist(save_dir, 'dir')
-    mkdir(save_dir);
-end
-
-% open the video
-full_video_path = fullfile(save_dir, video_filename);
-vidObj = VideoWriter(full_video_path, 'MPEG-4');
-vidObj.FrameRate = 15;
-vidObj.Quality = 95;
-open(vidObj);
+% open the video, in a folder made if needed
+[vidObj, full_video_path] = open_lr_video(save_dir, video_filename);
 
 [n_slices, ~, ~, n_mice] = size(lr_diff_4d);
 

@@ -449,12 +449,14 @@ fig2 = figure('Visible', 'off', 'Color', 'w', 'Units', 'pixels', ...
 tl2 = tiledlayout(fig2, 1, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
 
 nexttile(tl2);
-draw_overlap_matrix(overlap_mat, regions_of_interest, regions_of_interest, 7.5, 7);
+draw_overlap_matrix(overlap_mat, regions_of_interest, regions_of_interest, 7.5, 7, ...
+    'called this in DeMBA P20');
 title(sprintf('Major divisions: diagonal median %.2f', median(diag(overlap_mat))), ...
       'FontSize', 10)
 
 nexttile(tl2);
-draw_overlap_matrix(cortex_mat, cortical_labels, cortical_labels, 7, 6);
+draw_overlap_matrix(cortex_mat, cortical_labels, cortical_labels, 7, 6, ...
+    'called this in DeMBA P20');
 title(sprintf('Visual and somatosensory areas: diagonal median %.2f', ...
       median(diag(cortex_mat))), 'FontSize', 10)
 
@@ -579,30 +581,6 @@ levels = (idx - 1) / (n_ap - 1);
 
 end
 
-function m = region_overlap_matrix(csv_dir, av_a, av_y, region_names)
-% Fraction of each named region of av_a (rows) that av_y calls each named
-% region (columns).
-
-n = numel(region_names);
-mask_a = cell(1, n);
-mask_y = cell(1, n);
-for i = 1:n
-    mask_a{i} = get_allen_region_mask(csv_dir, av_a, region_names(i), av_a > 0);
-    mask_y{i} = get_allen_region_mask(csv_dir, av_y, region_names(i), av_y > 0);
-end
-m = zeros(n);
-for i = 1:n
-    denom = nnz(mask_a{i});
-    if denom == 0
-        continue
-    end
-    for j = 1:n
-        m(i, j) = nnz(mask_a{i} & mask_y{j}) / denom;
-    end
-end
-
-end
-
 function name = biggest_leak(row, self_idx, labels)
 % The other region a row of the overlap matrix leaks into most, with the
 % fraction, or 'nothing else' below 0.005.
@@ -614,43 +592,6 @@ if v <= 0.005
 else
     name = sprintf('%s %.2f', labels{j}, v);
 end
-
-end
-
-function draw_overlap_matrix(m, row_labels, col_labels, tick_font, cell_font)
-% Draw one overlap matrix in hot, with each value worth reading printed in its
-% cell.
-
-imagesc(m, [0 1]);
-colormap(gca, sep_palette('intensity'));
-axis square
-n = size(m, 1);
-set(gca, 'XTick', 1:n, 'XTickLabel', col_labels, ...
-         'YTick', 1:n, 'YTickLabel', row_labels, ...
-         'TickLabelInterpreter', 'none', 'FontSize', tick_font);
-xtickangle(45)
-
-% each cell worth reading, in a colour that shows on hot
-for i = 1:n
-    for j = 1:n
-        v = m(i, j);
-        if v < 0.02
-            continue
-        end
-        if v > 0.55
-            txt_col = [0 0 0];
-        else
-            txt_col = [1 1 1];
-        end
-        text(j, i, sprintf('%.2f', v), 'HorizontalAlignment', 'center', ...
-             'FontSize', cell_font, 'Color', txt_col);
-    end
-end
-
-cb = colorbar;
-cb.Label.String = 'fraction of the adult region';
-xlabel('called this in DeMBA P20')
-ylabel('adult CCF region')
 
 end
 
@@ -710,7 +651,7 @@ img_b = one_patch(tv_b, brain_b, res_b, target_res_um, level_frac);
 
 h = max(size(img_a, 1), size(img_b, 1));
 w = max(size(img_a, 2), size(img_b, 2));
-pair = [pad_centre(img_a, h, w), pad_centre(img_b, h, w)];
+pair = [pad_to_canvas(img_a, h, w, 0), pad_to_canvas(img_b, h, w, 0)];
 
 end
 
@@ -736,16 +677,5 @@ img(~msk) = 0;
 rows = find(any(msk, 2));
 cols = find(any(msk, 1));
 img = img(rows(1):rows(end), cols(1):cols(end));
-
-end
-
-function out = pad_centre(img, h, w)
-% Centre img on a zero canvas of h x w.
-
-out = zeros(h, w, 'like', img);
-[ih, iw] = size(img);
-r0 = floor((h - ih) / 2) + 1;
-c0 = floor((w - iw) / 2) + 1;
-out(r0:r0 + ih - 1, c0:c0 + iw - 1) = img;
 
 end

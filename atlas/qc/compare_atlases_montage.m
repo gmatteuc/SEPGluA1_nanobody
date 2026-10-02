@@ -415,17 +415,6 @@ out(r0:r0 + h - 1, 1:w) = img(1:h, 1:w);
 
 end
 
-function out = pad_to_canvas(img, canvas_h, canvas_w, fill_value)
-% Centre an image on a canvas of canvas_h x canvas_w filled with fill_value.
-
-out = repmat(cast(fill_value, 'like', img), canvas_h, canvas_w);
-[h, w] = size(img);
-r0 = floor((canvas_h - h) / 2) + 1;
-c0 = floor((canvas_w - w) / 2) + 1;
-out(r0:r0 + h - 1, c0:c0 + w - 1) = img;
-
-end
-
 function show_plane(img, clim_pcts)
 % Draw one template plane in gray, scaled to the percentiles clim_pcts of its
 % tissue.

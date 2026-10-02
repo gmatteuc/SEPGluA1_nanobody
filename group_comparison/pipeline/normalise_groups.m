@@ -350,21 +350,27 @@ for s_idx = slices_range_for_norm
     end
 
     % each mouse's values there, NaN on its background
-    temp_samples = NaN(length(valid_pixels_indices), num_mice_subset);
-
-    for iii = 1:num_mice_subset
-        current_slice = squeeze(data_4d(s_idx, :, :, iii));
-        current_indiv_mask = ~squeeze(recomputed_bkg_mask_4d(s_idx, :, :, iii));
-
-        vals = current_slice(valid_pixels_indices);
-        is_valid_tissue = current_indiv_mask(valid_pixels_indices);
-
-        vals(~is_valid_tissue) = NaN;
-        temp_samples(:, iii) = vals;
-    end
+    temp_samples = plane_cortex_samples(data_4d, recomputed_bkg_mask_4d, s_idx, ...
+        valid_pixels_indices, num_mice_subset);
 
     % append them to the pool
     cortex_samples_pooled = [cortex_samples_pooled; temp_samples]; %#ok<AGROW>
+end
+end
+
+function samples = plane_cortex_samples(data_4d, recomputed_bkg_mask_4d, plane, ...
+    valid_pixels_indices, num_mice_subset)
+% Each mouse's values on the given voxels of one plane, NaN on its background;
+% one column per mouse.
+
+samples = NaN(length(valid_pixels_indices), num_mice_subset);
+for iii = 1:num_mice_subset
+    current_slice = squeeze(data_4d(plane, :, :, iii));
+    current_indiv_mask = ~squeeze(recomputed_bkg_mask_4d(plane, :, :, iii));
+    vals = current_slice(valid_pixels_indices);
+    is_valid_tissue = current_indiv_mask(valid_pixels_indices);
+    vals(~is_valid_tissue) = NaN;
+    samples(:, iii) = vals;
 end
 end
 
@@ -558,24 +564,7 @@ sgtitle(['Global Normalization Diagnostic (Pooled Slices: ' ...
 
 % save it in normalization_checks_<channel>\, named after the figure (no plane
 % number: it pools them all)
-if exist('global_diagnostics_dir', 'var')
-    save_output_dir = fullfile(global_diagnostics_dir, ['normalization_checks_' channel]);
-else
-    save_output_dir = fullfile(pwd, ['normalization_checks_' channel]);
-end
-if ~exist(save_output_dir, 'dir')
-    mkdir(save_output_dir);
-end
-fig_handle = gcf;
-set(fig_handle, 'InvertHardcopy', 'off');
-clean_fig_name = regexprep(fig_handle.Name, '[^a-zA-Z0-9]', '_');
-if isempty(clean_fig_name)
-    clean_fig_name = 'Untitled_Figure';
-end
-filename_base = clean_fig_name;
-saveas(fig_handle, fullfile(save_output_dir, [filename_base '.fig']));
-exportgraphics(fig_handle, fullfile(save_output_dir, [filename_base '.png']), ...
-    'Resolution', 300, 'BackgroundColor', 'current');
+save_check_figure(global_diagnostics_dir, channel, []);
 end
 
 function plot_slice_diagnostics(slices_to_visualize_list, cortex_mask_3d_all, ...
@@ -606,16 +595,8 @@ for viz_idx = 1:length(slices_to_visualize_list)
 
     % each mouse's values on the plane's cortical voxels, NaN on its background,
     % for the scatter plots
-    cortex_samples = NaN(length(valid_pixels_indices), num_mice_subset);
-
-    for iii = 1:num_mice_subset
-        current_slice = squeeze(data_4d(slice_to_plot, :, :, iii));
-        current_indiv_mask = ~squeeze(recomputed_bkg_mask_4d(slice_to_plot, :, :, iii));
-        vals = current_slice(valid_pixels_indices);
-        is_valid_tissue = current_indiv_mask(valid_pixels_indices);
-        vals(~is_valid_tissue) = NaN;
-        cortex_samples(:, iii) = vals;
-    end
+    cortex_samples = plane_cortex_samples(data_4d, recomputed_bkg_mask_4d, ...
+        slice_to_plot, valid_pixels_indices, num_mice_subset);
 
     % plot 2: every pair of mice against each other
     plot_pairwise_mosaic(cortex_samples, num_mice_subset, current_mice, hist_num_bins, ...
@@ -686,25 +667,7 @@ for iii = 1:num_mice_subset
     hold off;
 
     % save it in normalization_checks_<channel>\, named after the figure and plane
-    if exist('global_diagnostics_dir', 'var')
-        save_output_dir = fullfile(global_diagnostics_dir, ...
-            ['normalization_checks_' channel]);
-    else
-        save_output_dir = fullfile(pwd, ['normalization_checks_' channel]);
-    end
-    if ~exist(save_output_dir, 'dir')
-        mkdir(save_output_dir);
-    end
-    fig_handle = gcf;
-    set(fig_handle, 'InvertHardcopy', 'off');
-    clean_fig_name = regexprep(fig_handle.Name, '[^a-zA-Z0-9]', '_');
-    if isempty(clean_fig_name)
-        clean_fig_name = 'Untitled_Figure';
-    end
-    filename_base = sprintf('%s_Slice%d', clean_fig_name, slice_to_plot);
-    saveas(fig_handle, fullfile(save_output_dir, [filename_base '.fig']));
-    exportgraphics(fig_handle, fullfile(save_output_dir, [filename_base '.png']), ...
-        'Resolution', 300, 'BackgroundColor', 'current');
+    save_check_figure(global_diagnostics_dir, channel, slice_to_plot);
 end
 end
 
@@ -765,24 +728,7 @@ sgtitle(['Cortex Pixel Intensity Comparison (Slice ' num2str(slice_to_plot) ...
     ') - Range [0, ' num2str(plot_limit) ']']);
 
 % save it in normalization_checks_<channel>\, named after the figure and plane
-if exist('global_diagnostics_dir', 'var')
-    save_output_dir = fullfile(global_diagnostics_dir, ['normalization_checks_' channel]);
-else
-    save_output_dir = fullfile(pwd, ['normalization_checks_' channel]);
-end
-if ~exist(save_output_dir, 'dir')
-    mkdir(save_output_dir);
-end
-fig_handle = gcf;
-set(fig_handle, 'InvertHardcopy', 'off');
-clean_fig_name = regexprep(fig_handle.Name, '[^a-zA-Z0-9]', '_');
-if isempty(clean_fig_name)
-    clean_fig_name = 'Untitled_Figure';
-end
-filename_base = sprintf('%s_Slice%d', clean_fig_name, slice_to_plot);
-saveas(fig_handle, fullfile(save_output_dir, [filename_base '.fig']));
-exportgraphics(fig_handle, fullfile(save_output_dir, [filename_base '.png']), ...
-    'Resolution', 300, 'BackgroundColor', 'current');
+save_check_figure(global_diagnostics_dir, channel, slice_to_plot);
 end
 
 function plot_median_consensus(consensus_slice, recomputed_bkg_mask_4d, slice_to_plot, ...
@@ -817,24 +763,7 @@ cb.Label.Color = 'k';
 hold off;
 
 % save it in normalization_checks_<channel>\, named after the figure and plane
-if exist('global_diagnostics_dir', 'var')
-    save_output_dir = fullfile(global_diagnostics_dir, ['normalization_checks_' channel]);
-else
-    save_output_dir = fullfile(pwd, ['normalization_checks_' channel]);
-end
-if ~exist(save_output_dir, 'dir')
-    mkdir(save_output_dir);
-end
-fig_handle = gcf;
-set(fig_handle, 'InvertHardcopy', 'off');
-clean_fig_name = regexprep(fig_handle.Name, '[^a-zA-Z0-9]', '_');
-if isempty(clean_fig_name)
-    clean_fig_name = 'Untitled_Figure';
-end
-filename_base = sprintf('%s_Slice%d', clean_fig_name, slice_to_plot);
-saveas(fig_handle, fullfile(save_output_dir, [filename_base '.fig']));
-exportgraphics(fig_handle, fullfile(save_output_dir, [filename_base '.png']), ...
-    'Resolution', 300, 'BackgroundColor', 'current');
+save_check_figure(global_diagnostics_dir, channel, slice_to_plot);
 end
 
 function plot_individual_vs_median(consensus_pixels, cortex_samples, num_mice_subset, ...
@@ -878,24 +807,7 @@ end
 sgtitle(['Individual Mice vs. Group Median (Slice ' num2str(slice_to_plot) ')']);
 
 % save it in normalization_checks_<channel>\, named after the figure and plane
-if exist('global_diagnostics_dir', 'var')
-    save_output_dir = fullfile(global_diagnostics_dir, ['normalization_checks_' channel]);
-else
-    save_output_dir = fullfile(pwd, ['normalization_checks_' channel]);
-end
-if ~exist(save_output_dir, 'dir')
-    mkdir(save_output_dir);
-end
-fig_handle = gcf;
-set(fig_handle, 'InvertHardcopy', 'off');
-clean_fig_name = regexprep(fig_handle.Name, '[^a-zA-Z0-9]', '_');
-if isempty(clean_fig_name)
-    clean_fig_name = 'Untitled_Figure';
-end
-filename_base = sprintf('%s_Slice%d', clean_fig_name, slice_to_plot);
-saveas(fig_handle, fullfile(save_output_dir, [filename_base '.fig']));
-exportgraphics(fig_handle, fullfile(save_output_dir, [filename_base '.png']), ...
-    'Resolution', 300, 'BackgroundColor', 'current');
+save_check_figure(global_diagnostics_dir, channel, slice_to_plot);
 end
 
 function plot_slice_norm_diagnostic(cortex_samples, consensus_pixels, norm_params, ...
@@ -979,24 +891,7 @@ end
 sgtitle(['Normalization diagnostic (Slice ' num2str(slice_to_plot) ')'], 'FontSize', 14);
 
 % save it in normalization_checks_<channel>\, named after the figure and plane
-if exist('global_diagnostics_dir', 'var')
-    save_output_dir = fullfile(global_diagnostics_dir, ['normalization_checks_' channel]);
-else
-    save_output_dir = fullfile(pwd, ['normalization_checks_' channel]);
-end
-if ~exist(save_output_dir, 'dir')
-    mkdir(save_output_dir);
-end
-fig_handle = gcf;
-set(fig_handle, 'InvertHardcopy', 'off');
-clean_fig_name = regexprep(fig_handle.Name, '[^a-zA-Z0-9]', '_');
-if isempty(clean_fig_name)
-    clean_fig_name = 'Untitled_Figure';
-end
-filename_base = sprintf('%s_Slice%d', clean_fig_name, slice_to_plot);
-saveas(fig_handle, fullfile(save_output_dir, [filename_base '.fig']));
-exportgraphics(fig_handle, fullfile(save_output_dir, [filename_base '.png']), ...
-    'Resolution', 300, 'BackgroundColor', 'current');
+save_check_figure(global_diagnostics_dir, channel, slice_to_plot);
 close all
 end
 
@@ -1072,24 +967,7 @@ sgtitle(['Comparison: normalized (top) vs. raw (bottom) - Fixed scale [0, ' ...
     num2str(plot_limit) ']'], 'Color', 'w', 'FontSize', 14, 'FontWeight', 'bold');
 
 % save it in normalization_checks_<channel>\, named after the figure and plane
-if exist('global_diagnostics_dir', 'var')
-    save_output_dir = fullfile(global_diagnostics_dir, ['normalization_checks_' channel]);
-else
-    save_output_dir = fullfile(pwd, ['normalization_checks_' channel]);
-end
-if ~exist(save_output_dir, 'dir')
-    mkdir(save_output_dir);
-end
-fig_handle = gcf;
-set(fig_handle, 'InvertHardcopy', 'off');
-clean_fig_name = regexprep(fig_handle.Name, '[^a-zA-Z0-9]', '_');
-if isempty(clean_fig_name)
-    clean_fig_name = 'Untitled_Figure';
-end
-filename_base = sprintf('%s_Slice%d', clean_fig_name, slice_to_plot);
-saveas(fig_handle, fullfile(save_output_dir, [filename_base '.fig']));
-exportgraphics(fig_handle, fullfile(save_output_dir, [filename_base '.png']), ...
-    'Resolution', 300, 'BackgroundColor', 'current');
+save_check_figure(global_diagnostics_dir, channel, slice_to_plot);
 close all
 end
 
@@ -1104,14 +982,7 @@ fprintf('Generating Normalization Verification Video (this may take a while)...\
 % the video file, in normalization_checks_<channel>\
 video_filename = ['Normalization_Verification_' current_mouse_type '_' channel '.mp4'];
 
-if exist('global_diagnostics_dir', 'var')
-    save_video_path = fullfile(global_diagnostics_dir, ['normalization_checks_' channel]);
-else
-    save_video_path = fullfile(pwd, ['normalization_checks_' channel]);
-end
-if ~exist(save_video_path, 'dir')
-    mkdir(save_video_path);
-end
+save_video_path = checks_folder(global_diagnostics_dir, channel);
 
 full_video_path = fullfile(save_video_path, video_filename);
 
@@ -1223,4 +1094,39 @@ end
 
 close(vidObj);
 fprintf('Video saved successfully: %s\n', full_video_path);
+end
+
+function save_check_figure(global_diagnostics_dir, channel, slice_to_plot)
+% Save the current figure as .fig and .png in normalization_checks_<channel>\,
+% named after the figure, and after the plane when slice_to_plot is not empty.
+
+save_output_dir = checks_folder(global_diagnostics_dir, channel);
+fig_handle = gcf;
+set(fig_handle, 'InvertHardcopy', 'off');
+clean_fig_name = regexprep(fig_handle.Name, '[^a-zA-Z0-9]', '_');
+if isempty(clean_fig_name)
+    clean_fig_name = 'Untitled_Figure';
+end
+if isempty(slice_to_plot)
+    filename_base = clean_fig_name;
+else
+    filename_base = sprintf('%s_Slice%d', clean_fig_name, slice_to_plot);
+end
+saveas(fig_handle, fullfile(save_output_dir, [filename_base '.fig']));
+exportgraphics(fig_handle, fullfile(save_output_dir, [filename_base '.png']), ...
+    'Resolution', 300, 'BackgroundColor', 'current');
+end
+
+function save_output_dir = checks_folder(global_diagnostics_dir, channel)
+% The folder normalization_checks_<channel>\ in the diagnostics folder, made if it
+% is missing.
+
+if exist('global_diagnostics_dir', 'var')
+    save_output_dir = fullfile(global_diagnostics_dir, ['normalization_checks_' channel]);
+else
+    save_output_dir = fullfile(pwd, ['normalization_checks_' channel]);
+end
+if ~exist(save_output_dir, 'dir')
+    mkdir(save_output_dir);
+end
 end
