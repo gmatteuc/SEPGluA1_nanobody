@@ -46,11 +46,8 @@ Run by run_beyond_regression.py.
 import csv
 import os
 
-import matplotlib
-import numpy as np
-
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import numpy as np
 from scipy.stats import spearmanr
 
 from sepmap.adult.beyond_density import (

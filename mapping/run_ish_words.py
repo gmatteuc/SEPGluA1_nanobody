@@ -48,6 +48,8 @@ repeat from run to run. The run prints it.
 import argparse
 import os
 
+import matplotlib
+
 from sepmap import config
 from sepmap.ish import words
 
@@ -63,6 +65,9 @@ def main():
 
 
 if __name__ == "__main__":
+    # figures go to files, never to a window
+    matplotlib.use("Agg")
+
     # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(description="annotation words of the gene ranking")
     parser.parse_args()

@@ -49,6 +49,8 @@ brain's sheets, the cohort-level sheets and the index.
 
 import argparse
 
+import matplotlib
+
 from sepmap import config, diagnostics
 
 
@@ -66,6 +68,9 @@ def main(mice):
 
 
 if __name__ == "__main__":
+    # figures go to files, never to a window
+    matplotlib.use("Agg")
+
     parser = argparse.ArgumentParser(description="diagnostic sheets of the route")
     parser.add_argument(
         "mice", nargs="*", help="brains whose sheets to refresh (default: every sheet)"

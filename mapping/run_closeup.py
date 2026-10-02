@@ -58,6 +58,8 @@ Readings and options can come in any order.
 
 import argparse
 
+import matplotlib
+
 from sepmap import config
 from sepmap.young_vs_adult import closeup
 
@@ -105,6 +107,9 @@ def main(readings, plane, vmax, dlim, smooth, want_video, want_flatmap, cmap_nam
 
 
 if __name__ == "__main__":
+    # figures go to files, never to a window
+    matplotlib.use("Agg")
+
     parser = argparse.ArgumentParser(description="one reading looked at closely")
     parser.add_argument("readings", nargs="*", help="readings to draw (default: zref)")
     parser.add_argument(

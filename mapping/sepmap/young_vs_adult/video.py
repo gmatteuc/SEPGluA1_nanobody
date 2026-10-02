@@ -27,12 +27,9 @@ import os
 import time
 
 import imageio_ffmpeg
-import matplotlib
+import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 from scipy.ndimage import center_of_mass
 

@@ -55,13 +55,10 @@ import os
 import time
 
 import imageio_ffmpeg
-import matplotlib
-import nibabel as nib
-import numpy as np
-
-matplotlib.use("Agg")
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
+import nibabel as nib
+import numpy as np
 from matplotlib.colors import Colormap, LinearSegmentedColormap
 from matplotlib.image import AxesImage
 from scipy.ndimage import center_of_mass, gaussian_filter

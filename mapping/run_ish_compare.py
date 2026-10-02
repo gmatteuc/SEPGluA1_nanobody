@@ -42,6 +42,8 @@ sepmap/ish/compare.py. Writes, in adult_v2/ish/ under the data root:
 
 import argparse
 
+import matplotlib
+
 from sepmap import config
 from sepmap.ish import compare
 
@@ -56,6 +58,9 @@ def main():
 
 
 if __name__ == "__main__":
+    # figures go to files, never to a window
+    matplotlib.use("Agg")
+
     # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(description="the adult nano map against every gene")
     parser.parse_args()

@@ -43,11 +43,8 @@ import urllib.parse
 import urllib.request
 from collections import defaultdict
 
-import matplotlib
-import numpy as np
-
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.axes import Axes
 from scipy.stats import false_discovery_control, mannwhitneyu
 

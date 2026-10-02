@@ -43,6 +43,8 @@ adult_v2/beyond/for_sami/ under the data root:
 
 import argparse
 
+import matplotlib
+
 from sepmap import config
 from sepmap.adult import beyond_regression
 
@@ -57,6 +59,9 @@ def main():
 
 
 if __name__ == "__main__":
+    # figures go to files, never to a window
+    matplotlib.use("Agg")
+
     # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(description="the beyond-abundance regression, shown")
     parser.parse_args()

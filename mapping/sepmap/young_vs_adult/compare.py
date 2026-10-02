@@ -26,13 +26,11 @@ import os
 import time
 
 import matplotlib
+import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
-from scipy.ndimage import gaussian_filter
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
+from scipy.ndimage import gaussian_filter
 
 from sepmap.config import SETTINGS
 from sepmap.volumes.cohort import COHORTS, MODES, SIGNED_READINGS, Z_FLOOR

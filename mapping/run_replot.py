@@ -46,6 +46,8 @@ readings in force.
 import argparse
 import os
 
+import matplotlib
+
 from sepmap import config
 from sepmap.volumes import cohort
 from sepmap.young_vs_adult import replot
@@ -64,6 +66,9 @@ def main():
 
 
 if __name__ == "__main__":
+    # figures go to files, never to a window
+    matplotlib.use("Agg")
+
     # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(
         description="redraw the young against adult slice figures"

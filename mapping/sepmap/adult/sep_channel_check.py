@@ -38,11 +38,8 @@ import math
 import os
 from collections import defaultdict
 
-import matplotlib
-import numpy as np
-
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import numpy as np
 from scipy.stats import spearmanr
 
 from sepmap.volumes.cohort import NAIVE, RWS

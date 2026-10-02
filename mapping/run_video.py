@@ -46,6 +46,8 @@ readings in force.
 import argparse
 import os
 
+import matplotlib
+
 from sepmap import config
 from sepmap.volumes import cohort
 from sepmap.young_vs_adult import video
@@ -71,6 +73,9 @@ def main(cohorts):
 
 
 if __name__ == "__main__":
+    # figures go to files, never to a window
+    matplotlib.use("Agg")
+
     parser = argparse.ArgumentParser(description="cohort videos, plane by plane")
     parser.add_argument(
         "cohorts",

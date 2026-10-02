@@ -46,6 +46,8 @@ V2_ISH_PANEL and V2_ISH_TABLE are refused: the pass is chosen with --panel.
 import argparse
 import os
 
+import matplotlib
+
 from sepmap import config
 from sepmap.ish import reliability
 
@@ -64,6 +66,9 @@ def main(panel_name):
 
 
 if __name__ == "__main__":
+    # figures go to files, never to a window
+    matplotlib.use("Agg")
+
     parser = argparse.ArgumentParser(description="reliability of one Allen ISH map")
     parser.add_argument(
         "--panel",

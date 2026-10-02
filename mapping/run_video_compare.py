@@ -54,6 +54,8 @@ named draws; the run prints them.
 import argparse
 import os
 
+import matplotlib
+
 from sepmap import config
 from sepmap.volumes import cohort
 from sepmap.young_vs_adult import video_compare
@@ -89,6 +91,9 @@ def main(readings, plane=None, vmax=None, dlim=None):
 
 
 if __name__ == "__main__":
+    # figures go to files, never to a window
+    matplotlib.use("Agg")
+
     parser = argparse.ArgumentParser(description="young beside adult, plane by plane")
     parser.add_argument("readings", nargs="*", help="readings (default: all in force)")
     parser.add_argument("--plane", type=int, help="one CCF plane (10 um) as a still")

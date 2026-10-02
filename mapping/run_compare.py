@@ -48,6 +48,8 @@ readings in force.
 import argparse
 import os
 
+import matplotlib
+
 from sepmap import config
 from sepmap.volumes import cohort
 from sepmap.young_vs_adult import compare
@@ -66,6 +68,9 @@ def main():
 
 
 if __name__ == "__main__":
+    # figures go to files, never to a window
+    matplotlib.use("Agg")
+
     # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(description="young against adult in the adult CCF")
     parser.parse_args()

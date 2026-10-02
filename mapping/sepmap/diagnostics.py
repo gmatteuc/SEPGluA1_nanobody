@@ -33,11 +33,8 @@ import csv
 import os
 
 import h5py
-import matplotlib
-import numpy as np
-
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import numpy as np
 
 from sepmap.volumes.cohort import COHORTS, PER_MOUSE_CCF
 from sepmap.volumes.cohort import OUT_ROOT as CCF_ROOT

@@ -39,12 +39,9 @@ import os
 import re
 from collections import defaultdict
 
-import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy.ndimage import gaussian_filter
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
 from sepmap.volumes.cohort import (
     NAIVE,

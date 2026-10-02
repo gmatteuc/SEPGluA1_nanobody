@@ -97,11 +97,8 @@ import os
 from collections import defaultdict
 from collections.abc import Sequence
 
-import matplotlib
-import numpy as np
-
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import numpy as np
 from scipy.stats import rankdata, spearmanr
 
 from sepmap.volumes.cohort import NAIVE, RWS

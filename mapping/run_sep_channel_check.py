@@ -42,6 +42,8 @@ the data root:
 
 import argparse
 
+import matplotlib
+
 from sepmap import config
 from sepmap.adult import sep_channel_check
 
@@ -56,6 +58,9 @@ def main():
 
 
 if __name__ == "__main__":
+    # figures go to files, never to a window
+    matplotlib.use("Agg")
+
     # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(description="what the green channel reports")
     parser.parse_args()
