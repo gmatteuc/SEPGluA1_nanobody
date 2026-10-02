@@ -54,15 +54,15 @@ import json
 import os
 import time
 
-import numpy as np
-import nibabel as nib
 import imageio_ffmpeg
 import matplotlib
+import nibabel as nib
+import numpy as np
 
 matplotlib.use("Agg")
+import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
-import matplotlib.patheffects as path_effects
 from scipy.ndimage import center_of_mass, gaussian_filter
 
 from sepmap.config import DATA, SETTINGS
@@ -540,9 +540,9 @@ def flatmaps(reading, vals, signed, lim_mean, cmaps, sigma_txt, n, out_dir):
     """
     # ccf_streamlines only for the flatmaps, so a run with --no-flatmap does without it
     from ccf_streamlines.projection import (
+        BoundaryFinder,
         Isocortex2dProjector,
         Isocortex3dProjector,
-        BoundaryFinder,
     )
 
     cmap_mean, rdbu = cmaps

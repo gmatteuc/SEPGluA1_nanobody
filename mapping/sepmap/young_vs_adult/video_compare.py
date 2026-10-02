@@ -28,10 +28,10 @@ import csv
 import os
 import time
 
-import numpy as np
-import nibabel as nib
 import imageio_ffmpeg
 import matplotlib
+import nibabel as nib
+import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -39,11 +39,12 @@ from matplotlib.colors import LinearSegmentedColormap
 from scipy.ndimage import center_of_mass
 
 from sepmap.config import SETTINGS
+from sepmap.volumes.cohort import COHORTS, SIGNED_READINGS
+from sepmap.volumes.cohort import OUT_ROOT as CCF_ROOT
 from sepmap.volumes.per_mouse import CSV_MAP, DATA
-from sepmap.volumes.cohort import COHORTS, OUT_ROOT as CCF_ROOT, SIGNED_READINGS
 from sepmap.young_vs_adult.compare import (
-    MIN_N_YOUNG,
     MIN_N_ADULT,
+    MIN_N_YOUNG,
     YOUNG,
     fold,
     fold_count,

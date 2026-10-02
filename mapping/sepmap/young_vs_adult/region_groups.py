@@ -39,30 +39,31 @@ import os
 import re
 from collections import defaultdict
 
+import matplotlib
 import numpy as np
 from scipy.ndimage import gaussian_filter
-import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from sepmap.volumes.per_mouse import annotation_20, MICE, CSV_MAP, DATA, OUT as PER_MOUSE
 from sepmap.volumes.cohort import (
-    RATIO_CLIP,
-    YOUNG_P20,
-    YOUNG_P16,
-    YOUNG_P22,
     NAIVE,
+    RATIO_CLIP,
     RWS,
     SIGNED_READINGS,
+    YOUNG_P16,
+    YOUNG_P20,
+    YOUNG_P22,
 )
+from sepmap.volumes.per_mouse import CSV_MAP, DATA, MICE, annotation_20
+from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 from sepmap.young_vs_adult.region_plot import (
+    COL,
+    NOT_SUBCORTEX,
+    READINGS,
     bh_fdr,
     mannwhitney,
     welch,
-    READINGS,
-    NOT_SUBCORTEX,
-    COL,
 )
 
 OUT = os.path.join(DATA, "comparisons_v2", "young_vs_adult")

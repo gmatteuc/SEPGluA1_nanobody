@@ -26,10 +26,10 @@ import csv
 import os
 import time
 
-import numpy as np
-import nibabel as nib
 import imageio_ffmpeg
 import matplotlib
+import nibabel as nib
+import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -37,8 +37,9 @@ from matplotlib.colors import LinearSegmentedColormap
 from scipy.ndimage import center_of_mass
 
 from sepmap.config import SETTINGS
+from sepmap.volumes.cohort import COHORTS, MODES, SIGNED_READINGS
+from sepmap.volumes.cohort import OUT_ROOT as CCF_ROOT
 from sepmap.volumes.per_mouse import CSV_MAP, DATA
-from sepmap.volumes.cohort import OUT_ROOT as CCF_ROOT, COHORTS, MODES, SIGNED_READINGS
 
 # colour range of the mean per reading, set so that cortex sits near half of it: cref
 # is 1 by construction, adult cortex is 1.01 in ratio and 0.29 in sepratio; the
