@@ -21,9 +21,7 @@
 % behavior, with no age filter. Run sep_setup_paths first, once per MATLAB
 % session; the code is in pipeline\collect_by_group.m.
 
-clear all
-close all
-clc
+clear; clc; close all;
 
 %% Settings
 

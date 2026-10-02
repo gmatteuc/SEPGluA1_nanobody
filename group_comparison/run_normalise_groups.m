@@ -23,9 +23,7 @@
 % (behavior and the young cohorts through SEP_COHORT_SPECS). Run sep_setup_paths
 % first, once per MATLAB session; the code is in pipeline\normalise_groups.m.
 
-clear all
-close all
-clc
+clear; clc; close all;
 
 %% Settings
 

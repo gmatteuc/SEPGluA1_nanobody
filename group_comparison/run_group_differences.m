@@ -23,9 +23,7 @@
 % with sigma 5, every video on, the region analyses off. Run sep_setup_paths
 % first, once per MATLAB session; the code is in pipeline\group_differences.m.
 
-clear all
-close all
-clc
+clear; clc; close all;
 
 %% Settings
 
