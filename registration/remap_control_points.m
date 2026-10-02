@@ -1,29 +1,27 @@
 function remap_control_points(mousename, old_decisions_file, do_apply)
-%REMAP_CONTROL_POINTS Carry saved control points across a slice reorder.
+%REMAP_CONTROL_POINTS  Carry saved control points across a slice reorder.
+%   REMAP_CONTROL_POINTS(mouse, old_decisions) prints what would move (a dry
+%   run); REMAP_CONTROL_POINTS(mouse, old_decisions, true) writes the new file.
 %
-% Control points live in atlas2histology_tform.mat as one cell per slice,
-% indexed by POSITION in the ordered volume rather than by the piece of tissue
-% they were placed on. Reordering in run_order_slices therefore leaves every
-% point behind on whatever slice now occupies its old position, and nothing
-% complains.
+%   Control points live in atlas2histology_tform.mat as one cell per slice,
+%   indexed by position in the ordered volume, not by the piece of tissue they
+%   were placed on. A reorder in run_order_slices therefore leaves every point
+%   on whatever slice now holds its old position, and nothing complains.
 %
-% This walks them across. It reads the ordering decisions as they were when
-% the points went down and as they are now, matches positions through the
-% original slice index that both refer to, and rewrites the cell arrays in the
-% new order. The atlas plane rides along in column 1, so an anchored slice
-% stays anchored where it was.
+%   This reads the ordering decisions as they were when the points were placed
+%   and as they are now, matches positions through the original slice index
+%   both refer to, and rewrites the cell arrays in the new order. The atlas
+%   plane is column 1, so an anchored slice stays anchored where it was.
 %
-% Points on a slice whose FLIP state changed are dropped rather than moved: a
-% flip mirrors the image, so the coordinates no longer land on the same tissue
-% and that slice has to be annotated again. Slices that were dropped from the
-% volume, or that are new to it, come out empty.
+%   Points on a slice whose flip state changed are dropped, not moved: a flip
+%   mirrors the image, so the coordinates no longer land on the same tissue
+%   and the slice has to be annotated again. Slices dropped from the volume,
+%   or new to it, come out empty.
 %
-%   remap_control_points(mouse, old_decisions)          % dry run, prints only
-%   remap_control_points(mouse, old_decisions, true)    % write the new file
-%
-% The old decisions file is the backup taken BEFORE curating in
-% run_order_slices. Without it there is nothing to match against, which is why
-% it has to be kept.
+%   old_decisions is the backup of the decisions file taken before curating in
+%   run_order_slices; without it there is nothing to match against, which is
+%   why it has to be kept. On writing, the previous file is kept beside it as
+%   atlas2histology_tform_prereorder_<date>.mat.
 
 if nargin < 3
     do_apply = false;
@@ -55,6 +53,7 @@ Tnew = readtable(newfile);
 [seqold, flipold] = ordered_sequence(Told);
 [seqnew, flipnew] = ordered_sequence(Tnew);
 
+% the saved points, histology and atlas, in the old order
 S = load(tformfile);
 hold_pts = S.histology_control_points;
 aold_pts = S.atlas_control_points;
@@ -76,23 +75,30 @@ end
 hnew_pts = repmat({zeros(0,4)}, numel(seqnew), 1);
 anew_pts = repmat({zeros(0,4)}, numel(seqnew), 1);
 
-nmoved = 0; nsame = 0; ndropped = 0; nlost = 0;
+nmoved = 0;
+nsame = 0;
+ndropped = 0;
+nlost = 0;
 
-fprintf('\n%-6s %-9s %-9s %6s   %s\n', 'new', 'original', 'was at', 'Npts', 'what happens');
+fprintf('\n%-6s %-9s %-9s %6s   %s\n', 'new', 'original', 'was at', 'Npts', ...
+    'what happens');
 fprintf('%s\n', repmat('-', 1, 72));
 
+% each slice of the new order: q its new position, p its old one
 for q = 1:numel(seqnew)
 
     orig = seqnew(q);
     p    = find(seqold == orig, 1);
 
     if isempty(p) || p > numel(hold_pts)
-        fprintf('%-6d %-9d %-9s %6s   new to the volume, starts empty\n', q, orig, '-', '-');
+        fprintf('%-6d %-9d %-9s %6s   new to the volume, starts empty\n', ...
+            q, orig, '-', '-');
         continue
     end
 
     npts = size(hold_pts{p}, 1);
 
+    % a flipped slice loses its points
     if flipnew(orig) ~= flipold(orig)
         if npts > 0
             ndropped = ndropped + 1;
@@ -116,7 +122,7 @@ for q = 1:numel(seqnew)
     end
 end
 
-% Anything annotated in the old volume that has no home in the new one
+% anything annotated in the old volume that has no place in the new one
 for p = 1:min(numel(hold_pts), numel(seqold))
     if ~isempty(hold_pts{p}) && ~ismember(seqold(p), seqnew)
         nlost = nlost + 1;
@@ -140,9 +146,8 @@ backup = fullfile(procpath, sprintf('atlas2histology_tform_prereorder_%s.mat', .
     datestr(now, 'yyyymmdd_HHMMSS'))); %#ok<TNOW1,DATST>
 copyfile(tformfile, backup);
 
-% Write the loaded struct back rather than the two arrays alone: some GUI
-% save paths put an atlas2histology_tform in here too, and a bare save of two
-% variables would quietly drop it.
+% the loaded struct goes back whole, not the two arrays alone: some GUI saves put
+% an atlas2histology_tform in the file too, which a save of two variables would drop
 S.histology_control_points = hnew_pts;
 S.atlas_control_points     = anew_pts;
 save(tformfile, '-struct', 'S');
@@ -152,12 +157,14 @@ fprintf('Previous version kept at: %s\n', backup);
 
 end
 
+% ===== Local functions =====
 
 function [seq, flipstate] = ordered_sequence(T)
-% The original slice indices that survive into the volume, in the order they
-% appear there. Reorder first, then drop -- exactly what alignSliceVolume does,
-% so the positions here are the positions the GUI counts in.
+% The original indices of the slices that stay in the volume, in their order
+% there, and the flip state of every original slice.
 
+% reorder first, then drop, as alignSliceVolume does, so the positions here are
+% the ones the GUI counts in
 order     = T.NewOrderOriginalIndex(:);
 toremove  = T.FlipState == -1;
 seq       = order(~toremove(order));

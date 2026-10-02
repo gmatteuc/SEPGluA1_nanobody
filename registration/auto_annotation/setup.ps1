@@ -1,14 +1,16 @@
-# One-time setup for auto_annotation: a private Python environment with torch
-# (the CUDA build when an NVIDIA GPU is present), the packages, and a self-test
-# on the bundled weights.
+# Setup of the automatic annotation's engine, once per machine: a Python
+# environment of its own (.venv, beside this script) with torch, the CUDA build
+# when an NVIDIA GPU is present, the packages of requirements.txt, and a
+# self-test that loads the bundled weights.
 #
 #   cd D:\sep_histology\code
 #   .\registration\auto_annotation\setup.ps1
 #
-# Re-running is safe. Needs a Python 3.10+ on PATH (Anaconda's is fine) and
-# internet access for the packages (~2.5 GB with CUDA torch).
+# Running it again is safe. Needs Python 3.10 or later on PATH (Anaconda's will
+# do) and internet access for the packages (about 2.5 GB with CUDA torch).
 
 $ErrorActionPreference = 'Stop'
+
 # this script sits in the engine's folder, next to requirements.txt and weights\
 $pydir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $venv  = Join-Path $pydir '.venv'
@@ -20,8 +22,9 @@ if (-not (Test-Path $py)) {
 }
 & $py -m pip install --quiet --upgrade pip
 
-# The registration runs ~150 optimisation steps per section; on a GPU a whole
-# brain takes minutes, on the CPU much longer. The CPU build still works.
+# the CUDA build when nvidia-smi finds a GPU: the registration runs about 500
+# optimisation steps per batch of sections, minutes a brain on a GPU and much
+# longer on the CPU, whose build still works
 $gpu = $false
 try { & nvidia-smi -L 2>$null | Out-Null; $gpu = ($LASTEXITCODE -eq 0) } catch { $gpu = $false }
 if ($gpu) {
@@ -33,10 +36,12 @@ if ($gpu) {
 }
 & $py -m pip install --quiet -r (Join-Path $pydir 'requirements.txt')
 
+# the weights are tracked with the code; stop if either is missing
 foreach ($w in 'landmark.pt', 'matcher.pt') {
     if (-not (Test-Path (Join-Path $pydir "weights\$w"))) { throw "weights\$w is missing" }
 }
 
+# self-test: load both models with this environment's torch
 Write-Host "running a self-test..."
 $test = @'
 import numpy as np, os, sys

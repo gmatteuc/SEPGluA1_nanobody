@@ -21,7 +21,7 @@ function out = auto_annotate(mode, procpath, slice, plane)
 %   found). run_register_to_atlas's 'annotate' mode gives the GUI the
 %   automatic annotation's keys (auto_annotation_plugin) only then.
 %
-%   out.ok is false, with out.message saying why, on any failure -- a missing
+%   out.ok is false, with out.message saying why, on any failure: a missing
 %   interpreter, a missing file, a Python error. Callers check it.
 %
 %   The Python side lives in registration/auto_annotation/ (get_paths'
@@ -31,6 +31,7 @@ function out = auto_annotate(mode, procpath, slice, plane)
 
 out = struct('ok', false, 'message', '');
 
+% the engine's folder and its interpreter
 p     = get_paths();
 pydir = p.auto_annotation;
 py    = auto_annotation_python(pydir);
@@ -47,15 +48,18 @@ switch mode
         out.ok = true;
 
     case 'propose'
+        % the proposal file must exist afterwards, whatever the exit status
         cmd = sprintf('"%s" "%s" propose "%s"', py, cli, procpath);
         [status, log] = system(cmd, '-echo');
-        if status ~= 0 || ~exist(fullfile(procpath, 'auto_proposal_controlpoints.mat'), 'file')
+        if status ~= 0 ...
+                || ~exist(fullfile(procpath, 'auto_proposal_controlpoints.mat'), 'file')
             out.message = sprintf('python failed (status %d):\n%s', status, strtrim(log));
             return
         end
         out.ok = true;
 
     case 'section'
+        % the answer comes back in a temporary file, deleted on return
         respf   = [tempname '_resp.mat'];
         cleaner = onCleanup(@() delete_quiet(respf));
         cmd = sprintf('"%s" "%s" section "%s" %d %d "%s"', py, cli, procpath, ...
@@ -75,13 +79,18 @@ switch mode
         end
 
     case 'sections'
-        % here slice and plane are vectors: every orange slice, at its plane
+        % here slice and plane are vectors: every orange slice, at its plane; the
+        % request and the answer go through temporary files, deleted on return
         reqf    = [tempname '_req.mat'];
         respf   = [tempname '_resp.mat'];
         cleaner = onCleanup(@() delete_quiet({reqf, respf}));
-        slices = round(slice(:)); planes = round(plane(:));   % saved by name below
+
+        % saved by name, as cli.py reads them
+        slices = round(slice(:));
+        planes = round(plane(:));
         save(reqf, 'slices', 'planes', '-v7');
-        cmd = sprintf('"%s" "%s" sections "%s" "%s" "%s"', py, cli, procpath, reqf, respf);
+        cmd = sprintf('"%s" "%s" sections "%s" "%s" "%s"', py, cli, procpath, ...
+            reqf, respf);
         [status, log] = system(cmd);
         if ~exist(respf, 'file')
             out.message = sprintf('python produced no response (status %d):\n%s', status, strtrim(log));
@@ -91,7 +100,9 @@ switch mode
         out.ok      = logical(r.ok);
         out.message = strtrim(char(r.message));
         if out.ok
-            out.atlas = r.atlas;  out.hist = r.hist;  out.low = r.low;
+            out.atlas = r.atlas;
+            out.hist = r.hist;
+            out.low = r.low;
         end
 
     otherwise
@@ -99,10 +110,12 @@ switch mode
 end
 end
 
+% ===== Local functions =====
 
 function py = auto_annotation_python(pydir)
-% The interpreter: an explicit override, else the venv setup.ps1 creates inside
-% the engine's folder -- relative to the code folder, so it moves with it.
+% The interpreter: AUTO_ANNOTATION_PYTHON when set, else the environment
+% setup.ps1 makes in the engine's folder, which moves with the code.
+
 cands = { getenv('AUTO_ANNOTATION_PYTHON'), ...
           fullfile(pydir, '.venv', 'Scripts', 'python.exe') };
 py = '';
@@ -114,10 +127,15 @@ for k = 1:numel(cands)
 end
 end
 
-
 function delete_quiet(f)
-if ischar(f), f = {f}; end
+% Delete the files that exist of f, a file name or a cell of them.
+
+if ischar(f)
+    f = {f};
+end
 for k = 1:numel(f)
-    if exist(f{k}, 'file'), delete(f{k}); end
+    if exist(f{k}, 'file')
+        delete(f{k});
+    end
 end
 end

@@ -18,7 +18,7 @@ function register_to_atlas(run_settings)
 %   names. The files also hold correction_type, which replaces the setting
 %   when they are loaded, as it did in the script.
 
-% The settings of run_register_to_atlas, under the names the code below uses
+% settings of run_register_to_atlas, under the names the code below uses
 paths = run_settings.paths;
 groups_to_process = run_settings.groups_to_process;
 mice_to_process = run_settings.mice_to_process;
@@ -31,10 +31,10 @@ allow_image_only_registration = run_settings.allow_image_only_registration;
 
 %% Add paths
 
-% get_atlas puts the chosen atlas dir on the path and takes the other one off,
-% which matters because every atlas dir holds files with identical names and
-% LightSuite finds them with which(). Do not addpath an atlas dir by hand.
-% The toolboxes are on the path from sep_setup_paths.
+% get_atlas puts the chosen atlas folder on the path and takes the others off:
+% every atlas folder holds files of the same names, which LightSuite finds with
+% which(), so never addpath an atlas folder by hand (the toolboxes are on the
+% path from sep_setup_paths)
 atlas = get_atlas(atlas_key);
 
 %% Resolve cohort
@@ -45,8 +45,9 @@ if isempty(mice_to_process)
 else
     cohort = get_cohort('names', mice_to_process);
 end
-% Catch a mistyped mode here rather than letting it fall through to 'align' and
-% quietly redo an hour of bridging nobody asked for.
+
+% stop on a mistyped mode, which would otherwise fall through to 'align' and redo
+% an hour of bridging nobody asked for
 if ~ismember(run_mode, {'align', 'angle', 'annotate', 'autoannotate', 'register'})
     error('run_register_to_atlas: unknown run_mode ''%s'' (use ''align'', ''angle'', ''annotate'', ''autoannotate'' or ''register'').', run_mode);
 end
@@ -59,10 +60,10 @@ fprintf('run_register_to_atlas: %d mouse/mice selected, mode ''%s'', atlas ''%s'
 check_atlas_age(cohort, atlas);
 check_atlas_resolution(cohort, atlas);
 
-% Aligning again rewrites the atlas block that control points, anchors and
+% aligning again rewrites the atlas block that control points, anchors and
 % proposals are counted in, so an annotated brain would silently lose its
-% annotation (same rule as 'angle' below). Checked for every selected mouse
-% before any of them is aligned.
+% annotation (the same rule as 'angle'); checked for every selected mouse before
+% any of them is aligned
 if strcmp(run_mode, 'align')
     refuse_annotated_mice(cohort);
 end
@@ -71,25 +72,25 @@ end
 
 for mouse_idx = 1:numel(cohort)
 
-    %% Fetch data and bridge preprocessing results to the original Lightsuite registartion pipeline
-
-    % Get current mouse name and type
+    % the mouse
     mouse_name = cohort(mouse_idx).name;
     mouse_type = cohort(mouse_idx).group;
 
     fprintf('\n=== %s (%s) ===\n', mouse_name, mouse_type);
 
-    % Get dirs
+    % its folders
     base_dir = fullfile(paths.data, mouse_type);
     mouse_dir = fullfile(base_dir, mouse_name, '\lightsuite');
     correction_dir = fullfile(base_dir, mouse_name, '\lightsuite', 'correction_output');
-    before_correction_dir = fullfile(base_dir, mouse_name, '\lightsuite', 'volume_centered');
-    processed_dir = fullfile(base_dir, mouse_name, '\lightsuite', 'volume_centered_processed');
-    aligned_dir = fullfile(mouse_dir,  'volume_aligned');
+    before_correction_dir = fullfile(base_dir, mouse_name, '\lightsuite', ...
+        'volume_centered');
+    processed_dir = fullfile(base_dir, mouse_name, '\lightsuite', ...
+        'volume_centered_processed');
+    aligned_dir = fullfile(mouse_dir, 'volume_aligned');
     volorder_dir = fullfile(mouse_dir, 'volume_for_ordering.tiff');
 
-    % 'annotate' and 'register' both work off what 'align' already wrote, so
-    % they skip the expensive bridging below and go straight to their step.
+    % the modes after 'align' work off what 'align' wrote, so they skip the
+    % expensive bridging below and go straight to their step
     if ismember(run_mode, {'angle', 'annotate', 'autoannotate', 'register'})
 
         opts = load_regopts(mouse_dir, mouse_name, atlas_extent_slices);
@@ -106,8 +107,10 @@ for mouse_idx = 1:numel(cohort)
                 propose_control_points(mouse_dir, mouse_name);
 
             case 'register'
-                check_control_points(mouse_dir, mouse_name, allow_image_only_registration);
-                register_slices(opts, mouse_dir, processed_dir, volorder_dir, aligned_dir);
+                check_control_points(mouse_dir, mouse_name, ...
+                    allow_image_only_registration);
+                register_slices(opts, mouse_dir, processed_dir, volorder_dir, ...
+                    aligned_dir);
 
         end
 
@@ -115,11 +118,12 @@ for mouse_idx = 1:numel(cohort)
 
     end
 
-    [sliceinfo, correction_type] = bridge_preprocessing(correction_dir, before_correction_dir, ...
-        mouse_dir, processed_dir, volorder_dir, aligned_dir, correction_type, use_equalized_nano);
+    % (auto) bridge the preprocessing results into LightSuite's own pipeline
+    [sliceinfo, correction_type] = bridge_preprocessing(correction_dir, ...
+        before_correction_dir, mouse_dir, processed_dir, volorder_dir, aligned_dir, ...
+        correction_type, use_equalized_nano);
 
-    %% (auto) Align slices and initialize registration
-
+    % (auto) align the slices and start the registration
     align_slices(sliceinfo, base_dir, mouse_name, mouse_dir, atlas);
 
 end
@@ -131,15 +135,15 @@ end
 function check_atlas_age(cohort, atlas)
 % Stop unless every selected mouse is of the age the atlas represents.
 
-% Registering against the wrong atlas produces a perfectly plausible-looking
-% result, so check the age rather than trusting the operator. An age-matched
-% atlas is valid for its own age and nothing else: a P36 brain does not belong
-% on the P20 template any more than it belongs on the adult one. Adults carry
-% age_days = NaN in the registry and go to 'ccf' (age_days 56).
+% a wrong atlas gives a plausible-looking result, so check the age: an age-matched
+% atlas holds for its own age only (a P36 brain belongs on neither P20 nor CCF)
 for k = 1:numel(cohort)
     mouse_age = cohort(k).age_days;
+
+    % the adult cohorts are not dated one by one (age_days NaN) and go to 'ccf',
+    % whose age_days is 56
     if isnan(mouse_age)
-        mouse_age = 56;     % the adult cohorts are not dated individually
+        mouse_age = 56;
     end
     if mouse_age ~= atlas.age_days
         error(['run_register_to_atlas: %s is P%g but atlas ''%s'' represents P%g.\n' ...
@@ -156,9 +160,8 @@ function check_atlas_resolution(cohort, atlas)
 % Stop unless px_atlas in each mouse's local_settings.txt is the atlas
 % resolution (a mouse without the file is skipped).
 
-% The atlas resolution has to agree with what each mouse's local_settings.txt
-% says, because px_atlas is what sets the AP scale of the reconstruction. A
-% young brain left at px_atlas = 10 against a 20 um atlas is off by a factor 2.
+% px_atlas sets the AP scale of the reconstruction: a young brain left at
+% px_atlas = 10 against a 20 um atlas is off by a factor of 2
 for k = 1:numel(cohort)
     settings_name = fullfile(cohort(k).base_dir, 'local_settings.txt');
     if ~exist(settings_name, 'file')
@@ -189,7 +192,7 @@ for k = 1:numel(cohort)
     found = annotation_files(cellfun(@(f) exist(fullfile(cohort(k).base_dir, ...
         'lightsuite', f), 'file') == 2, annotation_files));
     if ~isempty(found)
-        annotated{end+1} = sprintf('  %s: %s', cohort(k).name, strjoin(found, ', ')); %#ok<SAGROW>
+        annotated{end+1} = sprintf('  %s: %s', cohort(k).name, strjoin(found, ', ')); %#ok<AGROW>
     end
 end
 if ~isempty(annotated)
@@ -212,20 +215,16 @@ if ~exist(regopts_name, 'file')
            mouse_name, regopts_name);
 end
 opts = load(regopts_name);
-% regopts.procpath is written by 'align' as an absolute path, drive
-% letter included, so a mouse aligned on another machine (or the same
-% disk under a different letter) points the GUI and the registration
-% at a folder that does not exist here. The folder is always this
-% mouse's lightsuite directory, so say so from where the code sits.
+
+% 'align' writes procpath as an absolute path, drive letter included, which on
+% another machine or drive letter does not exist; it is always this folder
 opts.procpath = mouse_dir;
 
-% Apply the AP margin (see atlas_extent_slices above). The GUI reads it
-% from opts and the registration re-reads regopts.mat from disk, so
-% the two must agree: write it back. A mouse that already has control
-% points keeps whatever margin it was annotated with, because the
-% saved atlas planes are counted from the front of that range --
-% the three P20 mice done before this parameter existed reopen and
-% re-register exactly as before, with no setting to remember.
+% the AP margin (atlas_extent_slices): the GUI reads it from opts and the
+% registration from regopts.mat, so it is written back. A mouse with control
+% points keeps the margin it was annotated with, since the saved atlas planes are
+% counted from the front of that range (the three P20 mice done before this
+% setting existed reopen and register again exactly as before).
 if opts.extentfactor ~= atlas_extent_slices
     if exist(fullfile(mouse_dir, 'atlas2histology_tform.mat'), 'file')
         fprintf(['  atlas margin around the stack stays at %d slices: this mouse already has ' ...
@@ -270,8 +269,7 @@ function annotate_control_points(cohort, mouse_dir, opts, atlas)
 % Mode 'annotate': open LightSuite's control-point GUI on one mouse, with the
 % automatic annotation's keys when it is installed.
 
-% One GUI at a time, or the control points get placed in the
-% wrong mouse's file.
+% one GUI at a time, or the control points go into the wrong mouse's file
 if numel(cohort) > 1
     error('run_register_to_atlas: run_mode ''annotate'' opens one GUI at a time; select a single mouse.');
 end
@@ -284,10 +282,10 @@ if exist(fullfile(mouse_dir, 'cutting_angle_data.mat'), 'file')
 else
     fprintf('  cutting angle: the automatic rigid fit''s (no cutting_angle_data.mat; run_mode = ''angle'' to set it by eye).\n');
 end
-% The automatic annotation's part of the GUI (anchors, the review of a
-% proposal, their files) is a plugin, registration\annotation_gui, passed in
-% when the engine is installed: the test auto_annotate runs before every
-% call. Without it the GUI is LightSuite's with our fixes (PATCHES.md).
+
+% the automatic annotation's part of the GUI is a plugin, in
+% registration\annotation_gui, passed in when auto_annotate finds the engine;
+% without it the GUI is LightSuite's with our fixes (PATCHES.md)
 engine = auto_annotate('check');
 if engine.ok
     opts.plugin = @auto_annotation_plugin;
@@ -304,10 +302,8 @@ function propose_control_points(mouse_dir, mouse_name)
 % Mode 'autoannotate': propose control points for every slice from the anchor
 % planes (auto_proposal_controlpoints.mat).
 
-% The automatic control points, proposed from the anchor planes
-% set in the GUI. Writes a PROPOSAL next to the annotation; the
-% GUI loads it for review, and only what is accepted there is
-% ever saved as atlas2histology_tform.mat.
+% a proposal is written next to the annotation, never into it: the GUI loads it
+% for review, and only what is accepted there is saved as the annotation
 for f = {'plane_anchors.mat', 'auto_atlas_planes.mat'}
     if ~exist(fullfile(mouse_dir, f{1}), 'file')
         error(['run_register_to_atlas: no %s for %s.\n' ...
@@ -322,7 +318,8 @@ end
 fprintf('  proposing control points for every slice from the anchor planes...\n');
 out = auto_annotate('propose', mouse_dir);
 if ~out.ok
-    error('run_register_to_atlas: the automatic annotation failed for %s:\n%s', mouse_name, out.message);
+    error('run_register_to_atlas: the automatic annotation failed for %s:\n%s', ...
+        mouse_name, out.message);
 end
 fprintf(['  done. Review it: run_mode = ''annotate'' (k accepts a slice, u re-proposes it),\n' ...
          '  then run_mode = ''register''.\n']);
@@ -332,12 +329,8 @@ function check_control_points(mouse_dir, mouse_name, allow_image_only_registrati
 % Mode 'register', before elastix: report the control points and stop on a
 % missing file or an unpaired slice (image only when allowed).
 
-% LightSuite does not register well from image information
-% alone -- the manual control points are what make it work, and
-% all 17 adults have them on every slice. So a missing
-% atlas2histology_tform.mat is an error, not a fallback.
-% Registering without them would quietly produce a volume that
-% looks fine in the folder and is not comparable to the adults.
+% LightSuite does not register well from the images alone, and all 17 adults have
+% points on every slice, so a missing annotation is an error, not a fallback
 tform_name = fullfile(mouse_dir, 'atlas2histology_tform.mat');
 if exist(tform_name, 'file')
     S_cp  = load(tform_name, 'histology_control_points', 'atlas_control_points');
@@ -345,27 +338,25 @@ if exist(tform_name, 'file')
     n_at  = cellfun(@(c) size(c, 1), S_cp.atlas_control_points);
     fprintf('  control points: %d slices, %d-%d points each (median %g)\n', ...
         numel(n_cp), min(n_cp), max(n_cp), median(n_cp));
-    % Points are paired by row, so a slice whose two lists differ
-    % in length has no valid pairing at all. elastix would only
-    % find out when it reached that slice, an hour in. Say so now.
+
+    % points are paired by row, so a slice whose two lists differ in length has no
+    % pairing; elastix would find out only on reaching it, an hour in
     bad = find(n_cp(:) ~= n_at(:))';
     if ~isempty(bad)
         error(['run_register_to_atlas: slice(s) %s have different numbers of histology and atlas points.\n' ...
                'Open run_mode = ''annotate'', go to each, and delete the unpaired point(s)\n' ...
                '(edit mode, d) or press c and re-place them.'], mat2str(bad));
     end
-    % registerSlicesToAtlas uses the points only when a slice has
-    % at least five; with fewer it silently registers that slice
-    % from image information alone.
+
+    % registerSlicesToAtlas uses a slice's points only when it has at least five,
+    % and silently registers it from the images otherwise
     if any(n_cp < 5)
         fprintf('  NOTE: slice(s) %s have fewer than 5 points and will be registered from image only.\n', ...
             mat2str(find(n_cp(:) < 5)'));
     end
-    % A mismatched pair -- a point on the wrong structure, or a
-    % left/right swap -- drags the whole slice's affine and only
-    % shows up as a bad overlay after the run. Fit each slice
-    % robustly and name the pairs that stand far off it, by the
-    % numbers the GUI draws next to them.
+
+    % a mismatched pair (a point on the wrong structure, a left-right swap) drags
+    % the slice's affine, so name the pairs far off a robust fit, by their numbers
     report_suspect_pairs(S_cp.atlas_control_points, S_cp.histology_control_points);
 elseif allow_image_only_registration
     fprintf(['  no control points, and allow_image_only_registration is true.\n' ...
@@ -382,29 +373,21 @@ end
 end
 
 function report_suspect_pairs(acp, hcp)
-% Per slice: affine from atlas to histology, reweighted a few times so that
-% outliers stop pulling the fit toward themselves, then list any pair further
-% than 3x the slice's median residual (and at least 30 px) from it. The
-% thresholds are annotation_settings' outlier_rule, which the GUI's * mark
-% reads too.
-%
-% Two failures that test cannot see, both found on MG910:
-%
-%   Points spread over two atlas planes. The GUI pins the plane to the median
-%   of the points already placed, but a slice can still end up with points from
-%   two planes (accept a carried-over proposal, scroll, place more). The
-%   registration then takes the plane of the FIRST point and silently treats
-%   the rest as if they were on it, so part of the slice is annotated against
-%   anatomy 0.2 mm away. Nothing downstream complains.
-%
-%   A slice that is uniformly wrong. The outlier test is relative to the
-%   slice's own median, so when most pairs are bad none of them stands out --
-%   MG910 slice 35 had a median residual of 93 px and was never flagged.
+% Per slice, print the pairs far off an affine fitted without the outliers, and
+% the slices with points on several planes or off as a whole.
+
 annot = annotation_settings();
 rule  = annot.outlier_rule;
 for k = 1:numel(acp)
-    a = acp{k}; h = hcp{k};
-    if size(a,1) < 5 || size(a,1) ~= size(h,1), continue, end
+    a = acp{k};
+    h = hcp{k};
+    if size(a,1) < 5 || size(a,1) ~= size(h,1)
+        continue
+    end
+
+    % points on two atlas planes (a carried-over proposal accepted, a scroll, more
+    % points): the registration takes the first point's plane for all of them, so
+    % part of the slice is annotated against anatomy 0.2 mm away (seen on MG910)
     planes = unique(a(:,1));
     if numel(planes) > 1
         n_per = arrayfun(@(pl) nnz(a(:,1) == pl), planes);
@@ -412,24 +395,33 @@ for k = 1:numel(acp)
                  'Registration uses the first point''s plane for all of them -- clear the slice and ' ...
                  'redo it on one plane.\n'], k, numel(planes), mat2str(planes'), mat2str(n_per'));
     end
-    src = a(:, [3 2]); dst = h(:, [3 2]);
+
+    % affine from atlas to histology, refitted up to 8 times without the pairs
+    % over twice the median residual, so outliers stop pulling the fit to them
+    src = a(:, [3 2]);
+    dst = h(:, [3 2]);
     w = ones(size(src,1), 1);
     for it = 1:8
         tf = fitgeotform2d(src(w > 0.999, :), dst(w > 0.999, :), 'affine');
         r  = vecnorm(tf.transformPointsForward(src) - dst, 2, 2);
         s  = median(r) + 1e-6;
-        w  = double(r <= 2*s);                      % drop, refit, repeat
-        if nnz(w) < 5, break, end
+        w  = double(r <= 2*s);
+        if nnz(w) < 5
+            break
+        end
     end
+
+    % pairs further than the outlier rule of annotation_settings (3x the median
+    % residual and 30 px), the rule the GUI's * mark uses too
     bad = find(r > max(rule.factor*median(r), rule.min_px))';
     if ~isempty(bad)
         fprintf('  CHECK slice %d: pair(s) %s sit %s px off the slice''s own affine (median %.0f). Wrong structure or a left/right swap?\n', ...
             k, mat2str(bad), mat2str(round(r(bad))'), median(r));
     end
-    % A well annotated slice sits at 5-10 px. Past 20 (rule.slice_px) the
-    % slice as a whole does not fit an affine, which usually means the wrong
-    % atlas plane rather than a few wrong points -- and elastix tends to fail
-    % outright on those.
+
+    % a slice wrong as a whole, which the relative test above cannot see (MG910's
+    % slice 35, median 93 px): a good slice sits at 5-10 px, and past rule.slice_px
+    % (20) it is usually the wrong atlas plane, on which elastix tends to fail
     if median(r) > rule.slice_px
         fprintf(['  CHECK slice %d: the WHOLE slice is off -- median residual %.0f px over %d pairs. ' ...
                  'Wrong atlas plane, or points placed on two planes? Clear and redo it.\n'], ...
@@ -463,10 +455,12 @@ function [sliceinfo, correction_type] = bridge_preprocessing(correction_dir, ...
 % Mode 'align', first half: the corrected volumes, the nano and the invalid
 % mask saved as LightSuite channels; correction_type as the files leave it.
 
-% Load the saved artifact annotation and correction outputs
-matfile0_name = fullfile(correction_dir, sprintf('corrected_volume_%s.mat', correction_type)); %#ok<UNRCH>
+% load the correction outputs and the artifact annotation
+matfile0_name = fullfile(correction_dir, sprintf('corrected_volume_%s.mat', ...
+    correction_type));
 load(matfile0_name);
-matfile1_name = fullfile(correction_dir, sprintf('scaled_auto_volume_%s.mat', correction_type));
+matfile1_name = fullfile(correction_dir, sprintf('scaled_auto_volume_%s.mat', ...
+    correction_type));
 load(matfile1_name);
 if use_equalized_nano
     matfile0_name = fullfile(correction_dir,'equalized_volume.mat');
@@ -475,27 +469,29 @@ if use_equalized_nano
     clear equalized_volume
 else
 end
-matfile2_name = fullfile(correction_dir, sprintf('artifact_mask_volume_%s.mat', correction_type));
+matfile2_name = fullfile(correction_dir, sprintf('artifact_mask_volume_%s.mat', ...
+    correction_type));
 if not(exist(matfile2_name))
     artifact_mask_vol = false(size(bg_mask_vol),'like',bg_mask_vol);
 else
     load(matfile2_name);
 end
 
-% Combine background and artifact mask
+% combine the background and artifact masks
 [H, W, Z] = size(nanoVol);
 invalid_mask = single(or(artifact_mask_vol,bg_mask_vol));
 
-% Load original dapi channel for registration
+% load the original DAPI channel, the one registered
 matfile3_name = fullfile(before_correction_dir, sprintf('chan01_DAPI.tiff'));
 dapiVol = single(loadVolume({matfile3_name}, 1));
 
-% Load sliceinfo
+% load sliceinfo
 sliceinfo_name = fullfile(mouse_dir, sprintf('sliceinfo.mat'));
 load(sliceinfo_name);
 
-% Prepare data and metadata for re-saving
-slicevol_new = uint16(permute(cat(4, dapiVol, nanoVol, scaledautoVol, correctedVol, invalid_mask), [1 2 4 3]));
+% the channels and the metadata to save
+slicevol_new = uint16(permute(cat(4, dapiVol, nanoVol, scaledautoVol, correctedVol, ...
+    invalid_mask), [1 2 4 3]));
 sliceinfo_new = sliceinfo;
 sliceinfo_new.channames = {'DAPI','NANO','AUTO','DIFF','MASK'};
 sliceinfo_new.slicevol = processed_dir;
@@ -504,10 +500,10 @@ sliceinfo_new.volorder = volorder_dir;
 sliceinfo_new.slicevolfin = aligned_dir;
 sliceinfo_new.backvalues = recompute_backvalues(slicevol_new);
 
-% Re-save processed data as new channels
+% save the processed data as LightSuite channels
 saveLargeSliceVolume(slicevol_new, sliceinfo_new.channames, sliceinfo_new.slicevol);
 
-% and slicevol channelsnames
+% the sliceinfo with those channels
 sliceinfo = sliceinfo_new;
 end
 
@@ -515,13 +511,8 @@ function align_slices(sliceinfo, base_dir, mouse_name, mouse_dir, atlas)
 % Mode 'align', second half: re-read the mouse's local settings, then align
 % the slices and fit the atlas rigidly (writes regopts.mat).
 
-% This used to read copyStructBtoA(sliceinfo, settings), but `settings` is
-% never defined in this script -- it resolved to MATLAB's own builtin, so
-% the line quietly copied the matlab/database/parallel setting groups into
-% sliceinfo and refreshed nothing. The values actually used for alignment
-% stayed frozen at whatever run_extract_and_center baked into sliceinfo.mat,
-% which means editing local_settings.txt had no effect at all. Re-read the
-% file properly.
+% re-read local_settings.txt (the mouse folder first), so an edit to it takes
+% effect: sliceinfo.mat holds the values run_extract_and_center wrote
 settings_name = fullfile(base_dir, mouse_name, 'local_settings.txt');
 if ~exist(settings_name, 'file')
     settings_name = fullfile(mouse_dir, 'local_settings.txt');
@@ -529,8 +520,8 @@ end
 mouse_settings = parseSettingsFile(settings_name);
 sliceinfo = copyStructBtoA(sliceinfo, mouse_settings);
 
-% The atlas in force wins over the file, so the two can never disagree
-% about resolution or crop no matter what a stale settings file says.
+% the atlas in force wins over the file, so the two cannot disagree about the
+% resolution or the crop whatever a stale settings file says
 sliceinfo.px_atlas    = atlas.res_um;
 sliceinfo.atlasaplims = atlas.default_aplims;
 
@@ -539,9 +530,8 @@ fprintf('  settings: px_atlas %g um, atlasaplims %s, slicethickness %g\n', ...
 
 alignedvol = alignSliceVolume(sliceinfo.slicevol, sliceinfo);
 
-% The cutting angle can be set by eye next: run_mode = 'angle' (optional,
-% but every adult had it), then 'annotate'.
-
+% next, the cutting angle by eye (run_mode 'angle', optional but every adult had
+% it), then 'annotate'
 fprintf(['  aligned. regopts.mat and volume_for_inspection.tiff are written, so this\n' ...
          '  mouse is ready for run_mode = ''annotate''.\n']);
 end

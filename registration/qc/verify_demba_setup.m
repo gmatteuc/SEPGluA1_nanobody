@@ -1,15 +1,19 @@
+%% verify_demba_setup
+% ===== Check the DeMBA P20 setup before annotating a young brain =====
+%
+% Registering to the wrong atlas, or to the right atlas in the wrong label space,
+% gives a result that looks plausible, and each check below has failed silently
+% before, so they are checked before a manual annotation session is spent on top
+% of them: the atlas on the path, its label space, its resolution and crop, the
+% local settings of each P20 mouse, the vendored LightSuite fixes, and which
+% brains are ready to annotate. Changes nothing.
+%
+% Run it before annotating a young brain. Run sep_setup_paths first, once per
+% MATLAB session.
+
 clear all
 close all
 clc
-
-% /// Check that the DeMBA P20 path is actually set up correctly ///
-% Registering to the wrong atlas, or to the right atlas in the wrong label
-% space, produces a result that looks entirely plausible. Every one of the
-% checks below failed silently at some point today, so they are all worth
-% asserting before a manual annotation session is spent on top of them.
-%
-% Run this before annotating a young brain. It touches nothing.
-% Run sep_setup_paths first, once per MATLAB session.
 
 paths = get_paths();
 fprintf('=== DeMBA P20 setup check ===\n\n');
@@ -17,7 +21,7 @@ fprintf('=== DeMBA P20 setup check ===\n\n');
 n_pass = 0;
 n_fail = 0;
 
-%% 1. get_atlas resolves, and only one atlas is on the path
+%% The atlas resolves, and only one atlas is on the path
 
 atlas = get_atlas('demba_p20');
 resolved = which(atlas.template_file);
@@ -25,20 +29,23 @@ resolved = which(atlas.template_file);
     strcmpi(fileparts(resolved), atlas.dir), n_pass, n_fail);
 fprintf('      %s\n', resolved);
 
-% Whole path ENTRIES, not substrings: 'atlas_demba_p20' contains 'atlas', so a
-% substring test reports the adult dir as present whenever the DeMBA one is.
+% whole path entries, not substrings: 'atlas_demba_p20' contains 'atlas', so a
+% substring test would find the adult folder whenever the DeMBA one is there
 ccf_dir = paths.atlas;
 path_entries = strsplit(path, pathsep);
 [~, n_pass, n_fail] = report('adult atlas dir is NOT also on the path', ...
     ~any(strcmpi(path_entries, ccf_dir)), n_pass, n_fail);
 
-%% 2. The annotation is in parcellation_index space, not structure IDs
+%% The annotation is in parcellation_index space, not structure IDs
 
 av_y = niftiread(fullfile(atlas.dir, atlas.annotation_file));
 av_a = niftiread(fullfile(ccf_dir, 'annotation_10.nii.gz'));
 
-lab_y = unique(av_y(:)); lab_y = lab_y(lab_y ~= 0);
-lab_a = unique(av_a(:)); lab_a = lab_a(lab_a ~= 0);
+% labels of each annotation, without the background
+lab_y = unique(av_y(:));
+lab_y = lab_y(lab_y ~= 0);
+lab_a = unique(av_a(:));
+lab_a = lab_a(lab_a ~= 0);
 shared = numel(intersect(lab_y, lab_a));
 
 [~, n_pass, n_fail] = report(sprintf(...
@@ -47,11 +54,11 @@ shared = numel(intersect(lab_y, lab_a));
 fprintf('      if this drops to about half, it is the raw BrainGlobe volume\n');
 fprintf('      in Allen structure IDs and every region lookup would be wrong\n');
 
-% Caudoputamen is index 662 in this space and structure 672 in the other one
+% the caudoputamen is index 662 in this space and structure 672 in the other one
 [~, n_pass, n_fail] = report('CP resolves as parcellation_index 662 in both', ...
     any(av_y(:) == 662) && any(av_a(:) == 662), n_pass, n_fail);
 
-%% 3. Resolution and crop
+%% Resolution and crop
 
 [~, n_pass, n_fail] = report(sprintf('atlas res_um is %g', atlas.res_um), ...
     atlas.res_um == 20, n_pass, n_fail);
@@ -60,6 +67,7 @@ crop = atlas.default_aplims;
 [~, n_pass, n_fail] = report(sprintf('crop [%d %d] is inside the volume', crop), ...
     crop(1) >= 1 && crop(2) <= size(av_y, 1), n_pass, n_fail);
 
+% every atlas plane inside the crop holds brain
 cropped = av_y(crop(1):crop(2), :, :);
 per_plane = squeeze(sum(sum(cropped > 0, 2), 3));
 [~, n_pass, n_fail] = report('no empty atlas planes inside the crop', ...
@@ -68,25 +76,30 @@ fprintf('      crop is %d planes = %.2f mm, brain fraction %.4f\n', ...
     size(cropped, 1), size(cropped, 1) * atlas.res_um / 1000, ...
     nnz(cropped > 0) / numel(cropped));
 
-%% 4. Every selected mouse agrees with the atlas
+%% Every selected mouse agrees with the atlas
 
 get_cohort('verify');
 young = get_cohort('groups', {'young'});
 
-% Only the mice this atlas is FOR. An age-matched atlas is valid for its own
-% age and nothing else, so checking a P36 brain against the P20 template would
-% be the wrong test -- those brains need their own DeMBA age.
-at_age    = [young.age_days] == atlas.age_days;
+% only the mice this atlas is for: an age-matched atlas holds for its own age
+% only, so a P36 brain checked against the P20 template would be the wrong test
+at_age = [young.age_days] == atlas.age_days;
 other_age = ~at_age;
 
+% px_atlas and atlasaplims of each mouse's local_settings.txt against the atlas;
+% a mouse without the file, or without atlasaplims in it, is not checked
 bad_settings = {};
 for k = find(at_age)
     f = fullfile(young(k).base_dir, 'local_settings.txt');
-    if ~exist(f, 'file'), continue, end
+    if ~exist(f, 'file')
+        continue
+    end
     txt = fileread(f);
-    px  = str2double(regexp(txt, 'px_atlas\s*=\s*([\d.]+)', 'tokens', 'once'));
+    px = str2double(regexp(txt, 'px_atlas\s*=\s*([\d.]+)', 'tokens', 'once'));
     lim = regexp(txt, 'atlasaplims\s*=\s*\[(\d+)\s+(\d+)\]', 'tokens', 'once');
-    if isempty(lim), continue, end
+    if isempty(lim)
+        continue
+    end
     lim = [str2double(lim{1}) str2double(lim{2})];
     if px ~= atlas.res_um || ~isequal(lim, crop)
         bad_settings{end+1} = sprintf('%s (px_atlas %g, aplims [%d %d])', ...
@@ -100,7 +113,7 @@ for k = 1:numel(bad_settings)
     fprintf('      MISMATCH: %s\n', bad_settings{k});
 end
 
-% The rest of the cohort is not a failure, it is unfinished scope
+% the rest of the cohort is not a failure but work still to do
 if any(other_age)
     ages = unique([young(other_age).age_days]);
     fprintf('  [note] %d young mice are at other ages (P%s) and each needs its\n', ...
@@ -111,8 +124,10 @@ if any(other_age)
     fprintf('         a label remap and a crop measurement each.\n');
 end
 
-%% 5. The vendored fixes are in place
+%% The vendored fixes are in place
 
+% LightSuite's two registration fixes (LS1 and LS2 in its PATCHES.md), then the
+% local settings re-read by register_to_atlas and the driver's atlas_key
 src = fileread(fullfile(paths.lightsuite, 'slice_module', 'alignSliceVolume.m'));
 [~, n_pass, n_fail] = report('alignSliceVolume takes allenres from px_atlas', ...
     contains(src, 'regopts.allenres     = sliceinfo.px_atlas'), n_pass, n_fail);
@@ -128,27 +143,28 @@ src = fileread(fullfile(paths.code, 'registration', 'run_register_to_atlas.m'));
 [~, n_pass, n_fail] = report('run_register_to_atlas atlas_key is demba_p20', ...
     contains(src, "atlas_key = 'demba_p20';"), n_pass, n_fail);
 
-%% 6. Which brains are ready to annotate
+%% Which brains are ready to annotate
 
 fprintf('\n--- readiness ---\n');
 for k = 1:numel(young)
     d = fullfile(young(k).base_dir, 'lightsuite');
-    has_dec = exist(fullfile(d, 'volume_for_ordering_processing_decisions.txt'), 'file') == 2;
+    has_dec = exist(fullfile(d, 'volume_for_ordering_processing_decisions.txt'), ...
+        'file') == 2;
     regopts_f = fullfile(d, 'regopts.mat');
     has_reg = exist(regopts_f, 'file') == 2;
     has_ins = exist(fullfile(d, 'volume_for_inspection.tiff'), 'file') == 2;
     has_cps = exist(fullfile(d, 'atlas2histology_tform.mat'), 'file') == 2;
 
-    % An existing regopts.mat is not enough -- it records which atlas the brain
-    % was aligned AGAINST, and aligning to one atlas then annotating against
-    % another is exactly the silent error this script exists to catch.
+    % regopts.mat alone is not enough: it records the atlas the brain was aligned
+    % against, and annotating against another is the silent error to catch here
     aligned_here = false;
     if has_reg
         R = load(regopts_f, 'allenres', 'atlasaplims');
         aligned_here = isfield(R, 'allenres') && R.allenres == atlas.res_um && ...
-                       isfield(R, 'atlasaplims') && isequal(R.atlasaplims(:)', crop);
+            isfield(R, 'atlasaplims') && isequal(R.atlasaplims(:)', crop);
     end
 
+    % the first step the brain still needs
     if ~ismember(young(k).age_days, atlas.age_days)
         state = sprintf('P%g - needs its own DeMBA age', young(k).age_days);
     elseif ~has_dec
@@ -157,7 +173,7 @@ for k = 1:numel(young)
         state = 'ordered, needs run_register_to_atlas align';
     elseif ~aligned_here
         state = sprintf('STALE - aligned to a different atlas (allenres %g), re-run run_register_to_atlas align', ...
-                        R.allenres);
+            R.allenres);
     elseif has_cps
         state = 'HAS control points';
     else
@@ -181,14 +197,16 @@ fprintf(['\nStill outstanding, and NOT checked by this script: run_collect_by_gr
          'those scripts must be made atlas-aware per cohort before any young\n' ...
          'data reaches them.\n']);
 
-%% Local function: one check
+% ===== Local functions =====
 
 function [ok, n_pass, n_fail] = report(name, ok, n_pass, n_fail)
-    if ok
-        fprintf('  [ ok ] %s\n', name);
-        n_pass = n_pass + 1;
-    else
-        fprintf('  [FAIL] %s\n', name);
-        n_fail = n_fail + 1;
-    end
+% Print one check's result and add it to the counts of passed and failed checks.
+
+if ok
+    fprintf('  [ ok ] %s\n', name);
+    n_pass = n_pass + 1;
+else
+    fprintf('  [FAIL] %s\n', name);
+    n_fail = n_fail + 1;
+end
 end

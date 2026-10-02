@@ -1,40 +1,42 @@
+%% check_registration_error
+% ===== Atlas-alignment error of each aligned mouse, read off disk =====
+%
+% Every mouse through the 'align' mode of run_register_to_atlas has a
+% regopts.mat holding errall, the 3D fit error of the sample against the atlas
+% at each optimisation step. Nothing is recomputed: this prints the last value
+% for every aligned mouse beside its section count, and how far it sits from a
+% fit of the error against the section count.
+%
+% Two limits to the numbers:
+%
+%   errall does not compare across atlases. The adults go to the adult CCF and the
+%   young brains to DeMBA P20, and the two templates disagree on the length of the
+%   brain in AP by about 11% (registration_qc\ATLAS_PARAMETERS.md), so young
+%   against adult measures the difference between the atlases, not the quality of
+%   the registration.
+%
+%   Within one atlas the section count dominates it: across the 17 adults, errall
+%   against the section count gives r = -0.97, so a short brain scores badly for
+%   reasons that have nothing to do with the registration. The fair reading is
+%   against brains on the same atlas with a similar count, which the fit gives.
+%
+% Run sep_setup_paths first, once per MATLAB session.
+
 clear all
 close all
 clc
 
-% /// QC helper: atlas-alignment error, read straight off disk ///
-% Every mouse that has been through the alignment stage of run_register_to_atlas
-% has a regopts.mat holding `errall`, the 3D fit error of the sample against the
-% atlas at each optimization step. Nothing has to be recomputed to read it, so
-% this prints it for every aligned mouse alongside the section count.
-%
-% READ THIS BEFORE USING THE NUMBERS:
-%
-%   errall is NOT comparable between mice registered to different atlases.
-%   The adults go to the adult CCF and the young brains to DeMBA P20, and the
-%   two templates disagree about how long the brain is in AP by about 11%
-%   (see registration_qc\ATLAS_PARAMETERS.md). A young-versus-adult comparison
-%   of these numbers therefore measures the difference between the atlases,
-%   not the quality of the registration. An earlier version of this script drew
-%   exactly that plot; it was wrong and has been removed.
-%
-%   Within one atlas the number is dominated by how many sections a brain has.
-%   Across the 17 adults, errall against section count gives r = -0.97: a short
-%   brain scores badly for reasons that have nothing to do with registration.
-%   So the only fair reading is against other brains on the same atlas WITH a
-%   similar section count, which is what the fit below provides.
+%% Settings
 
-%% User-defined parameters
-
-% Where the project lives. Derived from the location of the code rather than
-% written out, so the tree can be moved or copied to another drive as is.
+% project folders, worked out from where the code sits, so the tree can be moved
+% or copied to another drive as is
 paths = get_paths();
 
-% Which groups to report. Keep to groups sharing one atlas if you want the fit
-% at the bottom to mean anything.
-groups_to_report = {'rws', 'naive', 'behavior'};   % add 'young' to list them too
+% groups to report ('rws', 'naive', 'behavior', 'young'); keep to groups on one
+% atlas for the fit at the bottom to mean anything ('young' lists them too)
+groups_to_report = {'rws', 'naive', 'behavior'};
 
-% Groups the fit is computed over (must all be on the same atlas)
+% groups the fit is computed over, all on the same atlas
 reference_groups = {'rws', 'naive', 'behavior'};
 
 %% Collect the stored alignment error
@@ -44,8 +46,8 @@ cohort = get_cohort();
 
 mouse_names = {};
 mouse_group = {};
-err_end     = [];
-n_slices    = [];
+err_end = [];
+n_slices = [];
 
 for k = 1:numel(cohort)
 
@@ -53,9 +55,10 @@ for k = 1:numel(cohort)
         continue
     end
 
+    % skip a mouse not aligned yet
     regopts_name = fullfile(cohort(k).base_dir, 'lightsuite', 'regopts.mat');
     if ~exist(regopts_name, 'file')
-        continue    % not aligned yet
+        continue
     end
 
     S = load(regopts_name, 'errall');
@@ -63,11 +66,10 @@ for k = 1:numel(cohort)
         continue
     end
 
-    % How many sections actually went in, after the manual removals in
-    % run_order_slices. Needed to tell a genuinely bad fit from a merely short
-    % brain.
+    % the sections that went in, after the removals in run_order_slices, to tell a
+    % bad fit from a short brain
     decisions_name = fullfile(cohort(k).base_dir, 'lightsuite', ...
-                     'volume_for_ordering_processing_decisions.txt');
+        'volume_for_ordering_processing_decisions.txt');
     if exist(decisions_name, 'file')
         T = readtable(decisions_name);
         kept = sum(T.FlipState ~= -1);
@@ -75,10 +77,10 @@ for k = 1:numel(cohort)
         kept = NaN;
     end
 
-    mouse_names{end+1} = cohort(k).name;      %#ok<SAGROW>
-    mouse_group{end+1} = cohort(k).group;     %#ok<SAGROW>
-    err_end(end+1)     = S.errall(end);       %#ok<SAGROW>
-    n_slices(end+1)    = kept;                %#ok<SAGROW>
+    mouse_names{end+1} = cohort(k).name; %#ok<SAGROW>
+    mouse_group{end+1} = cohort(k).group; %#ok<SAGROW>
+    err_end(end+1) = S.errall(end); %#ok<SAGROW>
+    n_slices(end+1) = kept; %#ok<SAGROW>
 
 end
 
@@ -95,8 +97,8 @@ fprintf('%s\n', repmat('-', 1, 66));
 
 is_ref = ismember(mouse_group, reference_groups) & ~isnan(n_slices);
 
-% The within-atlas expectation: what error does a brain with this many
-% sections usually get? Anything else is not a fair comparison.
+% the error a brain with this many sections usually gets, within one atlas: a
+% straight line through the reference groups, and the SD of their residuals
 if nnz(is_ref) >= 4
     coef = polyfit(n_slices(is_ref), err_end(is_ref), 1);
     resid_ref = err_end(is_ref) - polyval(coef, n_slices(is_ref));
@@ -105,6 +107,7 @@ else
     coef = [];
 end
 
+% each mouse's error, and its distance from the fit in residual SDs
 for k = 1:numel(mouse_names)
     if ~isempty(coef) && ~isnan(n_slices(k)) && ismember(mouse_group{k}, reference_groups)
         z = (err_end(k) - polyval(coef, n_slices(k))) / resid_sd;

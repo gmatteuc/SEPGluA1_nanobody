@@ -1,8 +1,9 @@
-clear all
-close all
-clc
-
-% /// Registration, step 1 of 2: register each mouse's sections to its atlas ///
+%% run_register_to_atlas
+% ===== Register each mouse's sections to the atlas of its age =====
+%
+% Registration, step 1 of 2:
+%   1. run_register_to_atlas   register the sections to the atlas  <- this script
+%   2. run_add_sep_channel     carry the SEP channel into registered space
 %
 % Bridges what preprocessing made of each mouse (the corrected volumes of
 % run_residual_correction, the equalised nano of run_nano_equalisation, the
@@ -11,140 +12,126 @@ clc
 % one at a time, because the manual steps (the cutting angle, the control
 % points) sit between the automatic ones:
 %
-%   run_mode = 'align'     (auto)   bridge the corrected volumes into LightSuite,
-%                                   align the slices and fit the atlas rigidly.
-%                                   Writes regopts.mat and volume_for_inspection.tiff.
-%   run_mode = 'angle'     (MANUAL) optional, between align and annotate: set the
-%                                   cutting angle by eye (determineCuttingAngleGUI).
-%                                   Every adult had this done; without it the
-%                                   rotation is the automatic rigid fit's, which
-%                                   came out at 17-21 deg for MG897 and MG913.
-%                                   One angle serves the whole brain: the planes
-%                                   saved on individual slices are averaged into a
-%                                   single normal by applyAngleToTransform, so save
-%                                   it on three to five slices spread front to
-%                                   back and let the average cancel the misses.
-%                                   Controls: plain left/right change the slice;
-%                                   SHIFT + arrows tilt the atlas (0.3 deg per
-%                                   press, hold the key); the wheel moves the
-%                                   plane along its normal; return saves the plane
-%                                   for the current slice, c clears it; space
-%                                   toggles the region outlines; 1/2/3 show one
-%                                   channel, 0 all. Closing the window writes
-%                                   cutting_angle_data.mat. Must come BEFORE
-%                                   annotate: it changes the atlas block the
-%                                   control points are counted in, so this
-%                                   script refuses it once a mouse has points.
-%   run_mode = 'annotate'  (MANUAL) open the control-point GUI on one mouse.
-%                                   Besides placing points by hand, t takes the
-%                                   neighbouring slice's points as they are, at
-%                                   the atlas plane on screen, and p carries
-%                                   them forward as you step. Both land
-%                                   provisional and are never saved unless
-%                                   touched. Writes atlas2histology_tform.mat.
+%   'align'         (auto) bridge the corrected volumes into LightSuite, align the
+%                   slices and fit the atlas rigidly; writes regopts.mat and
+%                   volume_for_inspection.tiff
+%   'angle'         (manual, optional, between align and annotate) set the cutting
+%                   angle by eye (determineCuttingAngleGUI); closing the window
+%                   writes cutting_angle_data.mat
+%   'annotate'      (manual) open the control-point GUI on one mouse; writes
+%                   atlas2histology_tform.mat
+%   'autoannotate'  (auto) the automatic control points, from the anchor planes:
+%                   writes auto_proposal_controlpoints.mat, never
+%                   atlas2histology_tform.mat itself
+%   'register'      (auto) elastix refinement and the registered volumes, with the
+%                   control points when they exist
 %
-%                                   AUTOMATIC ALTERNATIVE, in three steps:
-%                                   1 'annotate': only set the atlas plane on the
-%                                     suggested anchor slices (j jumps between
-%                                     them, a fixes the plane on screen), save (s).
-%                                   2 'autoannotate' (below) proposes every slice.
-%                                   3 'annotate' again: the proposal loads orange,
-%                                     least confident points marked ?; k accepts a
-%                                     slice, u re-proposes it at the plane on
-%                                     screen, the usual tools fix points. Only
-%                                     accepted or touched slices are saved.
-%                                   These keys are the GUI's only where the
-%                                   engine (below) is installed.
-%   run_mode = 'autoannotate' (auto) the automatic control points, from the anchor
-%                                   planes: auto_proposal_controlpoints.mat, never
-%                                   atlas2histology_tform.mat itself. Needs the
-%                                   Python side once per machine:
-%                                   registration\auto_annotation\setup.ps1 (a GPU
-%                                   makes it minutes).
-%   run_mode = 'register'  (auto)   elastix refinement and the registered volumes.
-%                                   Picks up the control points if they exist.
+% The cutting angle: every adult had it set by eye; without it the rotation is
+% the rigid fit's, which came out at 17-21 deg for MG897 and MG913. One angle
+% serves the whole brain: applyAngleToTransform averages the planes saved on
+% single slices into one normal, so save it on three to five slices spread front
+% to back and let the average cancel the misses. Keys: left and right change the
+% slice; shift and the arrows tilt the atlas (0.3 deg a press, hold the key); the
+% wheel moves the plane along its normal; return saves the plane for the current
+% slice, c clears it; space shows the region outlines; 1, 2 or 3 show one
+% channel, 0 all. It must come before 'annotate', since it changes the atlas
+% block the control points are counted in: this script refuses it once a mouse
+% has points.
 %
-% The adults were done this way, one mouse at a time, with the GUI lines
-% uncommented by hand. Every one of them has control points on every slice, so
-% a young brain registered without them is not being treated the same way --
-% see the note on 'annotate' below.
+% Annotating by hand: besides placing points, t takes the neighbouring slice's
+% points as they are, at the atlas plane on screen, and p carries them forward
+% as you step. Both land provisional and are saved only when touched.
 %
-% Each mouse then goes through run_add_sep_channel, which carries its SEP
-% channel through the same registration.
+% Annotating automatically, where the engine is installed (once per machine,
+% registration\auto_annotation\setup.ps1; a GPU makes it minutes):
+%   1. 'annotate'      set the atlas plane on the suggested anchor slices only
+%                      (j jumps between them, a fixes the plane on screen), save (s)
+%   2. 'autoannotate'  propose every slice
+%   3. 'annotate'      review: the proposal loads orange, the least confident
+%                      points marked ?; k accepts a slice, u re-proposes it at the
+%                      plane on screen, the usual tools fix points; only accepted
+%                      or touched slices are saved
+% Without the engine the GUI has no such keys.
 %
-% Run sep_setup_paths first, once per MATLAB session. The settings are below,
-% the code is in pipeline\register_to_atlas.m.
+% Every adult went through these modes one mouse at a time and has control
+% points on every slice, so a young brain registered without them is not treated
+% the same way (allow_image_only_registration below). Each mouse then goes
+% through run_add_sep_channel, which carries its SEP channel through the same
+% registration.
+%
+% Setup: one young mouse at a time, on the DeMBA atlas of its age; the adults
+% stay on the CCF. Run sep_setup_paths first, once per MATLAB session; the code
+% is in pipeline\register_to_atlas.m.
 
-%% User-defined parameters
+clear all
+close all
+clc
 
-% Where the project lives. Derived from the location of the code rather than
-% written out, so the tree can be moved or copied to another drive as is.
+%% Settings
+
+% project folders, worked out from where the code sits, so the tree can be moved
+% or copied to another drive as is (SEP_DATA_ROOT points the data elsewhere)
 paths = get_paths();
 
-% Cohort selection (mice come from the shared registry get_cohort.m).
-% Set mice_to_process to {} to process every mouse in groups_to_process.
-groups_to_process = {'young'};                  % 'rws' | 'naive' | 'behavior' | 'young'
-mice_to_process   = {'MG904_SepGluA_P22'};   % 'annotate' takes one mouse at a time
+% groups to process ('rws', 'naive', 'behavior', 'young'); the mice of each come
+% from the cohort registry, get_cohort
+groups_to_process = {'young'};
 
-% Which half of the script to run. 'annotate' takes one mouse at a time.
-% After 'align' (and optionally 'angle'), the control points can be made in
-% two ways; both end in the same atlas2histology_tform.mat and 'register':
-%   manual     'annotate' (click the points on every slice) -> 'register'
-%   automatic  'annotate'     set the plane on 4 suggested slices (j, wheel, a), s
-%              'autoannotate' proposes every slice (~30 s on a GPU)
-%              'annotate'     review: k / K accept, u / U re-propose, fix points, s
-%              'register'
-% Details in the header above and in registration/auto_annotation/README.md.
-run_mode = 'register';                             % 'align' | 'angle' | 'annotate' | 'autoannotate' | 'register'
+% mice to process, by name ({} = every mouse of groups_to_process); 'angle' and
+% 'annotate' take one mouse at a time
+mice_to_process = {'MG904_SepGluA_P22'};
 
-% How far the atlas shown in the GUI (and used by the registration) extends
-% beyond the slice stack, in slices, on each side. The atlas on screen is
-% the rigidly pre-aligned atlas resampled onto the stack's AP range plus this
-% margin, so if the automatic rigid fit lands the stack too far back, the
-% true plane of the first slices sits outside the margin and the wheel
-% cannot reach it (MG912: slice 1 needed ~7 slices beyond LightSuite's 6).
-% Widening it costs nothing but memory. It must not change once a mouse has
-% control points, because the saved atlas planes are counted from the start
-% of this range -- this script leaves such a mouse at the margin it was
-% annotated with. The three P20 mice registered before this existed keep
-% LightSuite's 6.
+% mode ('align', 'angle', 'annotate', 'autoannotate', 'register'), one at a time.
+% After 'align' (and 'angle') the control points are made one of two ways, both
+% ending in the same atlas2histology_tform.mat and 'register':
+%   by hand     'annotate' (click the points on every slice), then 'register'
+%   automatic   'annotate'      set the plane on 4 suggested slices (j, wheel, a), s
+%               'autoannotate'  propose every slice (about 30 s on a GPU)
+%               'annotate'      review: k or K accept, u or U re-propose, fix points, s
+%               'register'
+% (more in the header and in registration\auto_annotation\README.md)
+run_mode = 'register';
+
+% margin of the atlas beyond the slice stack, in slices on each side, for the GUI
+% and the registration. The atlas on screen is the rigidly fitted atlas over the
+% stack's AP range plus this margin, so when the rigid fit lands the stack too far
+% back, the true plane of the first slices is out of the wheel's reach (MG912's
+% slice 1 needed about 7 slices beyond LightSuite's 6); a wider margin costs only
+% memory. A mouse with control points keeps the margin it was annotated with,
+% since the saved atlas planes are counted from the start of this range; the
+% three P20 mice registered before this setting existed keep LightSuite's 6.
 atlas_extent_slices = 15;
 
-% Reference atlas.
-%
-% DECIDED 2026-09-02: the young cohort
-% registers to the age-matched DeMBA P20 template. The reasoning is that the
-% manual control points carry the correspondence, so the adult template's
-% better contrast -- 1.4x the global CV, 1.6x the local smoothed gradient --
-% matters less than having a target with P20 proportions. Template contrast
-% feeds the image-similarity terms; landmarks do not care about it.
-%
-% The adults stay on 'ccf' and are NOT re-registered.
-%
-% Consequence to remember: the two cohorts then live on different grids.
-% Registered volumes come out at twice the registration grid, so adults land
-% on [900 800 1140] and the young on [994 800 1140]. run_collect_by_group
-% onward still assume the adult atlas and crop everywhere, so they must be made
-% atlas-aware per cohort before any young data reaches them. Region-level
-% comparison across the two is fine once that is done -- both annotations are
-% in the same parcellation_index space -- but voxelwise cross-group work would
-% need CCF Translator.
-atlas_key = 'demba_p22';                        % 'ccf' | 'demba_p20' | 'demba_p16' | any age built
+% atlas ('ccf' for the adults; 'demba_p20', 'demba_p16' or any other age built,
+% for the young). The young register to the DeMBA template of their age (decided
+% 2 Sep 2026): the manual control points carry the correspondence, so the adult
+% template's better contrast (1.4x the global CV, 1.6x the local smoothed
+% gradient), which feeds only the image-similarity terms, matters less than a
+% target with the brain's own proportions. The adults stay on 'ccf' and are not
+% registered again. The registered volumes come out at twice the registration
+% grid, so the adults land on [900 800 1140] and the young on [994 800 1140]: code
+% that reads both must take each cohort's grid from its atlas, and voxelwise work
+% across them needs CCF Translator. Both annotations are in the same
+% parcellation_index space, so regions compare directly.
+atlas_key = 'demba_p22';
 
-% Choose correction type
+% preprocessing correction whose outputs 'align' reads ('slicewise'); the
+% correction files hold their own correction_type, which replaces this one when
+% they are loaded
 correction_type = 'slicewise';
 
-% Set if to use equalized nano volumes
+% use the equalised nano of run_nano_equalisation (1) or the corrected one (0);
+% read by 'align' only
 use_equalized_nano = 1;
 
-% Register without manual control points. Off, and it should stay off for
-% anything that ends up in a figure: LightSuite relies on the control points to
-% register well, so an image-only run is a diagnostic, not a result.
+% register a mouse without control points; keep it false for anything that ends
+% up in a figure: LightSuite relies on the points to register well, so an
+% image-only run is a diagnostic, not a result
 allow_image_only_registration = false;
 
 %% Run
 
-% The settings above go to the code under the same names
+% pass the settings to the code, under the same names
 run_settings = struct();
 run_settings.paths = paths;
 run_settings.groups_to_process = groups_to_process;
