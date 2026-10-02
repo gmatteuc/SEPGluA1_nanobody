@@ -181,9 +181,9 @@ def main(only=None, panel_name=DEFAULT_PANEL):
     With `only`, a list of gene symbols, only those genes of the panel.
     """
     # the panel's experiments, the structure names and the annotation on the grid
-    PANEL, TABLE = panel_files(panel_name)
+    panel_path, table_name = panel_files(panel_name)
     os.makedirs(OUT, exist_ok=True)
-    panel = [r for r in csv.DictReader(open(PANEL, newline="", encoding="utf-8"))]
+    panel = [r for r in csv.DictReader(open(panel_path, newline="", encoding="utf-8"))]
     if only:
         want = {g.lower() for g in only}
         panel = [r for r in panel if r["symbol"].lower() in want]
@@ -245,7 +245,7 @@ def main(only=None, panel_name=DEFAULT_PANEL):
         )
 
     # the region table, and the experiments dropped with their reason
-    path = os.path.join(OUT, TABLE)
+    path = os.path.join(OUT, table_name)
     with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
         w.writeheader()
@@ -257,7 +257,7 @@ def main(only=None, panel_name=DEFAULT_PANEL):
         flush=True,
     )
 
-    path = os.path.join(OUT, TABLE.replace(".csv", "") + "_drops.csv")
+    path = os.path.join(OUT, table_name.replace(".csv", "") + "_drops.csv")
     with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=["symbol", "experiment_id", "reason"])
         w.writeheader()

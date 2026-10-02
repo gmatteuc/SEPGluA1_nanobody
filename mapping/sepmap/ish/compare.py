@@ -190,13 +190,14 @@ def report(rows, old, category):
     )
     for reading, sel in per_reading.items():
         mach = [r for r in sel if r["category"] in MACHINERY]
-        i, g = rank_of(sel, "Gria1")
-        if not mach or i is None:
+        gria1_rank, gria1_rho = rank_of(sel, "Gria1")
+        if not mach or gria1_rank is None:
             continue
-        best, above = mach[0], sum(1 for r in mach if float(r["rho"]) > g)
+        best, above = mach[0], sum(1 for r in mach if float(r["rho"]) > gria1_rho)
         print(
             f"  {reading:9s} {best['symbol']:>12s} {float(best['rho']):+8.3f} "
-            f"{'rank ' + str(i):>9s} {g:+6.3f} {float(best['rho']) - g:6.3f}  "
+            f"{'rank ' + str(gria1_rank):>9s} {gria1_rho:+6.3f} "
+            f"{float(best['rho']) - gria1_rho:6.3f}  "
             f"{above:>13d} / {len(mach)}"
         )
 
@@ -209,12 +210,13 @@ def report(rows, old, category):
             ),
             key=lambda r: -float(r["rho"]),
         )
-        i, g = rank_of(sel, "Gria1")
+        gria1_rank, gria1_rho = rank_of(sel, "Gria1")
         mach = [r for r in sel if r["category"] in MACHINERY]
-        above = sum(1 for r in mach if float(r["rho"]) > g)
+        above = sum(1 for r in mach if float(r["rho"]) > gria1_rho)
         print(
             f"  {'old':9s} {mach[0]['symbol']:>12s} {float(mach[0]['rho']):+8.3f} "
-            f"{'rank ' + str(i):>9s} {g:+6.3f} {float(mach[0]['rho']) - g:6.3f}  "
+            f"{'rank ' + str(gria1_rank):>9s} {gria1_rho:+6.3f} "
+            f"{float(mach[0]['rho']) - gria1_rho:6.3f}  "
             f"{above:>13d} / {len(mach)}"
         )
 

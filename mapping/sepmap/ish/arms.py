@@ -186,19 +186,21 @@ def report(rows, category):
     )
     named = [CONTROL] + mach[:6]
     for gene in named:
-        p = plain[gene]
+        rhos = plain[gene]
         print(
-            f"  {gene:12s} {p['sepauto']:+9.3f} {p['ratio']:+9.3f} "
-            f"{p['sepratio']:+9.3f}   {p['sepratio'] - p['sepauto']:+17.3f}"
+            f"  {gene:12s} {rhos['sepauto']:+9.3f} {rhos['ratio']:+9.3f} "
+            f"{rhos['sepratio']:+9.3f}   {rhos['sepratio'] - rhos['sepauto']:+17.3f}"
         )
 
     # test 1: the swing towards the surface fraction, Gria1 against the machinery
     swing = {g: plain[g]["sepratio"] - plain[g]["sepauto"] for g in plain}
-    m = [swing[g] for g in plain if category[g] in MACHINERY]
+    mach_swing = [swing[g] for g in plain if category[g] in MACHINERY]
     print(f"\n  {CONTROL} swing towards the surface fraction: {swing[CONTROL]:+.3f}")
     print(
-        f"  machinery genes (n = {len(m)}):  median {np.median(m):+.3f}, "
-        f"{sum(1 for v in m if v > swing[CONTROL])} of {len(m)} above {CONTROL}"
+        f"  machinery genes (n = {len(mach_swing)}):  "
+        f"median {np.median(mach_swing):+.3f}, "
+        f"{sum(1 for v in mach_swing if v > swing[CONTROL])} of {len(mach_swing)} "
+        f"above {CONTROL}"
     )
     print(
         "  the prediction is that Gria1 swings DOWN and the machinery swings up "
@@ -209,9 +211,10 @@ def report(rows, category):
     print(f"\nTEST 2 -- with {CONTROL} partialled out, what is left")
     print(f"  {'':12s} {'sepauto':>9s} {'ratio':>9s} {'sepratio':>9s}")
     for gene in mach[:8]:
-        p = partial[gene]
+        rhos = partial[gene]
         print(
-            f"  {gene:12s} {p['sepauto']:+9.3f} {p['ratio']:+9.3f} {p['sepratio']:+9.3f}"
+            f"  {gene:12s} {rhos['sepauto']:+9.3f} {rhos['ratio']:+9.3f} "
+            f"{rhos['sepratio']:+9.3f}"
         )
     for arm in ARMS:
         vals = [
