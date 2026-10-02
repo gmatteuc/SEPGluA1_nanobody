@@ -90,9 +90,8 @@ def main(mice: list[str]) -> None:
         if atlas_key == "ccf":
             # no warp: drop the adult crop into the full CCF grid at 20 um
             out = {}
-            for name, arr, fill in [(n, a, 0.0) for n, a in chans] + [
-                ("tissue", tissue, False)
-            ]:
+            volumes = [(n, a, 0.0) for n, a in chans] + [("tissue", tissue, False)]
+            for name, arr, fill in volumes:
                 full = np.full(CCF_SHAPE, fill, arr.dtype)
                 full[CCF_CROP[0] : CCF_CROP[1]] = arr
                 out[name] = full
@@ -101,15 +100,13 @@ def main(mice: list[str]) -> None:
             # the young: back into the full DeMBA canvas of their age, then warped
             age = int(re.search(r"p(\d+)$", atlas_key).group(1))
             out = {}
-            for name, arr, is_mask in [(n, a, False) for n, a in chans] + [
-                ("tissue", tissue, True)
-            ]:
+            volumes = [(n, a, False) for n, a in chans] + [("tissue", tissue, True)]
+            for name, arr, is_mask in volumes:
                 full = np.zeros(DEMBA_SHAPE, np.float32)
-                full[lo - 1 : hi] = (
-                    np.where(tissue, arr, 0)
-                    if name != "tissue"
-                    else tissue.astype(np.float32)
-                )
+                if name != "tissue":
+                    full[lo - 1 : hi] = np.where(tissue, arr, 0)
+                else:
+                    full[lo - 1 : hi] = tissue.astype(np.float32)
                 out[name] = to_ccf(full, age, is_mask=is_mask)
                 print(
                     f"  {mouse} {name} warped P{age} -> CCF   {time.time() - t0:.0f} s",

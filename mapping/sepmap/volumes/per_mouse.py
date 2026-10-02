@@ -211,11 +211,10 @@ def main(mice: list[str]) -> None:
                 u = auto.page(i)
                 s = block2(v) if s is None else s + block2(v)
                 a = block2(u) if a is None else a + block2(u)
-                z = (
-                    block2((v != 0).astype(np.float32))
-                    if z is None
-                    else z + block2((v != 0).astype(np.float32))
-                )
+                if z is None:
+                    z = block2((v != 0).astype(np.float32))
+                else:
+                    z = z + block2((v != 0).astype(np.float32))
                 if sep is not None:
                     w = sep.page(i)
                     g = block2(w) if g is None else g + block2(w)
@@ -256,6 +255,10 @@ def main(mice: list[str]) -> None:
             bg_s = float(np.median(sp[off]))
             sp -= bg_s
             extra = dict(sep=sp.astype(np.float16), bg_sep=bg_s)
+        if extra:
+            sep_text = f"bg sep {extra['bg_sep']:5.0f}  "
+        else:
+            sep_text = "no sep       "
         np.savez_compressed(
             os.path.join(OUT, mouse + ".npz"),
             sig=sig.astype(np.float16),
@@ -274,7 +277,7 @@ def main(mice: list[str]) -> None:
         print(
             f"{mouse:20s} {cohort:10s} bg nano {bg_n:6.0f}  "
             f"bg auto {bg_a:5.0f} (mad {mad_a:4.0f})  "
-            f"{'bg sep %5.0f  ' % extra['bg_sep'] if extra else 'no sep       '}"
+            f"{sep_text}"
             f"tissue {100 * tissue.sum() / brain.sum():5.1f}% of atlas brain, "
             f"planes reached {reached.sum()}/{n_ap}  "
             f"cortex mean {cortex_mean:6.0f}   {time.time() - t0:.0f} s",

@@ -488,20 +488,20 @@ def sheet_mask_vs_p6bis() -> None:
         ),
     ]
     fig, axes = plt.subplots(2, 3, figsize=(18, 10.5))
-    for row, (mouse, bk, idx, planes) in enumerate(cases):
+    for row, (mouse, mask_file, idx, planes) in enumerate(cases):
         ann = ANN[MICE[mouse][1]]
         z = np.load(os.path.join(PER_MOUSE, mouse + ".npz"))
         mine, sig = z["tissue"], z["sig"].astype(np.float32)
-        with h5py.File(bk, "r") as f:
-            B = f["recomputed_bkg_mask_4d"]
+        with h5py.File(mask_file, "r") as f:
+            mask_4d = f["recomputed_bkg_mask_4d"]
             for col, k in enumerate(planes):
                 old = np.zeros((mine.shape[1], mine.shape[2]), np.float32)
                 for j in range(mine.shape[2]):
                     q = (
                         sum(
-                            (np.asarray(B[idx, 2 * j + dj, :, 2 * k + dk]) == 0).astype(
-                                np.float32
-                            )
+                            (
+                                np.asarray(mask_4d[idx, 2 * j + dj, :, 2 * k + dk]) == 0
+                            ).astype(np.float32)
                             for dj in (0, 1)
                             for dk in (0, 1)
                         )

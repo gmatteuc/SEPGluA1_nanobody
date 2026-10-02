@@ -147,36 +147,38 @@ def mouse_scalars(mouse: str) -> dict[str, float]:
             return {k: float(z[k]) for k in z.files if k != "src_mtime"}
 
     # structure and division of each parcellation index
-    stru, divi = {}, {}
+    structure, division = {}, {}
     with open(CSV_MAP, newline="", encoding="utf-8") as fh:
         for r in csv.DictReader(fh):
             i = int(r["parcellation_index"])
             if r["parcellation_term_set_name"] == "structure":
-                stru[i] = r["parcellation_term_acronym"]
+                structure[i] = r["parcellation_term_acronym"]
             elif r["parcellation_term_set_name"] == "division":
-                divi[i] = r["parcellation_term_acronym"]
+                division[i] = r["parcellation_term_acronym"]
 
     # voxel count and signal sum per label, over the tissue
     ann = annotation_20(MICE[mouse][1])
     z = np.load(os.path.join(PER_MOUSE, mouse + ".npz"))
     sig = z["sig"].astype(np.float32)
     tissue = z["tissue"]
-    lab = ann[tissue]
-    nlab = int(ann.max()) + 1
-    n = np.bincount(lab, minlength=nlab)
-    tot = np.bincount(lab, weights=sig[tissue], minlength=nlab)
-    iso = [i for i in stru if divi.get(i) == "Isocortex" and i < nlab]
-    sub = [i for i in stru if divi.get(i, "") not in NOT_SUBCORTEX and i < nlab]
-    cortex_mean = tot[iso].sum() / n[iso].sum()
-    sub_mean = tot[sub].sum() / n[sub].sum()
+    labels = ann[tissue]
+    n_labels = int(ann.max()) + 1
+    n = np.bincount(labels, minlength=n_labels)
+    total = np.bincount(labels, weights=sig[tissue], minlength=n_labels)
+    iso = [i for i in structure if division.get(i) == "Isocortex" and i < n_labels]
+    sub = [
+        i for i in structure if division.get(i, "") not in NOT_SUBCORTEX and i < n_labels
+    ]
+    cortex_mean = total[iso].sum() / n[iso].sum()
+    sub_mean = total[sub].sum() / n[sub].sum()
 
     # labels pooled per structure name, then each structure's log2 relative level
     per_struct = {}
     for i in np.nonzero(n)[0]:
-        if i == 0 or i not in stru:
+        if i == 0 or i not in structure:
             continue
-        a, b = per_struct.get(stru[i], (0, 0.0))
-        per_struct[stru[i]] = (a + int(n[i]), b + tot[i])
+        a, b = per_struct.get(structure[i], (0, 0.0))
+        per_struct[structure[i]] = (a + int(n[i]), b + total[i])
     vals = np.array(
         [
             np.log2(t / c / cortex_mean)
@@ -211,11 +213,11 @@ def mouse_modes(mouse: str) -> tuple[dict[str, np.ndarray], np.ndarray]:
     if "sepratio" in MODES and "sep" not in z.files:
         raise SystemExit(
             f"{mouse}: no SEP channel in its per-mouse CCF file. Run\n"
-            f"  run_add_sep_channel.m for this brain, "
-            f"then run_per_mouse.py and run_to_ccf.py,\n"
-            f"  or drop the reading with V2_READINGS."
+            "  run_add_sep_channel.m for this brain, "
+            "then run_per_mouse.py and run_to_ccf.py,\n"
+            "  or drop the reading with V2_READINGS."
         )
-    sc = mouse_scalars(mouse)
+    scalars = mouse_scalars(mouse)
 
     def per_unit(ref):
         """Divide sig by a reference channel, voxel by voxel.
@@ -231,10 +233,14 @@ def mouse_modes(mouse: str) -> tuple[dict[str, np.ndarray], np.ndarray]:
         r = np.where(tissue & (ref_s > 0), sig / np.maximum(ref_s, 1e-3), np.nan)
         return np.clip(r, -RATIO_CLIP, RATIO_CLIP).astype(np.float32)
 
-    cref = np.where(tissue, sig / sc["cortex_mean"], np.nan)
-    subref = np.where(tissue, sig / sc["subcortex_mean"], np.nan)
-    floored = np.maximum(sig / sc["cortex_mean"], Z_FLOOR)
-    zref = np.where(tissue, (np.log2(floored) - sc["z_median"]) / sc["z_spread"], np.nan)
+    cref = np.where(tissue, sig / scalars["cortex_mean"], np.nan)
+    subref = np.where(tissue, sig / scalars["subcortex_mean"], np.nan)
+    floored = np.maximum(sig / scalars["cortex_mean"], Z_FLOOR)
+    zref = np.where(
+        tissue,
+        (np.log2(floored) - scalars["z_median"]) / scalars["z_spread"],
+        np.nan,
+    )
 
     # each reading computed only when MODES asks for it
     out = {

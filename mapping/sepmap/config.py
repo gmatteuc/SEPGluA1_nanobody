@@ -42,7 +42,7 @@ def code_root() -> str:
         if parent == folder:
             raise RuntimeError(
                 f"no get_paths.m in {start} or above it: cannot tell "
-                f"where the code, and so the data, lives"
+                "where the code, and so the data, lives"
             )
         folder = parent
     return _canonical(folder)
@@ -69,19 +69,19 @@ def data_root() -> str:
         raise RuntimeError(
             f"this copy of the code ({code}) would use the production "
             f"data ({data}). Set SEP_DATA_ROOT to the data of its own "
-            f"check tree."
+            "check tree."
         )
 
     # the snapshot is a backup, and the code folder holds no data
     if os.path.normcase(data).startswith(os.path.normcase(SNAPSHOT_PREFIX)):
         raise RuntimeError(
             f"the data root {data} is inside the snapshot on G:, which "
-            f"is a backup and never a data root"
+            "is a backup and never a data root"
         )
     if _inside(data, PRODUCTION_CODE):
         raise RuntimeError(
             f"the data root {data} is inside the code folder (a copy of the "
-            f"code in a worktree there?). Set SEP_DATA_ROOT to its check tree."
+            "code in a worktree there?). Set SEP_DATA_ROOT to its check tree."
         )
     return data
 
@@ -103,11 +103,10 @@ def print_settings(options: dict) -> None:
     folder), the settings file, then the run's own options, one per line, from
     `options` ({name: value}).
     """
-    origin = (
-        "SEP_DATA_ROOT"
-        if os.environ.get("SEP_DATA_ROOT", "")
-        else "beside the code folder"
-    )
+    if os.environ.get("SEP_DATA_ROOT", ""):
+        origin = "SEP_DATA_ROOT"
+    else:
+        origin = "beside the code folder"
     print(f"data root  {DATA}  ({origin})", flush=True)
     print(f"settings   {_SETTINGS_PATH}", flush=True)
     for name, value in options.items():
