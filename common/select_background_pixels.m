@@ -204,7 +204,7 @@ if plot_flag
     nexttile;
     imagesc(I_single);
     axis image off;
-    colormap(gca, gray);
+    colormap(gca, sep_palette('anatomy'));
     title('Input slice with ref pixels', 'FontSize', 12);
     used_clim = [val_max_bis, val_max];
     if used_clim(2) > used_clim(1)
@@ -213,7 +213,7 @@ if plot_flag
     nexttile;
     imagesc(bg_mask);
     axis image off;
-    colormap(gca, gray);
+    colormap(gca, sep_palette('anatomy'));
     title('Background mask', 'FontSize', 12);
     nexttile;
     yyaxis left

@@ -88,7 +88,7 @@ fig = figure('Visible', 'off', 'Color', 'k', 'Units', 'pixels', ...
 
 ax = axes('Parent', fig, 'Position', [0 0 1 1]);
 imshow(canvas, [], 'Parent', ax);
-colormap(ax, gray);
+colormap(ax, sep_palette('anatomy'));
 
 for k = 1:n_plates
     row = floor((k - 1) / n_cols);

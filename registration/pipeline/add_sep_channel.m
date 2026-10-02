@@ -316,17 +316,17 @@ for mouse_idx = 1:numel(cohort)
     nexttile(tl);
     imagesc(fixed, lim);
     axis image off;
-    colormap(gca, gray);
+    colormap(gca, sep_palette('anatomy'));
     title(sprintf('aligned DAPI, slice %d (the worst one)', iworst));
     nexttile(tl);
     imagesc(chk, lim);
     axis image off;
-    colormap(gca, gray);
+    colormap(gca, sep_palette('anatomy'));
     title(sprintf('recovered warp of the raw DAPI (r = %1.4f)', corr_slice(iworst)));
     nexttile(tl);
     imagesc(abs(chk - fixed), [0 diff(lim) / 4]);
     axis image off;
-    colormap(gca, hot);
+    colormap(gca, sep_palette('intensity'));
     title('difference');
 
     % the registered SEP, middle plane
@@ -335,7 +335,7 @@ for mouse_idx = 1:numel(cohort)
     nexttile(tl);
     imagesc(sep_mid, [0 quantile(sep_mid(sep_mid > 0), 0.999)]);
     axis image off;
-    colormap(gca, hot);
+    colormap(gca, sep_palette('intensity'));
     title(sprintf('registered SEP, ML plane %d', mid));
 
     title(tl, sprintf('%s -- SEP carried into registered space with the saved transforms', ...

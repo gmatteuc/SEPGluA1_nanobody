@@ -295,7 +295,7 @@ function draw_matrix(m, labels, tick_font, cell_font)
 % cell.
 
 imagesc(m, [0 1]);
-colormap(gca, hot);
+colormap(gca, sep_palette('intensity'));
 axis square
 n = size(m, 1);
 set(gca, 'XTick', 1:n, 'XTickLabel', labels, 'YTick', 1:n, 'YTickLabel', labels, ...

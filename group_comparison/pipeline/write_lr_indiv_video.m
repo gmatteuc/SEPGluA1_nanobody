@@ -73,7 +73,7 @@ for j = 1:n_slices
         subplot(2, n_mice, k);
         imagesc(data_diff);
         clim(clim_diff);
-        colormap(gca, hot);
+        colormap(gca, sep_palette('intensity'));
         set(findobj(gca, 'Type', 'image'), 'AlphaData', alpha_data);
         axis image;
         axis off;
@@ -95,7 +95,7 @@ for j = 1:n_slices
         subplot(2, n_mice, k + n_mice);
         imagesc(data_sum);
         clim(clim_sum);
-        colormap(gca, hot);
+        colormap(gca, sep_palette('intensity'));
         set(findobj(gca, 'Type', 'image'), 'AlphaData', alpha_data);
         axis image;
         axis off;

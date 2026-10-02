@@ -61,12 +61,12 @@ for j = 1:n_slices
     % blue-red for symmetric limits (jet if the colormap function is missing)
     if abs(clim_values(1)) == abs(clim_values(2))
         try
-            colormap(gca, get_color2color_colormap([0, 0, 1], [1, 0, 0]));
+            colormap(gca, sep_palette('difference'));
         catch
             colormap(gca, jet);
         end
     else
-        colormap(gca, hot);
+        colormap(gca, sep_palette('intensity'));
     end
 
     ax1 = gca;
@@ -97,12 +97,12 @@ for j = 1:n_slices
 
     if abs(clim_values(1)) == abs(clim_values(2))
         try
-            colormap(gca, get_color2color_colormap([0, 0, 1], [1, 0, 0]));
+            colormap(gca, sep_palette('difference'));
         catch
             colormap(gca, jet);
         end
     else
-        colormap(gca, hot);
+        colormap(gca, sep_palette('intensity'));
     end
 
     ax2 = gca;

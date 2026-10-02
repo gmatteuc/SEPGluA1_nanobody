@@ -288,7 +288,7 @@ function plot_reference_overlays(I, J, ref_pix_mask, used_clim, slope)
 subplot(1, 3, 2);
 imagesc(I);
 axis image off;
-colormap gray;
+colormap(sep_palette('anatomy'));
 title('Base image (I)');
 clim(used_clim*1/slope);
 hold on;
@@ -309,7 +309,7 @@ colorbar;
 subplot(1, 3, 3);
 imagesc(J);
 axis image off;
-colormap gray;
+colormap(sep_palette('anatomy'));
 title('Signal image (J)');
 clim(used_clim);
 hold on;
@@ -547,7 +547,7 @@ for z = 1:Z
     h = imagesc(diff_map);
     clim(gca, [clim_min_diff, clim_max_diff]);
     colorbar;
-    colormap(get_color2color_colormap([0, 0, 1], [1, 0, 0]));
+    colormap(sep_palette('difference'));
 
     ax = gca;
     ax.Color = 'k';

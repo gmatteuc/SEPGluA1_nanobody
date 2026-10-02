@@ -83,7 +83,7 @@ for j = 1:n_slices
         imagesc(slab_diff);
         set(findobj(gca, 'Type', 'image'), 'AlphaData', alpha_data);
         clim(clim_diff);
-        colormap(gca, hot);
+        colormap(gca, sep_palette('intensity'));
         axis image;
         axis off;
         set(gca, 'Color', 'k');
@@ -100,7 +100,7 @@ for j = 1:n_slices
         imagesc(slab_sum);
         set(findobj(gca, 'Type', 'image'), 'AlphaData', alpha_data);
         clim(clim_sum);
-        colormap(gca, hot);
+        colormap(gca, sep_palette('intensity'));
         axis image;
         axis off;
         set(gca, 'Color', 'k');

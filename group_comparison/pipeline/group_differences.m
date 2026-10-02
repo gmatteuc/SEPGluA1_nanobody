@@ -408,12 +408,12 @@ mean_c = nanmean(med_data_4d_ctrl, 2);
 sem_c = nanstd(med_data_4d_ctrl, [], 2) / sqrt(size(med_data_4d_ctrl, 2));
 mean_e = nanmean(med_data_4d_exp, 2);
 sem_e = nanstd(med_data_4d_exp, [], 2) / sqrt(size(med_data_4d_exp, 2));
-fill([slices fliplr(slices)], [mean_c-sem_c; flipud(mean_c+sem_c)], [0 0.45 0.74], ...
-    'FaceAlpha', 0.3, 'EdgeColor', 'none');
-plot(slices, mean_c, 'Color', [0 0.2 0.5], 'LineWidth', 3.5);
+fill([slices fliplr(slices)], [mean_c-sem_c; flipud(mean_c+sem_c)], ...
+    sep_palette('control'), 'FaceAlpha', 0.3, 'EdgeColor', 'none');
+plot(slices, mean_c, 'Color', sep_palette('control_mean'), 'LineWidth', 3.5);
 fill([slices fliplr(slices)], [mean_e-sem_e; flipud(mean_e+sem_e)], ...
-    [0.85 0.33 0.10], 'FaceAlpha', 0.3, 'EdgeColor', 'none');
-plot(slices, mean_e, 'Color', [0.64 0.08 0.18], 'LineWidth', 3.5);
+    sep_palette('experimental'), 'FaceAlpha', 0.3, 'EdgeColor', 'none');
+plot(slices, mean_e, 'Color', sep_palette('experimental_mean'), 'LineWidth', 3.5);
 title('Raw Nanobody intensity', 'FontSize', 12);
 xlabel('Coronal index', 'FontSize', 12);
 ylabel('Intensity', 'FontSize', 12);
@@ -438,12 +438,12 @@ mean_nc = nanmean(norm_ctrl, 2);
 sem_nc = nanstd(norm_ctrl, [], 2) / sqrt(size(norm_ctrl, 2));
 mean_ne = nanmean(norm_exp, 2);
 sem_ne = nanstd(norm_exp, [], 2) / sqrt(size(norm_exp, 2));
-fill([slices fliplr(slices)], [mean_nc-sem_nc; flipud(mean_nc+sem_nc)], [0 0.45 0.74], ...
-    'FaceAlpha', 0.3, 'EdgeColor', 'none');
-plot(slices, mean_nc, 'Color', [0 0.2 0.5], 'LineWidth', 3.5);
+fill([slices fliplr(slices)], [mean_nc-sem_nc; flipud(mean_nc+sem_nc)], ...
+    sep_palette('control'), 'FaceAlpha', 0.3, 'EdgeColor', 'none');
+plot(slices, mean_nc, 'Color', sep_palette('control_mean'), 'LineWidth', 3.5);
 fill([slices fliplr(slices)], [mean_ne-sem_ne; flipud(mean_ne+sem_ne)], ...
-    [0.85 0.33 0.10], 'FaceAlpha', 0.3, 'EdgeColor', 'none');
-plot(slices, mean_ne, 'Color', [0.64 0.08 0.18], 'LineWidth', 3.5);
+    sep_palette('experimental'), 'FaceAlpha', 0.3, 'EdgeColor', 'none');
+plot(slices, mean_ne, 'Color', sep_palette('experimental_mean'), 'LineWidth', 3.5);
 title(sprintf('Linearly Aligned (Slope=%.2f, Int=%.0f)', slope, intercept), ...
     'FontSize', 12);
 xlabel('Coronal index', 'FontSize', 12);
@@ -852,17 +852,7 @@ n_cols = 5;
 n_rows = ceil(length(slices_to_show)/n_cols);
 
 % blue-white-red colormap
-n_steps = 256;
-c_blue = [0 0 1];
-c_white = [1 1 1];
-c_red = [1 0 0];
-cmap_neg = [linspace(c_blue(1), c_white(1), n_steps/2)', ...
-    linspace(c_blue(2), c_white(2), n_steps/2)', ...
-    linspace(c_blue(3), c_white(3), n_steps/2)'];
-cmap_pos = [linspace(c_white(1), c_red(1), n_steps/2)', ...
-    linspace(c_white(2), c_red(2), n_steps/2)', ...
-    linspace(c_white(3), c_red(3), n_steps/2)'];
-custom_cmap = [cmap_neg; cmap_pos];
+custom_cmap = sep_palette('difference');
 
 fprintf('  Generating T-Maps for %s metrics...\n', res_type);
 
@@ -1193,7 +1183,7 @@ for m = 1:n_ctrl
                 set(0, 'CurrentFigure', inspect_figs(k_fig));
                 subplot(2, max(n_ctrl, n_exp), m);
                 histogram(roi_vals_clean, 100, 'EdgeColor', 'none', 'FaceColor', ...
-                    [0 0.45 0.74]);
+                    sep_palette('control'));
                 hold on;
                 xline(roi_stats_ctrl(r, m, 1), 'k-', 'LineWidth', 1.5);
                 xline(roi_stats_ctrl(r, m, 2), 'k--', 'LineWidth', 1.5);
@@ -1254,7 +1244,7 @@ for m = 1:n_exp
                 set(0, 'CurrentFigure', inspect_figs(k_fig));
                 subplot(2, max(n_ctrl, n_exp), m + max(n_ctrl, n_exp));
                 histogram(roi_vals_clean, 100, 'EdgeColor', 'none', 'FaceColor', ...
-                    [0.85 0.33 0.10]);
+                    sep_palette('experimental'));
                 hold on;
                 xline(roi_stats_exp(r, m, 1), 'k-', 'LineWidth', 1.5);
                 xline(roi_stats_exp(r, m, 2), 'k--', 'LineWidth', 1.5);
@@ -1321,9 +1311,9 @@ b = barh(sorted_t);
 b.FaceColor = 'flat';
 for k = 1:length(sorted_t)
     if sorted_t(k) > 0
-        b.CData(k, :) = [0.85 0.33 0.10];
+        b.CData(k, :) = sep_palette('experimental');
     else
-        b.CData(k, :) = [0 0.45 0.74];
+        b.CData(k, :) = sep_palette('control');
     end
 end
 
@@ -1423,17 +1413,7 @@ if exist(file_diff, 'file') && exist(file_sum, 'file')
     n_slices = size(vol_diff, 1);
 
     % blue-white-red colormap
-    n_steps = 256;
-    c_blue = [0 0 1];
-    c_white = [1 1 1];
-    c_red = [1 0 0];
-    cmap_neg = [linspace(c_blue(1), c_white(1), n_steps/2)', ...
-        linspace(c_blue(2), c_white(2), n_steps/2)', ...
-        linspace(c_blue(3), c_white(3), n_steps/2)'];
-    cmap_pos = [linspace(c_white(1), c_red(1), n_steps/2)', ...
-        linspace(c_white(2), c_red(2), n_steps/2)', ...
-        linspace(c_white(3), c_red(3), n_steps/2)'];
-    custom_cmap = [cmap_neg; cmap_pos];
+    custom_cmap = sep_palette('difference');
 
     % one figure, cleared after each frame
     fh = figure('visible', 'off', 'units', 'normalized', 'outerposition', [0 0 1 1], ...
@@ -1679,7 +1659,7 @@ set(gca, 'Color', 'k');
 hold on;
 plot(b_col, b_row, '.', 'Color', [0.7 0.7 0.7], 'MarkerSize', 0.25);
 clim([-6 6]);
-colormap(gca, get_color2color_colormap([0 0 1], [1 0 0]));
+colormap(gca, sep_palette('difference'));
 cb1 = colorbar;
 cb1.Color = 'w';
 cb1.Label.String = 'T-Score (Diff)';
@@ -1697,7 +1677,7 @@ set(gca, 'Color', 'k');
 hold on;
 plot(b_col, b_row, '.', 'Color', [0.7 0.7 0.7], 'MarkerSize', 0.25);
 clim([-6 6]);
-colormap(gca, get_color2color_colormap([0 0 1], [1 0 0]));
+colormap(gca, sep_palette('difference'));
 cb2 = colorbar;
 cb2.Color = 'w';
 cb2.Label.String = 'T-Score (Sum)';
@@ -1792,7 +1772,7 @@ for g_idx = 1:2
         imagesc(slab_diff_m);
         set(findobj(gca, 'Type', 'image'), 'AlphaData', alpha_data);
         clim(clim_diff_indiv);
-        colormap(gca, hot);
+        colormap(gca, sep_palette('intensity'));
         axis image;
         axis off;
         set(gca, 'Color', 'k');
@@ -1812,7 +1792,7 @@ for g_idx = 1:2
         imagesc(slab_sum_m);
         set(findobj(gca, 'Type', 'image'), 'AlphaData', alpha_data);
         clim(clim_sum_indiv);
-        colormap(gca, hot);
+        colormap(gca, sep_palette('intensity'));
         axis image;
         axis off;
         set(gca, 'Color', 'k');
@@ -2094,8 +2074,7 @@ for m_idx = 1:2
     b.FaceColor = 'flat';
 
     % bar colour by its sum relative to the largest: light grey (0.78) to black
-    c_map_surp = gray(256);
-    c_map_surp = flipud(c_map_surp(1:200, :));
+    c_map_surp = sep_palette('bars');
     if ~isempty(sorted_surp)
         c_vals = round((sorted_surp / max(sorted_surp)) * size(c_map_surp, 1));
         c_vals(c_vals < 1) = 1;

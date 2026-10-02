@@ -442,7 +442,7 @@ if hi <= lo
     hi = lo + 1;
 end
 imagesc(img, [lo hi]);
-colormap(gca, gray);
+colormap(gca, sep_palette('anatomy'));
 axis image off
 
 end

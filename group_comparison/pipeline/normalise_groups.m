@@ -664,7 +664,7 @@ for iii = 1:num_mice_subset
 
     img_data = squeeze(data_4d(slice_to_plot, :, :, iii));
     imagesc(img_data);
-    colormap(hot);
+    colormap(sep_palette('intensity'));
     clim([0, plot_limit]);
     hold on;
 
@@ -791,7 +791,7 @@ function plot_median_consensus(consensus_slice, recomputed_bkg_mask_4d, slice_to
 
 figure('Visible', 'off', 'Name', 'Median Consensus Slice');
 imagesc(consensus_slice);
-colormap(hot);
+colormap(sep_palette('intensity'));
 clim([0, plot_limit]);
 hold on;
 
@@ -1027,7 +1027,7 @@ for i = 1:num_mice_subset
     % top row: normalised
     subplot(2, num_mice_subset, i);
     imagesc(img_norm);
-    colormap(hot);
+    colormap(sep_palette('intensity'));
     clim([0, plot_limit]);
     axis image;
     axis off;
@@ -1049,7 +1049,7 @@ for i = 1:num_mice_subset
     % bottom row: raw
     subplot(2, num_mice_subset, i + num_mice_subset);
     imagesc(img_raw);
-    colormap(hot);
+    colormap(sep_palette('intensity'));
     clim([0, plot_limit]);
     axis image;
     axis off;
@@ -1160,7 +1160,7 @@ for s_idx = slices_to_video
         % top row: normalised
         subplot(2, num_mice_subset, i);
         imagesc(img_norm);
-        colormap(hot);
+        colormap(sep_palette('intensity'));
         clim([0, plot_limit]);
         axis image;
         axis off;
@@ -1185,7 +1185,7 @@ for s_idx = slices_to_video
         % bottom row: raw
         subplot(2, num_mice_subset, i + num_mice_subset);
         imagesc(img_raw);
-        colormap(hot);
+        colormap(sep_palette('intensity'));
         clim([0, plot_limit]);
         axis image;
         axis off;

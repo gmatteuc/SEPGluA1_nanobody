@@ -415,7 +415,7 @@ patch_pair = contrast_patch(tv_adult, brain_adult, atlas_adult.res_um, ...
                             tv_young, brain_young, atlas_young.res_um, ...
                             overlap_res_um, contrast_patch_level);
 imagesc(patch_pair, contrast_patch_clim);
-colormap(gca, gray)
+colormap(gca, sep_palette('anatomy'))
 axis image off
 hold on
 xline(size(patch_pair, 2) / 2, 'Color', 'w', 'LineWidth', 1.5);
@@ -622,7 +622,7 @@ function draw_overlap_matrix(m, row_labels, col_labels, tick_font, cell_font)
 % cell.
 
 imagesc(m, [0 1]);
-colormap(gca, hot);
+colormap(gca, sep_palette('intensity'));
 axis square
 n = size(m, 1);
 set(gca, 'XTick', 1:n, 'XTickLabel', col_labels, ...

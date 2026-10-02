@@ -264,7 +264,7 @@ function [fig_traces, fig_heatmap_abs, fig_heatmap_rel] = plot_intensity_raw( ..
 fig_heatmap_abs = figure('Name', 'Intensity Heatmap (Absolute)', 'Color', 'w', ...
     'Units', 'normalized', 'Position', [0.1 0.1 0.5 0.8]);
 imagesc(intensity_medians);
-colormap(fig_heatmap_abs, hot);
+colormap(fig_heatmap_abs, sep_palette('intensity'));
 c = colorbar;
 c.Label.String = 'Median Intensity (Raw)';
 xlabel('Mouse');
@@ -279,7 +279,7 @@ clim([0, max(intensity_medians(:))]);
 fig_heatmap_rel = figure('Name', 'Intensity Heatmap (Relative)', 'Color', 'w', ...
     'Units', 'normalized', 'Position', [0.6 0.1 0.5 0.8]);
 imagesc(rel_diff_map);
-colormap(fig_heatmap_rel, hot);
+colormap(fig_heatmap_rel, sep_palette('intensity'));
 c = colorbar;
 c.Label.String = 'Relative Deviation (from Mouse Mean)';
 xlabel('Mouse');
@@ -414,7 +414,7 @@ for i = 1:num_mice
         % draw the slice in grey, the background transparent on black
         clf(h_fig);
         h_im = imagesc(img_crop);
-        colormap(gray);
+        colormap(sep_palette('anatomy'));
         clim([0 5000]);
         set(h_im, 'AlphaData', ~bg_mask);
         axis image;
@@ -552,7 +552,7 @@ function [fig_heatmap_abs_eq, fig_heatmap_rel_eq, fig_traces_eq] = ...
 fig_heatmap_abs_eq = figure('Name', 'Intensity Heatmap (Absolute - Equalized)', ...
     'Color', 'w', 'Units', 'normalized', 'Position', [0.1 0.1 0.5 0.8]);
 imagesc(intensity_medians_eq);
-colormap(fig_heatmap_abs_eq, hot);
+colormap(fig_heatmap_abs_eq, sep_palette('intensity'));
 c = colorbar;
 c.Label.String = 'Median Intensity (Equalized)';
 xlabel('Mouse');
@@ -567,7 +567,7 @@ clim([0, max(intensity_medians_eq(:))]);
 fig_heatmap_rel_eq = figure('Name', 'Intensity Heatmap (Relative - Equalized)', ...
     'Color', 'w', 'Units', 'normalized', 'Position', [0.6 0.1 0.5 0.8]);
 imagesc(rel_diff_map_eq);
-colormap(fig_heatmap_rel_eq, hot);
+colormap(fig_heatmap_rel_eq, sep_palette('intensity'));
 c = colorbar;
 c.Label.String = 'Relative Deviation';
 xlabel('Mouse');
@@ -692,7 +692,7 @@ for i = 1:num_mice
         % draw the slice in grey, the background transparent on black
         clf(h_fig);
         h_im = imagesc(img_crop);
-        colormap(gray);
+        colormap(sep_palette('anatomy'));
         clim([0 5000]);
         set(h_im, 'AlphaData', ~bg_mask);
         axis image;

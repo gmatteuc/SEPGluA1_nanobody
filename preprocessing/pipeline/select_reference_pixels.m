@@ -176,7 +176,7 @@ if plot_flag
     nexttile;
     imagesc(I_single);
     axis image off;
-    colormap gray;
+    colormap(sep_palette('anatomy'));
     title('Input slice with ref pixels');
     used_clim = [val_max_bis, 1.5*val_max];
     clim(used_clim)
@@ -197,7 +197,7 @@ if plot_flag
     nexttile;
     imagesc(bg_mask);
     axis image off;
-    colormap(gray);
+    colormap(sep_palette('anatomy'));
     title('Background mask');
 
     % the percentile curve with the knee (blue), the dip (red), the upper end
