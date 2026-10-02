@@ -41,7 +41,13 @@ from scipy.ndimage import center_of_mass
 from sepmap.config import SETTINGS
 from sepmap.volumes.per_mouse import CSV_MAP, DATA
 from sepmap.volumes.cohort import COHORTS, OUT_ROOT as CCF_ROOT, SIGNED_READINGS
-from sepmap.young_vs_adult.compare import MIN_N_YOUNG, MIN_N_ADULT, YOUNG, fold, fold_n
+from sepmap.young_vs_adult.compare import (
+    MIN_N_YOUNG,
+    MIN_N_ADULT,
+    YOUNG,
+    fold,
+    fold_count,
+)
 
 OUT = os.path.join(DATA, "comparisons_v2", "young_vs_adult")
 
@@ -97,8 +103,8 @@ def main(readings, plane=None, vmax=None, dlim=None):
         nib.load(os.path.join(DATA, "atlas", "annotation_10.nii.gz")).dataobj
     )[::2, ::2, ::2]
     ann_h = ann[:, :, : ann.shape[2] // 2]
-    y_n = fold_n(np.load(os.path.join(CCF_ROOT, YOUNG, "cref_n.npy")))
-    a_n = fold_n(np.load(os.path.join(CCF_ROOT, "adult", "cref_n.npy")))
+    y_n = fold_count(np.load(os.path.join(CCF_ROOT, YOUNG, "cref_n.npy")))
+    a_n = fold_count(np.load(os.path.join(CCF_ROOT, "adult", "cref_n.npy")))
 
     for reading in readings:
         t0 = time.time()

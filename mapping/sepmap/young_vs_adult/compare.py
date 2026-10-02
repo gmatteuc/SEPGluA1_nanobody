@@ -25,29 +25,25 @@ import csv
 import os
 import time
 
-import numpy as np
-import nibabel as nib
-from scipy.ndimage import gaussian_filter
 import matplotlib
+import nibabel as nib
+import numpy as np
+from scipy.ndimage import gaussian_filter
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
 
 from sepmap.config import SETTINGS
-from sepmap.volumes.per_mouse import DATA, CSV_MAP
-from sepmap.volumes.cohort import (
-    OUT_ROOT as CCF_ROOT,
-    COHORTS,
-    MODES,
-    SIGNED_READINGS,
-    Z_FLOOR,
-)
+from sepmap.volumes.cohort import COHORTS, MODES, SIGNED_READINGS, Z_FLOOR
+from sepmap.volumes.cohort import OUT_ROOT as CCF_ROOT
+from sepmap.volumes.per_mouse import CSV_MAP, DATA
 
 OUT = os.path.join(DATA, "comparisons_v2", "young_vs_adult")
 
 # start of the adult registered crop along AP, in 10 um planes; added to the plane
 # number in each slice title
-CCF_AP0 = 180
+CROP_START_PLANE = 180
 
 # brains with tissue that a voxel needs to be compared, from settings.toml, the
 # same keys young_vs_adult.closeup reads
@@ -63,7 +59,7 @@ YOUNG = "young"
 YOUNG_ALT = "young_P20"
 
 
-def save_figure(fig, path):
+def save_figure(fig: plt.Figure, path: str) -> None:
     """Save `fig` as a PNG at `path` and as an EPS beside it.
 
     Windows refuses to overwrite a PNG that an image viewer holds open. The
@@ -103,7 +99,7 @@ def save_figure(fig, path):
         )
 
 
-def fold(v):
+def fold(v: np.ndarray) -> np.ndarray:
     """Average the two hemispheres of an (AP, DV, ML) volume, ignoring NaN.
 
     The right half is mirrored onto the left; the result is (AP, DV, ML/2).
@@ -114,25 +110,28 @@ def fold(v):
     return np.nanmean(np.stack([left, right]), axis=0)
 
 
-def fold_n(n):
+def fold_count(n: np.ndarray) -> np.ndarray:
     """Fold a count map as fold does, keeping the larger count of the two sides."""
     ml = n.shape[2]
     h = ml // 2
     return np.maximum(n[:, :, :h], n[:, :, ml - h :][:, :, ::-1])
 
 
-def load_cohort(cohort):
+def load_cohort(cohort: str) -> tuple[dict[str, np.ndarray], np.ndarray]:
     """Folded mean maps of a cohort in the CCF, and its folded count map.
 
     Returns ({reading: map}, n), where n counts the brains with tissue (cref_n).
     """
-    m = {k: fold(np.load(os.path.join(CCF_ROOT, cohort, f"{k}_mean.npy"))) for k in MODES}
-    n = fold_n(np.load(os.path.join(CCF_ROOT, cohort, "cref_n.npy")))
-    return m, n
+    maps = {
+        reading: fold(np.load(os.path.join(CCF_ROOT, cohort, f"{reading}_mean.npy")))
+        for reading in MODES
+    }
+    n = fold_count(np.load(os.path.join(CCF_ROOT, cohort, "cref_n.npy")))
+    return maps, n
 
 
-def draw_figures(z, out):
-    """Draw one slices figure per reading from the saved maps `z` into `out`.
+def draw_figures(maps: dict[str, np.ndarray], out: str) -> None:
+    """Draw one slices figure per reading from the saved `maps` into `out`.
 
     Also called by young_vs_adult.replot. Six coronal planes, spread over the
     planes that at least half the maximum coverage reaches; in each, the adult
@@ -144,10 +143,8 @@ def draw_figures(z, out):
     Signed readings use a purple-orange scale, symmetric at the 98th percentile
     of their absolute value.
     """
-    from matplotlib.colors import LinearSegmentedColormap
-
-    ann_h, both = z["annot20"], z["both"]
-    inside = ann_h > 0
+    annotation_left, compared = maps["annot20"], maps["both"]
+    inside = annotation_left > 0
 
     # hot up to 0.82 of its range, transparent where there is no value
     hot = plt.get_cmap("hot")
@@ -169,12 +166,12 @@ def draw_figures(z, out):
                 and row["parcellation_term_acronym"] == "Isocortex"
             ):
                 iso_ids.add(int(row["parcellation_index"]))
-    iso = both & np.isin(ann_h, list(iso_ids))
+    isocortex = compared & np.isin(annotation_left, list(iso_ids))
 
     # six planes between the first and the last that half the maximum coverage reaches
-    cov = both.reshape(both.shape[0], -1).sum(1)
-    ok = np.nonzero(cov > 0.5 * cov.max())[0]
-    planes = [int(v) for v in np.linspace(ok[0], ok[-1], 6).round()]
+    coverage = compared.reshape(compared.shape[0], -1).sum(1)
+    covered = np.nonzero(coverage > 0.5 * coverage.max())[0]
+    planes = [int(v) for v in np.linspace(covered[0], covered[-1], 6).round()]
 
     # first line of each figure's title
     what = {
@@ -187,43 +184,49 @@ def draw_figures(z, out):
         "zref": "range-matched: position within each brain's own distribution "
         "(median 0, p90-p10 = 1), so level and dynamic range are equal across brains",
     }
-    n_young = int(z["n_young_mice"])
-    n_adult = int(z["n_adult_mice"])
+    n_young = int(maps["n_young_mice"])
+    n_adult = int(maps["n_adult_mice"])
 
-    for m in MODES:
-        adult_v, young_v, log2_v = z[f"adult_{m}"], z[f"young_{m}"], z[f"log2_{m}"]
-        signed = m in SIGNED_READINGS
+    for reading in MODES:
+        adult_v = maps[f"adult_{reading}"]
+        young_v = maps[f"young_{reading}"]
+        log2_v = maps[f"log2_{reading}"]
+        signed = reading in SIGNED_READINGS
 
         # colour limits: adult isocortex for an intensity, symmetric for a signed
         # reading, and symmetric for the young-adult comparison
-        vmax = (
-            float(np.nanpercentile(adult_v[iso], 99))
-            if not signed
-            else float(np.nanpercentile(np.abs(adult_v[both]), 98))
-        )
-        lim2 = float(np.nanpercentile(np.abs(log2_v[both]), 98))
+        if not signed:
+            vmax = float(np.nanpercentile(adult_v[isocortex], 99))
+        else:
+            vmax = float(np.nanpercentile(np.abs(adult_v[compared]), 98))
+        diff_lim = float(np.nanpercentile(np.abs(log2_v[compared]), 98))
 
         # one row per plane: adult, young, comparison
         fig, axes = plt.subplots(len(planes), 3, figsize=(13.5, 3.9 * len(planes)))
         for i, zc in enumerate(planes):
-            shown = both[zc]
+            shown = compared[zc]
             cmap_mean = puor if signed else hot_cut
             lim_mean = (-vmax, vmax) if signed else (0, vmax)
             diff_name = "young - adult" if signed else "log2( young / adult )"
             panels = (
                 (
                     np.where(inside[zc] & np.isfinite(adult_v[zc]), adult_v[zc], np.nan),
-                    f"adult (n = {n_adult})  {m}",
+                    f"adult (n = {n_adult})  {reading}",
                     cmap_mean,
                     lim_mean,
                 ),
                 (
                     np.where(shown, young_v[zc], np.nan),
-                    f"young (n = {n_young})  {m}",
+                    f"young (n = {n_young})  {reading}",
                     cmap_mean,
                     lim_mean,
                 ),
-                (np.where(shown, log2_v[zc], np.nan), diff_name, "RdBu_r", (-lim2, lim2)),
+                (
+                    np.where(shown, log2_v[zc], np.nan),
+                    diff_name,
+                    "RdBu_r",
+                    (-diff_lim, diff_lim),
+                ),
             )
             for j, (im, title, cmap, lim) in enumerate(panels):
                 ax = axes[i, j]
@@ -241,7 +244,9 @@ def draw_figures(z, out):
                     interpolation="nearest",
                     aspect="equal",
                 )
-                ax.set_title(f"{title}   plane {zc * 2 + CCF_AP0} / 10 um", fontsize=9.5)
+                ax.set_title(
+                    f"{title}   plane {zc * 2 + CROP_START_PLANE} / 10 um", fontsize=9.5
+                )
                 ax.set_xticks([])
                 ax.set_yticks([])
                 plt.colorbar(
@@ -249,18 +254,21 @@ def draw_figures(z, out):
                 )
 
         # title: the reading, the method, and what the colour range means
-        scale_note = (
-            f"purple-orange scale, 0 = that brain's median structure, "
-            f"+-{vmax:.2f} = its own p10-p90 spread; "
-            f"red-blue on the right is the young-adult difference"
-            if signed
-            else f"colour range 0 to {vmax:.2f} = 99th percentile of adult isocortex; "
-            "brighter is yellow, never white"
-        )
+        if signed:
+            scale_note = (
+                "purple-orange scale, 0 = that brain's median structure, "
+                f"+-{vmax:.2f} = its own p10-p90 spread; "
+                "red-blue on the right is the young-adult difference"
+            )
+        else:
+            scale_note = (
+                f"colour range 0 to {vmax:.2f} = 99th percentile of adult isocortex; "
+                "brighter is yellow, never white"
+            )
         fig.suptitle(
             "\n".join(
                 (
-                    what[m] + ".",
+                    what[reading] + ".",
                     "Hemispheres averaged; every brain carried into the adult CCF "
                     "individually.  "
                     f"Grey = no data (fewer than {MIN_N_YOUNG} young or {MIN_N_ADULT} "
@@ -271,11 +279,11 @@ def draw_figures(z, out):
             fontsize=10,
         )
         fig.tight_layout(rect=(0, 0, 1, 0.975))
-        save_figure(fig, os.path.join(out, f"slices_{m}.png"))
+        save_figure(fig, os.path.join(out, f"slices_{reading}.png"))
         plt.close(fig)
 
 
-def main():
+def main() -> None:
     """Compare young with adult and write the maps, the tables and the figures.
 
     The maps are compared voxel by voxel and smoothed (Gaussian, SMOOTH), with
@@ -293,17 +301,17 @@ def main():
 
     # the annotation at 20 um, left half: the young volumes live on the same
     # 660-plane grid as the adults (planes 90-539 hold the adult registered crop)
-    ann = np.asarray(
+    annotation = np.asarray(
         nib.load(os.path.join(DATA, "atlas", "annotation_10.nii.gz")).dataobj
     )[::2, ::2, ::2]
-    ann_h = ann[:, :, :285]
-    inside = ann_h > 0
+    annotation_left = annotation[:, :, :285]
+    inside = annotation_left > 0
 
     # cohorts, and the voxels where both groups have enough brains
     adult, adult_n = load_cohort("adult")
     young, young_n = load_cohort(YOUNG)
     young_alt, young_alt_n = load_cohort(YOUNG_ALT)
-    both = (
+    compared = (
         inside
         & (young_n >= MIN_N_YOUNG)
         & (adult_n >= MIN_N_ADULT)
@@ -311,7 +319,7 @@ def main():
         & np.isfinite(adult["cref"])
     )
     print(
-        f"voxels compared: {both.sum():,} of {inside.sum():,} inside the atlas "
+        f"voxels compared: {compared.sum():,} of {inside.sum():,} inside the atlas "
         f"(young n>={MIN_N_YOUNG}: {(inside & (young_n >= MIN_N_YOUNG)).sum():,}; "
         f"adult n>={MIN_N_ADULT}: {(inside & (adult_n >= MIN_N_ADULT)).sum():,})   "
         f"{time.time() - t0:.0f} s",
@@ -320,42 +328,46 @@ def main():
 
     # young against adult per voxel, then smoothed inside the compared mask; the
     # floor is the one volumes.cohort applies, so a map and a table agree
-    eps = Z_FLOOR
+    floor = Z_FLOOR
     log2, log2_alt = {}, {}
-    for m in MODES:
+    for reading in MODES:
         for src, dst in ((young, log2), (young_alt, log2_alt)):
-            a = np.where(both, adult[m], np.nan)
-            p = np.where(both, src[m], np.nan)
+            adult_v = np.where(compared, adult[reading], np.nan)
+            young_v = np.where(compared, src[reading], np.nan)
 
             # zref is already a log-scale position, so the two groups are
             # compared by difference; everything else by log2 ratio
-            r = (
-                (p - a)
-                if m in SIGNED_READINGS
-                else np.log2(np.maximum(p, eps) / np.maximum(a, eps))
-            )
+            if reading in SIGNED_READINGS:
+                contrast = young_v - adult_v
+            else:
+                contrast = np.log2(
+                    np.maximum(young_v, floor) / np.maximum(adult_v, floor)
+                )
 
-            # smooth r over the compared voxels only, then mask again
-            w = both.astype(np.float32)
-            num = gaussian_filter(np.nan_to_num(r) * w, SMOOTH)
-            den = gaussian_filter(w, SMOOTH)
-            dst[m] = np.where(both, num / np.maximum(den, 1e-3), np.nan).astype(
+            # smooth the contrast over the compared voxels only, then mask again
+            weights = compared.astype(np.float32)
+            num = gaussian_filter(np.nan_to_num(contrast) * weights, SMOOTH)
+            den = gaussian_filter(weights, SMOOTH)
+            dst[reading] = np.where(compared, num / np.maximum(den, 1e-3), np.nan).astype(
                 np.float32
             )
     np.savez_compressed(
         os.path.join(OUT, "volumes_ccf20.npz"),
-        annot20=ann_h,
-        both=both,
+        annot20=annotation_left,
+        both=compared,
         adult_n=adult_n,
         young_n=young_n,
         young_alt_n=young_alt_n,
         n_young_mice=len(COHORTS[YOUNG]),
         n_adult_mice=len(COHORTS["adult"]),
-        **{f"adult_{m}": adult[m].astype(np.float32) for m in MODES},
-        **{f"young_{m}": young[m].astype(np.float32) for m in MODES},
-        **{f"young_alt_{m}": young_alt[m].astype(np.float32) for m in MODES},
-        **{f"log2_{m}": log2[m] for m in MODES},
-        **{f"log2_alt_{m}": log2_alt[m] for m in MODES},
+        **{f"adult_{reading}": adult[reading].astype(np.float32) for reading in MODES},
+        **{f"young_{reading}": young[reading].astype(np.float32) for reading in MODES},
+        **{
+            f"young_alt_{reading}": young_alt[reading].astype(np.float32)
+            for reading in MODES
+        },
+        **{f"log2_{reading}": log2[reading] for reading in MODES},
+        **{f"log2_alt_{reading}": log2_alt[reading] for reading in MODES},
     )
 
     # names, acronyms and divisions of the parcellation indices
@@ -370,76 +382,92 @@ def main():
                 divi[idx] = row["parcellation_term_acronym"]
 
     # lookup from parcellation index to structure, one entry per structure name
-    struct_of = np.zeros(int(ann_h.max()) + 1, np.int64)
+    struct_of = np.zeros(int(annotation_left.max()) + 1, np.int64)
     struct_names = []
     seen = {}
-    for idx in np.unique(ann_h):
+    for idx in np.unique(annotation_left):
         if idx == 0:
             continue
-        nm = names.get(int(idx), f"id{idx}")
-        if nm not in seen:
-            seen[nm] = len(struct_names)
-            struct_names.append((nm, acro.get(int(idx), ""), divi.get(int(idx), "")))
-        struct_of[idx] = seen[nm]
+        name = names.get(int(idx), f"id{idx}")
+        if name not in seen:
+            seen[name] = len(struct_names)
+            struct_names.append((name, acro.get(int(idx), ""), divi.get(int(idx), "")))
+        struct_of[idx] = seen[name]
 
     # mean per structure of each reading and group, over its voxels with a value
-    labs = struct_of[ann_h[both].astype(np.int64)]
+    structure_of_voxel = struct_of[annotation_left[compared].astype(np.int64)]
     n_struct = len(struct_names)
-    n_vox = np.bincount(labs, minlength=n_struct)
+    n_vox = np.bincount(structure_of_voxel, minlength=n_struct)
     means = {}
-    for m in MODES:
+    for reading in MODES:
         for tag, src in (("adult", adult), ("young", young), ("young_P20", young_alt)):
-            v = src[m][both]
+            v = src[reading][compared]
             ok = np.isfinite(v)
-            tot = np.bincount(labs[ok], weights=v[ok], minlength=n_struct)
-            cnt = np.bincount(labs[ok], minlength=n_struct)
+            total = np.bincount(structure_of_voxel[ok], weights=v[ok], minlength=n_struct)
+            count = np.bincount(structure_of_voxel[ok], minlength=n_struct)
             with np.errstate(invalid="ignore", divide="ignore"):
-                means[(tag, m)] = np.where(cnt > 0, tot / np.maximum(cnt, 1), np.nan)
+                means[(tag, reading)] = np.where(
+                    count > 0, total / np.maximum(count, 1), np.nan
+                )
 
     # one row per structure of at least 100 voxels, compared as the maps are
     rows = []
-    for g in np.nonzero(n_vox >= 100)[0]:
-        nm, ac, dv = struct_names[g]
-        r = {"structure": nm, "acronym": ac, "division": dv, "voxels_20um": int(n_vox[g])}
-        for m in MODES:
+    for structure in np.nonzero(n_vox >= 100)[0]:
+        name, acronym, division = struct_names[structure]
+        row = {
+            "structure": name,
+            "acronym": acronym,
+            "division": division,
+            "voxels_20um": int(n_vox[structure]),
+        }
+        for reading in MODES:
             for tag in ("adult", "young", "young_P20"):
-                r[f"{tag}_{m}"] = float(means[(tag, m)][g])
-            if m in SIGNED_READINGS:
-                r[f"log2_{m}"] = r[f"young_{m}"] - r[f"adult_{m}"]
-                r[f"log2_{m}_P20only"] = r[f"young_P20_{m}"] - r[f"adult_{m}"]
+                row[f"{tag}_{reading}"] = float(means[(tag, reading)][structure])
+            if reading in SIGNED_READINGS:
+                row[f"log2_{reading}"] = row[f"young_{reading}"] - row[f"adult_{reading}"]
+                row[f"log2_{reading}_P20only"] = (
+                    row[f"young_P20_{reading}"] - row[f"adult_{reading}"]
+                )
             else:
-                r[f"log2_{m}"] = np.log2(
-                    max(r[f"young_{m}"], eps) / max(r[f"adult_{m}"], eps)
+                row[f"log2_{reading}"] = np.log2(
+                    max(row[f"young_{reading}"], floor)
+                    / max(row[f"adult_{reading}"], floor)
                 )
-                r[f"log2_{m}_P20only"] = np.log2(
-                    max(r[f"young_P20_{m}"], eps) / max(r[f"adult_{m}"], eps)
+                row[f"log2_{reading}_P20only"] = np.log2(
+                    max(row[f"young_P20_{reading}"], floor)
+                    / max(row[f"adult_{reading}"], floor)
                 )
-        rows.append(r)
-    rows.sort(key=lambda r: (r["division"], r["acronym"]))
+        rows.append(row)
+    rows.sort(key=lambda row: (row["division"], row["acronym"]))
     with open(
         os.path.join(OUT, "region_table.csv"), "w", newline="", encoding="utf-8"
     ) as fh:
-        w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
-        w.writeheader()
-        for r in rows:
-            w.writerow(
-                {k: (f"{v:.4f}" if isinstance(v, float) else v) for k, v in r.items()}
+        writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(
+                {k: (f"{v:.4f}" if isinstance(v, float) else v) for k, v in row.items()}
             )
 
     # the cortical areas, largest cref difference first, visual and somatosensory marked
     cortex = sorted(
-        [r for r in rows if r["division"] == "Isocortex"], key=lambda r: -r["log2_cref"]
+        [row for row in rows if row["division"] == "Isocortex"],
+        key=lambda row: -row["log2_cref"],
     )
-    lines = [f"{'area':9s} {'structure':34s} " + " ".join(f"{m:>10s}" for m in MODES)]
-    for r in cortex:
-        tag = (
-            "  <-- visual"
-            if r["acronym"].startswith("VIS")
-            else ("  <-- somatosensory" if r["acronym"].startswith("SS") else "")
-        )
+    lines = [
+        f"{'area':9s} {'structure':34s} "
+        + " ".join(f"{reading:>10s}" for reading in MODES)
+    ]
+    for row in cortex:
+        if row["acronym"].startswith("VIS"):
+            tag = "  <-- visual"
+        elif row["acronym"].startswith("SS"):
+            tag = "  <-- somatosensory"
+        else:
+            tag = ""
         lines.append(
-            f"{r['acronym']:9s} {r['structure'][:34]:34s} "
-            + " ".join(f"{r[f'log2_{m}']:+10.2f}" for m in MODES)
+            f"{row['acronym']:9s} {row['structure'][:34]:34s} "
+            + " ".join(f"{row[f'log2_{reading}']:+10.2f}" for reading in MODES)
             + tag
         )
     with open(os.path.join(OUT, "cortex_table.txt"), "w") as fh:
