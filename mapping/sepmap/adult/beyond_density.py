@@ -560,7 +560,7 @@ def step2_covariates(nano, expr, role, auto, structures, ceiling):
             f"    {label:30s} CV R2 {v:.3f}   in-sample {r_squared(y, xs):.3f}   "
             f"{v / ceiling**2:5.1%} of the ceiling"
         )
-    print(f"  the model to quote is the last one -- letting the covariates bend is")
+    print("  the model to quote is the last one -- letting the covariates bend is")
     print(
         f"  their best shot -- and it leaves {1 - vals[-1] / ceiling**2:.0%} of the "
         f"explainable variance unaccounted for."

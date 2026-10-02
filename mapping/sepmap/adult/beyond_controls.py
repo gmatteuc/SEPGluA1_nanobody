@@ -180,14 +180,11 @@ def control_a_space(res, structures, y, covariates, nano, splits):
         f"   and with position added as a covariate the leftover still replicates "
         f"at {with_pos:.3f}"
     )
-    print(
-        "   verdict: "
-        + (
-            "a gradient could explain it -- LOOK CLOSER"
-            if smooth > 0.5
-            else "not a gradient; position is a weak predictor of it"
-        )
-    )
+    if smooth > 0.5:
+        verdict = "a gradient could explain it -- LOOK CLOSER"
+    else:
+        verdict = "not a gradient; position is a weak predictor of it"
+    print("   verdict: " + verdict)
     return dict(
         control="A spatial gradient",
         number=f"smooth R2 {smooth:.3f}, replication with position {with_pos:.3f}",
@@ -211,14 +208,11 @@ def control_b_size(res, structures, nano_rows):
         f"   |residual| in the larger half {np.median(np.abs(res[ok][big])):.1f} ranks, "
         f"smaller half {np.median(np.abs(res[ok][~big])):.1f}"
     )
-    print(
-        "   verdict: "
-        + (
-            "size drives it -- LOOK CLOSER"
-            if abs(rho) > 0.4
-            else "size is not what the leftover is made of"
-        )
-    )
+    if abs(rho) > 0.4:
+        verdict = "size drives it -- LOOK CLOSER"
+    else:
+        verdict = "size is not what the leftover is made of"
+    print("   verdict: " + verdict)
     return dict(
         control="B structure size",
         number=f"rho with volume {rho:+.3f}",
@@ -256,14 +250,11 @@ def control_c_mice(nano, structures, covariates):
         f"range {min(pairs):+.3f} to {max(pairs):+.3f}"
     )
     print(f"   least typical animal: {worst[1]} at {worst[0]:+.3f} mean agreement")
-    print(
-        "   verdict: "
-        + (
-            "one animal may be carrying it -- LOOK CLOSER"
-            if min(pairs) < 0.1
-            else "every animal shows the same leftover"
-        )
-    )
+    if min(pairs) < 0.1:
+        verdict = "one animal may be carrying it -- LOOK CLOSER"
+    else:
+        verdict = "every animal shows the same leftover"
+    print("   verdict: " + verdict)
     return (
         dict(
             control="C single animals",
@@ -290,14 +281,11 @@ def control_d_groups(nano, structures, covariates):
     )
     rho = spearmanr(naive, rws).statistic
     print(f"   leftover from the five naive against the five RWS: rho {rho:+.3f}")
-    print(
-        "   verdict: "
-        + (
-            "the groups disagree -- pooling is hiding something"
-            if rho < 0.5
-            else "both groups give the same leftover, so it is not the manipulation"
-        )
-    )
+    if rho < 0.5:
+        verdict = "the groups disagree -- pooling is hiding something"
+    else:
+        verdict = "both groups give the same leftover, so it is not the manipulation"
+    print("   verdict: " + verdict)
     return (
         dict(
             control="D naive vs RWS",
@@ -326,14 +314,11 @@ def control_e_curvature(y, covariates):
     print(f"   cross-validated R2, straight              {linear:+.3f}")
     print(f"   cross-validated R2, squares and cubes     {cubic:+.3f}   <- the model")
     print(f"   cross-validated R2, up to fifth powers    {quintic:+.3f}")
-    print(
-        "   verdict: "
-        + (
-            "more curvature still pays -- the model is not bent enough"
-            if quintic - cubic > 0.05
-            else "further bending buys nothing, so the model is adequate"
-        )
-    )
+    if quintic - cubic > 0.05:
+        verdict = "more curvature still pays -- the model is not bent enough"
+    else:
+        verdict = "further bending buys nothing, so the model is adequate"
+    print("   verdict: " + verdict)
     return (
         dict(
             control="E curvature",
@@ -380,14 +365,11 @@ def control_f_gene_space(nano, expr, structures, y, ceiling, splits):
 
     # the question is not whether a model this rich explains a lot (with 253 genes
     # it should) but whether it explains the map completely
-    print(
-        "   verdict: "
-        + (
-            "the gene panel accounts for the map; the leftover is gone"
-            if rep < 0.5
-            else "even the whole panel leaves a leftover that replicates"
-        )
-    )
+    if rep < 0.5:
+        verdict = "the gene panel accounts for the map; the leftover is gone"
+    else:
+        verdict = "even the whole panel leaves a leftover that replicates"
+    print("   verdict: " + verdict)
     return (
         dict(
             control="F whole gene space",
@@ -438,14 +420,11 @@ def control_g_readings(expr, role, auto, structures, splits):
             f"{raw:.3f}, leftover {rep:.3f}"
         )
     agree = all(r > 0.8 for _, _, _, r in out)
-    print(
-        "   verdict: "
-        + (
-            "the leftover replicates under every reading"
-            if agree
-            else "some readings disagree -- LOOK CLOSER"
-        )
-    )
+    if agree:
+        verdict = "the leftover replicates under every reading"
+    else:
+        verdict = "some readings disagree -- LOOK CLOSER"
+    print("   verdict: " + verdict)
     return (
         dict(
             control="G reading choice",
@@ -623,10 +602,12 @@ def main():
             )
         )
     )
+    quoted_replication = replication(
+        nano, structures, flexible(list(covariates.values())), splits
+    )
     print(
         f"{len(structures)} structures, ceiling {ceiling:.3f}, leftover of the "
-        f"quoted model replicates at "
-        f"{replication(nano, structures, flexible(list(covariates.values())), splits):.3f}"
+        f"quoted model replicates at {quoted_replication:.3f}"
     )
 
     # mean structure volume over the adults, in 20 um voxels
@@ -661,14 +642,11 @@ def main():
         w.writerows([v for v in verdicts if v])
     print(f"\n-> {path}")
     failed = [v["control"] for v in verdicts if v and v["verdict"] != "pass"]
-    print(
-        "VERDICT: "
-        + (
-            "every control passes; the claim stands as written."
-            if not failed
-            else f"look closer at {failed}"
-        )
-    )
+    if not failed:
+        verdict = "every control passes; the claim stands as written."
+    else:
+        verdict = f"look closer at {failed}"
+    print("VERDICT: " + verdict)
 
     sizes_arr = np.array([size_mean.get(s, np.nan) for s in structures])
     figure_artefacts(res, structures, sizes_arr, per_mouse, pairs, naive, rws, coords)

@@ -223,12 +223,11 @@ def panel_f(observed, predicted, res, structures):
                     im, ax=ax, fraction=0.04, pad=0.02, orientation="horizontal"
                 )
                 cb.ax.tick_params(labelsize=6.5)
-                cb.set_label(
-                    "rank among structures"
-                    if span is None
-                    else "observed minus predicted (ranks)",
-                    fontsize=7,
-                )
+                if span is None:
+                    label = "rank among structures"
+                else:
+                    label = "observed minus predicted (ranks)"
+                cb.set_label(label, fontsize=7)
                 if span is None:
                     # the floor sits below rank 1 so that nothing draws as black;
                     # the ticks still stop at the real range

@@ -172,9 +172,15 @@ def main():
         )
     print(f"\n{len(rows)} mice -> {path}")
 
+    def col(k):
+        """One column of the table as an array, a value per adult."""
+        return np.array([r[k] for r in rows])
+
+    def say(k):
+        """A column's mean +- SD over the adults, as printed."""
+        return f"{np.mean(col(k)):+.3f} +- {np.std(col(k)):.3f}"
+
     # the summary over adults, mean +- SD
-    col = lambda k: np.array([r[k] for r in rows])
-    say = lambda k: f"{np.mean(col(k)):+.3f} +- {np.std(col(k)):.3f}"
     print(
         f"\ndynamic range across structures, p90-p10 of log2, "
         f"mean over {len(rows)} adults"
@@ -267,7 +273,7 @@ def main():
     ax.set_xticklabels(labels, fontsize=8)
     ax.set_ylabel(f"Spearman with {CONTROL} expression", fontsize=8)
     ax.set_title(
-        f"if the green channel were total receptor,\nit would beat nano here",
+        "if the green channel were total receptor,\nit would beat nano here",
         fontsize=9,
     )
 
