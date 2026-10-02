@@ -128,6 +128,38 @@ def annotation_20(atlas_key: str) -> np.ndarray:
     return ann[lo - 1 : hi]
 
 
+def structure_terms() -> tuple[dict[int, str], dict[int, str], dict[int, str]]:
+    """Structure names and acronyms, and division acronyms, by parcellation index.
+
+    Read from the parcellation term membership table (CSV_MAP). The layers of an
+    area are separate indices that share one structure name, the key of the
+    region tables.
+    """
+    names, acro, divi = {}, {}, {}
+    with open(CSV_MAP, newline="", encoding="utf-8") as fh:
+        for row in csv.DictReader(fh):
+            idx = int(row["parcellation_index"])
+            if row["parcellation_term_set_name"] == "structure":
+                names[idx] = row["parcellation_term_name"]
+                acro[idx] = row["parcellation_term_acronym"]
+            elif row["parcellation_term_set_name"] == "division":
+                divi[idx] = row["parcellation_term_acronym"]
+    return names, acro, divi
+
+
+def isocortex_ids() -> set[int]:
+    """The parcellation indices of the isocortex division."""
+    iso = set()
+    with open(CSV_MAP, newline="", encoding="utf-8") as fh:
+        for row in csv.DictReader(fh):
+            if (
+                row["parcellation_term_set_name"] == "division"
+                and row["parcellation_term_acronym"] == "Isocortex"
+            ):
+                iso.add(int(row["parcellation_index"]))
+    return iso
+
+
 class Source:
     """One registered channel of a brain, read page by page.
 
@@ -177,14 +209,7 @@ def block2(a: np.ndarray) -> np.ndarray:
 
 def main(mice: list[str]) -> None:
     """Write the per-brain file of each of `mice`, with one printed line each."""
-    iso = set()
-    with open(CSV_MAP, newline="", encoding="utf-8") as fh:
-        for row in csv.DictReader(fh):
-            if (
-                row["parcellation_term_set_name"] == "division"
-                and row["parcellation_term_acronym"] == "Isocortex"
-            ):
-                iso.add(int(row["parcellation_index"]))
+    iso = isocortex_ids()
     os.makedirs(OUT, exist_ok=True)
     anns = {}
     for mouse in mice:

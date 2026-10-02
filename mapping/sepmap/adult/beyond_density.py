@@ -103,7 +103,7 @@ from scipy.stats import rankdata, spearmanr
 
 from sepmap.plotting import DARK_BLUE, RED, tidy
 from sepmap.volumes.cohort import NAIVE, RWS
-from sepmap.volumes.per_mouse import CSV_MAP, DATA, MICE, annotation_20
+from sepmap.volumes.per_mouse import DATA, MICE, annotation_20, structure_terms
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 
 NANO = os.path.join(
@@ -199,16 +199,6 @@ def gene_profiles(
     return per, role
 
 
-def structure_names() -> dict[int, str]:
-    """Structure name of each parcellation index, the key both tables use."""
-    names = {}
-    with open(CSV_MAP, newline="", encoding="utf-8") as fh:
-        for row in csv.DictReader(fh):
-            if row["parcellation_term_set_name"] == "structure":
-                names[int(row["parcellation_index"])] = row["parcellation_term_name"]
-    return names
-
-
 def autofluorescence(structures: set[str]) -> dict[str, dict[str, float]]:
     """{mouse: {structure: log2 mean autofluorescence}}, from the same ten brains.
 
@@ -217,7 +207,7 @@ def autofluorescence(structures: set[str]) -> dict[str, dict[str, float]]:
     nano signal was measured in, in the same sections, with no registration
     between the two.
     """
-    names = structure_names()
+    names, _, _ = structure_terms()
     per = {}
     for mouse in ADULTS:
         z = np.load(os.path.join(PER_MOUSE, mouse + ".npz"))

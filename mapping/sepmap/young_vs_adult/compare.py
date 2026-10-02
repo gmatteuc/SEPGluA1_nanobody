@@ -35,7 +35,8 @@ from sepmap.config import SETTINGS
 from sepmap.plotting import NO_DATA_GREY, hot_cut, save_figure, transparent_bad
 from sepmap.volumes.cohort import COHORTS, MODES, SIGNED_READINGS, Z_FLOOR
 from sepmap.volumes.cohort import OUT_ROOT as CCF_ROOT
-from sepmap.volumes.per_mouse import CSV_MAP, DATA
+from sepmap.volumes.per_mouse import DATA, isocortex_ids, structure_terms
+from sepmap.young_vs_adult.hemispheres import fold, fold_count
 
 OUT = os.path.join(DATA, "comparisons_v2", "young_vs_adult")
 
@@ -55,24 +56,6 @@ SMOOTH = 1.0
 # the sensitivity check
 YOUNG = "young"
 YOUNG_ALT = "young_P20"
-
-
-def fold(v: np.ndarray) -> np.ndarray:
-    """Average the two hemispheres of an (AP, DV, ML) volume, ignoring NaN.
-
-    The right half is mirrored onto the left; the result is (AP, DV, ML/2).
-    """
-    ml = v.shape[2]
-    h = ml // 2
-    left, right = v[:, :, :h], v[:, :, ml - h :][:, :, ::-1]
-    return np.nanmean(np.stack([left, right]), axis=0)
-
-
-def fold_count(n: np.ndarray) -> np.ndarray:
-    """Fold a count map as fold does, keeping the larger count of the two sides."""
-    ml = n.shape[2]
-    h = ml // 2
-    return np.maximum(n[:, :, :h], n[:, :, ml - h :][:, :, ::-1])
 
 
 def load_cohort(cohort: str) -> tuple[dict[str, np.ndarray], np.ndarray]:
@@ -112,14 +95,7 @@ def draw_figures(maps: dict[str, np.ndarray], out: str) -> None:
     puor = transparent_bad("PuOr_r")
 
     # isocortex voxels, for the colour range
-    iso_ids = set()
-    with open(CSV_MAP, newline="", encoding="utf-8") as fh:
-        for row in csv.DictReader(fh):
-            if (
-                row["parcellation_term_set_name"] == "division"
-                and row["parcellation_term_acronym"] == "Isocortex"
-            ):
-                iso_ids.add(int(row["parcellation_index"]))
+    iso_ids = isocortex_ids()
     isocortex = compared & np.isin(annotation_left, list(iso_ids))
 
     # six planes between the first and the last that half the maximum coverage reaches
@@ -325,15 +301,7 @@ def main() -> None:
     )
 
     # names, acronyms and divisions of the parcellation indices
-    names, acro, divi = {}, {}, {}
-    with open(CSV_MAP, newline="", encoding="utf-8") as fh:
-        for row in csv.DictReader(fh):
-            idx = int(row["parcellation_index"])
-            if row["parcellation_term_set_name"] == "structure":
-                names[idx] = row["parcellation_term_name"]
-                acro[idx] = row["parcellation_term_acronym"]
-            elif row["parcellation_term_set_name"] == "division":
-                divi[idx] = row["parcellation_term_acronym"]
+    names, acro, divi = structure_terms()
 
     # lookup from parcellation index to structure, one entry per structure name
     struct_of = np.zeros(int(annotation_left.max()) + 1, np.int64)

@@ -58,20 +58,20 @@ from collections.abc import Callable
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.ndimage import gaussian_filter
 
 from sepmap.plotting import GROUP_COLOURS, save_figure
 from sepmap.volumes.cohort import (
     MODES,
     NAIVE,
-    RATIO_CLIP,
+    NOT_SUBCORTEX,
     RWS,
     SIGNED_READINGS,
     YOUNG_P16,
     YOUNG_P20,
     YOUNG_P22,
+    per_unit,
 )
-from sepmap.volumes.per_mouse import CSV_MAP, DATA, MICE, annotation_20
+from sepmap.volumes.per_mouse import DATA, MICE, annotation_20, structure_terms
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 
 OUT = os.path.join(DATA, "comparisons_v2", "young_vs_adult")
@@ -118,20 +118,6 @@ AREAS = [
     "PVH",
     "ZI",
 ]
-
-# divisions left out of the subcortex reference (subref); "" is a structure without
-# a division
-NOT_SUBCORTEX = {
-    "Isocortex",
-    "HPF",
-    "STR",
-    "OLF",
-    "CTXsp",
-    "fiber tracts",
-    "VS",
-    "CB",
-    "",
-}
 
 # the readings and their panel titles
 READINGS = [
@@ -226,38 +212,6 @@ def welch(a: list[float], b: list[float]) -> float:
     return float(2 * tdist.sf(abs(t), df))
 
 
-def load_structure_terms() -> tuple[dict[int, str], dict[int, str], dict[int, str]]:
-    """Structure names and acronyms, and division acronyms, by parcellation index.
-
-    Read from the parcellation term membership table (CSV_MAP).
-    """
-    names, acro, divi = {}, {}, {}
-    with open(CSV_MAP, newline="", encoding="utf-8") as fh:
-        for row in csv.DictReader(fh):
-            idx = int(row["parcellation_index"])
-            if row["parcellation_term_set_name"] == "structure":
-                names[idx] = row["parcellation_term_name"]
-                acro[idx] = row["parcellation_term_acronym"]
-            elif row["parcellation_term_set_name"] == "division":
-                divi[idx] = row["parcellation_term_acronym"]
-    return names, acro, divi
-
-
-def per_unit(ref: np.ndarray, sig: np.ndarray, tissue: np.ndarray) -> np.ndarray:
-    """`sig` per unit of the channel `ref` within `tissue`, clipped to RATIO_CLIP.
-
-    Voxel by voxel; the denominator is smoothed by one 20 um voxel and
-    mask-normalised, as volumes.cohort does it, so a region mean here and a voxel
-    there mean the same thing.
-    """
-    ref_s = gaussian_filter(np.where(tissue, ref, 0), 1.0) / np.maximum(
-        gaussian_filter(tissue.astype(np.float32), 1.0), 1e-3
-    )
-    return np.clip(
-        np.where(ref_s > 0, sig / np.maximum(ref_s, 1e-3), 0), -RATIO_CLIP, RATIO_CLIP
-    )
-
-
 def structure_means(mice: list[str], names: dict[int, str]) -> dict[str, dict]:
     """Per mouse and structure: tissue voxels, and the mean of sig, ratio and sepratio.
 
@@ -284,9 +238,9 @@ def structure_means(mice: list[str], names: dict[int, str]) -> dict[str, dict]:
             )
 
         # sums per parcellation index of the voxels, sig and the two ratios
-        ratio = per_unit(auto, sig, tissue)
+        ratio = per_unit(sig, auto, tissue)
         if "sep" in z.files:
-            sepratio = per_unit(z["sep"].astype(np.float32), sig, tissue)
+            sepratio = per_unit(sig, z["sep"].astype(np.float32), tissue)
         else:
             sepratio = np.zeros_like(sig)
         lab = ann[tissue]
@@ -708,7 +662,7 @@ def plot_regions(
 def main() -> None:
     """Measure the region means per mouse, test young against adult, write and draw."""
     # structure names, acronyms and divisions of the ontology
-    names, acro, divi = load_structure_terms()
+    names, acro, divi = structure_terms()
 
     # per mouse: structure means, each brain on its own atlas
     mice = [m for g in GROUPS.values() for m in g]

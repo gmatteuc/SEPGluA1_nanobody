@@ -54,21 +54,17 @@ from sepmap.adult.beyond_density import (
     ADULTS,
     MARKERS,
     SUBUNITS,
-    autofluorescence,
     build_covariates,
     cv_r2,
     flexible,
-    gene_profiles,
     half_map,
-    keep_structure,
-    nano_per_mouse,
+    prepare,
     r_squared,
     residual,
-    structure_names,
 )
 from sepmap.adult.beyond_figures import FIGS, save
 from sepmap.plotting import DARK_GREY, MID_GREY, RED, tidy
-from sepmap.volumes.per_mouse import annotation_20
+from sepmap.volumes.per_mouse import annotation_20, structure_terms
 
 # coronal planes to draw, in 20 um planes of the cropped CCF grid (450 of them):
 # cortex with hippocampus beneath it and thalamus at the midline, where the residual
@@ -185,7 +181,7 @@ def panel_f(
     observed: np.ndarray, predicted: np.ndarray, res: np.ndarray, structures: list[str]
 ) -> None:
     """Draw panel F: observed, predicted and residual maps on the PLANES."""
-    names = structure_names()
+    names, _, _ = structure_terms()
 
     # (title, value per structure, colormap, symmetric limit or None for ranks)
     maps = [
@@ -263,13 +259,7 @@ def main() -> None:
     os.makedirs(FIGS, exist_ok=True)
 
     # the structures and the quoted model, as adult.beyond_density builds them
-    nano, division = nano_per_mouse()
-    expr, role = gene_profiles()
-    everywhere = set.intersection(*[set(nano[m]) for m in ADULTS])
-    everywhere &= set.intersection(*[set(expr[g]) for g in SUBUNITS + MARKERS])
-    kept = [s for s in sorted(everywhere) if keep_structure(s, division.get(s, ""))[0]]
-    auto = autofluorescence(set(kept))
-    structures = sorted(set(kept).intersection(*[set(auto[m]) for m in ADULTS]))
+    nano, _, expr, role, auto, structures = prepare()
 
     # the fit
     covariates, controls, _ = build_covariates(nano, expr, role, auto, structures)

@@ -43,9 +43,9 @@ import numpy as np
 from scipy.ndimage import binary_erosion
 
 from sepmap.config import DATA, SETTINGS
+from sepmap.volumes.per_mouse import structure_terms
 
 ISH_DIR = os.path.join(DATA, "atlas_ish")
-CSV_MAP = os.path.join(DATA, "atlas", "parcellation_to_parcellation_term_membership.csv")
 OUT = os.path.join(DATA, "adult_v2", "ish")
 
 # the panel passes of settings.toml ([ish_panels]): each names a panel and the
@@ -133,16 +133,6 @@ def annotation_200() -> np.ndarray:
     return ann[::20, ::20, ::20]
 
 
-def structure_names() -> dict[int, str]:
-    """Structure name of each parcellation index, the key the nano table uses."""
-    names = {}
-    with open(CSV_MAP, newline="", encoding="utf-8") as fh:
-        for row in csv.DictReader(fh):
-            if row["parcellation_term_set_name"] == "structure":
-                names[int(row["parcellation_index"])] = row["parcellation_term_name"]
-    return names
-
-
 def region_means(
     vol: np.ndarray, ann: np.ndarray, names: dict[int, str], eroded_ann: np.ndarray
 ) -> dict[str, tuple[float, float, int, int]]:
@@ -189,7 +179,7 @@ def main(only: list[str] | None = None, panel_name: str = DEFAULT_PANEL) -> None
     if only:
         want = {g.lower() for g in only}
         panel = [r for r in panel if r["symbol"].lower() in want]
-    names = structure_names()
+    names, _, _ = structure_terms()
     ann_full = annotation_200()
 
     # erode each structure by one voxel, once, and reuse it for every gene

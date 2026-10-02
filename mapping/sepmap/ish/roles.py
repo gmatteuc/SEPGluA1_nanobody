@@ -50,12 +50,12 @@ import numpy as np
 from scipy.stats import rankdata, spearmanr
 
 from sepmap.config import DATA
+from sepmap.ish.compare import gene_profiles
 from sepmap.plotting import DARK_BLUE, RED, tidy
 
 NANO = os.path.join(
     DATA, "comparisons_v2", "young_vs_adult", "region_means_per_mouse.csv"
 )
-GENES = os.path.join(DATA, "adult_v2", "ish", "gene_region_table.csv")
 OUT = os.path.join(DATA, "adult_v2", "ish")
 
 # the adult groups, pooled
@@ -64,9 +64,6 @@ ADULT_GROUPS = ("naive", "rws")
 # the reading the project has settled on, for the tests and the figure
 READING = "zref"
 ALL_READINGS = ("zref", "cref", "subref", "ratio", "sepratio")
-
-# 200 um voxels a structure's gene value needs
-MIN_ISH_VOXELS = 10
 
 # curated roles, from what the protein does, not from any correlation: subunit and
 # localisation carry the argument, presyn is the specificity control, the rest are
@@ -183,20 +180,6 @@ def adult_profile(reading: str) -> dict[str, float]:
             if r["group"] in ADULT_GROUPS and r["reading"] == reading:
                 per[r["structure"]].append(float(r["log2_value"]))
     return {s: float(np.mean(v)) for s, v in per.items()}
-
-
-def gene_profiles() -> tuple[dict[str, dict[str, float]], dict[str, str]]:
-    """{gene: {structure: expression}} and {gene: category}.
-
-    Only structures covered by at least MIN_ISH_VOXELS voxels of the gene's grid.
-    """
-    out, cat = defaultdict(dict), {}
-    with open(GENES, newline="", encoding="utf-8") as fh:
-        for r in csv.DictReader(fh):
-            if int(r["n_voxels"]) >= MIN_ISH_VOXELS:
-                out[r["symbol"]][r["structure"]] = float(r["ish_mean"])
-                cat[r["symbol"]] = r["category"]
-    return out, cat
 
 
 def role_of(gene: str, category: dict[str, str]) -> str:

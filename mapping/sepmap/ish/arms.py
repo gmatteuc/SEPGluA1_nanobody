@@ -48,10 +48,10 @@ import numpy as np
 from scipy.stats import rankdata, spearmanr, wilcoxon
 
 from sepmap.config import DATA
+from sepmap.ish.compare import gene_profiles
 from sepmap.plotting import DARK_BLUE, RED, tidy
 
 ARMS_CSV = os.path.join(DATA, "adult_v2", "arms", "region_means_arms.csv")
-GENES = os.path.join(DATA, "adult_v2", "ish", "gene_region_table.csv")
 OUT = os.path.join(DATA, "adult_v2", "arms")
 
 # the arms in the order of test 1, and their labels in the figure
@@ -64,9 +64,6 @@ LABEL = {
 
 # the gene that stands in for total receptor, partialled out in test 2
 CONTROL = "Gria1"
-
-# 200 um voxels a structure's gene value needs
-MIN_ISH_VOXELS = 10
 
 # structures a gene must share with the arms (and with the control gene)
 MIN_STRUCTURES = 50
@@ -83,20 +80,6 @@ def arm_profiles() -> dict[str, dict[str, float]]:
         for r in csv.DictReader(fh):
             per[r["arm"]][r["structure"]].append(float(r["log2_value"]))
     return {arm: {s: float(np.mean(v)) for s, v in d.items()} for arm, d in per.items()}
-
-
-def gene_profiles() -> tuple[dict[str, dict[str, float]], dict[str, str]]:
-    """{gene: {structure: expression}} and {gene: category}.
-
-    Only structures covered by at least MIN_ISH_VOXELS voxels of the gene's grid.
-    """
-    out, cat = defaultdict(dict), {}
-    with open(GENES, newline="", encoding="utf-8") as fh:
-        for r in csv.DictReader(fh):
-            if int(r["n_voxels"]) >= MIN_ISH_VOXELS:
-                out[r["symbol"]][r["structure"]] = float(r["ish_mean"])
-                cat[r["symbol"]] = r["category"]
-    return out, cat
 
 
 def partial_spearman(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> float:

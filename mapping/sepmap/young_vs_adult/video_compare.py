@@ -24,7 +24,6 @@ for one plane, into comparisons_v2/young_vs_adult/.
 Run by run_video_compare.py.
 """
 
-import csv
 import os
 import time
 
@@ -37,14 +36,9 @@ from sepmap.config import SETTINGS
 from sepmap.plotting import coronal_figure, coronal_frame, hot_cut, transparent_bad
 from sepmap.volumes.cohort import COHORTS, SIGNED_READINGS
 from sepmap.volumes.cohort import OUT_ROOT as CCF_ROOT
-from sepmap.volumes.per_mouse import CSV_MAP, DATA
-from sepmap.young_vs_adult.compare import (
-    MIN_N_ADULT,
-    MIN_N_YOUNG,
-    YOUNG,
-    fold,
-    fold_count,
-)
+from sepmap.volumes.per_mouse import DATA, structure_terms
+from sepmap.young_vs_adult.compare import MIN_N_ADULT, MIN_N_YOUNG, YOUNG
+from sepmap.young_vs_adult.hemispheres import fold, fold_count
 
 OUT = os.path.join(DATA, "comparisons_v2", "young_vs_adult")
 
@@ -70,11 +64,7 @@ def main(
     for this run.
     """
     # acronyms by parcellation index
-    acro = {}
-    with open(CSV_MAP, newline="", encoding="utf-8") as fh:
-        for row in csv.DictReader(fh):
-            if row["parcellation_term_set_name"] == "structure":
-                acro[int(row["parcellation_index"])] = row["parcellation_term_acronym"]
+    _, acro, _ = structure_terms()
 
     # hot up to 0.82 of its range, and red-blue for the comparison; masked voxels
     # transparent, so the grey or black ground shows

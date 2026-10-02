@@ -49,14 +49,13 @@ the data root.
 Run by run_cohort.py; its cohorts and readings are imported across the package.
 """
 
-import csv
 import os
 
 import numpy as np
 from scipy.ndimage import gaussian_filter
 
 from sepmap.config import SETTINGS
-from sepmap.volumes.per_mouse import CSV_MAP, DATA, MICE, annotation_20
+from sepmap.volumes.per_mouse import DATA, MICE, annotation_20, structure_terms
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 
 V2 = os.path.join(DATA, "comparisons_v2")
@@ -149,14 +148,7 @@ def mouse_scalars(mouse: str) -> dict[str, float]:
             return {k: float(z[k]) for k in z.files if k != "src_mtime"}
 
     # structure and division of each parcellation index
-    structure, division = {}, {}
-    with open(CSV_MAP, newline="", encoding="utf-8") as fh:
-        for r in csv.DictReader(fh):
-            i = int(r["parcellation_index"])
-            if r["parcellation_term_set_name"] == "structure":
-                structure[i] = r["parcellation_term_acronym"]
-            elif r["parcellation_term_set_name"] == "division":
-                division[i] = r["parcellation_term_acronym"]
+    _, structure, division = structure_terms()
 
     # voxel count and signal sum per label, over the tissue
     ann = annotation_20(MICE[mouse][1])
@@ -199,6 +191,33 @@ def mouse_scalars(mouse: str) -> dict[str, float]:
     return out
 
 
+def per_unit(
+    num: np.ndarray,
+    ref: np.ndarray,
+    tissue: np.ndarray,
+    fill: float = 0.0,
+    tissue_only: bool = False,
+) -> np.ndarray:
+    """`num` per unit of the reference channel `ref`, voxel by voxel.
+
+    The denominator is smoothed by one 20 um voxel first, so a single dark voxel
+    in the reference cannot blow the ratio up; the smoothing is normalised by
+    `tissue`, so tissue at the edge is not divided by the black outside it. The
+    ratio is clipped to +-RATIO_CLIP. Where the smoothed reference is not
+    positive it is `fill`, and with `tissue_only` off tissue too: the cohort
+    volumes take NaN there, the region tables (young_vs_adult.region_plot and
+    region_groups, adult.arms) 0.
+    """
+    ref_s = gaussian_filter(np.where(tissue, ref, 0), 1.0) / np.maximum(
+        gaussian_filter(tissue.astype(np.float32), 1.0), 1e-3
+    )
+    keep = ref_s > 0
+    if tissue_only:
+        keep = tissue & keep
+    r = np.where(keep, num / np.maximum(ref_s, 1e-3), fill)
+    return np.clip(r, -RATIO_CLIP, RATIO_CLIP)
+
+
 def mouse_modes(mouse: str) -> tuple[dict[str, np.ndarray], np.ndarray]:
     """The readings of one brain in the CCF, NaN off tissue, and its tissue mask.
 
@@ -220,21 +239,6 @@ def mouse_modes(mouse: str) -> tuple[dict[str, np.ndarray], np.ndarray]:
             "  or drop the reading with V2_READINGS."
         )
     scalars = mouse_scalars(mouse)
-
-    def per_unit(ref):
-        """Divide sig by a reference channel, voxel by voxel.
-
-        The denominator is smoothed by one 20 um voxel first, so a single dark
-        voxel in the reference cannot blow the ratio up; the smoothing is
-        normalised by the mask, so tissue at the edge is not divided by the
-        black outside it.
-        """
-        ref_s = gaussian_filter(np.where(tissue, ref, 0), 1.0) / np.maximum(
-            gaussian_filter(tissue.astype(np.float32), 1.0), 1e-3
-        )
-        r = np.where(tissue & (ref_s > 0), sig / np.maximum(ref_s, 1e-3), np.nan)
-        return np.clip(r, -RATIO_CLIP, RATIO_CLIP).astype(np.float32)
-
     cref = np.where(tissue, sig / scalars["cortex_mean"], np.nan)
     subref = np.where(tissue, sig / scalars["subcortex_mean"], np.nan)
     floored = np.maximum(sig / scalars["cortex_mean"], Z_FLOOR)
@@ -246,8 +250,12 @@ def mouse_modes(mouse: str) -> tuple[dict[str, np.ndarray], np.ndarray]:
 
     # each reading computed only when MODES asks for it
     out = {
-        "ratio": lambda: per_unit(auto),
-        "sepratio": lambda: per_unit(z["sep"].astype(np.float32)),
+        "ratio": lambda: per_unit(
+            sig, auto, tissue, fill=np.nan, tissue_only=True
+        ).astype(np.float32),
+        "sepratio": lambda: per_unit(
+            sig, z["sep"].astype(np.float32), tissue, fill=np.nan, tissue_only=True
+        ).astype(np.float32),
         "cref": lambda: cref.astype(np.float32),
         "subref": lambda: subref.astype(np.float32),
         "zref": lambda: zref.astype(np.float32),

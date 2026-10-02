@@ -44,7 +44,7 @@ from scipy.stats import spearmanr
 
 from sepmap.plotting import RED, tidy
 from sepmap.volumes.cohort import NAIVE, RWS
-from sepmap.volumes.per_mouse import CSV_MAP, DATA, MICE, annotation_20
+from sepmap.volumes.per_mouse import DATA, MICE, annotation_20, structure_terms
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 
 OUT = os.path.join(DATA, "adult_v2", "arms")
@@ -66,16 +66,6 @@ MIN_ISH_VOXELS = 10
 
 # the gene the channels are compared with
 CONTROL = "Gria1"
-
-
-def structure_names() -> dict[int, str]:
-    """Structure name of each parcellation index."""
-    names = {}
-    with open(CSV_MAP, newline="", encoding="utf-8") as fh:
-        for row in csv.DictReader(fh):
-            if row["parcellation_term_set_name"] == "structure":
-                names[int(row["parcellation_index"])] = row["parcellation_term_name"]
-    return names
 
 
 def mouse_channels(mouse: str, names: dict[int, str]) -> dict[str, dict[str, float]]:
@@ -131,7 +121,7 @@ def main() -> None:
     os.makedirs(OUT, exist_ok=True)
 
     # structure means of the three channels per adult
-    names = structure_names()
+    names, _, _ = structure_terms()
     per = {}
     for mouse in ADULTS:
         per[mouse] = mouse_channels(mouse, names)

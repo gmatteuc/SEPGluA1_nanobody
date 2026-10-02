@@ -39,7 +39,13 @@ import numpy as np
 from sepmap.plotting import DARK_GREY, RED, save_figure
 from sepmap.volumes.cohort import COHORTS, PER_MOUSE_CCF
 from sepmap.volumes.cohort import OUT_ROOT as CCF_ROOT
-from sepmap.volumes.per_mouse import CSV_MAP, DATA, MICE, annotation_20, atlas_grid
+from sepmap.volumes.per_mouse import (
+    DATA,
+    MICE,
+    annotation_20,
+    atlas_grid,
+    isocortex_ids,
+)
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 
 OUT = os.path.join(DATA, "comparisons_v2", "processing_diagnostics")
@@ -665,15 +671,7 @@ def main(named_mice: list[str]) -> None:
     os.makedirs(OUT, exist_ok=True)
 
     # the isocortex labels, and every atlas the brains are on
-    ISO = set()
-    with open(CSV_MAP, newline="", encoding="utf-8") as fh:
-        for row in csv.DictReader(fh):
-            if (
-                row["parcellation_term_set_name"] == "division"
-                and row["parcellation_term_acronym"] == "Isocortex"
-            ):
-                ISO.add(int(row["parcellation_index"]))
-    ISO = list(ISO)
+    ISO = list(isocortex_ids())
     ANN = {k: annotation_20(k) for k in {v[1] for v in MICE.values()}}
 
     # per-brain sheets; the warp sheet only for a young brain

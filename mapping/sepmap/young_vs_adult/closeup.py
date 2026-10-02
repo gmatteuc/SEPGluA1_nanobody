@@ -31,9 +31,9 @@ rainbow has no neutral middle to read zero against.
 
 The flatmaps need ccf_streamlines, which brings its own numpy and scikit-image, so
 this module runs in its own environment, tools\\venv_flat (made from
-tools\\requirements_flat.txt), and imports only config and plotting from the
-package. Its assets, about 0.6 GB, are fetched once into atlas_flatmap/ under the
-data root from the Allen Institute's ccf_streamlines_assets folder,
+tools\\requirements_flat.txt), and imports only config, plotting and hemispheres
+from the package. Its assets, about 0.6 GB, are fetched once into atlas_flatmap/
+under the data root from the Allen Institute's ccf_streamlines_assets folder,
     https://download.alleninstitute.org/informatics-archive/current-release/
     mouse_ccf/cortical_coordinates/ccf_2017/ccf_streamlines_assets/
 
@@ -71,6 +71,7 @@ from sepmap.plotting import (
     save_figure,
     transparent_bad,
 )
+from sepmap.young_vs_adult.hemispheres import fold, fold_count
 
 ASSETS = os.path.join(DATA, "atlas_flatmap")
 CCF_ROOT = os.path.join(DATA, "comparisons_v2", "ccf")
@@ -152,20 +153,6 @@ def cohort_size(cohort: str) -> int:
     """
     with open(os.path.join(CCF_ROOT, cohort, "mice.txt"), encoding="utf-8") as fh:
         return sum(1 for line in fh if line.strip())
-
-
-def fold(v: np.ndarray) -> np.ndarray:
-    """Average the two hemispheres of an (AP, DV, ML) volume, ignoring NaN."""
-    h = v.shape[2] // 2
-    return np.nanmean(
-        np.stack([v[:, :, :h], v[:, :, v.shape[2] - h :][:, :, ::-1]]), axis=0
-    )
-
-
-def fold_count(n: np.ndarray) -> np.ndarray:
-    """Fold a count map as fold does, keeping the larger count of the two sides."""
-    h = n.shape[2] // 2
-    return np.maximum(n[:, :, :h], n[:, :, n.shape[2] - h :][:, :, ::-1])
 
 
 def prepare(

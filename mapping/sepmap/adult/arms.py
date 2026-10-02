@@ -55,11 +55,10 @@ from collections import defaultdict
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.ndimage import gaussian_filter
 
 from sepmap.plotting import RED, tidy
-from sepmap.volumes.cohort import NAIVE, RATIO_CLIP, RWS
-from sepmap.volumes.per_mouse import CSV_MAP, DATA, MICE, annotation_20
+from sepmap.volumes.cohort import NAIVE, RWS, per_unit
+from sepmap.volumes.per_mouse import DATA, MICE, annotation_20, structure_terms
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 
 OUT = os.path.join(DATA, "adult_v2", "arms")
@@ -85,35 +84,6 @@ LABEL = {
 
 # the two arms young_vs_adult.region_plot also computes, and must agree on
 SHARED = {"ratio": "ratio", "sepratio": "sepratio"}
-
-
-def structure_meta() -> tuple[dict[int, str], dict[int, str], dict[int, str]]:
-    """Name, acronym and division acronym of each parcellation index, as three dicts."""
-    names, acro, divi = {}, {}, {}
-    with open(CSV_MAP, newline="", encoding="utf-8") as fh:
-        for row in csv.DictReader(fh):
-            idx = int(row["parcellation_index"])
-            if row["parcellation_term_set_name"] == "structure":
-                names[idx] = row["parcellation_term_name"]
-                acro[idx] = row["parcellation_term_acronym"]
-            elif row["parcellation_term_set_name"] == "division":
-                divi[idx] = row["parcellation_term_acronym"]
-    return names, acro, divi
-
-
-def per_unit(num: np.ndarray, ref: np.ndarray, tissue: np.ndarray) -> np.ndarray:
-    """Voxelwise `num` / `ref`, as volumes.cohort and young_vs_adult.region_plot do it.
-
-    The denominator is smoothed by one 20 um voxel so that a single dark voxel
-    cannot blow the ratio up, and the smoothing is normalised by the mask so
-    tissue at the edge is not divided by the black outside it. The ratio is
-    clipped to +-RATIO_CLIP.
-    """
-    ref_s = gaussian_filter(np.where(tissue, ref, 0), 1.0) / np.maximum(
-        gaussian_filter(tissue.astype(np.float32), 1.0), 1e-3
-    )
-    r = np.where(ref_s > 0, num / np.maximum(ref_s, 1e-3), 0)
-    return np.clip(r, -RATIO_CLIP, RATIO_CLIP)
 
 
 def mouse_table(
@@ -286,7 +256,7 @@ def figure(
 def main() -> None:
     """Write the arms table of the ten adults, check it, and draw the check."""
     os.makedirs(OUT, exist_ok=True)
-    names, acro, divi = structure_meta()
+    names, acro, divi = structure_terms()
     meta = {nm: (acro[idx], divi.get(idx, "")) for idx, nm in names.items()}
     group = {m: ("naive" if m in NAIVE else "rws") for m in ADULTS}
 

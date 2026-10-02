@@ -22,7 +22,6 @@ Writes comparisons_v2/ccf/<cohort>/video_<reading>_<cohort>.mp4.
 Run by run_video.py.
 """
 
-import csv
 import os
 import time
 
@@ -35,7 +34,8 @@ from sepmap.config import SETTINGS
 from sepmap.plotting import coronal_frame, hot_cut, transparent_bad
 from sepmap.volumes.cohort import COHORTS, MODES, SIGNED_READINGS
 from sepmap.volumes.cohort import OUT_ROOT as CCF_ROOT
-from sepmap.volumes.per_mouse import CSV_MAP, DATA
+from sepmap.volumes.per_mouse import DATA, structure_terms
+from sepmap.young_vs_adult.hemispheres import fold, fold_count
 
 # colour range of the mean per reading, set so that cortex sits near half of it: cref
 # is 1 by construction, adult cortex is 1.01 in ratio and 0.29 in sepratio; the
@@ -52,20 +52,6 @@ MIN_N = {"young": 2, "young_P20": 2, "young_P16": 1, "naive": 3, "rws": 3, "adul
 FPS = SETTINGS["videos"]["fps"]
 
 
-def fold(v: np.ndarray) -> np.ndarray:
-    """Average the two hemispheres of an (AP, DV, ML) volume, ignoring NaN."""
-    h = v.shape[2] // 2
-    return np.nanmean(
-        np.stack([v[:, :, :h], v[:, :, v.shape[2] - h :][:, :, ::-1]]), axis=0
-    )
-
-
-def fold_count(n: np.ndarray) -> np.ndarray:
-    """Fold a count map as fold does, keeping the larger count of the two sides."""
-    h = n.shape[2] // 2
-    return np.maximum(n[:, :, :h], n[:, :, n.shape[2] - h :][:, :, ::-1])
-
-
 def annotation_ccf20() -> np.ndarray:
     """The full CCF annotation at 20 um, the grid the cohort volumes live on."""
     return np.asarray(
@@ -76,11 +62,7 @@ def annotation_ccf20() -> np.ndarray:
 def main(cohorts: list[str]) -> None:
     """Write the videos of each of `cohorts`, one per reading in force."""
     # acronyms by parcellation index
-    acro = {}
-    with open(CSV_MAP, newline="", encoding="utf-8") as fh:
-        for row in csv.DictReader(fh):
-            if row["parcellation_term_set_name"] == "structure":
-                acro[int(row["parcellation_index"])] = row["parcellation_term_acronym"]
+    _, acro, _ = structure_terms()
 
     # hot up to 0.82 of its range, and purple-orange for zref, a position rather than
     # an intensity; masked voxels transparent, so the grey or black ground shows

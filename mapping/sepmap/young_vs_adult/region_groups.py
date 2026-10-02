@@ -41,21 +41,21 @@ from collections import defaultdict
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.ndimage import gaussian_filter
 
 from sepmap.plotting import GROUP_COLOURS, save_figure
 from sepmap.volumes.cohort import (
     NAIVE,
-    RATIO_CLIP,
     RWS,
     SIGNED_READINGS,
-    YOUNG_P16,
     YOUNG_P20,
-    YOUNG_P22,
+    per_unit,
 )
 from sepmap.volumes.per_mouse import CSV_MAP, DATA, MICE, annotation_20
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 from sepmap.young_vs_adult.region_plot import (
+    ADULTS,
+    GROUPS,
+    LABEL,
     NOT_SUBCORTEX,
     READINGS,
     bh_fdr,
@@ -64,18 +64,6 @@ from sepmap.young_vs_adult.region_plot import (
 )
 
 OUT = os.path.join(DATA, "comparisons_v2", "young_vs_adult")
-
-# the groups, as in region_plot: every young brain (P16, P20, P22) against the
-# adults, naive and rws
-GROUPS = {"young": YOUNG_P20 + YOUNG_P16 + YOUNG_P22, "naive": NAIVE, "rws": RWS}
-ADULTS = NAIVE + RWS
-
-# legend labels, with the counts computed from the lists
-LABEL = {
-    "young": f"young P16-P22 (n = {len(YOUNG_P20) + len(YOUNG_P16) + len(YOUNG_P22)})",
-    "naive": f"adult naive (n = {len(NAIVE)})",
-    "rws": f"adult rws (n = {len(RWS)})",
-}
 
 # cortical systems, primary apart from higher order: a thalamorecipient primary area
 # and its higher-order neighbours mature on different schedules, which the
@@ -191,20 +179,6 @@ def define_groups(
     return groups
 
 
-def per_unit(ref: np.ndarray, sig: np.ndarray, tissue: np.ndarray) -> np.ndarray:
-    """`sig` per unit of the channel `ref` within `tissue`, clipped to RATIO_CLIP.
-
-    Voxel by voxel; the denominator is smoothed by one 20 um voxel and
-    mask-normalised, as in volumes.cohort and young_vs_adult.region_plot.
-    """
-    ref_s = gaussian_filter(np.where(tissue, ref, 0), 1.0) / np.maximum(
-        gaussian_filter(tissue.astype(np.float32), 1.0), 1e-3
-    )
-    return np.clip(
-        np.where(ref_s > 0, sig / np.maximum(ref_s, 1e-3), 0), -RATIO_CLIP, RATIO_CLIP
-    )
-
-
 def group_means(
     mice: list[str],
     groups: dict[tuple[str, str], set[int]],
@@ -236,9 +210,9 @@ def group_means(
             )
 
         # sums per parcellation index of the voxels, sig and the two ratios
-        ratio = per_unit(auto, sig, tissue)
+        ratio = per_unit(sig, auto, tissue)
         if "sep" in z.files:
-            sepratio = per_unit(z["sep"].astype(np.float32), sig, tissue)
+            sepratio = per_unit(sig, z["sep"].astype(np.float32), tissue)
         else:
             sepratio = np.zeros_like(sig)
         lab = ann[tissue]

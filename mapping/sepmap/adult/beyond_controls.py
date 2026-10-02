@@ -48,29 +48,23 @@ from scipy.stats import rankdata, spearmanr
 
 from sepmap.adult.beyond_density import (
     ADULTS,
-    MARKERS,
     NAIVE,
     NANO,
     OUT,
     RWS,
-    SUBUNITS,
-    autofluorescence,
     build_covariates,
     cv_r2,
     flexible,
-    gene_profiles,
     half_map,
     half_splits,
-    keep_structure,
-    nano_per_mouse,
+    prepare,
     r_squared,
     residual,
     save,
     spearman_brown,
-    structure_names,
 )
 from sepmap.plotting import RED, tidy
-from sepmap.volumes.per_mouse import annotation_20
+from sepmap.volumes.per_mouse import annotation_20, structure_terms
 
 # folds of the cross-validated controls E and F (not passed on: cv_r2 uses its own
 # default, also 5)
@@ -94,7 +88,7 @@ def centroids(structures: list[str]) -> dict[str, np.ndarray] | None:
     it is how much a smooth function of position can explain. A structure not in
     the atlas gets NaN; None comes back when none of them is.
     """
-    names = structure_names()
+    names, _, _ = structure_terms()
     annotation = annotation_20("ccf")
     coords = {}
 
@@ -630,13 +624,7 @@ def figure_readings(rows: list[tuple[str, float, float, float]]) -> None:
 def main() -> None:
     """Run the seven controls, write their verdicts and draw them."""
     # the structures and the quoted model, as adult.beyond_density builds them
-    nano, division = nano_per_mouse()
-    expr, role = gene_profiles()
-    everywhere = set.intersection(*[set(nano[m]) for m in ADULTS])
-    everywhere &= set.intersection(*[set(expr[g]) for g in SUBUNITS + MARKERS])
-    kept = [s for s in sorted(everywhere) if keep_structure(s, division.get(s, ""))[0]]
-    auto = autofluorescence(set(kept))
-    structures = sorted(set(kept).intersection(*[set(auto[m]) for m in ADULTS]))
+    nano, _, expr, role, auto, structures = prepare()
 
     covariates, _, _ = build_covariates(nano, expr, role, auto, structures)
     splits = half_splits()
