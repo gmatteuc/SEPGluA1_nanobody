@@ -142,7 +142,7 @@ LAYERS = [
 ]
 
 
-def save_figure(fig, path):
+def save_figure(fig: plt.Figure, path: str) -> None:
     """Save `fig` as a PNG at `path` and as an EPS beside it.
 
     Windows refuses to overwrite a PNG that an image viewer holds open. The
@@ -182,13 +182,13 @@ def save_figure(fig, path):
         )
 
 
-def layer_of(substructure_name):
+def layer_of(substructure_name: str) -> str | None:
     """'Primary visual area, layer 2/3' -> '2/3'; anything without a layer -> None."""
     m = re.search(r"layer\s*([0-9]+(?:/[0-9]+)?[ab]?)", substructure_name, re.I)
     return m.group(1) if m else None
 
 
-def load_parcellation_terms():
+def load_parcellation_terms() -> tuple[dict[int, str], dict[int, str], dict[int, str]]:
     """Structure and division acronyms and substructure names, by parcellation index.
 
     Read from the parcellation term membership table (CSV_MAP).
@@ -206,7 +206,9 @@ def load_parcellation_terms():
     return stru, divi, sub
 
 
-def define_groups(stru, divi, layer):
+def define_groups(
+    stru: dict[int, str], divi: dict[int, str], layer: dict[int, str | None]
+) -> dict[tuple[str, str], set[int]]:
     """The systems, the subcortical divisions and the layers within LAMINAR_SYSTEMS.
 
     Each group is a set of parcellation indices, keyed by (grouping, name); groups
@@ -232,7 +234,7 @@ def define_groups(stru, divi, layer):
     return groups
 
 
-def per_unit(ref, sig, tissue):
+def per_unit(ref: np.ndarray, sig: np.ndarray, tissue: np.ndarray) -> np.ndarray:
     """`sig` per unit of the channel `ref` within `tissue`, clipped to RATIO_CLIP.
 
     Voxel by voxel; the denominator is smoothed by one 20 um voxel and
@@ -246,7 +248,12 @@ def per_unit(ref, sig, tissue):
     )
 
 
-def group_means(mice, groups, stru, divi):
+def group_means(
+    mice: list[str],
+    groups: dict[tuple[str, str], set[int]],
+    stru: dict[int, str],
+    divi: dict[int, str],
+) -> tuple[dict[str, dict], dict[str, dict[str, float]], dict[str, dict[str, float]]]:
     """Per mouse: the group means, the two references and the structure means of sig.
 
     Returns (per, refs, struct_mean). A group's cell is (voxels, mean sig, mean
@@ -325,7 +332,11 @@ def group_means(mice, groups, stru, divi):
     return per, refs, struct_mean
 
 
-def range_match(mice, struct_mean, refs):
+def range_match(
+    mice: list[str],
+    struct_mean: dict[str, dict[str, float]],
+    refs: dict[str, dict[str, float]],
+) -> dict[str, tuple[float, float]]:
     """Per mouse the median and p90-p10 spread of log2 cortex-relative structure means.
 
     Taken over the structures every brain has, so the spread does not depend on
@@ -346,7 +357,14 @@ def range_match(mice, struct_mean, refs):
     return norm
 
 
-def value(reading, mouse, key, per, norm, refs):
+def value(
+    reading: str,
+    mouse: str,
+    key: tuple[str, str],
+    per: dict[str, dict],
+    norm: dict[str, tuple[float, float]],
+    refs: dict[str, dict[str, float]],
+) -> float | None:
     """Value of `reading` for `mouse` in group `key` (log2 or range-matched), or None."""
     cell = per[mouse].get(key)
     if cell is None:
@@ -367,7 +385,13 @@ def value(reading, mouse, key, per, norm, refs):
     return math.log2(v) if v > 0 else None
 
 
-def group_stats(groups, mice, per, norm, refs):
+def group_stats(
+    groups: dict[tuple[str, str], set[int]],
+    mice: list[str],
+    per: dict[str, dict],
+    norm: dict[str, tuple[float, float]],
+    refs: dict[str, dict[str, float]],
+) -> list[dict]:
     """Per group and reading the young-against-adult tests, as rows of group_stats.csv.
 
     A group is tested when at least 3 young and 5 adult brains have a value. The
@@ -425,7 +449,7 @@ def group_stats(groups, mice, per, norm, refs):
     return rows
 
 
-def write_group_stats(rows):
+def write_group_stats(rows: list[dict]) -> None:
     """Write group_stats.csv into OUT, floats to four decimals."""
     with open(
         os.path.join(OUT, "group_stats.csv"), "w", newline="", encoding="utf-8"
@@ -438,7 +462,11 @@ def write_group_stats(rows):
             )
 
 
-def print_group_table(groups, rows, star):
+def print_group_table(
+    groups: dict[tuple[str, str], set[int]],
+    rows: list[dict],
+    star: dict[tuple[str, str, str], str],
+) -> None:
     """Print the median log2 young - adult of every group and reading, with its stars."""
     print(
         f"\n{'group':22s} "
@@ -469,7 +497,16 @@ def print_group_table(groups, rows, star):
             print(f"  {key[1]:22s} " + " ".join(cells))
 
 
-def dotplot(keys, labels, fname, title, star, per, norm, refs):
+def dotplot(
+    keys: list[tuple[str, str]],
+    labels: list[str],
+    fname: str,
+    title: str,
+    star: dict[tuple[str, str, str], str],
+    per: dict[str, dict],
+    norm: dict[str, tuple[float, float]],
+    refs: dict[str, dict[str, float]],
+) -> None:
     """Dot plot of the groups `keys` into OUT/`fname`, a panel per reading."""
     fig, axes = plt.subplots(
         len(READINGS),
@@ -554,7 +591,13 @@ def dotplot(keys, labels, fname, title, star, per, norm, refs):
     plt.close(fig)
 
 
-def plot_groups(groups, star, per, norm, refs):
+def plot_groups(
+    groups: dict[tuple[str, str], set[int]],
+    star: dict[tuple[str, str, str], str],
+    per: dict[str, dict],
+    norm: dict[str, tuple[float, float]],
+    refs: dict[str, dict[str, float]],
+) -> None:
     """Draw group_plot.png (the systems) and laminar_plot.png (the layers)."""
     sys_keys = [k for k in groups if k[0] == "system"]
     dotplot(
@@ -594,7 +637,7 @@ def plot_groups(groups, star, per, norm, refs):
     )
 
 
-def main():
+def main() -> None:
     """Group means per mouse, young-against-adult tests, group_stats.csv, both plots."""
     # index -> (structure acronym, division acronym, layer or None)
     stru, divi, sub = load_parcellation_terms()

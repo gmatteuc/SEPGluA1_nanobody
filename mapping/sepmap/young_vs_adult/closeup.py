@@ -62,7 +62,8 @@ import numpy as np
 matplotlib.use("Agg")
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.colors import Colormap, LinearSegmentedColormap
+from matplotlib.image import AxesImage
 from scipy.ndimage import center_of_mass, gaussian_filter
 
 from sepmap.config import DATA, SETTINGS
@@ -142,7 +143,7 @@ BANDS = [
 ]
 
 
-def save_figure(fig, path, dpi):
+def save_figure(fig: plt.Figure, path: str, dpi: int) -> None:
     """Save `fig` as a PNG at `path` on black, and as an EPS beside it.
 
     Windows refuses to overwrite a PNG that an image viewer holds open, and these
@@ -181,7 +182,7 @@ def save_figure(fig, path, dpi):
         )
 
 
-def cohort_size(cohort):
+def cohort_size(cohort: str) -> int:
     """Number of brains in `cohort`, counted in the mice list volumes.cohort wrote.
 
     Counted rather than typed, so a caption cannot go stale when a brain is added.
@@ -190,7 +191,7 @@ def cohort_size(cohort):
         return sum(1 for line in fh if line.strip())
 
 
-def fold(v):
+def fold(v: np.ndarray) -> np.ndarray:
     """Average the two hemispheres of an (AP, DV, ML) volume, ignoring NaN."""
     h = v.shape[2] // 2
     return np.nanmean(
@@ -198,13 +199,15 @@ def fold(v):
     )
 
 
-def fold_count(n):
+def fold_count(n: np.ndarray) -> np.ndarray:
     """Fold a count map as fold does, keeping the larger count of the two sides."""
     h = n.shape[2] // 2
     return np.maximum(n[:, :, :h], n[:, :, n.shape[2] - h :][:, :, ::-1])
 
 
-def prepare(reading, sigma):
+def prepare(
+    reading: str, sigma: float | list[float]
+) -> dict[str, tuple[np.ndarray, np.ndarray]]:
     """Value and mask of each cohort for `reading`, hemispheres folded, at 20 um.
 
     Returns {cohort: (value, mask)}, the one source of all four figures. The mask
@@ -228,7 +231,9 @@ def prepare(reading, sigma):
     return out
 
 
-def difference(vals, signed):
+def difference(
+    vals: dict[str, tuple[np.ndarray, np.ndarray]], signed: bool
+) -> tuple[np.ndarray, np.ndarray]:
     """Young against adult where both cohorts have a value (NaN elsewhere), and that mask.
 
     A signed reading is compared by difference, the others by log2 ratio, each value
@@ -243,7 +248,7 @@ def difference(vals, signed):
     return np.where(both, d, np.nan), both
 
 
-def shown(value, mask):
+def shown(value: np.ndarray, mask: np.ndarray) -> np.ndarray:
     """`value` where `mask` is set, NaN elsewhere."""
     return np.where(mask > 0, value, np.nan)
 
@@ -251,7 +256,7 @@ def shown(value, mask):
 # ===== Coronal plane and video =====
 
 
-def annotation_half():
+def annotation_half() -> np.ndarray:
     """The CCF annotation at 20 um, the half that the folded volumes cover."""
     ann = np.asarray(
         nib.load(os.path.join(DATA, "atlas", "annotation_10.nii.gz")).dataobj
@@ -259,7 +264,7 @@ def annotation_half():
     return ann[:, :, : ann.shape[2] // 2]
 
 
-def boundaries(lab):
+def boundaries(lab: np.ndarray) -> np.ndarray:
     """Pixels of the label image `lab` that border another label, inside the atlas."""
     b = np.zeros(lab.shape, bool)
     b[1:, :] |= lab[1:, :] != lab[:-1, :]
@@ -267,7 +272,17 @@ def boundaries(lab):
     return b & (lab > 0)
 
 
-def coronal_frame(fig, axes, caxes, k, panels, ann_h, acro, header, vector_outline=False):
+def coronal_frame(
+    fig: plt.Figure,
+    axes: list[plt.Axes],
+    caxes: list[plt.Axes],
+    k: int,
+    panels: tuple,
+    ann_h: np.ndarray,
+    acro: dict[int, str],
+    header: str,
+    vector_outline: bool = False,
+) -> None:
     """Draw plane `k` into the three panels of `fig`, and the header above them.
 
     `panels` holds (image, colormap, limits, title) per panel. The atlas is dark
@@ -338,19 +353,19 @@ def coronal_frame(fig, axes, caxes, k, panels, ann_h, acro, header, vector_outli
 
 
 def coronal(
-    reading,
-    vals,
-    diff,
-    both,
-    plane,
-    lim_mean,
-    cmaps,
-    sigma_txt,
-    want_video,
-    n,
-    signed,
-    out_dir,
-):
+    reading: str,
+    vals: dict[str, tuple[np.ndarray, np.ndarray]],
+    diff: np.ndarray,
+    both: np.ndarray,
+    plane: int,
+    lim_mean: tuple[tuple[float, float], tuple[float, float]],
+    cmaps: tuple[Colormap, Colormap],
+    sigma_txt: str,
+    want_video: bool,
+    n: dict[str, int],
+    signed: bool,
+    out_dir: str,
+) -> None:
     """Draw the still at CCF `plane` and, with `want_video`, the video of every plane.
 
     Young, adult and their difference side by side. `lim_mean` holds the limits of
@@ -437,7 +452,7 @@ def coronal(
 # ===== Flatmaps =====
 
 
-def layer_thicknesses():
+def layer_thicknesses() -> dict[str, float]:
     """Thickness of each cortical layer in um, from the Allen's average depths.
 
     The file gives the depth of each layer's lower border below the pia, so the
@@ -459,7 +474,7 @@ def layer_thicknesses():
     return thick
 
 
-def band_edges(p3, slab_depth):
+def band_edges(p3, slab_depth: int) -> dict[str, tuple[int, int]]:
     """First and last depth bin of each layer, as the projector built them.
 
     The edges come from the projector, never recomputed: the slab has one bin per
@@ -481,7 +496,15 @@ def band_edges(p3, slab_depth):
     return edges
 
 
-def draw_flat(ax, img, cmap, lim, title, border_sets, label_xy):
+def draw_flat(
+    ax: plt.Axes,
+    img: np.ndarray,
+    cmap: Colormap,
+    lim: tuple[float, float],
+    title: str,
+    border_sets: tuple[dict[str, np.ndarray], ...],
+    label_xy: dict[str, np.ndarray],
+) -> AxesImage:
     """Draw one flatmap panel with the area borders and labels; returns the image.
 
     `border_sets` holds the borders of each hemisphere separately: the two carry
@@ -529,7 +552,16 @@ def draw_flat(ax, img, cmap, lim, title, border_sets, label_xy):
     return h
 
 
-def flatmaps(reading, vals, signed, lim_mean, cmaps, sigma_txt, n, out_dir):
+def flatmaps(
+    reading: str,
+    vals: dict[str, tuple[np.ndarray, np.ndarray]],
+    signed: bool,
+    lim_mean: tuple[tuple[float, float], tuple[float, float]],
+    cmaps: tuple[Colormap, Colormap],
+    sigma_txt: str,
+    n: dict[str, int],
+    out_dir: str,
+) -> None:
     """Draw the flatmaps of `reading`: through the full depth, and by depth band.
 
     Each cohort's folded volumes are mirrored back to both hemispheres at 10 um and
@@ -676,7 +708,16 @@ def flatmaps(reading, vals, signed, lim_mean, cmaps, sigma_txt, n, out_dir):
     )
 
 
-def main(readings, plane, vmax, dlim, sigma, want_video, want_flatmap, cmap_name=None):
+def main(
+    readings: list[str],
+    plane: int,
+    vmax: float | None,
+    dlim: float | None,
+    sigma: float | list[float],
+    want_video: bool,
+    want_flatmap: bool,
+    cmap_name: str | None = None,
+) -> None:
     """Draw the close-up views of each of `readings`.
 
     `vmax` and `dlim` replace VMAX and DLIM when given; `sigma` is one sigma or

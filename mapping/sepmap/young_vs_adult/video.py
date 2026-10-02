@@ -58,7 +58,7 @@ FPS = SETTINGS["videos"]["fps"]
 MIN_LABEL_AREA = SETTINGS["videos"]["min_label_area"]
 
 
-def fold(v):
+def fold(v: np.ndarray) -> np.ndarray:
     """Average the two hemispheres of an (AP, DV, ML) volume, ignoring NaN."""
     h = v.shape[2] // 2
     return np.nanmean(
@@ -66,13 +66,13 @@ def fold(v):
     )
 
 
-def fold_count(n):
+def fold_count(n: np.ndarray) -> np.ndarray:
     """Fold a count map as fold does, keeping the larger count of the two sides."""
     h = n.shape[2] // 2
     return np.maximum(n[:, :, :h], n[:, :, n.shape[2] - h :][:, :, ::-1])
 
 
-def boundaries(lab):
+def boundaries(lab: np.ndarray) -> np.ndarray:
     """Pixels of the label image `lab` that border another label, inside the atlas."""
     b = np.zeros(lab.shape, bool)
     b[1:, :] |= lab[1:, :] != lab[:-1, :]
@@ -80,14 +80,14 @@ def boundaries(lab):
     return b & (lab > 0)
 
 
-def annotation_ccf20():
+def annotation_ccf20() -> np.ndarray:
     """The full CCF annotation at 20 um, the grid the cohort volumes live on."""
     return np.asarray(
         nib.load(os.path.join(DATA, "atlas", "annotation_10.nii.gz")).dataobj
     )[::2, ::2, ::2]
 
 
-def main(cohorts):
+def main(cohorts: list[str]) -> None:
     """Write the videos of each of `cohorts`, one per reading in force."""
     # acronyms by parcellation index
     acro = {}

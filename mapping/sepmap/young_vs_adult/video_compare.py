@@ -64,7 +64,7 @@ FPS = SETTINGS["videos"]["fps"]
 MIN_LABEL_AREA = SETTINGS["videos"]["min_label_area"]
 
 
-def boundaries(lab):
+def boundaries(lab: np.ndarray) -> np.ndarray:
     """Pixels of the label image `lab` that border another label, inside the atlas."""
     b = np.zeros(lab.shape, bool)
     b[1:, :] |= lab[1:, :] != lab[:-1, :]
@@ -72,7 +72,12 @@ def boundaries(lab):
     return b & (lab > 0)
 
 
-def main(readings, plane=None, vmax=None, dlim=None):
+def main(
+    readings: list[str],
+    plane: int | None = None,
+    vmax: float | None = None,
+    dlim: float | None = None,
+) -> None:
     """Young beside adult for each of `readings`: a video, or a still of CCF `plane`.
 
     `plane` is numbered at 10 um; `vmax` and `dlim` replace MEAN_VMAX and LOG2_LIM

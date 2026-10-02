@@ -14,7 +14,7 @@ import numpy as np
 from sepmap.young_vs_adult.compare import OUT, draw_figures
 
 
-def main():
+def main() -> None:
     """Redraw the slice figures from the volumes young_vs_adult.compare saved."""
     z = np.load(os.path.join(OUT, "volumes_ccf20.npz"))
     draw_figures({k: z[k] for k in z.files}, OUT)

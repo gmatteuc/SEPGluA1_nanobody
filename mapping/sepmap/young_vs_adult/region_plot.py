@@ -54,6 +54,7 @@ import csv
 import math
 import os
 from collections import defaultdict
+from collections.abc import Callable
 
 import matplotlib
 import numpy as np
@@ -175,7 +176,7 @@ LABEL = {
 }
 
 
-def save_figure(fig, path):
+def save_figure(fig: plt.Figure, path: str) -> None:
     """Save `fig` as a PNG at `path` and as an EPS beside it.
 
     Windows refuses to overwrite a PNG that an image viewer holds open. The
@@ -215,7 +216,7 @@ def save_figure(fig, path):
         )
 
 
-def bh_fdr(p):
+def bh_fdr(p: list[float] | np.ndarray) -> np.ndarray:
     """Benjamini-Hochberg q-values for one family of tests; NaN where p is NaN.
 
     A few hundred structures are tested per reading, so a handful of p < 0.05
@@ -239,7 +240,7 @@ def bh_fdr(p):
     return q
 
 
-def mannwhitney(a, b):
+def mannwhitney(a: list[float], b: list[float]) -> float:
     """Two-sided rank-sum p for two independent samples, or NaN if too small."""
     if len(a) < 2 or len(b) < 2:
         return float("nan")
@@ -248,7 +249,7 @@ def mannwhitney(a, b):
     return float(mannwhitneyu(a, b, alternative="two-sided").pvalue)
 
 
-def welch(a, b):
+def welch(a: list[float], b: list[float]) -> float:
     """Two-sided Welch t-test p for two independent samples.
 
     NaN when a sample has fewer than two values or neither varies.
@@ -268,7 +269,7 @@ def welch(a, b):
     return float(2 * tdist.sf(abs(t), df))
 
 
-def load_structure_terms():
+def load_structure_terms() -> tuple[dict[int, str], dict[int, str], dict[int, str]]:
     """Structure names and acronyms, and division acronyms, by parcellation index.
 
     Read from the parcellation term membership table (CSV_MAP).
@@ -285,7 +286,7 @@ def load_structure_terms():
     return names, acro, divi
 
 
-def per_unit(ref, sig, tissue):
+def per_unit(ref: np.ndarray, sig: np.ndarray, tissue: np.ndarray) -> np.ndarray:
     """`sig` per unit of the channel `ref` within `tissue`, clipped to RATIO_CLIP.
 
     Voxel by voxel; the denominator is smoothed by one 20 um voxel and
@@ -300,7 +301,7 @@ def per_unit(ref, sig, tissue):
     )
 
 
-def structure_means(mice, names):
+def structure_means(mice: list[str], names: dict[int, str]) -> dict[str, dict]:
     """Per mouse and structure: tissue voxels, and the mean of sig, ratio and sepratio.
 
     Each brain on its own atlas; structures under MIN_VOX voxels are left out. The
@@ -357,7 +358,12 @@ def structure_means(mice, names):
     return per
 
 
-def ref(m, pred, per, meta):
+def ref(
+    m: str,
+    pred: Callable[[str], bool],
+    per: dict[str, dict],
+    meta: dict[str, tuple[str, str]],
+) -> float:
     """Voxel-weighted mean sig of mouse `m` over structures whose division passes `pred`.
 
     NaN when no structure does.
@@ -370,7 +376,9 @@ def ref(m, pred, per, meta):
     return s / c if c else float("nan")
 
 
-def brain_references(mice, per, meta):
+def brain_references(
+    mice: list[str], per: dict[str, dict], meta: dict[str, tuple[str, str]]
+) -> dict[str, dict[str, float]]:
     """Per mouse the two one-number references: mean sig of isocortex and subcortex."""
     # one number per brain, so every reading is a pure scale and region ratios within
     # a brain survive it exactly; only the question asked changes (module docstring)
@@ -384,7 +392,9 @@ def brain_references(mice, per, meta):
     return refs
 
 
-def range_match(mice, per, refs):
+def range_match(
+    mice: list[str], per: dict[str, dict], refs: dict[str, dict[str, float]]
+) -> dict[str, tuple[float, float]]:
     """Per mouse the median and the p90-p10 spread of log2 cortex-relative sig.
 
     Taken over the structures every brain has, and printed.
@@ -412,7 +422,14 @@ def range_match(mice, per, refs):
     return norm
 
 
-def value(reading, m, k, per, norm, refs):
+def value(
+    reading: str,
+    m: str,
+    k: str | None,
+    per: dict[str, dict],
+    norm: dict[str, tuple[float, float]],
+    refs: dict[str, dict[str, float]],
+) -> float | None:
     """Value of `reading` for mouse `m` in structure `k`, or None.
 
     log2 for every reading but the signed ones, which are range-matched. None when
@@ -436,7 +453,14 @@ def value(reading, m, k, per, norm, refs):
     return math.log2(v) if v > 0 else None
 
 
-def region_rows(mice, meta, group_of, per, norm, refs):
+def region_rows(
+    mice: list[str],
+    meta: dict[str, tuple[str, str]],
+    group_of: dict[str, str],
+    per: dict[str, dict],
+    norm: dict[str, tuple[float, float]],
+    refs: dict[str, dict[str, float]],
+) -> tuple[list[tuple], list[tuple]]:
     """The per-mouse rows, and per structure and reading the young-against-adult tests.
 
     A structure is tested when at least 2 young and 4 adult brains have a value.
@@ -509,7 +533,7 @@ def region_rows(mice, meta, group_of, per, norm, refs):
     return rows_pm, rows_st
 
 
-def write_tables(rows_pm, rows_st):
+def write_tables(rows_pm: list[tuple], rows_st: list[tuple]) -> None:
     """Write region_means_per_mouse.csv and region_stats.csv into OUT."""
     with open(
         os.path.join(OUT, "region_means_per_mouse.csv"), "w", newline="", encoding="utf-8"
@@ -558,7 +582,7 @@ def write_tables(rows_pm, rows_st):
         w.writerows([r[:6] + tuple(f"{x:.4f}" for x in r[6:]) for r in rows_st])
 
 
-def print_cortex_table(rows_st):
+def print_cortex_table(rows_st: list[tuple]) -> None:
     """Print log2(young / adult) of each area in AREAS and reading, with its stars."""
     st = {(r[0], r[2]): r for r in rows_st}
     print(
@@ -592,7 +616,13 @@ def print_cortex_table(rows_st):
         print(f"  {a:9s} " + " ".join(cells) + " " + tail)
 
 
-def plot_regions(rows_st, by_acro, per, norm, refs):
+def plot_regions(
+    rows_st: list[tuple],
+    by_acro: dict[str, str],
+    per: dict[str, dict],
+    norm: dict[str, tuple[float, float]],
+    refs: dict[str, dict[str, float]],
+) -> None:
     """Draw region_plot.png: a panel per reading, a dot per mouse in each of AREAS."""
     # every mouse a dot of the same size, the P16 brain included; the bar is the
     # group median, to match the rank-sum test that sets the stars
@@ -718,7 +748,7 @@ def plot_regions(rows_st, by_acro, per, norm, refs):
     save_figure(fig, os.path.join(OUT, "region_plot.png"))
 
 
-def main():
+def main() -> None:
     """Region means per mouse, young-against-adult tests, two tables and the plot."""
     # structure names, acronyms and divisions of the ontology
     names, acro, divi = load_structure_terms()
