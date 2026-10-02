@@ -1,32 +1,34 @@
-"""
-The automatic annotation, from MATLAB: one process per call.
+"""The automatic annotation, from MATLAB: one process per call.
 
-  python cli.py propose <lightsuite folder>
-      the whole brain. Reads, from that folder:
-        volume_for_inspection.tiff   the sections, as the GUI shows them
-        auto_atlas_planes.mat        the warped atlas the GUI draws (tv, planes x H x W uint8),
-                                     written by the GUI when anchors are saved
-        plane_anchors.mat            anchor_slices, anchor_planes (1-based), from the GUI
-      Writes, into the same folder:
-        auto_proposal_controlpoints.mat   histology_control_points / atlas_control_points,
-                                          one N x 4 cell per slice as the GUI stores them
-                                          ([slice|plane, y, x, t], 1-based)
-        auto_proposal_info.mat            planes used, confidence per point, flags,
-                                          model version, date
-      Neither name ends in 'tform.mat': registerSlicesToAtlas globs for that, and
-      a proposal must never be picked up as an annotation.
+    python cli.py propose <lightsuite folder>
+        the whole brain. Reads, from that folder:
+          volume_for_inspection.tiff   the sections, as the GUI shows them
+          auto_atlas_planes.mat        the warped atlas the GUI draws (tv, planes x
+                                       H x W uint8), written when anchors are saved
+          plane_anchors.mat            anchor_slices, anchor_planes (1-based), from
+                                       the GUI
+        Writes, into the same folder:
+          auto_proposal_controlpoints.mat   histology_control_points and
+                                            atlas_control_points, one N x 4 cell per
+                                            slice as the GUI stores them
+                                            ([slice|plane, y, x, t], 1-based)
+          auto_proposal_info.mat            planes used, confidence per point,
+                                            flags, model version, date
+        Neither name ends in 'tform.mat': registerSlicesToAtlas globs for that, and
+        a proposal must never be picked up as an annotation.
 
-  python cli.py section <lightsuite folder> <slice> <plane> <response.mat>
-      one section at a given plane (1-based both), for the GUI when the plane of a
-      proposed section is changed by hand. Writes atlas, hist (n x 2, 1-based
-      y x) and low (n,) to <response.mat>.
+    python cli.py section <lightsuite folder> <slice> <plane> <response.mat>
+        one section at a given plane (both 1-based), for the GUI when the plane of
+        a proposed section is changed by hand. Writes atlas, hist (n x 2, 1-based
+        y x) and low (n,) to <response.mat>.
 
-  python cli.py sections <lightsuite folder> <request.mat> <response.mat>
-      several sections at once (request: slices, planes, 1-based), for the GUI's
-      U after an anchor was corrected. Response: atlas, hist, low as cells.
+    python cli.py sections <lightsuite folder> <request.mat> <response.mat>
+        several sections at once (request: slices, planes, 1-based), for the GUI's
+        U after an anchor was corrected. Response: atlas, hist, low as cells.
 
-Planes between anchors are interpolated linearly, and extrapolated past the
-end ones, as registerSlicesToAtlas does for sections without points.
+Planes between anchors are interpolated linearly, and extrapolated past the end
+ones, as registerSlicesToAtlas does for sections without points. Run by
+auto_annotate.m, in the engine's own environment (setup.ps1).
 """
 
 import datetime
