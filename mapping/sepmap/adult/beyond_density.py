@@ -101,6 +101,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import rankdata, spearmanr
 
+from sepmap.plotting import DARK_BLUE, RED, tidy
 from sepmap.volumes.cohort import NAIVE, RWS
 from sepmap.volumes.per_mouse import CSV_MAP, DATA, MICE, annotation_20
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
@@ -403,13 +404,6 @@ def prepare() -> tuple[
 # ===== Drawing =====
 
 
-def tidy(ax: plt.Axes) -> None:
-    """Small tick labels, no top or right spine."""
-    ax.tick_params(labelsize=7)
-    for side in ("top", "right"):
-        ax.spines[side].set_visible(False)
-
-
 def save(fig: plt.Figure, name: str) -> None:
     """Save `fig` as `name` in the output folder at 200 dpi, close it, print the path."""
     path = os.path.join(OUT, name)
@@ -491,7 +485,7 @@ def step0_structures(
     axes[1].barh(
         range(len(ordered)),
         [why_counts[w] for w in ordered],
-        color="#c0392b",
+        color=RED,
         edgecolor="0.25",
         linewidth=0.5,
         alpha=0.85,
@@ -530,7 +524,7 @@ def step1_ceiling(
 
     fig, ax = plt.subplots(figsize=(5.6, 3.9))
     ax.hist(agreement, bins=25, color="0.7", edgecolor="0.35", linewidth=0.4)
-    ax.axvline(half, color="#c0392b", lw=1.8)
+    ax.axvline(half, color=RED, lw=1.8)
     ax.set_xlabel("Spearman between the two half-cohort maps", fontsize=8)
     ax.set_ylabel(f"splits of ten animals ({len(splits)})", fontsize=8)
     ax.set_title(
@@ -613,11 +607,11 @@ def step2_covariates(
 
     fig, ax = plt.subplots(figsize=(7.6, 4.5))
     ax.barh(np.arange(len(models)), vals, color="0.65", edgecolor="0.25", linewidth=0.5)
-    ax.axvline(ceiling**2, color="#c0392b", lw=1.8)
+    ax.axvline(ceiling**2, color=RED, lw=1.8)
     ax.annotate(
         f"ceiling {ceiling**2:.2f}\n(the map's own reliability)",
         (ceiling**2, len(models) - 0.4),
-        color="#c0392b",
+        color=RED,
         fontsize=7.5,
         ha="right",
         va="top",
@@ -739,7 +733,7 @@ def step4_where(
     axes[0].hist(
         agreement,
         bins=bins,
-        color="#c0392b",
+        color=RED,
         edgecolor="0.3",
         linewidth=0.3,
         alpha=0.7,
@@ -760,7 +754,7 @@ def step4_where(
     axes[1].barh(
         np.arange(len(show)),
         [res[i] for i in show],
-        color=["#c0392b" if res[i] > 0 else "#1f3b73" for i in show],
+        color=[RED if res[i] > 0 else DARK_BLUE for i in show],
         edgecolor="0.25",
         linewidth=0.4,
     )

@@ -43,6 +43,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.ndimage import gaussian_filter
 
+from sepmap.plotting import GROUP_COLOURS, save_figure
 from sepmap.volumes.cohort import (
     NAIVE,
     RATIO_CLIP,
@@ -55,7 +56,6 @@ from sepmap.volumes.cohort import (
 from sepmap.volumes.per_mouse import CSV_MAP, DATA, MICE, annotation_20
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 from sepmap.young_vs_adult.region_plot import (
-    COL,
     NOT_SUBCORTEX,
     READINGS,
     bh_fdr,
@@ -137,46 +137,6 @@ LAYERS = [
     ("granular", ("4",)),
     ("infragranular", ("5", "6", "6a", "6b")),
 ]
-
-
-def save_figure(fig: plt.Figure, path: str) -> None:
-    """Save `fig` as a PNG at `path` and as an EPS beside it.
-
-    Windows refuses to overwrite a PNG that an image viewer holds open. The
-    figure then goes to <name>_new.png, with a note, so a run that writes
-    several figures does not lose the rest because one of them was being
-    looked at.
-
-    The EPS is what goes into a figure for a paper. PostScript has no
-    transparency, so the image layers are rasterised and composited by Agg
-    first; otherwise a no-data region, transparent here, would come out opaque
-    black instead of showing the ground beneath it. Text, lines and axes stay
-    vector, the part that has to be editable.
-    """
-    try:
-        fig.savefig(path, dpi=105)
-    except OSError:
-        alt = path.replace(".png", "_new.png")
-        fig.savefig(alt, dpi=105)
-        print(
-            f"  NOTE: {os.path.basename(path)} is open elsewhere; "
-            f"wrote {os.path.basename(alt)} instead",
-            flush=True,
-        )
-
-    # the EPS, with the image layers rasterised
-    eps = os.path.splitext(path)[0] + ".eps"
-    for ax in fig.axes:
-        for im in ax.images:
-            im.set_rasterized(True)
-    try:
-        fig.savefig(eps, dpi=105, facecolor=fig.get_facecolor(), format="eps")
-    except OSError:
-        print(
-            f"  NOTE: {os.path.basename(eps)} is open elsewhere; "
-            "the PNG was still written",
-            flush=True,
-        )
 
 
 def layer_of(substructure_name: str) -> str | None:
@@ -527,7 +487,7 @@ def dotplot(
                         y,
                         "o",
                         ms=4.5,
-                        color=COL[g],
+                        color=GROUP_COLOURS[g],
                         alpha=0.9,
                         mec="none",
                     )
@@ -538,7 +498,7 @@ def dotplot(
                 "_",
                 ms=16,
                 mew=2.4,
-                color=COL[g],
+                color=GROUP_COLOURS[g],
                 label=LABEL[g],
             )
 
@@ -556,7 +516,7 @@ def dotplot(
                     ha="center",
                     va="top",
                     fontsize=12,
-                    color=COL["young"],
+                    color=GROUP_COLOURS["young"],
                 )
         ax.axhline(0, color="k", lw=0.6)
         ax.set_title(rtitle, fontsize=10.5, loc="left")
@@ -584,7 +544,7 @@ def dotplot(
     axes[-1].set_xticklabels(labels, rotation=55, ha="right", fontsize=9)
     fig.suptitle(title, fontsize=11.5)
     fig.tight_layout(rect=(0, 0, 1, 0.965))
-    save_figure(fig, os.path.join(OUT, fname))
+    save_figure(fig, os.path.join(OUT, fname), dpi=105)
     plt.close(fig)
 
 

@@ -42,6 +42,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import spearmanr
 
+from sepmap.plotting import RED, tidy
 from sepmap.volumes.cohort import NAIVE, RWS
 from sepmap.volumes.per_mouse import CSV_MAP, DATA, MICE, annotation_20
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
@@ -223,7 +224,7 @@ def main() -> None:
             np.full(len(v), i) + rng.uniform(-0.1, 0.1, len(v)),
             v,
             s=18,
-            facecolor="#c0392b" if k == "range_sep" else "0.6",
+            facecolor=RED if k == "range_sep" else "0.6",
             edgecolor="0.25",
             linewidth=0.4,
             zorder=2,
@@ -267,7 +268,7 @@ def main() -> None:
             np.full(len(v), i) + rng.uniform(-0.1, 0.1, len(v)),
             v,
             s=18,
-            facecolor="#c0392b" if "sep" in k else "0.6",
+            facecolor=RED if "sep" in k else "0.6",
             edgecolor="0.25",
             linewidth=0.4,
             zorder=2,
@@ -283,9 +284,7 @@ def main() -> None:
     )
 
     for ax in axes:
-        ax.tick_params(labelsize=7)
-        for side in ("top", "right"):
-            ax.spines[side].set_visible(False)
+        tidy(ax)
     fig.suptitle(
         "The green channel in fixed, cleared tissue: one dot per adult, "
         "structure means with no denominator anywhere",

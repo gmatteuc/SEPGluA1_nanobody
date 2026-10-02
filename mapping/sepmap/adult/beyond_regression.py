@@ -65,9 +65,9 @@ from sepmap.adult.beyond_density import (
     r_squared,
     residual,
     structure_names,
-    tidy,
 )
-from sepmap.adult.beyond_figures import DARK, FIGS, LIGHT, RED, save
+from sepmap.adult.beyond_figures import FIGS, save
+from sepmap.plotting import DARK_GREY, MID_GREY, RED, tidy
 from sepmap.volumes.per_mouse import annotation_20
 
 # coronal planes to draw, in 20 um planes of the cropped CCF grid (450 of them):
@@ -114,12 +114,12 @@ def panel_e(
         min(observed.min(), predicted.min()) - 4,
         max(observed.max(), predicted.max()) + 4,
     ]
-    ax.plot(lim, lim, color=LIGHT, ls="--", lw=1.0, zorder=1)
+    ax.plot(lim, lim, color=MID_GREY, ls="--", lw=1.0, zorder=1)
     ax.scatter(
         predicted,
         observed,
         s=16,
-        facecolor=DARK,
+        facecolor=DARK_GREY,
         edgecolor="0.2",
         linewidth=0.3,
         zorder=2,
@@ -142,9 +142,15 @@ def panel_e(
     tidy(ax)
 
     ax = axes[1]
-    ax.axhline(0, color=LIGHT, lw=1.0)
+    ax.axhline(0, color=MID_GREY, lw=1.0)
     ax.scatter(
-        predicted, res, s=16, facecolor=DARK, edgecolor="0.2", linewidth=0.3, zorder=2
+        predicted,
+        res,
+        s=16,
+        facecolor=DARK_GREY,
+        edgecolor="0.2",
+        linewidth=0.3,
+        zorder=2,
     )
     ax.set_xlabel("predicted (rank)", fontsize=8.5)
     ax.set_ylabel("residual (ranks)", fontsize=8.5)
@@ -156,8 +162,8 @@ def panel_e(
     tidy(ax)
 
     ax = axes[2]
-    ax.hist(res, bins=26, color=LIGHT, edgecolor="0.3", linewidth=0.4)
-    ax.axvline(0, color=DARK, lw=1.4)
+    ax.hist(res, bins=26, color=MID_GREY, edgecolor="0.3", linewidth=0.4)
+    ax.axvline(0, color=DARK_GREY, lw=1.4)
     ax.set_xlabel("residual (ranks)", fontsize=8.5)
     ax.set_ylabel("structures", fontsize=8.5)
     ax.set_title(

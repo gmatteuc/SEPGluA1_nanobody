@@ -31,9 +31,9 @@ rainbow has no neutral middle to read zero against.
 
 The flatmaps need ccf_streamlines, which brings its own numpy and scikit-image, so
 this module runs in its own environment, tools\\venv_flat (made from
-tools\\requirements_flat.txt), and imports only config from the package. Its
-assets, about 0.6 GB, are fetched once into atlas_flatmap/ under the data root
-from the Allen Institute's ccf_streamlines_assets folder,
+tools\\requirements_flat.txt), and imports only config and plotting from the
+package. Its assets, about 0.6 GB, are fetched once into atlas_flatmap/ under the
+data root from the Allen Institute's ccf_streamlines_assets folder,
     https://download.alleninstitute.org/informatics-archive/current-release/
     mouse_ccf/cortical_coordinates/ccf_2017/ccf_streamlines_assets/
 
@@ -59,11 +59,18 @@ import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
-from matplotlib.colors import Colormap, LinearSegmentedColormap
+from matplotlib.colors import Colormap
 from matplotlib.image import AxesImage
-from scipy.ndimage import center_of_mass, gaussian_filter
+from scipy.ndimage import gaussian_filter
 
 from sepmap.config import DATA, SETTINGS
+from sepmap.plotting import (
+    coronal_figure,
+    coronal_frame,
+    hot_cut,
+    save_figure,
+    transparent_bad,
+)
 
 ASSETS = os.path.join(DATA, "atlas_flatmap")
 CCF_ROOT = os.path.join(DATA, "comparisons_v2", "ccf")
@@ -102,10 +109,8 @@ PLANE = 790
 # to RL.
 SMOOTH = (3.0, 1.0, 1.0)
 
-# frames per second of the video, and the 20 um voxels a structure needs in a
-# coronal plane to get its acronym drawn
+# frames per second of the video
 FPS = SETTINGS["videos"]["fps"]
-MIN_LABEL_AREA = SETTINGS["videos"]["min_label_area"]
 
 # the areas the argument is about, outlined brighter on the flatmaps
 HIGHLIGHT = ("VISp", "VISrl", "VISal", "SSp-bfd")
@@ -138,45 +143,6 @@ BANDS = [
         ("Isocortex layer 5", "Isocortex layer 6a", "Isocortex layer 6b"),
     ),
 ]
-
-
-def save_figure(fig: plt.Figure, path: str, dpi: int) -> None:
-    """Save `fig` as a PNG at `path` on black, and as an EPS beside it.
-
-    Windows refuses to overwrite a PNG that an image viewer holds open, and these
-    figures are made to be looked at while the next one is drawn. The figure then
-    goes to <name>_new.png, with a note.
-
-    The EPS is what goes into a figure for a paper. PostScript has no
-    transparency, so the image layers are rasterised and composited by Agg
-    first; otherwise a no-data region, transparent here, would come out opaque
-    black instead of showing the ground beneath it. Text, lines and axes stay
-    vector, the part that has to be editable.
-    """
-    try:
-        fig.savefig(path, dpi=dpi, facecolor="k")
-    except OSError:
-        alt = path.replace(".png", "_new.png")
-        fig.savefig(alt, dpi=dpi, facecolor="k")
-        print(
-            f"  NOTE: {os.path.basename(path)} is open elsewhere; "
-            f"wrote {os.path.basename(alt)}",
-            flush=True,
-        )
-
-    # the EPS, with the image layers rasterised
-    eps = os.path.splitext(path)[0] + ".eps"
-    for ax in fig.axes:
-        for im in ax.images:
-            im.set_rasterized(True)
-    try:
-        fig.savefig(eps, dpi=dpi, facecolor=fig.get_facecolor(), format="eps")
-    except OSError:
-        print(
-            f"  NOTE: {os.path.basename(eps)} is open elsewhere; "
-            "the PNG was still written",
-            flush=True,
-        )
 
 
 def cohort_size(cohort: str) -> int:
@@ -261,94 +227,6 @@ def annotation_half() -> np.ndarray:
     return ann[:, :, : ann.shape[2] // 2]
 
 
-def boundaries(lab: np.ndarray) -> np.ndarray:
-    """Pixels of the label image `lab` that border another label, inside the atlas."""
-    b = np.zeros(lab.shape, bool)
-    b[1:, :] |= lab[1:, :] != lab[:-1, :]
-    b[:, 1:] |= lab[:, 1:] != lab[:, :-1]
-    return b & (lab > 0)
-
-
-def coronal_frame(
-    fig: plt.Figure,
-    axes: list[plt.Axes],
-    caxes: list[plt.Axes],
-    k: int,
-    panels: tuple,
-    ann_h: np.ndarray,
-    acro: dict[int, str],
-    header: str,
-    vector_outline: bool = False,
-) -> None:
-    """Draw plane `k` into the three panels of `fig`, and the header above them.
-
-    `panels` holds (image, colormap, limits, title) per panel. The atlas is dark
-    grey under the data and its borders lie on top: as lines with
-    `vector_outline`, otherwise as a pixel overlay. Structures with at least
-    MIN_LABEL_AREA voxels in the plane get their acronym.
-    """
-    lab = ann_h[k]
-    inside = lab > 0
-    bnd = boundaries(lab)
-    for ax, cax, (im, cmap, lim, ttl) in zip(axes, caxes, panels):
-        ax.clear()
-        cax.clear()
-
-        # the atlas in dark grey under the data, black outside it
-        bg = np.zeros(lab.shape + (4,))
-        bg[inside] = (0.23, 0.23, 0.23, 1.0)
-        ax.imshow(bg, origin="upper", interpolation="nearest", aspect="equal")
-        h = ax.imshow(
-            np.ma.masked_invalid(np.where(inside, im, np.nan)),
-            cmap=cmap,
-            vmin=lim[0],
-            vmax=lim[1],
-            origin="upper",
-            interpolation="nearest",
-            aspect="equal",
-        )
-
-        # area borders
-        if vector_outline:
-            # lines keep the atlas an editable layer of its own in the EPS; at about a
-            # second per panel they suit a still, not the hundreds of frames of a video
-            ax.contour(bnd.astype(float), levels=[0.5], colors="#bfbfbf", linewidths=0.3)
-        else:
-            ov = np.zeros(lab.shape + (4,))
-            ov[bnd] = (0.75, 0.75, 0.75, 0.9)
-            ax.imshow(ov, origin="upper", interpolation="nearest", aspect="equal")
-
-        # acronyms of the structures large enough to name
-        for idx in np.unique(lab):
-            if idx == 0:
-                continue
-            m = lab == idx
-            if m.sum() < MIN_LABEL_AREA:
-                continue
-            cy, cx = center_of_mass(m)
-            ax.text(
-                cx,
-                cy,
-                acro.get(int(idx), ""),
-                color="w",
-                fontsize=5.5,
-                ha="center",
-                va="center",
-            )
-
-        # a black panel without ticks or frame, white title and colour bar labels
-        ax.set_facecolor("k")
-        ax.set_xticks([])
-        ax.set_yticks([])
-        for s in ax.spines.values():
-            s.set_visible(False)
-        ax.set_title(ttl, color="w", fontsize=12)
-        cb = fig.colorbar(h, cax=cax)
-        cb.ax.yaxis.set_tick_params(color="w", labelcolor="w")
-    fig.texts.clear()
-    fig.text(0.5, 0.93, header, color="w", fontsize=12, ha="center")
-
-
 def coronal(
     reading: str,
     vals: dict[str, tuple[np.ndarray, np.ndarray]],
@@ -378,9 +256,7 @@ def coronal(
     cmap_mean, rdbu = cmaps
 
     # one 1920 x 760 figure, three panels with their colour bars
-    fig = plt.figure(figsize=(19.2, 7.6), dpi=100, facecolor="k")
-    axes = [fig.add_axes([0.02 + i * 0.325, 0.05, 0.27, 0.82]) for i in range(3)]
-    caxes = [fig.add_axes([0.295 + i * 0.325, 0.12, 0.009, 0.68]) for i in range(3)]
+    fig, axes, caxes = coronal_figure()
 
     def panels_at(k):
         """The three panels of plane `k`: young, adult and their difference."""
@@ -419,7 +295,7 @@ def coronal(
         fig, axes, caxes, k, panels_at(k), ann_h, acro, header_at(k), vector_outline=True
     )
     out = os.path.join(out_dir, f"detail_plane{plane}_{reading}.png")
-    save_figure(fig, out, 100)
+    save_figure(fig, out, dpi=100, facecolor="k")
     print(f"  wrote {os.path.basename(out)}", flush=True)
 
     # the video, redrawing the same figure plane by plane
@@ -663,7 +539,12 @@ def flatmaps(
         fontsize=12,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.94))
-    save_figure(fig, os.path.join(out_dir, f"detail_flatmap_{reading}.png"), 110)
+    save_figure(
+        fig,
+        os.path.join(out_dir, f"detail_flatmap_{reading}.png"),
+        dpi=110,
+        facecolor="k",
+    )
     plt.close(fig)
 
     # by depth band, one row per band
@@ -697,7 +578,12 @@ def flatmaps(
         fontsize=12,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.97))
-    save_figure(fig, os.path.join(out_dir, f"detail_flatmap_layers_{reading}.png"), 110)
+    save_figure(
+        fig,
+        os.path.join(out_dir, f"detail_flatmap_layers_{reading}.png"),
+        dpi=110,
+        facecolor="k",
+    )
     plt.close(fig)
     print(
         f"  wrote detail_flatmap_{reading}.png and detail_flatmap_layers_{reading}.png",
@@ -727,13 +613,9 @@ def main(
     os.makedirs(out_dir, exist_ok=True)
 
     # hot up to 0.82 of its range; every colormap transparent where there is no value
-    hot = plt.get_cmap("hot")
-    hot_cut = LinearSegmentedColormap.from_list("hot_cut", hot(np.linspace(0, 0.82, 256)))
-    hot_cut.set_bad((0, 0, 0, 0))
-    puor = plt.get_cmap("PuOr_r").copy()
-    puor.set_bad((0, 0, 0, 0))
-    rdbu = plt.get_cmap("RdBu_r").copy()
-    rdbu.set_bad((0, 0, 0, 0))
+    hot = hot_cut()
+    puor = transparent_bad("PuOr_r")
+    rdbu = transparent_bad("RdBu_r")
 
     # what every title says about the smoothing and the colormap
     sig = np.atleast_1d(sigma).astype(float)
@@ -758,10 +640,9 @@ def main(
         dl = DLIM[reading] if dlim is None else dlim
         lim_mean = ((-vm, vm) if signed else (0, vm), (-dl, dl))
         if cmap_name is None:
-            cmap_mean = puor if signed else hot_cut
+            cmap_mean = puor if signed else hot
         else:
-            cmap_mean = plt.get_cmap(cmap_name).copy()
-            cmap_mean.set_bad((0, 0, 0, 0))
+            cmap_mean = transparent_bad(cmap_name)
         cmaps = (cmap_mean, rdbu)
 
         # volumes, then the figures

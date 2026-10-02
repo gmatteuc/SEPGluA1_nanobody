@@ -59,17 +59,14 @@ from sepmap.adult.beyond_density import (
     nano_per_mouse,
     residual,
     spearman_brown,
-    tidy,
 )
+from sepmap.plotting import DARK_GREY, MID_GREY, RED, tidy
 
 FIGS = os.path.join(OUT, "for_sami")
 
-# the young-against-adult palette (young, naive and rws in young_vs_adult.region_plot),
-# so the two sets read as one: red for what is shown, dark grey for its comparison,
-# light grey for context, blue only for the signed panel, where red-blue has a zero
-RED = "#c0392b"
-DARK = "#555555"
-LIGHT = "#9a9a9a"
+# the palette of the young-against-adult figures, so the two sets read as one: red
+# for what is shown, dark grey for its comparison, mid grey for context (plotting),
+# and this blue only for the signed panel, where red-blue has a zero
 BLUE = "#2e5f8a"
 
 # bootstrap replicates, over structures
@@ -198,19 +195,19 @@ def panel_a(
     y = np.arange(len(labels))
     lo = [p - i[0] for p, i in zip(point, intervals)]
     hi = [i[1] - p for p, i in zip(point, intervals)]
-    colours = [LIGHT] * (len(labels) - 1) + [RED]
+    colours = [MID_GREY] * (len(labels) - 1) + [RED]
     ax.barh(y, point, color=colours, edgecolor="0.25", linewidth=0.5)
     ax.errorbar(
         point, y, xerr=[lo, hi], fmt="none", ecolor="0.2", elinewidth=0.9, capsize=2.5
     )
-    ax.axvline(ceiling, color=DARK, lw=1.8)
-    ax.axvspan(ceiling_ci[0], ceiling_ci[1], color=DARK, alpha=0.15, lw=0)
+    ax.axvline(ceiling, color=DARK_GREY, lw=1.8)
+    ax.axvspan(ceiling_ci[0], ceiling_ci[1], color=DARK_GREY, alpha=0.15, lw=0)
     ax.text(
         ceiling - 0.015,
         0.97,
         "ceiling: all of the map\nthat is explainable",
         transform=ax.get_xaxis_transform(),
-        color=DARK,
+        color=DARK_GREY,
         fontsize=8,
         ha="right",
         va="top",
@@ -245,8 +242,8 @@ def panel_b(
     fig, ax = plt.subplots(figsize=(7.4, 4.4))
     bins = np.linspace(-0.45, 1.0, 120)
     for values, colour, label in (
-        (null, LIGHT, "if the leftover were noise"),
-        (map_agreement, DARK, "the map itself"),
+        (null, MID_GREY, "if the leftover were noise"),
+        (map_agreement, DARK_GREY, "the map itself"),
         (leftover_agreement, RED, "what is left of it"),
     ):
         counts, edges = np.histogram(values, bins=bins)
@@ -327,7 +324,7 @@ def panel_d(controls: list[dict[str, str]]) -> None:
             fontsize=9,
             va="center",
             ha="right",
-            color=DARK if ok else RED,
+            color=DARK_GREY if ok else RED,
         )
     fig.tight_layout()
     save(fig, "D_controls")

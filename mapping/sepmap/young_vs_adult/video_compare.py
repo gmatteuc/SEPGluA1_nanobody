@@ -32,10 +32,9 @@ import imageio_ffmpeg
 import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
-from matplotlib.colors import LinearSegmentedColormap
-from scipy.ndimage import center_of_mass
 
 from sepmap.config import SETTINGS
+from sepmap.plotting import coronal_figure, coronal_frame, hot_cut, transparent_bad
 from sepmap.volumes.cohort import COHORTS, SIGNED_READINGS
 from sepmap.volumes.cohort import OUT_ROOT as CCF_ROOT
 from sepmap.volumes.per_mouse import CSV_MAP, DATA
@@ -55,18 +54,8 @@ MEAN_VMAX = {"ratio": 2.0, "sepratio": 0.6, "cref": 2.0, "subref": 2.0, "zref": 
 # colour range of the comparison, symmetric about zero
 LOG2_LIM = 1.5
 
-# frames per second, and the 20 um voxels a structure needs in the plane to get its
-# acronym drawn
+# frames per second
 FPS = SETTINGS["videos"]["fps"]
-MIN_LABEL_AREA = SETTINGS["videos"]["min_label_area"]
-
-
-def boundaries(lab: np.ndarray) -> np.ndarray:
-    """Pixels of the label image `lab` that border another label, inside the atlas."""
-    b = np.zeros(lab.shape, bool)
-    b[1:, :] |= lab[1:, :] != lab[:-1, :]
-    b[:, 1:] |= lab[:, 1:] != lab[:, :-1]
-    return b & (lab > 0)
 
 
 def main(
@@ -89,16 +78,12 @@ def main(
 
     # hot up to 0.82 of its range, and red-blue for the comparison; masked voxels
     # transparent, so the grey or black ground shows
-    hot = plt.get_cmap("hot")
-    hot_cut = LinearSegmentedColormap.from_list("hot_cut", hot(np.linspace(0, 0.82, 256)))
-    hot_cut.set_bad((0, 0, 0, 0))
-    rdbu = plt.get_cmap("RdBu_r").copy()
-    rdbu.set_bad((0, 0, 0, 0))
+    hot = hot_cut()
+    rdbu = transparent_bad("RdBu_r")
 
     # purple-orange for zref, which is a position rather than an intensity, so
     # red-blue means one thing only: the young-adult difference
-    puor = plt.get_cmap("PuOr_r").copy()
-    puor.set_bad((0, 0, 0, 0))
+    puor = transparent_bad("PuOr_r")
 
     # the annotation, the half that the folded volumes cover, and the brains with
     # tissue behind each voxel
@@ -147,14 +132,9 @@ def main(
             writer = None
 
         # one 1920 x 760 figure, three panels with their colour bars
-        fig = plt.figure(figsize=(19.2, 7.6), dpi=100, facecolor="k")
-        axes = [fig.add_axes([0.02 + i * 0.325, 0.05, 0.27, 0.82]) for i in range(3)]
-        caxes = [fig.add_axes([0.295 + i * 0.325, 0.12, 0.009, 0.68]) for i in range(3)]
+        fig, axes, caxes = coronal_figure()
         for k in frames:
-            lab = ann_h[k]
-            inside = lab > 0
-            bnd = boundaries(lab)
-            cmap_mean = puor if signed else hot_cut
+            cmap_mean = puor if signed else hot
             lim_mean = (-v_mean, v_mean) if signed else (0, v_mean)
             panels = (
                 (
@@ -176,54 +156,6 @@ def main(
                     "young - adult" if signed else "log2( young / adult )",
                 ),
             )
-            for ax, cax, (im, cmap, lim, ttl) in zip(axes, caxes, panels):
-                ax.clear()
-                cax.clear()
-
-                # the atlas in dark grey under the data, black outside it
-                bg = np.zeros(lab.shape + (4,))
-                bg[inside] = (0.23, 0.23, 0.23, 1.0)
-                ax.imshow(bg, origin="upper", interpolation="nearest", aspect="equal")
-                h = ax.imshow(
-                    np.ma.masked_invalid(np.where(inside, im, np.nan)),
-                    cmap=cmap,
-                    vmin=lim[0],
-                    vmax=lim[1],
-                    origin="upper",
-                    interpolation="nearest",
-                    aspect="equal",
-                )
-
-                # area borders, and the acronyms of the structures large enough
-                ov = np.zeros(lab.shape + (4,))
-                ov[bnd] = (0.75, 0.75, 0.75, 0.9)
-                ax.imshow(ov, origin="upper", interpolation="nearest", aspect="equal")
-                for idx in np.unique(lab):
-                    if idx == 0:
-                        continue
-                    m = lab == idx
-                    if m.sum() < MIN_LABEL_AREA:
-                        continue
-                    cy, cx = center_of_mass(m)
-                    ax.text(
-                        cx,
-                        cy,
-                        acro.get(int(idx), ""),
-                        color="w",
-                        fontsize=5.5,
-                        ha="center",
-                        va="center",
-                    )
-
-                # a black panel without ticks or frame, white title and labels
-                ax.set_facecolor("k")
-                ax.set_xticks([])
-                ax.set_yticks([])
-                for s in ax.spines.values():
-                    s.set_visible(False)
-                ax.set_title(ttl, color="w", fontsize=12)
-                cb = fig.colorbar(h, cax=cax)
-                cb.ax.yaxis.set_tick_params(color="w", labelcolor="w")
 
             # header: the plane, the most brains behind any voxel on each side, and
             # what the panels show
@@ -237,17 +169,15 @@ def main(
                     "(means on a linear scale, shared range; "
                     "only the right panel is log2)"
                 )
-            fig.texts.clear()
-            fig.text(
-                0.5,
-                0.93,
+            header = (
                 f"CCF plane {2 * k} / 10 um    "
                 f"young: {int(np.nanmax(np.where(ok_y[k], y_n[k], 0)))} brains   "
-                f"adult: {int(np.nanmax(np.where(ok_a[k], a_n[k], 0)))} brains   " + note,
-                color="w",
-                fontsize=12,
-                ha="center",
+                f"adult: {int(np.nanmax(np.where(ok_a[k], a_n[k], 0)))} brains   " + note
             )
+
+            # the atlas in dark grey under the data, black outside it, the area
+            # borders and the acronyms of the structures large enough
+            coronal_frame(fig, axes, caxes, k, panels, ann_h, acro, header)
 
             # into the video, or the still
             fig.canvas.draw()

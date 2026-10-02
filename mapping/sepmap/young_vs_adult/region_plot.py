@@ -60,6 +60,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.ndimage import gaussian_filter
 
+from sepmap.plotting import GROUP_COLOURS, save_figure
 from sepmap.volumes.cohort import (
     MODES,
     NAIVE,
@@ -164,53 +165,12 @@ READINGS = [r for r in READINGS if r[0] in MODES]
 GROUPS = {"young": YOUNG_P20 + YOUNG_P16 + YOUNG_P22, "naive": NAIVE, "rws": RWS}
 ADULTS = NAIVE + RWS
 
-# group colours, and legend labels with the counts computed from the lists
-COL = {"young": "#c0392b", "naive": "#555555", "rws": "#9a9a9a"}
+# legend labels, with the counts computed from the lists
 LABEL = {
     "young": f"young P16-P22 (n = {len(YOUNG_P20) + len(YOUNG_P16) + len(YOUNG_P22)})",
     "naive": f"adult naive (n = {len(NAIVE)})",
     "rws": f"adult rws (n = {len(RWS)})",
 }
-
-
-def save_figure(fig: plt.Figure, path: str) -> None:
-    """Save `fig` as a PNG at `path` and as an EPS beside it.
-
-    Windows refuses to overwrite a PNG that an image viewer holds open. The
-    figure then goes to <name>_new.png, with a note, so a run that writes
-    several figures does not lose the rest because one of them was being
-    looked at.
-
-    The EPS is what goes into a figure for a paper. PostScript has no
-    transparency, so the image layers are rasterised and composited by Agg
-    first; otherwise a no-data region, transparent here, would come out opaque
-    black instead of showing the ground beneath it. Text, lines and axes stay
-    vector, the part that has to be editable.
-    """
-    try:
-        fig.savefig(path, dpi=105)
-    except OSError:
-        alt = path.replace(".png", "_new.png")
-        fig.savefig(alt, dpi=105)
-        print(
-            f"  NOTE: {os.path.basename(path)} is open elsewhere; "
-            f"wrote {os.path.basename(alt)} instead",
-            flush=True,
-        )
-
-    # the EPS, with the image layers rasterised
-    eps = os.path.splitext(path)[0] + ".eps"
-    for ax in fig.axes:
-        for im in ax.images:
-            im.set_rasterized(True)
-    try:
-        fig.savefig(eps, dpi=105, facecolor=fig.get_facecolor(), format="eps")
-    except OSError:
-        print(
-            f"  NOTE: {os.path.basename(eps)} is open elsewhere; "
-            "the PNG was still written",
-            flush=True,
-        )
 
 
 def bh_fdr(p: list[float] | np.ndarray) -> np.ndarray:
@@ -661,7 +621,7 @@ def plot_regions(
                         y,
                         "o",
                         ms=4.5,
-                        color=COL[g],
+                        color=GROUP_COLOURS[g],
                         alpha=0.9,
                         mec="none",
                     )
@@ -672,7 +632,7 @@ def plot_regions(
                 "_",
                 ms=14,
                 mew=2.2,
-                color=COL[g],
+                color=GROUP_COLOURS[g],
                 label=LABEL[g],
             )
 
@@ -690,7 +650,7 @@ def plot_regions(
                     ha="center",
                     va="top",
                     fontsize=11,
-                    color=COL["young"],
+                    color=GROUP_COLOURS["young"],
                 )
 
         # zero line, and the cortex-subcortex divide
@@ -742,7 +702,7 @@ def plot_regions(
         fontsize=11.5,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.965))
-    save_figure(fig, os.path.join(OUT, "region_plot.png"))
+    save_figure(fig, os.path.join(OUT, "region_plot.png"), dpi=105)
 
 
 def main() -> None:

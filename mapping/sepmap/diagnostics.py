@@ -36,6 +36,7 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 
+from sepmap.plotting import DARK_GREY, RED, save_figure
 from sepmap.volumes.cohort import COHORTS, PER_MOUSE_CCF
 from sepmap.volumes.cohort import OUT_ROOT as CCF_ROOT
 from sepmap.volumes.per_mouse import CSV_MAP, DATA, MICE, annotation_20, atlas_grid
@@ -46,24 +47,6 @@ OUT = os.path.join(DATA, "comparisons_v2", "processing_diagnostics")
 # the young brains are on their own DeMBA atlas, the adults on the CCF
 YOUNG = [m for m, v in MICE.items() if v[1] != "ccf"]
 ADULT = [m for m, v in MICE.items() if v[1] == "ccf"]
-
-
-def save_figure(fig: plt.Figure, path: str, dpi: int = 95) -> None:
-    """Save `fig` as a PNG at `path`, or as <name>_new.png if a viewer holds it.
-
-    Windows refuses to overwrite a PNG that an image viewer holds open; a sheet
-    being looked at should not cost the rest of the run.
-    """
-    try:
-        fig.savefig(path, dpi=dpi)
-    except OSError:
-        alt = path.replace(".png", "_new.png")
-        fig.savefig(alt, dpi=dpi)
-        print(
-            f"  NOTE: {os.path.basename(path)} is open elsewhere; "
-            f"wrote {os.path.basename(alt)} instead",
-            flush=True,
-        )
 
 
 def show(
@@ -124,7 +107,7 @@ def sheet_tissue(mouse: str, ann: np.ndarray, z: np.lib.npyio.NpzFile) -> None:
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.94))
-    save_figure(fig, os.path.join(OUT, f"01_tissue_{mouse}.png"), dpi=95)
+    save_figure(fig, os.path.join(OUT, f"01_tissue_{mouse}.png"), dpi=95, eps=False)
     plt.close(fig)
 
 
@@ -160,7 +143,7 @@ def sheet_levels(mouse: str, ann: np.ndarray, z: np.lib.npyio.NpzFile) -> None:
             arr[tissue][::37] + bg,
             bins=200,
             range=(0, 4 * bg),
-            color="#c0392b",
+            color=RED,
             alpha=0.6,
             label="tissue",
             density=True,
@@ -186,7 +169,7 @@ def sheet_levels(mouse: str, ann: np.ndarray, z: np.lib.npyio.NpzFile) -> None:
         (sig[iso] / float(z["cortex_mean"]))[::37],
         bins=200,
         range=(0, 3),
-        color="#c0392b",
+        color=RED,
         density=True,
     )
     ax.axvline(1, color="k", lw=1.2)
@@ -202,7 +185,7 @@ def sheet_levels(mouse: str, ann: np.ndarray, z: np.lib.npyio.NpzFile) -> None:
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.93))
-    save_figure(fig, os.path.join(OUT, f"02_levels_{mouse}.png"), dpi=95)
+    save_figure(fig, os.path.join(OUT, f"02_levels_{mouse}.png"), dpi=95, eps=False)
     plt.close(fig)
 
 
@@ -248,7 +231,7 @@ def sheet_coverage() -> None:
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.95))
-    save_figure(fig, os.path.join(OUT, "03_coverage.png"), dpi=95)
+    save_figure(fig, os.path.join(OUT, "03_coverage.png"), dpi=95, eps=False)
     plt.close(fig)
 
 
@@ -298,7 +281,7 @@ def sheet_warp(mouse: str) -> None:
             a.append(sig_n[m1].mean())
             b.append(sig_c[m2].mean())
     a, b = np.array(a), np.array(b)
-    ax.loglog(a, b, "o", ms=3, color="#c0392b", alpha=0.6)
+    ax.loglog(a, b, "o", ms=3, color=RED, alpha=0.6)
     lim = [min(a.min(), b.min()) * 0.9, max(a.max(), b.max()) * 1.1]
     ax.plot(lim, lim, "k-", lw=0.8)
     ax.set_xlabel("region mean, own atlas")
@@ -312,7 +295,7 @@ def sheet_warp(mouse: str) -> None:
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.93))
-    save_figure(fig, os.path.join(OUT, f"04_warp_{mouse}.png"), dpi=95)
+    save_figure(fig, os.path.join(OUT, f"04_warp_{mouse}.png"), dpi=95, eps=False)
     plt.close(fig)
 
 
@@ -343,7 +326,7 @@ def sheet_cohort_n() -> None:
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.95))
-    save_figure(fig, os.path.join(OUT, "05_cohort_n.png"), dpi=95)
+    save_figure(fig, os.path.join(OUT, "05_cohort_n.png"), dpi=95, eps=False)
     plt.close(fig)
 
 
@@ -376,9 +359,7 @@ def sheet_scaling() -> None:
         ((2, "off-tissue background, nano"), (4, "isocortex mean, nano (bg-subtracted)")),
     ):
         for i, r in enumerate(order):
-            ax.plot(
-                i, r[j], "o", color="#c0392b" if r[1].startswith("young") else "#555555"
-            )
+            ax.plot(i, r[j], "o", color=RED if r[1].startswith("young") else DARK_GREY)
         ax.set_xticks(range(len(order)))
         ax.set_xticklabels([r[0].split("_")[0] for r in order], rotation=70, fontsize=7)
         ax.axvline(len(young) - 0.5, color="k", lw=0.6, ls=":")
@@ -388,7 +369,7 @@ def sheet_scaling() -> None:
 
     # isocortex nano against auto across brains
     ax = axes[2]
-    for grp, col, lbl in ((young, "#c0392b", "young"), (adult, "#555555", "adult")):
+    for grp, col, lbl in ((young, RED, "young"), (adult, DARK_GREY, "adult")):
         ax.plot([r[4] for r in grp], [r[5] for r in grp], "o", color=col, label=lbl)
     ax.set_xlabel("isocortex mean, nano")
     ax.set_ylabel("isocortex mean, auto")
@@ -402,7 +383,7 @@ def sheet_scaling() -> None:
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.9))
-    save_figure(fig, os.path.join(OUT, "06_scaling.png"), dpi=95)
+    save_figure(fig, os.path.join(OUT, "06_scaling.png"), dpi=95, eps=False)
     plt.close(fig)
 
 
@@ -437,7 +418,7 @@ def sheet_route_agreement() -> None:
     # one dot per structure, the isocortex in red, against the identity line
     fig, ax = plt.subplots(figsize=(7.2, 7))
     ax.plot(x[~iso], y[~iso], "o", ms=4, color="#95a5a6", label=f"other ({(~iso).sum()})")
-    ax.plot(x[iso], y[iso], "o", ms=5, color="#c0392b", label=f"isocortex ({iso.sum()})")
+    ax.plot(x[iso], y[iso], "o", ms=5, color=RED, label=f"isocortex ({iso.sum()})")
     lim = [min(x.min(), y.min()) - 0.1, max(x.max(), y.max()) + 0.1]
     ax.plot(lim, lim, "k-", lw=0.8)
     ax.set_xlim(lim)
@@ -454,7 +435,7 @@ def sheet_route_agreement() -> None:
     ax.legend(fontsize=9)
     ax.grid(lw=0.3, alpha=0.6)
     fig.tight_layout()
-    save_figure(fig, os.path.join(OUT, "07_route_agreement.png"), dpi=110)
+    save_figure(fig, os.path.join(OUT, "07_route_agreement.png"), dpi=110, eps=False)
     plt.close(fig)
 
 
@@ -537,7 +518,7 @@ def sheet_mask_vs_p6bis() -> None:
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.94))
-    save_figure(fig, os.path.join(OUT, "08_mask_vs_p6bis.png"), dpi=95)
+    save_figure(fig, os.path.join(OUT, "08_mask_vs_p6bis.png"), dpi=95, eps=False)
     plt.close(fig)
 
 
@@ -576,7 +557,7 @@ def sheet_denominators() -> None:
     # what each denominator does with age, in the cortex, per brain
     ax = axes[0]
     for i, r in enumerate(order):
-        col = "#c0392b" if r[1].startswith("young") else "#555555"
+        col = RED if r[1].startswith("young") else DARK_GREY
         ax.plot(i, r[3], "o", color=col, mfc="none", label="auto" if i == 0 else None)
         ax.plot(i, r[4], "s", color=col, label="SEP" if i == 0 else None)
     ax.set_xticks(range(len(order)))
@@ -589,7 +570,7 @@ def sheet_denominators() -> None:
 
     # how much of the nano difference each one would absorb
     ax = axes[1]
-    for grp, col, lbl in ((young, "#c0392b", "young"), (adult, "#555555", "adult")):
+    for grp, col, lbl in ((young, RED, "young"), (adult, DARK_GREY, "adult")):
         ax.plot([r[2] for r in grp], [r[4] for r in grp], "o", color=col, label=lbl)
     ax.set_xlabel("isocortex mean, nano")
     ax.set_ylabel("isocortex mean, SEP")
@@ -613,7 +594,7 @@ def sheet_denominators() -> None:
         ax.plot([-lim, lim], [-lim, lim], "-", color="#bbbbbb", lw=1)
         ax.axhline(0, color="#dddddd", lw=0.8)
         ax.axvline(0, color="#dddddd", lw=0.8)
-        ax.plot(x, y, "o", ms=4, color="#c0392b")
+        ax.plot(x, y, "o", ms=4, color=RED)
         ax.set_xlim(-lim, lim)
         ax.set_ylim(-lim, lim)
         ax.set_title(
@@ -642,7 +623,7 @@ def sheet_denominators() -> None:
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.9))
-    save_figure(fig, os.path.join(OUT, "09_denominators.png"), dpi=95)
+    save_figure(fig, os.path.join(OUT, "09_denominators.png"), dpi=95, eps=False)
     plt.close(fig)
 
 

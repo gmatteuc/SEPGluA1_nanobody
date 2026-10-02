@@ -48,6 +48,7 @@ import numpy as np
 from scipy.stats import rankdata, spearmanr, wilcoxon
 
 from sepmap.config import DATA
+from sepmap.plotting import DARK_BLUE, RED, tidy
 
 ARMS_CSV = os.path.join(DATA, "adult_v2", "arms", "region_means_arms.csv")
 GENES = os.path.join(DATA, "adult_v2", "ish", "gene_region_table.csv")
@@ -262,7 +263,7 @@ def figure(
         ax.plot(
             x,
             [plain[gene][a] for a in ARMS],
-            color="#c0392b",
+            color=RED,
             lw=0.9,
             alpha=0.55,
             zorder=2,
@@ -270,7 +271,7 @@ def figure(
     ax.plot(
         x,
         [plain[CONTROL][a] for a in ARMS],
-        color="#1f3b73",
+        color=DARK_BLUE,
         lw=2.4,
         zorder=4,
         marker="o",
@@ -279,7 +280,7 @@ def figure(
     ax.annotate(
         CONTROL,
         (2, plain[CONTROL]["sepratio"]),
-        color="#1f3b73",
+        color=DARK_BLUE,
         fontsize=9,
         xytext=(6, -2),
         textcoords="offset points",
@@ -301,7 +302,7 @@ def figure(
         [swing[g] for g in mach],
     ]
     rng = np.random.default_rng(0)
-    for i, (vals, colour) in enumerate(zip(groups, ("0.65", "#c0392b"))):
+    for i, (vals, colour) in enumerate(zip(groups, ("0.65", RED))):
         ax.scatter(
             np.full(len(vals), i) + rng.uniform(-0.12, 0.12, len(vals)),
             vals,
@@ -314,11 +315,11 @@ def figure(
         ax.plot(
             [i - 0.28, i + 0.28], [np.median(vals)] * 2, color="0.15", lw=1.7, zorder=3
         )
-    ax.axhline(swing[CONTROL], color="#1f3b73", lw=1.4, ls="--", zorder=1)
+    ax.axhline(swing[CONTROL], color=DARK_BLUE, lw=1.4, ls="--", zorder=1)
     ax.annotate(
         CONTROL,
         (1.35, swing[CONTROL]),
-        color="#1f3b73",
+        color=DARK_BLUE,
         fontsize=8,
         va="bottom",
         ha="right",
@@ -339,7 +340,7 @@ def figure(
             np.full(len(vals), i) + rng.uniform(-0.12, 0.12, len(vals)),
             vals,
             s=15,
-            facecolor="#c0392b",
+            facecolor=RED,
             edgecolor="0.25",
             linewidth=0.4,
             zorder=2,
@@ -354,9 +355,7 @@ def figure(
     ax.set_title(f"Test 2: machinery genes, {CONTROL} partialled out", fontsize=9)
 
     for ax in axes:
-        ax.tick_params(labelsize=7)
-        for side in ("top", "right"):
-            ax.spines[side].set_visible(False)
+        tidy(ax)
 
     # the title says how the panels compare
     fig.suptitle(

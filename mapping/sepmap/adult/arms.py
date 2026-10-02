@@ -57,6 +57,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.ndimage import gaussian_filter
 
+from sepmap.plotting import RED, tidy
 from sepmap.volumes.cohort import NAIVE, RATIO_CLIP, RWS
 from sepmap.volumes.per_mouse import CSV_MAP, DATA, MICE, annotation_20
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
@@ -229,7 +230,7 @@ def figure(
         ax.set_yscale("log")
         ax.set_xticks(range(len(diffs)))
         ax.set_xticklabels(sorted(diffs), fontsize=8)
-        ax.axhline(1e-9, color="#c0392b", lw=0.8, ls="--")
+        ax.axhline(1e-9, color=RED, lw=0.8, ls="--")
         ax.set_ylabel("|this script - run_region_plot|  (log2 units)", fontsize=8)
     ax.set_title("the two shared arms agree", fontsize=9)
 
@@ -244,7 +245,7 @@ def figure(
                     - (math.log2(m["ratio"]) - math.log2(m["sepauto"]))
                 )
     axes[1].hist(gap, bins=60, color="0.6", edgecolor="0.3", linewidth=0.4)
-    axes[1].axvline(0, color="#c0392b", lw=0.9)
+    axes[1].axvline(0, color=RED, lw=0.9)
     axes[1].set_xlabel(
         "log2(nano/SEP)  -  [log2(nano/auto) - log2(SEP/auto)]", fontsize=8
     )
@@ -274,9 +275,7 @@ def figure(
     ax.set_title(f"the two channels, {mouse}", fontsize=9)
 
     for ax in axes:
-        ax.tick_params(labelsize=7)
-        for side in ("top", "right"):
-            ax.spines[side].set_visible(False)
+        tidy(ax)
     fig.tight_layout()
     path = os.path.join(OUT, "arms_consistency.png")
     fig.savefig(path, dpi=200)

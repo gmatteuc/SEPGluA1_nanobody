@@ -43,6 +43,7 @@ import numpy as np
 from scipy.stats import rankdata, spearmanr
 
 from sepmap.config import DATA
+from sepmap.plotting import RED, tidy
 
 NANO = os.path.join(
     DATA, "comparisons_v2", "young_vs_adult", "region_means_per_mouse.csv"
@@ -331,7 +332,7 @@ def figure(
     # left: the matched controls against the localisation genes
     a, b, obs, p, null = results["expression-matched"]
     ax = axes[0]
-    for i, (v, colour) in enumerate(((b, "0.65"), (a, "#c0392b"))):
+    for i, (v, colour) in enumerate(((b, "0.65"), (a, RED))):
         ax.scatter(
             np.full(len(v), i) + rng.uniform(-0.14, 0.14, len(v)),
             v,
@@ -356,7 +357,7 @@ def figure(
         (
             (ctrl, "0.8", "all controls"),
             (matched_ctrl, "0.5", "matched"),
-            (loc, "#c0392b", "localisation"),
+            (loc, RED, "localisation"),
         )
     ):
         v = np.log10([level.get(g, 0) + 1e-3 for g in genes])
@@ -380,15 +381,13 @@ def figure(
     # right: the permutation null and the observed difference
     ax = axes[2]
     ax.hist(null, bins=60, color="0.72", edgecolor="0.35", linewidth=0.3)
-    ax.axvline(obs, color="#c0392b", lw=2)
+    ax.axvline(obs, color=RED, lw=2)
     ax.set_xlabel("median(localisation) - median(control)", fontsize=8)
     ax.set_ylabel(f"label permutations ({len(null):,})", fontsize=8)
     ax.set_title(f"the null\np = {p:.4f}", fontsize=9)
 
     for ax in axes:
-        ax.tick_params(labelsize=7)
-        for side in ("top", "right"):
-            ax.spines[side].set_visible(False)
+        tidy(ax)
 
     # the title states the question
     fig.suptitle(

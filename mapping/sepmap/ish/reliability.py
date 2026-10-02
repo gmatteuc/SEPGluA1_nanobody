@@ -35,6 +35,7 @@ import numpy as np
 from scipy.stats import rankdata, spearmanr
 
 from sepmap.config import DATA, SETTINGS
+from sepmap.plotting import RED, tidy
 
 OUT = os.path.join(DATA, "adult_v2", "ish")
 
@@ -221,7 +222,7 @@ def figure(
 
     # left: the distribution of the reliability
     axes[0].hist(rel, bins=40, color="0.7", edgecolor="0.35", linewidth=0.4)
-    axes[0].axvline(float(np.median(rel)), color="#c0392b", lw=1.6)
+    axes[0].axvline(float(np.median(rel)), color=RED, lw=1.6)
     axes[0].set_xlabel("Spearman between two experiments of the same gene", fontsize=8)
     axes[0].set_ylabel("genes", fontsize=8)
     axes[0].set_title(
@@ -258,9 +259,7 @@ def figure(
             linewidth=0.3,
             zorder=2,
         )
-        ax.plot(
-            [i - 0.28, i + 0.28], [np.median(v)] * 2, color="#c0392b", lw=1.8, zorder=3
-        )
+        ax.plot([i - 0.28, i + 0.28], [np.median(v)] * 2, color=RED, lw=1.8, zorder=3)
     ax.set_xticks(range(len(keys)))
     ax.set_xticklabels([f"{k}\n({len(rel_by_pairing[k])})" for k in keys], fontsize=8)
     ax.axhline(0, color="0.85", lw=0.7)
@@ -268,9 +267,7 @@ def figure(
     ax.set_title("which pairing was available", fontsize=9)
 
     for ax in axes:
-        ax.tick_params(labelsize=7)
-        for side in ("top", "right"):
-            ax.spines[side].set_visible(False)
+        tidy(ax)
 
     # the title says why the numbers matter
     fig.suptitle(

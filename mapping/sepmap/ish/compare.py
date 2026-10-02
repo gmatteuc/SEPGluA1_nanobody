@@ -36,6 +36,7 @@ import numpy as np
 from scipy.stats import spearmanr
 
 from sepmap.config import DATA
+from sepmap.plotting import RED, tidy
 
 NANO = os.path.join(
     DATA, "comparisons_v2", "young_vs_adult", "region_means_per_mouse.csv"
@@ -267,7 +268,7 @@ def figure(rows: list[dict], old: dict[str, float], category: dict[str, str]) ->
             x[mach],
             y[mach],
             s=20,
-            facecolor="#c0392b",
+            facecolor=RED,
             edgecolor="0.2",
             linewidth=0.4,
             zorder=3,
@@ -287,9 +288,7 @@ def figure(rows: list[dict], old: dict[str, float], category: dict[str, str]) ->
         ax.set_xlabel("old route (affine + z-score)", fontsize=8)
         ax.set_xlim(lim)
         ax.set_ylim(lim)
-        ax.tick_params(labelsize=7)
-        for side in ("top", "right"):
-            ax.spines[side].set_visible(False)
+        tidy(ax)
     axes[0].set_ylabel("v2 route, one reading", fontsize=8)
 
     fig.suptitle(

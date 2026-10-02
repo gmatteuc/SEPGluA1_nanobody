@@ -49,6 +49,7 @@ from matplotlib.axes import Axes
 from scipy.stats import false_discovery_control, mannwhitneyu
 
 from sepmap.config import DATA
+from sepmap.plotting import RED
 
 RHO = os.path.join(DATA, "adult_v2", "ish", "gene_correlations.csv")
 OUT = os.path.join(DATA, "adult_v2", "ish")
@@ -300,7 +301,7 @@ def strip(ax: Axes, rows: list[dict], rho: dict[str, float]) -> None:
         if r is None:
             continue
         carriers = set(r["genes"].split())
-        for has, colour in ((False, "0.7"), (True, "#c0392b")):
+        for has, colour in ((False, "0.7"), (True, RED)):
             values = [rho[g] for g in sorted(carriers if has else set(rho) - carriers)]
             ax.scatter(
                 np.full(len(values), i) + rng.uniform(-0.11, 0.11, len(values)),

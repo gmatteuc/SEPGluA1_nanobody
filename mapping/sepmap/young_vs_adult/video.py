@@ -30,10 +30,9 @@ import imageio_ffmpeg
 import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
-from matplotlib.colors import LinearSegmentedColormap
-from scipy.ndimage import center_of_mass
 
 from sepmap.config import SETTINGS
+from sepmap.plotting import coronal_frame, hot_cut, transparent_bad
 from sepmap.volumes.cohort import COHORTS, MODES, SIGNED_READINGS
 from sepmap.volumes.cohort import OUT_ROOT as CCF_ROOT
 from sepmap.volumes.per_mouse import CSV_MAP, DATA
@@ -49,10 +48,8 @@ T_PCT = 95.0
 # brains with tissue that a voxel needs, per cohort
 MIN_N = {"young": 2, "young_P20": 2, "young_P16": 1, "naive": 3, "rws": 3, "adult": 5}
 
-# frames per second, and the 20 um voxels a structure needs in the plane to get its
-# acronym drawn
+# frames per second
 FPS = SETTINGS["videos"]["fps"]
-MIN_LABEL_AREA = SETTINGS["videos"]["min_label_area"]
 
 
 def fold(v: np.ndarray) -> np.ndarray:
@@ -67,14 +64,6 @@ def fold_count(n: np.ndarray) -> np.ndarray:
     """Fold a count map as fold does, keeping the larger count of the two sides."""
     h = n.shape[2] // 2
     return np.maximum(n[:, :, :h], n[:, :, n.shape[2] - h :][:, :, ::-1])
-
-
-def boundaries(lab: np.ndarray) -> np.ndarray:
-    """Pixels of the label image `lab` that border another label, inside the atlas."""
-    b = np.zeros(lab.shape, bool)
-    b[1:, :] |= lab[1:, :] != lab[:-1, :]
-    b[:, 1:] |= lab[:, 1:] != lab[:, :-1]
-    return b & (lab > 0)
 
 
 def annotation_ccf20() -> np.ndarray:
@@ -95,11 +84,8 @@ def main(cohorts: list[str]) -> None:
 
     # hot up to 0.82 of its range, and purple-orange for zref, a position rather than
     # an intensity; masked voxels transparent, so the grey or black ground shows
-    hot = plt.get_cmap("hot")
-    hot_cut = LinearSegmentedColormap.from_list("hot_cut", hot(np.linspace(0, 0.82, 256)))
-    hot_cut.set_bad((0, 0, 0, 0))
-    puor = plt.get_cmap("PuOr_r").copy()
-    puor.set_bad((0, 0, 0, 0))
+    hot = hot_cut()
+    puor = transparent_bad("PuOr_r")
 
     # the annotation, the half that the folded volumes cover
     ann = annotation_ccf20()
@@ -126,7 +112,7 @@ def main(cohorts: list[str]) -> None:
                     np.abs(tval[ok & (sd > 0)]) if signed else tval[ok & (sd > 0)], T_PCT
                 )
             )
-            cmap_use = puor if signed else hot_cut
+            cmap_use = puor if signed else hot
             if signed:
                 lim_mean = (-MEAN_VMAX[reading], MEAN_VMAX[reading])
             else:
@@ -155,9 +141,6 @@ def main(cohorts: list[str]) -> None:
                 f"(n = {len(COHORTS[cohort])})"
             )
             for k in frames:
-                lab = ann_h[k]
-                inside = lab > 0
-                bnd = boundaries(lab)
                 panels = (
                     (
                         np.where(ok[k], mean[k], np.nan),
@@ -173,69 +156,16 @@ def main(cohorts: list[str]) -> None:
                         f"(range = {T_PCT:.0f}th pct)",
                     ),
                 )
-                for ax, cax, (im, cmap, lim, ttl) in zip(axes, caxes, panels):
-                    ax.clear()
-                    cax.clear()
 
-                    # black outside the atlas, grey inside it where there is no data,
-                    # colour where there is
-                    bg = np.zeros(lab.shape + (4,))
-                    bg[inside] = (0.23, 0.23, 0.23, 1.0)
-                    ax.imshow(bg, origin="upper", interpolation="nearest", aspect="equal")
-                    im_full = np.ma.masked_invalid(np.where(inside, im, np.nan))
-                    h = ax.imshow(
-                        im_full,
-                        cmap=cmap,
-                        vmin=lim[0],
-                        vmax=lim[1],
-                        origin="upper",
-                        interpolation="nearest",
-                        aspect="equal",
-                    )
-
-                    # area borders, and the acronyms of the structures large enough
-                    ov = np.zeros(lab.shape + (4,))
-                    ov[bnd] = (0.75, 0.75, 0.75, 0.9)
-                    ax.imshow(ov, origin="upper", interpolation="nearest", aspect="equal")
-                    for idx in np.unique(lab):
-                        if idx == 0:
-                            continue
-                        m = lab == idx
-                        if m.sum() < MIN_LABEL_AREA:
-                            continue
-                        cy, cx = center_of_mass(m)
-                        ax.text(
-                            cx,
-                            cy,
-                            acro.get(int(idx), ""),
-                            color="w",
-                            fontsize=5.5,
-                            ha="center",
-                            va="center",
-                        )
-
-                    # a black panel without ticks or frame, white title and labels
-                    ax.set_facecolor("k")
-                    ax.set_xticks([])
-                    ax.set_yticks([])
-                    for s in ax.spines.values():
-                        s.set_visible(False)
-                    ax.set_title(ttl, color="w", fontsize=12)
-                    cb = fig.colorbar(h, cax=cax)
-                    cb.ax.yaxis.set_tick_params(color="w", labelcolor="w")
-
-                # header: the plane, and the most brains behind any voxel of it
-                fig.texts.clear()
-                fig.text(
-                    0.5,
-                    0.93,
+                # black outside the atlas, grey inside it where there is no data,
+                # colour where there is; the header gives the plane and the most
+                # brains behind any voxel of it
+                header = (
                     f"CCF plane {2 * k} / 10 um   "
                     f"n = {int(np.nanmax(np.where(ok[k], n_h[k], 0)))} "
-                    "mice at this plane",
-                    color="w",
-                    fontsize=12,
-                    ha="center",
+                    "mice at this plane"
                 )
+                coronal_frame(fig, axes, caxes, k, panels, ann_h, acro, header)
                 fig.canvas.draw()
                 rgba = np.asarray(fig.canvas.buffer_rgba())
                 writer.send(np.ascontiguousarray(rgba[:, :, :3]))

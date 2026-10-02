@@ -29,10 +29,10 @@ import matplotlib
 import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
-from matplotlib.colors import LinearSegmentedColormap
 from scipy.ndimage import gaussian_filter
 
 from sepmap.config import SETTINGS
+from sepmap.plotting import NO_DATA_GREY, hot_cut, save_figure, transparent_bad
 from sepmap.volumes.cohort import COHORTS, MODES, SIGNED_READINGS, Z_FLOOR
 from sepmap.volumes.cohort import OUT_ROOT as CCF_ROOT
 from sepmap.volumes.per_mouse import CSV_MAP, DATA
@@ -55,46 +55,6 @@ SMOOTH = 1.0
 # the sensitivity check
 YOUNG = "young"
 YOUNG_ALT = "young_P20"
-
-
-def save_figure(fig: plt.Figure, path: str) -> None:
-    """Save `fig` as a PNG at `path` and as an EPS beside it.
-
-    Windows refuses to overwrite a PNG that an image viewer holds open. The
-    figure then goes to <name>_new.png, with a note, so a run that writes
-    several figures does not lose the rest because one of them was being
-    looked at.
-
-    The EPS is what goes into a figure for a paper. PostScript has no
-    transparency, so the image layers are rasterised and composited by Agg
-    first; otherwise a no-data region, transparent here, would come out opaque
-    black instead of showing the ground beneath it. Text, lines and axes stay
-    vector, the part that has to be editable.
-    """
-    try:
-        fig.savefig(path, dpi=105)
-    except OSError:
-        alt = path.replace(".png", "_new.png")
-        fig.savefig(alt, dpi=105)
-        print(
-            f"  NOTE: {os.path.basename(path)} is open elsewhere; "
-            f"wrote {os.path.basename(alt)} instead",
-            flush=True,
-        )
-
-    # the EPS, with the image layers rasterised
-    eps = os.path.splitext(path)[0] + ".eps"
-    for ax in fig.axes:
-        for im in ax.images:
-            im.set_rasterized(True)
-    try:
-        fig.savefig(eps, dpi=105, facecolor=fig.get_facecolor(), format="eps")
-    except OSError:
-        print(
-            f"  NOTE: {os.path.basename(eps)} is open elsewhere; "
-            "the PNG was still written",
-            flush=True,
-        )
 
 
 def fold(v: np.ndarray) -> np.ndarray:
@@ -145,15 +105,11 @@ def draw_figures(maps: dict[str, np.ndarray], out: str) -> None:
     inside = annotation_left > 0
 
     # hot up to 0.82 of its range, transparent where there is no value
-    hot = plt.get_cmap("hot")
-    hot_cut = LinearSegmentedColormap.from_list("hot_cut", hot(np.linspace(0, 0.82, 256)))
-    hot_cut.set_bad((0, 0, 0, 0))
+    hot = hot_cut()
 
     # zref is a position, not an intensity: its own diverging scale (purple low,
     # orange high, no green), red-blue being kept for the young-adult difference
-    puor = plt.get_cmap("PuOr_r").copy()
-    puor.set_bad((0, 0, 0, 0))
-    grey = "#bfbfbf"
+    puor = transparent_bad("PuOr_r")
 
     # isocortex voxels, for the colour range
     iso_ids = set()
@@ -203,7 +159,7 @@ def draw_figures(maps: dict[str, np.ndarray], out: str) -> None:
         fig, axes = plt.subplots(len(planes), 3, figsize=(13.5, 3.9 * len(planes)))
         for i, zc in enumerate(planes):
             shown = compared[zc]
-            cmap_mean = puor if signed else hot_cut
+            cmap_mean = puor if signed else hot
             lim_mean = (-vmax, vmax) if signed else (0, vmax)
             diff_name = "young - adult" if signed else "log2( young / adult )"
             panels = (
@@ -231,7 +187,7 @@ def draw_figures(maps: dict[str, np.ndarray], out: str) -> None:
 
                 # the atlas in flat grey under the data, so no data reads as grey
                 bg = np.zeros(inside[zc].shape + (4,))
-                bg[inside[zc]] = matplotlib.colors.to_rgba(grey)
+                bg[inside[zc]] = matplotlib.colors.to_rgba(NO_DATA_GREY)
                 ax.imshow(bg, origin="upper", interpolation="nearest", aspect="equal")
                 h = ax.imshow(
                     im,
@@ -277,7 +233,7 @@ def draw_figures(maps: dict[str, np.ndarray], out: str) -> None:
             fontsize=10,
         )
         fig.tight_layout(rect=(0, 0, 1, 0.975))
-        save_figure(fig, os.path.join(out, f"slices_{reading}.png"))
+        save_figure(fig, os.path.join(out, f"slices_{reading}.png"), dpi=105)
         plt.close(fig)
 
 

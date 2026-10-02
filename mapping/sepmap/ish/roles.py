@@ -50,6 +50,7 @@ import numpy as np
 from scipy.stats import rankdata, spearmanr
 
 from sepmap.config import DATA
+from sepmap.plotting import DARK_BLUE, RED, tidy
 
 NANO = os.path.join(
     DATA, "comparisons_v2", "young_vs_adult", "region_means_per_mouse.csv"
@@ -455,7 +456,7 @@ def figure(
     roles = [r for r in ORDER if by_role.get(r)]
     for i, role in enumerate(roles):
         v = by_role[role]
-        colour = {"subunit": "#1f3b73", "localisation": "#c0392b"}.get(role, "0.65")
+        colour = {"subunit": DARK_BLUE, "localisation": RED}.get(role, "0.65")
         ax.scatter(
             np.full(len(v), i) + rng.uniform(-0.14, 0.14, len(v)),
             v,
@@ -487,7 +488,7 @@ def figure(
     ax.bar(
         range(3),
         parts,
-        color=["#1f3b73", "0.75", "#c0392b"],
+        color=[DARK_BLUE, "0.75", RED],
         edgecolor="0.25",
         linewidth=0.5,
     )
@@ -507,11 +508,11 @@ def figure(
     # right: the splits of the family, and the split by function
     ax = axes[2]
     ax.hist(stats, bins=60, color="0.72", edgecolor="0.35", linewidth=0.3)
-    ax.axvline(observed, color="#c0392b", lw=2)
+    ax.axvline(observed, color=RED, lw=2)
     ax.annotate(
         "the split\nby function",
         (observed, ax.get_ylim()[1] * 0.9),
-        color="#c0392b",
+        color=RED,
         fontsize=7.5,
         ha="right",
         va="top",
@@ -523,9 +524,7 @@ def figure(
     ax.set_title(f"3. every 4-of-19 split of the family\np = {p:.4f}", fontsize=9)
 
     for ax in axes:
-        ax.tick_params(labelsize=7)
-        for side in ("top", "right"):
-            ax.spines[side].set_visible(False)
+        tidy(ax)
 
     # the title says what the panels show
     fig.suptitle(

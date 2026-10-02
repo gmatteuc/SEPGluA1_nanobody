@@ -68,8 +68,8 @@ from sepmap.adult.beyond_density import (
     save,
     spearman_brown,
     structure_names,
-    tidy,
 )
+from sepmap.plotting import RED, tidy
 from sepmap.volumes.per_mouse import annotation_20
 
 # folds of the cross-validated controls E and F (not passed on: cv_r2 uses its own
@@ -517,7 +517,7 @@ def figure_artefacts(
     tidy(axes[1])
 
     axes[2].hist(pairs, bins=20, color="0.7", edgecolor="0.35", linewidth=0.4)
-    axes[2].axvline(float(np.median(pairs)), color="#c0392b", lw=1.8)
+    axes[2].axvline(float(np.median(pairs)), color=RED, lw=1.8)
     axes[2].set_xlabel("leftover of one mouse against another (Spearman)", fontsize=8)
     axes[2].set_ylabel("pairs of animals", fontsize=8)
     axes[2].set_title("C. every animal shows it", fontsize=9)
@@ -550,9 +550,7 @@ def figure_model_space(
     fig, axes = plt.subplots(1, 2, figsize=(11.0, 4.2))
     ks = [c[0] for c in curve]
     axes[0].plot(ks, [c[1] for c in curve], color="0.6", lw=1.5, label="fitted")
-    axes[0].plot(
-        ks, [c[2] for c in curve], color="#c0392b", lw=1.8, label="cross-validated"
-    )
+    axes[0].plot(ks, [c[2] for c in curve], color=RED, lw=1.8, label="cross-validated")
     axes[0].axhline(ceiling**2, color="0.3", ls="--", lw=1.2)
     axes[0].annotate(
         "ceiling", (ks[-1], ceiling**2), fontsize=7.5, ha="right", va="bottom"
@@ -571,7 +569,7 @@ def figure_model_space(
     axes[1].bar(
         [0, 1],
         [cubic, quintic],
-        color=["#c0392b", "0.65"],
+        color=[RED, "0.65"],
         edgecolor="0.25",
         linewidth=0.5,
     )
@@ -605,7 +603,7 @@ def figure_readings(rows: list[tuple[str, float, float, float]]) -> None:
         x,
         [r[3] for r in rows],
         width=0.2,
-        color="#c0392b",
+        color=RED,
         edgecolor="0.25",
         linewidth=0.4,
         label="the leftover replicates",
