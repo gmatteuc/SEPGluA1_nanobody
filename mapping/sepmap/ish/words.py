@@ -43,12 +43,12 @@ import urllib.parse
 import urllib.request
 from collections import defaultdict
 
-import numpy as np
 import matplotlib
+import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from scipy.stats import mannwhitneyu, false_discovery_control
+from scipy.stats import false_discovery_control, mannwhitneyu
 
 from sepmap.config import DATA
 

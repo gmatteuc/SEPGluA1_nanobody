@@ -38,12 +38,12 @@ import csv
 import os
 from collections import defaultdict
 
-import numpy as np
 import matplotlib
+import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from scipy.stats import rankdata, spearmanr, mannwhitneyu
+from scipy.stats import rankdata, spearmanr
 
 from sepmap.config import DATA
 
