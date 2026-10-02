@@ -198,7 +198,7 @@ def fold(v):
     )
 
 
-def fold_n(n):
+def fold_count(n):
     """Fold a count map as fold does, keeping the larger count of the two sides."""
     h = n.shape[2] // 2
     return np.maximum(n[:, :, :h], n[:, :, n.shape[2] - h :][:, :, ::-1])
@@ -215,7 +215,7 @@ def prepare(reading, sigma):
     out = {}
     for cohort, min_n in ((YOUNG, MIN_N_YOUNG), (ADULT, MIN_N_ADULT)):
         mean = fold(np.load(os.path.join(CCF_ROOT, cohort, f"{reading}_mean.npy")))
-        n = fold_n(np.load(os.path.join(CCF_ROOT, cohort, f"{reading}_n.npy")))
+        n = fold_count(np.load(os.path.join(CCF_ROOT, cohort, f"{reading}_n.npy")))
         m = ((n >= min_n) & np.isfinite(mean)).astype(np.float32)
         v = np.where(m > 0, mean, 0).astype(np.float32)
 

@@ -66,7 +66,7 @@ def fold(v):
     )
 
 
-def fold_n(n):
+def fold_count(n):
     """Fold a count map as fold does, keeping the larger count of the two sides."""
     h = n.shape[2] // 2
     return np.maximum(n[:, :, :h], n[:, :, n.shape[2] - h :][:, :, ::-1])
@@ -108,7 +108,7 @@ def main(cohorts):
     ann = annotation_ccf20()
     ann_h = ann[:, :, : ann.shape[2] // 2]
     for cohort in cohorts:
-        n_h = fold_n(np.load(os.path.join(CCF_ROOT, cohort, "cref_n.npy")))
+        n_h = fold_count(np.load(os.path.join(CCF_ROOT, cohort, "cref_n.npy")))
         for reading in MODES:
             t0 = time.time()
 
