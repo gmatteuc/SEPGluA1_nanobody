@@ -1,11 +1,5 @@
 """What receptor abundance and synaptic density leave unexplained in the adult map.
 
-The ceiling (how reproducible the map is), what the covariates explain, and
-whether the residual replicates across independent halves of the cohort;
-writes structures_used.csv, variance_partition.csv, residual_by_structure.csv
-and fig0 to fig3 under adult_v2/beyond/. The argument is in
-sepmap/adult/beyond_density.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
@@ -34,6 +28,16 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     24. run_beyond_controls    seven attempts to break it
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
+
+The ceiling (how reproducible the map is), what the covariates explain, and
+whether the residual replicates across independent halves of the cohort; the
+argument is in sepmap/adult/beyond_density.py. Writes, in adult_v2/beyond/ under
+the data root:
+
+    structures_used.csv        every structure, kept or dropped, with the reason
+    variance_partition.csv     what each covariate set explains, against the ceiling
+    residual_by_structure.csv  where the map exceeds and falls short of prediction
+    fig0_structures.png, fig1_ceiling.png, fig2_covariates.png, fig3_residual.png
 
     python run_beyond_density.py
 """

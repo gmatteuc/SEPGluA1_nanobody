@@ -114,10 +114,11 @@ NANO = os.path.join(
 MERGED_ISH = os.path.join(DATA, "adult_v2", "ish", "gene_region_table_merged.csv")
 OUT = os.path.join(DATA, "adult_v2", "beyond")
 
+# the ten adults, naive and rws pooled, and the reading analysed
 ADULTS = NAIVE + RWS
 READING = "zref"
 
-# 20 um voxels a structure needs, the same bar as everywhere else
+# smallest structure kept, in 20 um voxels, as in young_vs_adult.region_plot
 MIN_VOX = 250
 
 # animals per half when the cohort is split

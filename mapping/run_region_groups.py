@@ -1,11 +1,5 @@
 """The region statistics by cortical system and by layer.
 
-The per-mouse measurements of run_region_plot, pooled into sensory systems
-(primary against higher order), the subcortical divisions, and layers within
-each cortical system. Writes group_stats.csv, group_plot.png and
-laminar_plot.png into comparisons_v2/young_vs_adult/; the method is in
-sepmap/young_vs_adult/region_groups.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
@@ -35,6 +29,18 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
 
+The per-mouse measurements of run_region_plot, pooled into sensory systems
+(primary against higher order), the subcortical divisions, and layers within
+each cortical system; the method is in sepmap/young_vs_adult/region_groups.py.
+Writes, in comparisons_v2/young_vs_adult/ under the data root:
+
+    group_stats.csv   one row per reading, grouping and group: the medians, both
+                      tests, the P20-only contrast and the naive-rws null
+    group_plot.png    the systems, one dot per mouse
+    laminar_plot.png  the layers within each cortical system
+
+and an .eps beside each PNG.
+
     python run_region_groups.py
 
 V2_READINGS, a comma-separated subset of the readings (ratio, sepratio,
@@ -51,7 +57,7 @@ from sepmap.young_vs_adult import region_groups
 
 
 def main():
-    """Region statistics by system and by layer."""
+    """Print the readings in force, then pool the statistics by system and by layer."""
     # settings in force
     readings = " ".join(cohort.MODES)
     if os.environ.get("V2_READINGS", "").strip():

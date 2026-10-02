@@ -5,32 +5,32 @@ publishes DeMBA (Carey 2025) with Allen CCFv3 segmentation at every age from P4
 to P56, 20 um isotropic, oriented (AP, DV, ML) like the volumes this pipeline
 indexes. Three things still have to happen before MATLAB can use one:
 
-  names      LightSuite finds the atlas with which('average_template_10.nii.gz')
-             in fourteen vendored files, so the files must carry the _10 name
-             although they hold 20 um data. The real resolution lives in
-             get_atlas (res_um) and in each mouse's local_settings.txt.
-  ID space   BrainGlobe ships Allen structure ids; everything downstream here
-             (get_allen_region_mask, run_collect_by_group, P8) resolves regions
-             through parcellation_index. The two collide numerically without
-             meaning the same thing, so the annotation is remapped. The
-             original is kept beside it as annotation_structureids_original.nii.gz.
-  AP crop    the adult brains are cropped to CCF planes [180 1079]; the same
-             anatomy on a developmental grid is not that range divided by two,
-             because DeMBA is about 11% longer in AP for the same brain. The
-             crop is measured here by two independent methods and written to
-             aplims.txt, which get_atlas reads.
+    names      LightSuite finds the atlas with which('average_template_10.nii.gz')
+               in fourteen vendored files, so the files must carry the _10 name
+               although they hold 20 um data. The real resolution lives in
+               get_atlas (res_um) and in each mouse's local_settings.txt.
+    ID space   BrainGlobe ships Allen structure ids; everything downstream here
+               (get_allen_region_mask, run_collect_by_group, P8) resolves regions
+               through parcellation_index. The two collide numerically without
+               meaning the same thing, so the annotation is remapped. The
+               original is kept beside it as annotation_structureids_original.nii.gz.
+    AP crop    the adult brains are cropped to CCF planes [180 1079]; the same
+               anatomy on a developmental grid is not that range divided by two,
+               because DeMBA is about 11% longer in AP for the same brain. The
+               crop is measured here by two independent methods and written to
+               aplims.txt, which get_atlas reads.
 
 The two crop measurements, which agreed for P20 ([63 559] and [62 562]):
 
-  area profile   the brain's cross-sectional area along AP has a characteristic
-                 shape (bulb, the cortex and hippocampus bulge, the taper into
-                 brainstem). The crop whose normalised profile best matches the
-                 adult crop's selects the same anatomy. Not circular: it never
-                 looks at image intensities.
-  region COM     regress the AP centre of mass of every region present in both
-                 atlases, CCF_plane = m * DeMBA_plane + b, then invert it at the
-                 adult crop limits. Independent of the shape of the brain as a
-                 whole, and its slope also measures the AP stretch.
+    area profile   the brain's cross-sectional area along AP has a characteristic
+                   shape (bulb, the cortex and hippocampus bulge, the taper into
+                   brainstem). The crop whose normalised profile best matches the
+                   adult crop's selects the same anatomy. Not circular: it never
+                   looks at image intensities.
+    region COM     regress the AP centre of mass of every region present in both
+                   atlases, CCF_plane = m * DeMBA_plane + b, then invert it at the
+                   adult crop limits. Independent of the shape of the brain as a
+                   whole, and its slope also measures the AP stretch.
 
 Writes atlas_demba_p<age> under the data root: the template, the remapped
 annotation and the original one, aplims.txt (the area-profile crop) and
@@ -57,9 +57,9 @@ def _data_root():
 
     The parent of the folder holding get_paths.m, plus data, or SEP_DATA_ROOT
     when it is set. A copy of the code may not use the production data (or a
-    folder inside it), and the snapshot on G: is never a data root. The rule is
-    repeated here because this script sits in atlas/, outside the sepmap
-    package; keep the two identical.
+    folder inside it), and neither the snapshot on G: nor the code folder is
+    ever a data root. The rule is repeated here because this script sits in
+    atlas/, outside the sepmap package; keep the three identical.
     """
 
     def canonical(path):

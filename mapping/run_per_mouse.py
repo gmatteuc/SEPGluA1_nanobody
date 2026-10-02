@@ -1,10 +1,5 @@
 """Per-brain volumes from the registered stacks, each on the atlas of its own age.
 
-For each brain: the tissue mask (autofluorescence above its off-tissue level),
-and the nano, auto and SEP channels minus their off-tissue backgrounds, block
-averaged to 20 um. Writes comparisons_v2/per_mouse/<mouse>.npz; the method is in
-sepmap/volumes/per_mouse.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds    <- this script
      2. run_to_ccf             every brain on the adult CCF grid
@@ -34,6 +29,13 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
 
+For each brain: the tissue mask (autofluorescence above its off-tissue level),
+and the nano, auto and SEP channels minus their off-tissue backgrounds, block
+averaged to 20 um; the method is in sepmap/volumes/per_mouse.py. Writes, in
+comparisons_v2/per_mouse/ under the data root:
+
+    <mouse>.npz    sig, auto and sep (float16), tissue (bool), and the scalars
+
     python run_per_mouse.py [mouse ...]
 
 With no mouse named, every brain of the cohort (MICE in
@@ -47,7 +49,10 @@ from sepmap.volumes import per_mouse
 
 
 def main(mice):
-    """Per-brain volumes of `mice`, or of every brain when the list is empty."""
+    """Print the settings in force, then write the per-brain volumes.
+
+    `mice` empty means every brain of the cohort.
+    """
     mice = mice or list(per_mouse.MICE)
 
     # settings in force

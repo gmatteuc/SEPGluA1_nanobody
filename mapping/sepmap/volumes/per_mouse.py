@@ -2,38 +2,41 @@
 
 The normalisation of the plasticity chain (run_normalise_groups) would get a
 cross-age question wrong, in order of damage:
-  - its tissue mask comes from the nano intensity (select_background_pixels),
-    which flags a whole plane as background when a section covers only part
-    of it, and as tissue when the plane is empty;
-  - its per-mouse map is affine (slope + intercept), which does not preserve
-    ratios between regions;
-  - it takes abs() of the normalised values, and cohort means over voxels
-    where some mice have no tissue at all.
+
+    - its tissue mask comes from the nano intensity (select_background_pixels),
+      which flags a whole plane as background when a section covers only part
+      of it, and as tissue when the plane is empty;
+    - its per-mouse map is affine (slope + intercept), which does not preserve
+      ratios between regions;
+    - it takes abs() of the normalised values, and cohort means over voxels
+      where some mice have no tissue at all.
 
 This module instead works per mouse, at 20 um (2x2x2 block mean of the
 registered 10 um-equivalent grid):
-  tissue   auto channel above its off-tissue level (median + 4 MAD), and the
-           registered nano non-zero, and inside the atlas brain. The nano
-           intensity never enters the mask.
-  sig      nano minus the mouse's scalar off-tissue background (raw counts)
-  auto     auto minus its own off-tissue background
-  sep      the SEP (green) channel, same treatment, where run_add_sep_channel
-           has carried it into registered space. It was meant to make nano/sep
-           read as surface per unit receptor expressed, against nano/auto's
-           surface per unit tissue. It does not: adult.sep_channel_check finds
-           this channel dominated by autofluorescence in fixed, cleared tissue.
-           Kept because it is a real measurement and the check needs it, but
-           nano/sep is not a surface fraction.
-  plus two scalars: the isocortex mean of sig (the pure-scale cortex
-  reference of the cref reading downstream) and the backgrounds.
+
+    tissue  auto channel above its off-tissue level (median + 4 MAD), and the
+             registered nano non-zero, and inside the atlas brain. The nano
+             intensity never enters the mask.
+    sig      nano minus the mouse's scalar off-tissue background (raw counts)
+    auto     auto minus its own off-tissue background
+    sep      the SEP (green) channel, same treatment, where run_add_sep_channel
+             has carried it into registered space. It was meant to make nano/sep
+             read as surface per unit receptor expressed, against nano/auto's
+             surface per unit tissue. It does not: adult.sep_channel_check finds
+             this channel dominated by autofluorescence in fixed, cleared tissue.
+             Kept because it is a real measurement and the check needs it, but
+             nano/sep is not a surface fraction.
+
+Plus two scalars: the isocortex mean of sig (the pure-scale cortex reference of
+the cref reading downstream) and the backgrounds.
 
 Off-tissue samples are taken from planes where the atlas says brain and the
 registered nano is non-zero on more than half of it (planes a section
 reached), outside the atlas brain mask, so a degenerate background mask
 cannot pollute them.
 
-Output: data/comparisons_v2/per_mouse/<mouse>.npz (sig, auto, sep: float16;
-tissue: bool; scalars). Nothing under data/comparisons is touched.
+Writes comparisons_v2/per_mouse/<mouse>.npz under the data root (sig, auto, sep:
+float16; tissue: bool; scalars). Nothing under comparisons/ is touched.
 
 Run by run_per_mouse.py.
 """

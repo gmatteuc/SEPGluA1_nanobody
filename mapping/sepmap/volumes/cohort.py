@@ -10,31 +10,32 @@ Five readings of the same background-subtracted signal, the five the region
 tables carry, so a number in a table and a colour in a map mean the same thing.
 Two divide by a channel, voxel by voxel; three by a number measured on the
 brain itself:
-  ratio     sig / auto per voxel (auto smoothed by one 20 um voxel, so a dark
-            voxel cannot blow it up), nano per unit autofluorescence. Not an
-            absolute measurement: in the isocortex the young sit 2.0 log2 below
-            the adults in nano and 1.0 log2 below them in auto, and
-            autofluorescence rises with age (lipofuscin, tissue density), so
-            this reading understates a real pup deficit and would overstate a
-            pup excess. A bound, not a value.
-  sepratio  sig / SEP per voxel, meant as surface receptor per unit receptor
-            expressed. The green channel in this fixed, cleared tissue is
-            mostly autofluorescence (rho 0.79 +- 0.04 against the auto channel
-            in all ten adults; dynamic range 0.95 log2 against auto's 1.07 and
-            nano's 1.93; adult.sep_channel_check), so this reading tracks ratio
-            at rho 0.89 to 0.97 within every mouse. It is not a surface fraction.
-  cref      sig / that mouse's isocortex mean of sig, measured before any warp:
-            a pure scale, so region ratios within a mouse survive exactly; blind
-            to a change that moves the whole cortex.
-  subref    sig / that mouse's subcortex mean, without the divisions in
-            NOT_SUBCORTEX (cortex, HPF, STR and others): a reference that is
-            neither the cortex nor the two structures that dominate the scale.
-  zref      log2(sig / cortex mean), minus that brain's median over structures,
-            divided by its own p90-p10 spread, so level and dynamic range are
-            the same in every brain; the pup brain is flatter (spread 0.89 +-
-            0.25 log2 against 1.79 +- 0.24). The only reading not linear in the
-            signal: its maps show a position within a range, and the compression
-            it removes may itself be the finding, so it is read beside cref.
+
+    ratio     sig / auto per voxel (auto smoothed by one 20 um voxel, so a dark
+              voxel cannot blow it up), nano per unit autofluorescence. Not an
+              absolute measurement: in the isocortex the young sit 2.0 log2 below
+              the adults in nano and 1.0 log2 below them in auto, and
+              autofluorescence rises with age (lipofuscin, tissue density), so
+              this reading understates a real pup deficit and would overstate a
+              pup excess. A bound, not a value.
+    sepratio  sig / SEP per voxel, meant as surface receptor per unit receptor
+              expressed. The green channel in this fixed, cleared tissue is
+              mostly autofluorescence (rho 0.79 +- 0.04 against the auto channel
+              in all ten adults; dynamic range 0.95 log2 against auto's 1.07 and
+              nano's 1.93; adult.sep_channel_check), so this reading tracks ratio
+              at rho 0.89 to 0.97 within every mouse. It is not a surface fraction.
+    cref      sig / that mouse's isocortex mean of sig, measured before any warp:
+              a pure scale, so region ratios within a mouse survive exactly; blind
+              to a change that moves the whole cortex.
+    subref    sig / that mouse's subcortex mean, without the divisions in
+              NOT_SUBCORTEX (cortex, HPF, STR and others): a reference that is
+              neither the cortex nor the two structures that dominate the scale.
+    zref      log2(sig / cortex mean), minus that brain's median over structures,
+              divided by its own p90-p10 spread, so level and dynamic range are
+              the same in every brain; the pup brain is flatter (spread 0.89 +-
+              0.25 log2 against 1.79 +- 0.24). The only reading not linear in the
+              signal: its maps show a position within a range, and the compression
+              it removes may itself be the finding, so it is read beside cref.
 
 Per voxel a cohort gets the mean over the mice with tissue there, the SD and the
 count. No voxel needs every mouse; the n map says what each mean rests on, and
@@ -42,7 +43,8 @@ the reader thresholds it. Cohorts: young (P16, P20 and P22 pooled, the main
 comparison), young_P20 (the P20 brains alone, the sensitivity check), young_P16,
 young_P22, naive, rws, and adult (naive and rws).
 
-Output: data/comparisons_v2/ccf/<cohort>/<reading>_{mean,sd,n}.npy and mice.txt.
+Writes comparisons_v2/ccf/<cohort>/<reading>_{mean,sd,n}.npy and mice.txt under
+the data root.
 
 Run by run_cohort.py; its cohorts and readings are imported across the package.
 """

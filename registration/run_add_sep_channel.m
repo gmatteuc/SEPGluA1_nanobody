@@ -66,7 +66,8 @@ clear; clc; close all;
 
 %% Settings
 
-% project folders, worked out from where the code sits (see get_paths)
+% project folders, worked out from where the code sits, so the tree can be moved
+% or copied to another drive as is (SEP_DATA_ROOT points the data elsewhere)
 paths = get_paths();
 
 % groups to process ('rws', 'naive', 'behavior', 'young'); a mouse without

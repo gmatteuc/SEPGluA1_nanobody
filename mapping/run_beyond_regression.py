@@ -1,8 +1,5 @@
 """The beyond-abundance regression shown as one: observed, predicted, residual.
 
-Writes E_regression and F_maps (PNG and EPS) and regression_table.csv under
-adult_v2/beyond/for_sami/; the method is in sepmap/adult/beyond_regression.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
@@ -31,6 +28,15 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     24. run_beyond_controls    seven attempts to break it
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown                  <- this script
+
+The fit that run_beyond_density and run_beyond_figures summarise, drawn three
+ways: observed against predicted, the residual diagnostic, and the three maps on
+the brain. The method is in sepmap/adult/beyond_regression.py. Writes, in
+adult_v2/beyond/for_sami/ under the data root:
+
+    E_regression.png/.eps    the fit and its diagnostic
+    F_maps.png/.eps          observed, predicted and residual on the brain
+    regression_table.csv     every structure: observed, predicted, residual
 
     python run_beyond_regression.py
 """

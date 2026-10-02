@@ -1,6 +1,8 @@
 %% check_registration_error
 % ===== Atlas-alignment error of each aligned mouse, read off disk =====
 %
+% Registration QC, run by hand after aligning new brains.
+%
 % Every mouse through the 'align' mode of run_register_to_atlas has a
 % regopts.mat holding errall, the 3D fit error of the sample against the atlas
 % at each optimisation step. Nothing is recomputed: this prints the last value
@@ -20,14 +22,15 @@
 %   reasons that have nothing to do with the registration. The fair reading is
 %   against brains on the same atlas with a similar count, which the fit gives.
 %
-% Run sep_setup_paths first, once per MATLAB session.
+% Setup: the adults (rws, naive and behavior), reported and fitted together. Run
+% sep_setup_paths first, once per MATLAB session.
 
 clear; clc; close all;
 
 %% Settings
 
 % project folders, worked out from where the code sits, so the tree can be moved
-% or copied to another drive as is
+% or copied to another drive as is (SEP_DATA_ROOT points the data elsewhere)
 paths = get_paths();
 
 % groups to report ('rws', 'naive', 'behavior', 'young'); keep to groups on one

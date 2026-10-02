@@ -1,9 +1,5 @@
 """Cohort volumes in the adult CCF: mean, SD and n per voxel, for every reading.
 
-Reads comparisons_v2/per_mouse_ccf/ (and the per-brain scalars, cached beside
-comparisons_v2/per_mouse/) and writes comparisons_v2/ccf/<cohort>/. The
-readings and the cohorts are described in sepmap/volumes/cohort.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
@@ -33,6 +29,15 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
 
+Reads comparisons_v2/per_mouse_ccf/ (and the per-brain scalars, cached beside
+comparisons_v2/per_mouse/); the readings and the cohorts are described in
+sepmap/volumes/cohort.py. Writes, in comparisons_v2/ccf/<cohort>/ under the data
+root:
+
+    <reading>_mean.npy, _sd.npy, _n.npy    per voxel: the mean, the SD and the
+                                           number of mice with tissue
+    mice.txt                               the cohort's mice
+
     python run_cohort.py
 
 V2_READINGS, a comma-separated subset of the readings (ratio, sepratio,
@@ -48,7 +53,7 @@ from sepmap.volumes import cohort
 
 
 def main():
-    """Cohort volumes in the adult CCF."""
+    """Print the readings in force, then write the cohort volumes."""
     # settings in force
     readings = " ".join(cohort.MODES)
     if os.environ.get("V2_READINGS", "").strip():
@@ -60,6 +65,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(description="cohort volumes in the adult CCF")
     parser.parse_args()
     main()

@@ -8,20 +8,21 @@ brain also means the cohort mean, its spread and its n map are all computed on
 the same grid, and a pooled group can mix ages without any of them being
 carried by another age's deformation field.
 
-  young   block-averaged registered volume -> placed back into its age's full
-          DeMBA canvas -> brainglobe_ccf_translator from age_PND to P56 in
-          allen_mouse -> 660 x 400 x 570 at 20 um. About 2.5 min per volume,
-          four volumes per mouse where SEP is there (sig, auto, sep, tissue).
-  adults  already registered to the CCF crop [180 1079] at 10 um, which is
-          exactly planes 90..539 of the same 20 um CCF grid, so they are only
-          placed, never warped. Warping them would blur them for nothing.
+    young   block-averaged registered volume -> placed back into its age's full
+            DeMBA canvas -> brainglobe_ccf_translator from age_PND to P56 in
+            allen_mouse -> 660 x 400 x 570 at 20 um. About 2.5 min per volume,
+            four volumes per mouse where SEP is there (sig, auto, sep, tissue).
+    adults  already registered to the CCF crop [180 1079] at 10 um, which is
+            exactly planes 90..539 of the same 20 um CCF grid, so they are only
+            placed, never warped. Warping them would blur them for nothing.
 
 The tissue mask travels as a mask (nearest neighbour) and is re-thresholded
 after the transform, so a warped voxel is tissue only if it came from tissue.
 
-Output: data/comparisons_v2/per_mouse_ccf/<mouse>.npz with sig, auto and sep
-(float16) and tissue (bool) on the 660 x 400 x 570 CCF grid at 20 um, plus the
-scalars the per-mouse file carried (backgrounds, cortex mean, cohort, age).
+Writes comparisons_v2/per_mouse_ccf/<mouse>.npz under the data root, with sig,
+auto and sep (float16) and tissue (bool) on the 660 x 400 x 570 CCF grid at 20 um,
+plus the scalars the per-mouse file carried (backgrounds, cortex mean, cohort,
+age).
 SEP rides exactly the channels it will be divided into, through the same
 transform in the same call, so nothing can drift between them.
 

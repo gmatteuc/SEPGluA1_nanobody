@@ -1,9 +1,5 @@
 """Young beside adult, plane by plane: a video per reading, or one plane as a still.
 
-Three panels per frame: the young and the adult cohort mean on one colour
-scale, and their difference. Writes into comparisons_v2/young_vs_adult/; the
-layout is described in sepmap/young_vs_adult/video_compare.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
@@ -33,13 +29,26 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
 
+Three panels per frame: the young and the adult cohort mean on one colour
+scale, and their comparison; the layout is described in
+sepmap/young_vs_adult/video_compare.py. Writes, in comparisons_v2/young_vs_adult/
+under the data root:
+
+    video_side_by_side_<reading>.mp4       a video per reading
+    plane<P>_side_by_side_<reading>.png    with --plane, the still instead
+
+with _vmax<V> before the extension when --vmax is given.
+
     python run_video_compare.py [reading ...] [--plane P] [--vmax V] [--dlim D]
 
 With no reading named, every reading in force. --plane draws that CCF plane
 (10 um numbering) as a PNG instead of the video; --vmax and --dlim set the
 colour range of the two means and of the difference for this run only.
-Readings and options can come in any order. V2_READINGS limits the readings
-in force, as for run_cohort; the run prints them.
+Readings and options can come in any order.
+
+V2_READINGS, a comma-separated subset of the readings (ratio, sepratio,
+cref, subref, zref), limits the readings in force, which a run with no reading
+named draws; the run prints them.
 """
 
 import argparse
@@ -51,7 +60,10 @@ from sepmap.young_vs_adult import video_compare
 
 
 def main(readings, plane=None, vmax=None, dlim=None):
-    """Young beside adult for `readings`, every reading in force when it is empty."""
+    """Print the settings in force, then draw young beside adult for `readings`.
+
+    `readings` empty means every reading in force.
+    """
     readings = readings or list(cohort.MODES)
 
     # settings in force

@@ -1,8 +1,5 @@
 """Cohort videos: the mean and its reliability t, plane by plane, per reading.
 
-Writes comparisons_v2/ccf/<cohort>/video_<reading>_<cohort>.mp4; the layout
-and the colour ranges are described in sepmap/young_vs_adult/video.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
@@ -32,9 +29,15 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
 
+The layout and the colour ranges are described in sepmap/young_vs_adult/video.py.
+Writes, in comparisons_v2/ccf/<cohort>/ under the data root:
+
+    video_<reading>_<cohort>.mp4    the mean and its reliability t, plane by plane
+
     python run_video.py [cohort ...]
 
 With no cohort named: young, adult, young_P20, naive and rws.
+
 V2_READINGS, a comma-separated subset of the readings (ratio, sepratio,
 cref, subref, zref), leaves the others out of this step; the run prints the
 readings in force.
@@ -51,7 +54,10 @@ DEFAULT_COHORTS = ["young", "adult", "young_P20", "naive", "rws"]
 
 
 def main(cohorts):
-    """Videos of `cohorts`, or of the default five when the list is empty."""
+    """Print the settings in force, then write the videos of `cohorts`.
+
+    `cohorts` empty means the default five, DEFAULT_COHORTS.
+    """
     cohorts = cohorts or DEFAULT_COHORTS
 
     # settings in force

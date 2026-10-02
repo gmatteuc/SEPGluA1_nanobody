@@ -1,12 +1,5 @@
 """Per-mouse region means and the young against adult statistics, with no warping.
 
-Every brain is measured on the atlas of its own age. Per structure and
-reading: one value per mouse, Welch and Mann-Whitney tests of young against
-adult, and their Benjamini-Hochberg q. Writes region_means_per_mouse.csv,
-region_stats.csv and region_plot.png into comparisons_v2/young_vs_adult/.
-These are the numbers to quote; the method is in
-sepmap/young_vs_adult/region_plot.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
@@ -36,6 +29,20 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
 
+Every brain is measured on the atlas of its own age. Per structure and
+reading: one value per mouse, Welch and Mann-Whitney tests of young against
+adult, and their Benjamini-Hochberg q. These are the numbers to quote; the
+method is in sepmap/young_vs_adult/region_plot.py. Writes, in
+comparisons_v2/young_vs_adult/ under the data root:
+
+    region_means_per_mouse.csv    one row per reading, mouse and structure
+    region_stats.csv              one row per reading and structure: the tests of
+                                  young against adult, their q, the P20-only and
+                                  naive-rws contrasts
+    region_plot.png               a panel per reading, a dot per mouse
+
+and an .eps beside the PNG.
+
     python run_region_plot.py
 
 V2_READINGS, a comma-separated subset of the readings (ratio, sepratio,
@@ -52,7 +59,7 @@ from sepmap.young_vs_adult import region_plot
 
 
 def main():
-    """Per-mouse region statistics."""
+    """Print the readings in force, then measure the region statistics per mouse."""
     # settings in force
     readings = " ".join(cohort.MODES)
     if os.environ.get("V2_READINGS", "").strip():

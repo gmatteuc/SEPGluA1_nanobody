@@ -39,7 +39,10 @@ atlas = get_atlas(atlas_key);
 
 %% Resolve cohort
 
+% check that the registry still lists the adults in their legacy order
 get_cohort('verify');
+
+% the mice named, or else every mouse of the groups
 if isempty(mice_to_process)
     cohort = get_cohort('groups', groups_to_process);
 else
@@ -68,7 +71,7 @@ if strcmp(run_mode, 'align')
     refuse_annotated_mice(cohort);
 end
 
-%% Loop over mice
+%% Run the selected mode on each mouse
 
 for mouse_idx = 1:numel(cohort)
 

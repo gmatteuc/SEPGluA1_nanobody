@@ -638,7 +638,7 @@ def plot_groups(
 
 
 def main() -> None:
-    """Group means per mouse, young-against-adult tests, group_stats.csv, both plots."""
+    """Measure the group means per mouse, test young against adult, write and draw."""
     # index -> (structure acronym, division acronym, layer or None)
     stru, divi, sub = load_parcellation_terms()
     layer = {i: layer_of(nm) for i, nm in sub.items()}

@@ -8,7 +8,8 @@ depend on how deep in the code folder this file sits (mapping/sepmap/).
 SEP_DATA_ROOT points the whole data tree somewhere else. Checks run on copies
 of the data and must never write into the real one, and the guards, the same
 as in get_paths.m, make that hard to get wrong: a copy of the code may not use
-the production data, and the snapshot on G: is a backup, never a data root.
+the production data, and neither the snapshot on G: (a backup) nor the code
+folder is ever a data root.
 
 settings.toml, next to the package in mapping/, is read once into SETTINGS.
 print_settings gives every run script the same first lines: the data root,

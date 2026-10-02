@@ -1,10 +1,5 @@
 """Seven attempts to break the result of run_beyond_density.
 
-Spatial gradient, structure size, single animals, the whisker manipulation,
-curvature, the whole gene space and the reading; writes controls.csv and
-fig4 to fig6 under adult_v2/beyond/. The controls are described in
-sepmap/adult/beyond_controls.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
@@ -33,6 +28,15 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     24. run_beyond_controls    seven attempts to break it             <- this script
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
+
+Spatial gradient, structure size, single animals, the whisker manipulation,
+curvature, the whole gene space and the reading; the controls are described in
+sepmap/adult/beyond_controls.py. Writes, in adult_v2/beyond/ under the data root:
+
+    controls.csv            one row per control, with its verdict
+    fig4_controls.png       A to D, the four artefact checks
+    fig5_model_space.png    E and F, how much any model of this data can explain
+    fig6_readings.png       G, the same test on all five readings
 
     python run_beyond_controls.py
 """

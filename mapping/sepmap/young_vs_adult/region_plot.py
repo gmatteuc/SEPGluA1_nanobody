@@ -749,7 +749,7 @@ def plot_regions(
 
 
 def main() -> None:
-    """Region means per mouse, young-against-adult tests, two tables and the plot."""
+    """Measure the region means per mouse, test young against adult, write and draw."""
     # structure names, acronyms and divisions of the ontology
     names, acro, divi = load_structure_terms()
 

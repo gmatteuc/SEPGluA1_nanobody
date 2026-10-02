@@ -25,8 +25,10 @@ function p = get_paths()
 %   The environment variable SEP_DATA_ROOT points the whole data tree
 %   elsewhere. The refactor's checks run on copies of the data and must never
 %   write into the real one (docs/REFACTOR_PLAN.md), so a copy of the code is
-%   refused the production data, and the snapshot on G: is refused as a data
-%   root. The Python route applies the same rules (mapping/sepmap/config.py).
+%   refused the production data, and neither the snapshot on G: nor the code
+%   folder is accepted as a data root. The Python route applies the same rules
+%   (mapping/sepmap/config.py, and atlas/build_demba_atlas.py, which sits
+%   outside the package).
 %
 %   Raw .czi files are copied into <root>\data\<group>\<mouse>\ before
 %   processing, so the read-only lab share is not part of this at all (see

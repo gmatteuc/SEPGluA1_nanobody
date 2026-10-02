@@ -1,13 +1,5 @@
 """One reading looked at closely: a coronal plane, its video, the cortical flatmaps.
 
-All four views come from one set of prepared cohort volumes, with the colour
-range tightened for cortex and a light smoothing that every title declares.
-Writes into comparisons_v2/young_vs_adult/, or into a subfolder named after
---cmap. The flatmaps need ccf_streamlines, so this runs in tools\\venv_flat
-and imports only sepmap.config and its own module; the method, and the
-flatmap assets it needs in atlas_flatmap/, are described in
-sepmap/young_vs_adult/closeup.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
@@ -37,6 +29,21 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
 
+All four views come from one set of prepared cohort volumes, with the colour
+range tightened for cortex and a light smoothing that every title declares. The
+flatmaps need ccf_streamlines, so this runs in tools\\venv_flat and imports only
+sepmap.config and its own module; the method, and the flatmap assets it needs in
+atlas_flatmap/, are described in sepmap/young_vs_adult/closeup.py. Writes, in
+comparisons_v2/young_vs_adult/ under the data root, or in a subfolder named after
+--cmap:
+
+    detail_plane<P>_<reading>.png        one coronal plane: young, adult, difference
+    detail_video_<reading>.mp4           the same three panels, plane by plane
+    detail_flatmap_<reading>.png         the isocortex unrolled, full cortical depth
+    detail_flatmap_layers_<reading>.png  the same by depth band
+
+and an .eps beside each PNG.
+
     python run_closeup.py [reading ...] [--plane 790] [--vmax V] [--dlim D]
         [--smooth 3,1,1] [--cmap NAME] [--no-video] [--no-flatmap]
 
@@ -61,9 +68,10 @@ def smoothing(text):
 
 
 def main(readings, plane, vmax, dlim, smooth, want_video, want_flatmap, cmap_name):
-    """Close-up views of `readings`, zref when the list is empty.
+    """Print the settings in force, then draw the close-up views of `readings`.
 
-    `smooth` is a list of one or three sigmas, or None for the default.
+    `readings` empty means zref; `smooth` is a list of one or three sigmas, or None
+    for the default.
     """
     readings = readings or ["zref"]
     sigmas = smooth if smooth is not None else list(closeup.SMOOTH)

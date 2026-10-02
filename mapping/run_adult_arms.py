@@ -1,11 +1,5 @@
 """The three channel arms of the measurement argument, one region table per adult.
 
-SEP/auto, nano/auto and nano/SEP per structure for the ten adults, checked
-against run_region_plot's table for the two arms both compute; writes
-region_means_arms.csv and arms_consistency.png under adult_v2/arms/. The
-method, and why the SEP arms do not mean what their names promise, are in
-sepmap/adult/arms.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
@@ -34,6 +28,15 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     24. run_beyond_controls    seven attempts to break it
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
+
+SEP/auto, nano/auto and nano/SEP per structure for the ten adults, checked
+against run_region_plot's table for the two arms both compute. The method, and
+why the SEP arms do not mean what their names promise, are in
+sepmap/adult/arms.py. Writes, in adult_v2/arms/ under the data root:
+
+    region_means_arms.csv    arm x mouse x structure, log2
+    arms_consistency.png     the self-check: against young_vs_adult.region_plot,
+                             and the log-space identity between the three arms
 
     python run_adult_arms.py
 """

@@ -20,7 +20,10 @@ min_slice_corr = run_settings.min_slice_corr;
 
 %% Resolve cohort
 
+% check that the registry still lists the adults in their legacy order
 get_cohort('verify');
+
+% the mice named, or else every mouse of the groups
 if isempty(mice_to_process)
     cohort = get_cohort('groups', groups_to_process);
 else
@@ -34,7 +37,7 @@ makeNewDir(diag_dir);
 
 fprintf('run_add_sep_channel: %d mouse/mice selected.\n', numel(cohort));
 
-%% Loop over mice
+%% Carry the SEP channel of each mouse
 
 for mouse_idx = 1:numel(cohort)
 

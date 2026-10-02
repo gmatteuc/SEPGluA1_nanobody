@@ -1,10 +1,5 @@
 """The summary figures of the beyond-abundance result, with their statistics.
 
-Bootstrap intervals over structures and the noise null; writes panels A to D
-(PNG and EPS) and numbers_for_the_caption.txt under adult_v2/beyond/for_sami/.
-Panel D reads controls.csv, so run_beyond_controls comes first. The method is
-in sepmap/adult/beyond_figures.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
@@ -33,6 +28,15 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     24. run_beyond_controls    seven attempts to break it
     25. run_beyond_figures     the figures of that result             <- this script
     26. run_beyond_regression  the regression, shown
+
+Bootstrap intervals over structures and the noise null. Panel D reads
+controls.csv, so run_beyond_controls comes first. The method is in
+sepmap/adult/beyond_figures.py. Writes, in adult_v2/beyond/for_sami/ under the
+data root:
+
+    A_what_explains.png/.eps      B_leftover_real.png/.eps
+    C_where.png/.eps              D_controls.png/.eps
+    numbers_for_the_caption.txt   every figure's numbers as a sentence
 
     python run_beyond_figures.py
 """

@@ -1,11 +1,5 @@
 """Diagnostic sheets for every step of the route, so it can be audited by eye.
 
-Writes comparisons_v2/processing_diagnostics/: per brain the tissue and level
-sheets (and the warp sheet of a young brain), then the cohort-level sheets and
-the README index; the sheets are listed in sepmap/diagnostics.py. Sheet 08
-reads the background masks of run_normalise_groups (MATLAB), so in a full run
-this comes after the plasticity chain too.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
@@ -35,6 +29,18 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
 
+Per brain the tissue and level sheets (and the warp sheet of a young brain),
+then the cohort-level sheets and the README index; the sheets are listed in
+sepmap/diagnostics.py. Sheet 08 reads the background masks of
+run_normalise_groups (MATLAB), so in a full run this comes after the plasticity
+chain too. Writes, in comparisons_v2/processing_diagnostics/ under the data root:
+
+    01_tissue_<mouse>.png    per brain: what was counted as tissue
+    02_levels_<mouse>.png    per brain: where the background and threshold sit
+    04_warp_<mouse>.png      per young brain: before and after DeMBA -> CCF
+    03_, 05_ to 09_*.png     the cohort-level sheets
+    README.md                the index: what to look for in each sheet
+
     python run_diagnostics.py [mouse ...]
 
 With mouse names, only those brains' sheets are refreshed; with none, every
@@ -47,7 +53,10 @@ from sepmap import config, diagnostics
 
 
 def main(mice):
-    """The sheets of `mice`, or every sheet when the list is empty."""
+    """Print the settings in force, then draw the diagnostic sheets.
+
+    Only the sheets of `mice`, or every sheet when the list is empty.
+    """
     # settings in force
     which = " ".join(mice) if mice else "every brain, and the cohort-level sheets"
     config.print_settings({"mice": which})

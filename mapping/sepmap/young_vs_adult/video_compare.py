@@ -99,7 +99,7 @@ def main(
     rdbu.set_bad((0, 0, 0, 0))
 
     # purple-orange for zref, which is a position rather than an intensity, so
-    # red-blue means one thing only: a young-minus-adult difference
+    # red-blue means one thing only: the young-adult difference
     puor = plt.get_cmap("PuOr_r").copy()
     puor.set_bad((0, 0, 0, 0))
 

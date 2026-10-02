@@ -81,6 +81,8 @@ N_FOLDS = 5
 
 # the largest gene-space model tried in control F, in components
 MAX_PCS = 25
+
+# a generator nothing in this module draws from (cv_r2 makes its own)
 RNG = np.random.default_rng(0)
 
 

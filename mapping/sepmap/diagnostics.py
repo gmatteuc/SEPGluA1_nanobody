@@ -1,26 +1,26 @@
 """Diagnostic sheets for every step of the route, so it can be audited, not believed.
 
-One figure per question, written to data/comparisons_v2/processing_diagnostics/,
-with an index README beside them:
+One figure per question, written to comparisons_v2/processing_diagnostics/ under
+the data root, with an index README beside them:
 
-  01_tissue_<mouse>.png       what was counted as tissue, drawn on the brain
-  02_levels_<mouse>.png       where the background and the threshold sit in the
-                              intensity distributions
-  03_coverage.png             how much of the atlas each brain covers, plane by
-                              plane: where a cohort mean rests on few mice
-  04_warp_<mouse>.png         the same plane before and after DeMBA -> CCF, and
-                              every region's value before against after
-  05_cohort_n.png             how many brains contribute at each voxel
-  06_scaling.png              the per-mouse scale factors, and what they do to
-                              the cortex distributions
-  07_route_agreement.png      voxelwise (warped) against region-wise (never
-                              warped), structure by structure
-  08_mask_vs_p6bis.png        this route's tissue mask against the one of
-                              run_normalise_groups / run_nano_equalisation,
-                              checked by eye, where the latter works
-  09_denominators.png         autofluorescence and SEP as reference channels,
-                              and whether a structure's answer depends on which
-                              one is used
+    01_tissue_<mouse>.png       what was counted as tissue, drawn on the brain
+    02_levels_<mouse>.png       where the background and the threshold sit in the
+                                intensity distributions
+    03_coverage.png             how much of the atlas each brain covers, plane by
+                                plane: where a cohort mean rests on few mice
+    04_warp_<mouse>.png         the same plane before and after DeMBA -> CCF, and
+                                every region's value before against after
+    05_cohort_n.png             how many brains contribute at each voxel
+    06_scaling.png              the per-mouse scale factors, and what they do to
+                                the cortex distributions
+    07_route_agreement.png      voxelwise (warped) against region-wise (never
+                                warped), structure by structure
+    08_mask_vs_p6bis.png        this route's tissue mask against the one of
+                                run_normalise_groups / run_nano_equalisation,
+                                checked by eye, where the latter works
+    09_denominators.png         autofluorescence and SEP as reference channels,
+                                and whether a structure's answer depends on which
+                                one is used
 
 The per-brain sheets run_add_sep_channel writes when it carries the SEP channel
 into registered space sit beside these, in processing_diagnostics/sep_channel/.
@@ -677,7 +677,7 @@ The numbers behind these are in `../young_vs_adult/region_stats.csv` and
 
 
 def main(named_mice: list[str]) -> None:
-    """Every sheet of `named_mice`, or of every brain and the cohort-level ones too.
+    """Draw the sheets of `named_mice`, or of every brain and the cohort-level ones.
 
     With mouse names only those brains' sheets are refreshed; with none, every
     brain's sheets, the cohort-level sheets and the index are written. ISO and

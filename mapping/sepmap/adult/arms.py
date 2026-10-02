@@ -73,7 +73,11 @@ EXISTING = os.path.join(
 
 # smallest structure kept, in 20 um voxels, as in young_vs_adult.region_plot
 MIN_VOX = 250
+
+# the ten adults, naive and rws pooled
 ADULTS = NAIVE + RWS
+
+# the three arms, and labels for them that no figure of this module uses
 ARMS = ("sepauto", "ratio", "sepratio")
 LABEL = {
     "sepauto": "SEP / autofluorescence   (total receptor)",

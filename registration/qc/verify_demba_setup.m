@@ -1,6 +1,8 @@
 %% verify_demba_setup
 % ===== Check the DeMBA P20 setup before annotating a young brain =====
 %
+% Registration QC, run by hand before annotating a young brain.
+%
 % Registering to the wrong atlas, or to the right atlas in the wrong label space,
 % gives a result that looks plausible, and each check below has failed silently
 % before, so they are checked before a manual annotation session is spent on top
@@ -8,8 +10,8 @@
 % local settings of each P20 mouse, the vendored LightSuite fixes, and which
 % brains are ready to annotate. Changes nothing.
 %
-% Run it before annotating a young brain. Run sep_setup_paths first, once per
-% MATLAB session.
+% Setup: the DeMBA P20 atlas and the young P20 brains. Run sep_setup_paths
+% first, once per MATLAB session.
 
 clear; clc; close all;
 

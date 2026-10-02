@@ -1,9 +1,5 @@
 """Redraw run_compare's slice figures from the volumes it saved.
 
-A change to the figures does not need the comparison again: this reads
-comparisons_v2/young_vs_adult/volumes_ccf20.npz and redraws slices_<reading>
-with draw_figures of sepmap/young_vs_adult/compare.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
@@ -33,6 +29,13 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
 
+A change to the figures does not need the comparison again: this reads the
+volumes_ccf20.npz that run_compare saved and redraws the figures with
+draw_figures of sepmap/young_vs_adult/compare.py. Writes, in
+comparisons_v2/young_vs_adult/ under the data root:
+
+    slices_<reading>.png  dorsal up, midline right, no data in grey; an .eps beside it
+
     python run_replot.py
 
 V2_READINGS, a comma-separated subset of the readings (ratio, sepratio,
@@ -49,7 +52,7 @@ from sepmap.young_vs_adult import replot
 
 
 def main():
-    """Redraw the young against adult slice figures."""
+    """Print the readings in force, then redraw the young against adult slices."""
     # settings in force
     readings = " ".join(cohort.MODES)
     if os.environ.get("V2_READINGS", "").strip():

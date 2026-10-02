@@ -52,11 +52,15 @@ from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 OUT = os.path.join(DATA, "adult_v2", "arms")
 GENES = os.path.join(DATA, "adult_v2", "ish", "gene_region_table.csv")
 
+# the ten adults, naive and rws pooled
 ADULTS = NAIVE + RWS
+
+# the three raw channels of the per-mouse files, and names for them that no
+# figure of this module uses
 CHANNELS = ("sig", "auto", "sep")
 NICE = {"sig": "nano", "auto": "autofluo", "sep": "SEP (green)"}
 
-# smallest structure kept, in 20 um voxels, as in adult.arms
+# smallest structure kept, in 20 um voxels, as in young_vs_adult.region_plot
 MIN_VOX = 250
 
 # ISH voxels a structure needs for its Gria1 value to be used

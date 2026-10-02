@@ -1,10 +1,5 @@
 """What the green (SEP) channel reports in this tissue, from the raw channels.
 
-Per adult: the dynamic range of each channel, what each tracks across
-structures, and the SEP residual once autofluorescence is regressed out;
-writes sep_channel_check.csv and sep_channel_check.png under adult_v2/arms/.
-The method is in sepmap/adult/sep_channel_check.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
@@ -33,6 +28,14 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     24. run_beyond_controls    seven attempts to break it
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
+
+Per adult: the dynamic range of each channel, what each tracks across
+structures, and the SEP residual once autofluorescence is regressed out; the
+method is in sepmap/adult/sep_channel_check.py. Writes, in adult_v2/arms/ under
+the data root:
+
+    sep_channel_check.csv    the per-mouse numbers behind the figure
+    sep_channel_check.png    the figure
 
     python run_sep_channel_check.py
 """

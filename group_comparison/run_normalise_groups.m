@@ -62,8 +62,9 @@ channel = 'nano';
 % (collected_mice<tag>.mat) and its own atlas; see get_cohort_spec
 cohort_specs = {'rws', 'naive'};
 
-% batch runs pick the cohorts without editing this file:
-% set SEP_COHORT_SPECS=young_P20 (comma-separated for several)
+% SEP_COHORT_SPECS, a comma-separated list in the environment, replaces the list
+% above when it is set, so batch runs pick the cohorts without editing this file:
+%   $env:SEP_COHORT_SPECS = 'young_P20'
 if ~isempty(getenv('SEP_COHORT_SPECS'))
     cohort_specs = strtrim(strsplit(getenv('SEP_COHORT_SPECS'), ','));
 end

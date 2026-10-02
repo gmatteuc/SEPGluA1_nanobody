@@ -1,11 +1,5 @@
 """Every brain onto the adult CCF grid at 20 um, one brain at a time.
 
-Young brains are carried from the DeMBA atlas of their own age to the adult
-CCF (brainglobe_ccf_translator, minutes per channel); adults, registered to the
-CCF already, are only placed. Reads comparisons_v2/per_mouse/ and writes
-comparisons_v2/per_mouse_ccf/<mouse>.npz; the method is in
-sepmap/volumes/to_ccf.py.
-
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid      <- this script
@@ -35,6 +29,15 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
 
+Young brains are carried from the DeMBA atlas of their own age to the adult
+CCF (brainglobe_ccf_translator, minutes per channel); adults, registered to the
+CCF already, are only placed. Reads comparisons_v2/per_mouse/; the method is in
+sepmap/volumes/to_ccf.py. Writes, in comparisons_v2/per_mouse_ccf/ under the
+data root:
+
+    <mouse>.npz    sig, auto and sep (float16) and tissue (bool) on the CCF grid at
+                   20 um, with the scalars of the per-brain file
+
     python run_to_ccf.py [mouse ...]
 
 With no mouse named, every brain of the cohort.
@@ -47,7 +50,10 @@ from sepmap.volumes import per_mouse, to_ccf
 
 
 def main(mice):
-    """Carry `mice`, or every brain when the list is empty, onto the CCF grid."""
+    """Print the settings in force, then carry each brain onto the CCF grid.
+
+    `mice` empty means every brain of the cohort.
+    """
     mice = mice or list(per_mouse.MICE)
 
     # settings in force
