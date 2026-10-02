@@ -91,9 +91,10 @@ end
 %% Report
 
 if isempty(failed_mice)
-    fprintf('\nP1 finished: all %d mouse/mice processed.\n', numel(cohort));
+    fprintf('\nrun_extract_and_center finished: all %d mouse/mice processed.\n', ...
+        numel(cohort));
 else
-    fprintf('\nP1 finished with %d failure(s): %s\n', ...
+    fprintf('\nrun_extract_and_center finished with %d failure(s): %s\n', ...
         numel(failed_mice), strjoin(failed_mice, ', '));
 end
 
