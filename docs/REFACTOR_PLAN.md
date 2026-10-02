@@ -1078,6 +1078,12 @@ The style pass will add to this list.
   commit checked by a rerun; local variables may be renamed (kind B),
   saved names, columns and settings keep theirs. The procedure is in
   `docs/STYLE_PASS.md` (temporary).
+- **New order** (Giulio, 2 Oct): merge first, new science after. Step 7's
+  kind C and the step 8 fixes go in one batch with one set of reruns (a fix
+  that changes production numbers still waits for Giulio); then step 10's
+  documents and step 11's merge. Step 9 (A1 to A5, then retiring P8 to P10)
+  moves after the merge, as normal project work on the merged code; P8 to
+  P10 stay in place and keep running until A1 to A5 replace them.
 - **For step 10** (Giulio, 2 Oct): the README's cover image is the slice-order
   montage on Giulio's desktop (`slice_order_montage.png`, 1 Oct), copied to
   `assets/` and shown on the README's first lines as the imaging repository
