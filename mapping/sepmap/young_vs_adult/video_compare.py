@@ -129,11 +129,10 @@ def main(readings, plane=None, vmax=None, dlim=None):
 
         # a still of one plane, or a video of the planes with more than 200 compared
         # voxels; a CCF plane is quoted at 10 um in every caption, the volumes are 20 um
-        frames = (
-            [plane // 2]
-            if plane is not None
-            else [k for k in range(ann_h.shape[0]) if both[k].sum() > 200]
-        )
+        if plane is not None:
+            frames = [plane // 2]
+        else:
+            frames = [k for k in range(ann_h.shape[0]) if both[k].sum() > 200]
         tag = "" if vmax is None else f"_vmax{v_mean:g}"
         if plane is None:
             out = os.path.join(OUT, f"video_side_by_side_{reading}{tag}.mp4")
@@ -226,20 +225,23 @@ def main(readings, plane=None, vmax=None, dlim=None):
 
             # header: the plane, the most brains behind any voxel on each side, and
             # what the panels show
+            if signed:
+                note = (
+                    "(means are a position within each brain's own range; "
+                    "right panel is their difference)"
+                )
+            else:
+                note = (
+                    "(means on a linear scale, shared range; "
+                    "only the right panel is log2)"
+                )
             fig.texts.clear()
             fig.text(
                 0.5,
                 0.93,
                 f"CCF plane {2 * k} / 10 um    "
                 f"young: {int(np.nanmax(np.where(ok_y[k], y_n[k], 0)))} brains   "
-                f"adult: {int(np.nanmax(np.where(ok_a[k], a_n[k], 0)))} brains   "
-                + (
-                    "(means are a position within each brain's own range; "
-                    "right panel is their difference)"
-                    if signed
-                    else "(means on a linear scale, shared range; "
-                    "only the right panel is log2)"
-                ),
+                f"adult: {int(np.nanmax(np.where(ok_a[k], a_n[k], 0)))} brains   " + note,
                 color="w",
                 fontsize=12,
                 ha="center",

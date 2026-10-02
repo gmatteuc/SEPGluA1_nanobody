@@ -236,11 +236,10 @@ def difference(vals, signed):
     """
     y, a = vals[YOUNG], vals[ADULT]
     both = (y[1] > 0) & (a[1] > 0)
-    d = (
-        (y[0] - a[0])
-        if signed
-        else np.log2(np.maximum(y[0], LOG2_FLOOR) / np.maximum(a[0], LOG2_FLOOR))
-    )
+    if signed:
+        d = y[0] - a[0]
+    else:
+        d = np.log2(np.maximum(y[0], LOG2_FLOOR) / np.maximum(a[0], LOG2_FLOOR))
     return np.where(both, d, np.nan), both
 
 
@@ -608,11 +607,10 @@ def flatmaps(reading, vals, signed, lim_mean, cmaps, sigma_txt, n, out_dir):
 
     def diff_of(y, a):
         """Young against adult: a difference if signed, else a floored log2 ratio."""
-        return (
-            (y - a)
-            if signed
-            else np.log2(np.maximum(y, LOG2_FLOOR) / np.maximum(a, LOG2_FLOOR))
-        )
+        if signed:
+            return y - a
+        else:
+            return np.log2(np.maximum(y, LOG2_FLOOR) / np.maximum(a, LOG2_FLOOR))
 
     # through the full depth: young, adult, difference
     fig, axes = plt.subplots(1, 3, figsize=(19, 5.2), facecolor="k")
@@ -702,15 +700,16 @@ def main(readings, plane, vmax, dlim, sigma, want_video, want_flatmap, cmap_name
     # what every title says about the smoothing and the colormap
     sig = np.atleast_1d(sigma).astype(float)
     cmap_txt = "" if cmap_name is None else f", {cmap_name} colormap"
-    sigma_txt = (
-        "no smoothing"
-        if not np.any(sig)
-        else "smoothed sigma "
-        + " x ".join(
-            f"{v * 20:.0f}" for v in (sig if sig.size > 1 else np.repeat(sig, 3))
+    if not np.any(sig):
+        sigma_txt = "no smoothing"
+    else:
+        sigmas_3d = sig if sig.size > 1 else np.repeat(sig, 3)
+        sigma_txt = (
+            "smoothed sigma "
+            + " x ".join(f"{v * 20:.0f}" for v in sigmas_3d)
+            + " um (AP x DV x ML)"
         )
-        + " um (AP x DV x ML)"
-    ) + cmap_txt
+    sigma_txt += cmap_txt
     n = {c: cohort_size(c) for c in (YOUNG, ADULT)}
     for reading in readings:
         t0 = time.time()

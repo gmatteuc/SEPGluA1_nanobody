@@ -273,11 +273,10 @@ def group_means(mice, groups, stru, divi):
 
         # sums per parcellation index of the voxels, sig and the two ratios
         ratio = per_unit(auto, sig, tissue)
-        sepratio = (
-            per_unit(z["sep"].astype(np.float32), sig, tissue)
-            if "sep" in z.files
-            else np.zeros_like(sig)
-        )
+        if "sep" in z.files:
+            sepratio = per_unit(z["sep"].astype(np.float32), sig, tissue)
+        else:
+            sepratio = np.zeros_like(sig)
         lab = ann[tissue]
         nlab = int(ann.max()) + 1
         n = np.bincount(lab, minlength=nlab)
@@ -290,11 +289,15 @@ def group_means(mice, groups, stru, divi):
         for key, ids in groups.items():
             ids = [i for i in ids if i < nlab]
             c = n[ids].sum()
-            per[mouse][key] = (
-                (int(c), s_sig[ids].sum() / c, s_rat[ids].sum() / c, s_sep[ids].sum() / c)
-                if c >= 250
-                else None
-            )
+            if c >= 250:
+                per[mouse][key] = (
+                    int(c),
+                    s_sig[ids].sum() / c,
+                    s_rat[ids].sum() / c,
+                    s_sep[ids].sum() / c,
+                )
+            else:
+                per[mouse][key] = None
 
         # the two references: mean sig of the isocortex, and of the subcortex
         # without the divisions in NOT_SUBCORTEX
@@ -383,6 +386,14 @@ def group_stats(groups, mice, per, norm, refs):
             rw = [v[m] for m in RWS if m in v]
             if len(yo) < 3 or len(ad) < 5:
                 continue
+            if len(y20) >= 3:
+                diff_p20only = np.median(y20) - np.median(ad)
+            else:
+                diff_p20only = float("nan")
+            if nv and rw:
+                naive_minus_rws = np.median(nv) - np.median(rw)
+            else:
+                naive_minus_rws = float("nan")
             rows.append(
                 dict(
                     reading=reading,
@@ -396,12 +407,8 @@ def group_stats(groups, mice, per, norm, refs):
                     diff_mean=np.mean(yo) - np.mean(ad),
                     mannwhitney_p=mannwhitney(yo, ad),
                     welch_p=welch(yo, ad),
-                    diff_P20only=(np.median(y20) - np.median(ad))
-                    if len(y20) >= 3
-                    else float("nan"),
-                    naive_minus_rws=(np.median(nv) - np.median(rw))
-                    if nv and rw
-                    else float("nan"),
+                    diff_P20only=diff_p20only,
+                    naive_minus_rws=naive_minus_rws,
                 )
             )
 
@@ -453,11 +460,12 @@ def print_group_table(groups, rows, star):
                     ),
                     None,
                 )
-                cells.append(
-                    f"{r['diff_median']:+8.2f}{star[(reading, grouping, key[1])]:<3s}"
-                    if r
-                    else f"{'--':>11s}"
-                )
+                if r:
+                    cells.append(
+                        f"{r['diff_median']:+8.2f}{star[(reading, grouping, key[1])]:<3s}"
+                    )
+                else:
+                    cells.append(f"{'--':>11s}")
             print(f"  {key[1]:22s} " + " ".join(cells))
 
 
@@ -606,14 +614,15 @@ def main():
     # young-against-adult tests, the table, and the stars of the figures
     rows = group_stats(groups, mice, per, norm, refs)
     write_group_stats(rows)
-    star = {
-        (r["reading"], r["grouping"], r["group"]): (
-            "**"
-            if r["mannwhitney_p"] < 0.01
-            else ("*" if r["mannwhitney_p"] < 0.05 else "")
-        )
-        for r in rows
-    }
+    star = {}
+    for r in rows:
+        if r["mannwhitney_p"] < 0.01:
+            mark = "**"
+        elif r["mannwhitney_p"] < 0.05:
+            mark = "*"
+        else:
+            mark = ""
+        star[(r["reading"], r["grouping"], r["group"])] = mark
 
     # summary table, printed
     print_group_table(groups, rows, star)

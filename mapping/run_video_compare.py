@@ -58,13 +58,15 @@ def main(readings, plane=None, vmax=None, dlim=None):
     in_force = " ".join(cohort.MODES)
     if os.environ.get("V2_READINGS", "").strip():
         in_force += "  (from V2_READINGS)"
+    if plane is None:
+        plane_text = "every plane, as a video"
+    else:
+        plane_text = f"{plane}, as a still"
     config.print_settings(
         {
             "readings": " ".join(readings),
             "in force": in_force,
-            "plane": "every plane, as a video"
-            if plane is None
-            else f"{plane}, as a still",
+            "plane": plane_text,
             "vmax": "per reading" if vmax is None else vmax,
             "dlim": "default" if dlim is None else dlim,
         }

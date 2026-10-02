@@ -327,11 +327,10 @@ def structure_means(mice, names):
 
         # sums per parcellation index of the voxels, sig and the two ratios
         ratio = per_unit(auto, sig, tissue)
-        sepratio = (
-            per_unit(z["sep"].astype(np.float32), sig, tissue)
-            if "sep" in z.files
-            else np.zeros_like(sig)
-        )
+        if "sep" in z.files:
+            sepratio = per_unit(z["sep"].astype(np.float32), sig, tissue)
+        else:
+            sepratio = np.zeros_like(sig)
         lab = ann[tissue]
         nlab = int(ann.max()) + 1
         n = np.bincount(lab, minlength=nlab)

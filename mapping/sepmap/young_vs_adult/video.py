@@ -130,11 +130,10 @@ def main(cohorts):
                 )
             )
             cmap_use = puor if signed else hot_cut
-            lim_mean = (
-                (-MEAN_VMAX[reading], MEAN_VMAX[reading])
-                if signed
-                else (0, MEAN_VMAX[reading])
-            )
+            if signed:
+                lim_mean = (-MEAN_VMAX[reading], MEAN_VMAX[reading])
+            else:
+                lim_mean = (0, MEAN_VMAX[reading])
             lim_t = (-t_vmax, t_vmax) if signed else (0, t_vmax)
 
             # a video of the planes with more than 200 voxels with data, drawn into
