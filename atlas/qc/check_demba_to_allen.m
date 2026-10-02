@@ -1,44 +1,50 @@
-clear all
-close all
-clc
-
-% /// QC: does the DeMBA P20 -> adult CCF transform actually reconcile them? ///
+%% check_demba_to_allen
+% ===== Check that the DeMBA P20 to adult CCF transform reconciles the two =====
+%
+% Atlas QC, run by hand after the atlas or its crop changes.
+%
 % The young cohort registers to the age-matched P20 template while the adults
 % stay on the adult CCF, so anything voxelwise across the two needs a way to
 % carry P20 data into adult space. CCF Translator provides it, built from the
 % same deformations Carey used to make DeMBA.
 %
-% This checks that it works, and the check is unusually strong. DeMBA's labels
-% ARE the CCF labels, warped onto the P20 template. Warping them back should
-% recover the adult annotation, so the overlap against the real CCF annotation
-% should come out near 1. Anything much lower means the transform is not doing
-% what it claims.
+% The check is unusually strong: DeMBA's labels are the CCF labels, warped
+% onto the P20 template, so warping them back should recover the adult
+% annotation, and the overlap with the real CCF annotation should come out
+% near 1. Anything much lower means the transform is not doing what it
+% claims. Both states are computed here rather than quoted, so the figure
+% stands on its own:
+%   before  the two atlases aligned only by their AP crops, what a
+%           registration would face with no deformation at all, the worst case
+%   after   the DeMBA annotation carried into adult space by CCF Translator
+% Prints the voxel agreement and the recovery of each region, and saves
+% demba_to_allen_transform_qc.png and .fig in young\registration_qc under the
+% data root.
 %
-% Both states are computed here rather than quoted, so the figure is
-% self-contained:
-%   BEFORE  the two atlases aligned only by their AP crops, which is what a
-%           registration would face with no deformation at all -- the worst case
-%   AFTER   the DeMBA annotation carried into adult space by CCF Translator
-%
-% The transformed volume comes from tmp/demba_to_allen.py. Re-run that if the
-% atlas or its crop ever changes.
-%
-% Run sep_setup_paths first, once per MATLAB session.
+% Setup: DeMBA P20 against the adult CCF, compared at 20 um. The transformed
+% annotation comes from tmp/demba_to_allen.py, which is not in the
+% repository; re-run it if the atlas or its crop changes. Run sep_setup_paths
+% first, once per MATLAB session.
 
-%% User-defined parameters
+clear all
+close all
+clc
 
-% Where the project lives. Derived from the location of the code rather than
-% written out, so the tree can be moved or copied to another drive as is.
+%% Settings
+
+% project folders, worked out from where the code sits, so the tree can be moved
+% or copied to another drive as is (SEP_DATA_ROOT points the data elsewhere)
 paths = get_paths();
 
-% The transformed annotation, already in adult space at 20 um
+% the transformed annotation, already in adult space at 20 um
 transformed_file = fullfile(paths.data, 'atlas_demba_p20', ...
                             'annotation_in_allen_space_20um.nii.gz');
 
-% Common working resolution
+% common working resolution, in um
 work_res_um = 20;
 
-% Regions shown in the matrices
+% regions shown in the matrices: major divisions, then the visual and
+% somatosensory areas with their short labels
 regions_of_interest = {'Isocortex', 'ventricular systems', 'Hippocampal formation', ...
                        'Striatum', 'Thalamus', 'Cerebellum', 'fiber tracts', ...
                        'Hypothalamus', 'Midbrain', 'Olfactory areas'};
@@ -59,17 +65,19 @@ cortical_labels = {'VISp', 'VISal (AL)', 'VISrl (RL)', 'VISam (AM)', 'VISpm (PM)
                    'VISl (LM)', 'VISpor (POR)', 'SSp-bfd', 'SSp-ll', 'SSp-ul', ...
                    'SSp-m', 'SSs'};
 
-% Ignore regions too small for a stable number
+% smallest region, in voxels, with a stable number
 min_voxels = 200;
 
-% Output
+% output folder, and whether to save the figure
 out_dir = fullfile(paths.data, 'young', 'registration_qc');
-if ~exist(out_dir, 'dir'), mkdir(out_dir); end
+if ~exist(out_dir, 'dir')
+    mkdir(out_dir);
+end
 save_figure = true;
 
-% Color palette
-before_color = [0.55 0.55 0.55];   % gray, the un-transformed state
-after_color  = [0.95 0.55 0.10];   % strong orange, after the transform
+% colours: before the transform grey, after it orange
+before_color = [0.55 0.55 0.55];
+after_color  = [0.95 0.55 0.10];
 
 %% Load
 
@@ -88,8 +96,8 @@ av_adult_full = niftiread(fullfile(atlas_adult.dir, atlas_adult.annotation_file)
 av_young_full = niftiread(fullfile(atlas_young.dir, atlas_young.annotation_file));
 av_trans      = niftiread(transformed_file);
 
-% Adult at the working resolution. Subsample rather than average: these are
-% labels, and the mean of two region ids is not a region.
+% the adult atlas at the working resolution, subsampled rather than averaged:
+% these are labels, and the mean of two region ids is not a region
 step = work_res_um / atlas_adult.res_um;
 av_adult_20 = av_adult_full(1:step:end, 1:step:end, 1:step:end);
 
@@ -103,7 +111,7 @@ if ~isequal(size(av_trans), size(av_adult_20))
            mat2str(size(av_trans)), work_res_um, mat2str(size(av_adult_20)));
 end
 
-%% AFTER: crop both to the adult analysis range and compare
+%% After: both cropped to the adult analysis range
 
 crop_after = round(atlas_adult.default_aplims / step);
 adult_after = av_adult_20(crop_after(1):crop_after(2), :, :);
@@ -111,11 +119,11 @@ trans_after = av_trans(crop_after(1):crop_after(2), :, :);
 fprintf('\nadult crop [%d %d] at 10 um -> [%d %d] at %g um, %s\n', ...
     atlas_adult.default_aplims, crop_after, work_res_um, mat2str(size(adult_after)));
 
-%% BEFORE: the two atlases aligned only by their crops
+%% Before: the two atlases aligned only by their crops
 
-% This is what the comparison looked like with no deformation between them:
-% each atlas cropped to its own AP span, then resampled to a common shape.
-% It is the worst case, not what the pipeline incurs.
+% each atlas cropped to its own AP span, then resampled to a common shape: the
+% comparison with no deformation between them, the worst case, not what the
+% pipeline incurs
 crop_y = atlas_young.default_aplims;
 young_cropped = av_young_full(crop_y(1):crop_y(2), :, :);
 before_shape  = size(adult_after);
@@ -124,7 +132,7 @@ adult_before  = adult_after;
 fprintf('before-state: DeMBA crop [%d %d] resampled %s -> %s\n', ...
     crop_y, mat2str(size(young_cropped)), mat2str(before_shape));
 
-%% Overall agreement, both states
+%% Agreement in both states
 
 [agree_before, rec_before] = agreement(adult_before, trans_before, min_voxels);
 [agree_after,  rec_after ] = agreement(adult_after,  trans_after,  min_voxels);
@@ -168,6 +176,7 @@ fig = figure('Visible', 'off', 'Color', 'w', 'Units', 'pixels', ...
              'Position', [50 50 1680 940]);
 tl = tiledlayout(fig, 2, 3, 'TileSpacing', 'compact', 'Padding', 'compact');
 
+% the major divisions, before and after
 nexttile(tl);
 draw_matrix(mat_div_before, regions_of_interest, 7.5, 7);
 title({'Major divisions BEFORE', sprintf('crop alignment only, diagonal median %.2f', ...
@@ -178,10 +187,12 @@ draw_matrix(mat_div_after, regions_of_interest, 7.5, 7);
 title({'Major divisions AFTER', sprintf('CCF Translator, diagonal median %.2f', ...
        median(diag(mat_div_after)))}, 'FontSize', 10)
 
+% the recovery of every region, before and after
 nexttile(tl);
 edges = linspace(0, 1, 40);
 histogram(rec_before, edges, 'Normalization', 'probability', ...
-          'FaceColor', before_color, 'EdgeColor', 'none', 'FaceAlpha', 0.75); hold on
+          'FaceColor', before_color, 'EdgeColor', 'none', 'FaceAlpha', 0.75);
+hold on
 histogram(rec_after, edges, 'Normalization', 'probability', ...
           'FaceColor', after_color, 'EdgeColor', 'none', 'FaceAlpha', 0.75);
 xlabel('fraction of the adult region recovered')
@@ -194,6 +205,7 @@ title({sprintf('All %d regions', numel(rec_after)), ...
        100*mean(rec_after > 0.8), 100*mean(rec_before > 0.8))}, 'FontSize', 10)
 box off
 
+% the visual and somatosensory areas, before and after
 nexttile(tl);
 draw_matrix(mat_ctx_before, cortical_labels, 7, 6);
 title({'Visual + somatosensory BEFORE', sprintf('diagonal median %.2f', ...
@@ -204,15 +216,19 @@ draw_matrix(mat_ctx_after, cortical_labels, 7, 6);
 title({'Visual + somatosensory AFTER', sprintf('diagonal median %.2f', ...
        median(diag(mat_ctx_after)))}, 'FontSize', 10)
 
+% their diagonals as bars
 nexttile(tl);
 d_before = diag(mat_ctx_before);
 d_after  = diag(mat_ctx_after);
 b = barh([d_before d_after]);
-b(1).FaceColor = before_color; b(1).EdgeColor = 'none';
-b(2).FaceColor = after_color;  b(2).EdgeColor = 'none';
+b(1).FaceColor = before_color;
+b(1).EdgeColor = 'none';
+b(2).FaceColor = after_color;
+b(2).EdgeColor = 'none';
 set(gca, 'YTick', 1:numel(cortical_labels), 'YTickLabel', cortical_labels, ...
          'TickLabelInterpreter', 'none', 'FontSize', 8, 'YDir', 'reverse');
-xlim([0 1]); xlabel('fraction recovered')
+xlim([0 1]);
+xlabel('fraction recovered')
 legend({'before', 'after'}, 'Box', 'off', 'Location', 'southeast')
 title('The areas this project reports on', 'FontSize', 10)
 box off
@@ -229,65 +245,84 @@ if save_figure
     fprintf('\nsaved:\n  %s\n  %s\n', png_name, fig_name);
 end
 
-%% Local function: voxel agreement and per-region recovery
+% ===== Local functions =====
 
 function [agree, recovery] = agreement(ref, test, min_voxels)
-    both = ref > 0 & test > 0;
-    agree = nnz(both & ref == test) / nnz(both);
+% Voxel agreement where both label something, and the fraction of each region
+% of ref (min_voxels or more) that test labels the same.
 
-    labels = intersect(unique(ref(:)), unique(test(:)));
-    labels = labels(labels ~= 0);
-    recovery = [];
-    for k = 1:numel(labels)
-        m = ref == labels(k);
-        n = nnz(m);
-        if n < min_voxels
-            continue
-        end
-        recovery(end+1, 1) = nnz(m & test == labels(k)) / n; %#ok<AGROW>
+both = ref > 0 & test > 0;
+agree = nnz(both & ref == test) / nnz(both);
+
+labels = intersect(unique(ref(:)), unique(test(:)));
+labels = labels(labels ~= 0);
+recovery = [];
+for k = 1:numel(labels)
+    m = ref == labels(k);
+    n = nnz(m);
+    if n < min_voxels
+        continue
     end
+    recovery(end+1, 1) = nnz(m & test == labels(k)) / n; %#ok<AGROW>
 end
 
-%% Local function: overlap matrix for a set of named regions
+end
 
 function m = overlap_matrix(csv_dir, av_ref, av_test, region_names)
-    n = numel(region_names);
-    mask_ref  = cell(1, n);
-    mask_test = cell(1, n);
-    for i = 1:n
-        mask_ref{i}  = get_allen_region_mask(csv_dir, av_ref,  region_names(i), av_ref > 0);
-        mask_test{i} = get_allen_region_mask(csv_dir, av_test, region_names(i), av_test > 0);
+% Fraction of each named region of av_ref (rows) that av_test calls each named
+% region (columns).
+
+n = numel(region_names);
+mask_ref  = cell(1, n);
+mask_test = cell(1, n);
+for i = 1:n
+    mask_ref{i}  = get_allen_region_mask(csv_dir, av_ref,  region_names(i), av_ref > 0);
+    mask_test{i} = get_allen_region_mask(csv_dir, av_test, region_names(i), av_test > 0);
+end
+m = zeros(n);
+for i = 1:n
+    denom = nnz(mask_ref{i});
+    if denom == 0
+        continue
     end
-    m = zeros(n);
-    for i = 1:n
-        denom = nnz(mask_ref{i});
-        if denom == 0, continue, end
-        for j = 1:n
-            m(i, j) = nnz(mask_ref{i} & mask_test{j}) / denom;
-        end
+    for j = 1:n
+        m(i, j) = nnz(mask_ref{i} & mask_test{j}) / denom;
     end
 end
 
-%% Local function: draw one overlap matrix
+end
 
 function draw_matrix(m, labels, tick_font, cell_font)
-    imagesc(m, [0 1]);
-    colormap(gca, hot);
-    axis square
-    n = size(m, 1);
-    set(gca, 'XTick', 1:n, 'XTickLabel', labels, 'YTick', 1:n, 'YTickLabel', labels, ...
-             'TickLabelInterpreter', 'none', 'FontSize', tick_font);
-    xtickangle(45)
-    for i = 1:n
-        for j = 1:n
-            v = m(i, j);
-            if v < 0.02, continue, end
-            if v > 0.55, c = [0 0 0]; else, c = [1 1 1]; end
-            text(j, i, sprintf('%.2f', v), 'HorizontalAlignment', 'center', ...
-                 'FontSize', cell_font, 'Color', c);
+% Draw one overlap matrix in hot, with each value worth reading printed in its
+% cell.
+
+imagesc(m, [0 1]);
+colormap(gca, hot);
+axis square
+n = size(m, 1);
+set(gca, 'XTick', 1:n, 'XTickLabel', labels, 'YTick', 1:n, 'YTickLabel', labels, ...
+         'TickLabelInterpreter', 'none', 'FontSize', tick_font);
+xtickangle(45)
+for i = 1:n
+    for j = 1:n
+        v = m(i, j);
+        if v < 0.02
+            continue
         end
+
+        % black on the bright cells, white on the dark ones
+        if v > 0.55
+            c = [0 0 0];
+        else
+            c = [1 1 1];
+        end
+        text(j, i, sprintf('%.2f', v), 'HorizontalAlignment', 'center', ...
+             'FontSize', cell_font, 'Color', c);
     end
-    cb = colorbar; cb.Label.String = 'fraction of the adult region';
-    xlabel('called this in the transformed DeMBA')
-    ylabel('adult CCF region')
+end
+cb = colorbar;
+cb.Label.String = 'fraction of the adult region';
+xlabel('called this in the transformed DeMBA')
+ylabel('adult CCF region')
+
 end

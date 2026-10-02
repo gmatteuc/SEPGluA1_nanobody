@@ -1,38 +1,78 @@
 function atlas = get_atlas(atlas_key)
-% GET_ATLAS Resolve reference atlas location and parameters by key.
+%GET_ATLAS  Location and parameters of a reference atlas, by key.
+%   atlas = GET_ATLAS() returns the default, 'ccf'.
+%   atlas = GET_ATLAS('ccf') returns the Allen Mouse Brain CCFv3, 10 um.
+%   atlas = GET_ATLAS('demba_p20') returns DeMBA at P20, 20 um; any age N
+%   built by build_demba_atlas.py is 'demba_pN'.
 %
-%   atlas = get_atlas()      returns the default ('ccf')
-%   atlas = get_atlas('ccf') Allen Mouse Brain CCFv3, 10 um
+%   It also puts that atlas's folder on the MATLAB path and takes every other
+%   atlas folder off it: every atlas folder holds files of the same names,
+%   because that is how LightSuite finds them (which()), so with two of them
+%   on the path a brain could be registered to the wrong atlas, or the wrong
+%   age, with nothing in the log to say so. It stops if a required file is
+%   missing, rather than deep inside a registration call.
 %
-%   Returned struct fields:
+%   atlas is a struct with the fields:
 %     key              short identifier used in output tags
 %     dir              folder holding the atlas volumes
 %     template_file    grayscale average template (used for registration)
 %     annotation_file  region-label volume (used for ROI masks)
-%     boundary_file    region-boundary volume (used for overlays)
+%     boundary_file    region-boundary volume (used for overlays; '' for DeMBA)
 %     res_um           isotropic voxel size in micrometres
 %     age_days         postnatal age this atlas represents (56 = adult). An
-%                      age-matched atlas is only valid for mice of that age --
+%                      age-matched atlas is valid only for mice of that age:
 %                      a P36 brain does not belong on the P20 template.
-%     default_aplims   AP crop used historically for this atlas
-%     description      human-readable note
+%     default_aplims   AP crop of this atlas, in its own planes
+%     description      a note for people
 %
-%   'ccf' reproduces exactly the paths and files every existing result was
-%   produced with, so switching call sites from the hardcoded
-%   'D:\sep_histology\data\atlas' literal to get_atlas('ccf') is a pure
-%   refactor with no behavioural change.
+%   'ccf' gives exactly the paths and files every existing result was
+%   produced with, the atlas folder under the data root.
 %
-%   NOTE ON default_aplims: the AP crop is currently read from each mouse's
-%   local_settings.txt (`atlasaplims`), NOT from here. The value below is
-%   recorded for reference and for future atlases only -- the drivers from
+%   default_aplims: the registration reads the AP crop from each mouse's
+%   local_settings.txt (atlasaplims), not from here, and the drivers from
 %   run_extract_and_center to run_register_to_atlas must keep using
-%   sliceinfo.atlasaplims so existing behaviour is preserved.
+%   sliceinfo.atlasaplims so existing results stay as they are. get_atlas_crop
+%   reads default_aplims.
 %
-%   ADDING A YOUNG-BRAIN ATLAS: register a new key here (e.g. 'devccf_p14')
-%   pointing at its template/annotation volumes. Cross-group comparison then
-%   requires both atlases to resolve into a common space -- DevCCF ships
-%   CCF-linked labels for exactly this purpose. Do not swap atlases for a
-%   comparison without that mapping.
+%   The DeMBA entries are built to one recipe by build_demba_atlas.py and
+%   differ only in the age and in the AP crop measured for it. Three things
+%   about them are deliberate and easy to get wrong:
+%   - The files are named *_10.nii.gz but hold 20 um data. LightSuite finds
+%     the atlas with which('average_template_10.nii.gz') in fourteen
+%     different files, so the name is forced by the vendored code. The real
+%     resolution is res_um here and px_atlas in local_settings.txt, and both
+%     must say 20 for a young brain or the AP scale silently doubles.
+%   - The annotation is remapped to Allen parcellation_index, the space of
+%     data\atlas\annotation_10.nii.gz and the only one get_allen_region_mask
+%     understands. BrainGlobe ships it in Allen structure ids, and the two
+%     spaces collide numerically without meaning the same thing: structure
+%     672 (CP) is index 662. All 686 ids are translated, no labelled voxel is
+%     lost, and the original is kept beside it as
+%     annotation_structureids_original.nii.gz.
+%   - default_aplims comes from aplims.txt beside the volumes, measured when
+%     the folder is built, so it cannot drift away from its atlas. Two
+%     independent methods agreed for P20: matching the brain's AP
+%     cross-sectional area profile gives [63 559], and regressing the AP
+%     centre of mass of 678 corresponding regions gives [62 562] (r = 0.998,
+%     residual 0.17 mm). Mapping the adult crop across by brain fraction gives
+%     [97 566], which is wrong. build_demba_atlas.py runs both and writes the
+%     first into aplims.txt, warning if they disagree by more than half a mm.
+%
+%   That regression also measures the AP stretch: its slope is 1.797 CCF
+%   planes per DeMBA plane, not the 2.000 the voxel sizes imply, so DeMBA is
+%   about 11% longer in AP than the CCF for the same anatomy. The CCFv3
+%   template is rostrocaudally shrunken and the developmental templates are
+%   not (Carey 2025). A slicethickness tuned against the CCF therefore
+%   under-scales against DeMBA by roughly that much. These numbers came from
+%   tmp/remap_demba.py and tmp/check_crop.py, which are not in the
+%   repository; atlas\qc\atlas_diagnostics measures them again.
+%
+%   Another atlas gets a key of its own here, pointing at its template and
+%   annotation volumes. A comparison across atlases needs both to resolve
+%   into a common space (DevCCF ships CCF-linked labels for this); never swap
+%   atlases for a comparison without that mapping.
+
+%% Resolve the key
 
 if nargin < 1 || isempty(atlas_key)
     atlas_key = 'ccf';
@@ -51,14 +91,13 @@ switch lower(atlas_key)
         atlas.res_um          = 10;
         atlas.age_days        = 56;
         atlas.default_aplims  = [180 1079];
-        atlas.description     = 'Allen Mouse Brain Common Coordinate Framework v3, 10 um (adult, P56)';
+        atlas.description     = ...
+            'Allen Mouse Brain Common Coordinate Framework v3, 10 um (adult, P56)';
 
     otherwise
-        % Any DeMBA age: 'demba_p16', 'demba_p20', 'demba_p28' ... One entry
-        % rather than one case per age, because the folders are built to a
-        % fixed recipe by build_demba_atlas.py and differ only in the age and
-        % in the AP crop that age measures. An age whose folder has not been
-        % built is an error, not a fall-back onto a neighbouring age.
+
+        % any DeMBA age ('demba_p16', 'demba_p20', ...): one entry for all, since
+        % the folders differ only in the age and its crop (see the help)
         tok = regexp(lower(atlas_key), '^demba_p(\d+)$', 'tokens', 'once');
         if isempty(tok)
             error(['get_atlas: unknown atlas key "%s". Known keys: ''ccf'' and ' ...
@@ -75,14 +114,16 @@ switch lower(atlas_key)
         atlas.description     = sprintf(['DeMBA P%d (Carey 2025), Allen CCFv3 labels, ' ...
                                          '20 um isotropic'], age);
 
+        % an age whose folder has not been built is an error, not a fall-back
+        % onto a neighbouring age
         if ~exist(atlas.dir, 'dir')
             error(['get_atlas: no atlas built for P%d.\n  %s does not exist.\n' ...
                    'Build it first:  tools\\venv_atlas\\Scripts\\python.exe atlas\\build_demba_atlas.py %d'], ...
                    age, atlas.dir, age);
         end
-        % The AP crop is measured per age when the folder is built (the two
-        % methods are described in build_demba_atlas.py) and stored beside the
-        % volumes, so it cannot drift away from the atlas it belongs to.
+
+        % the AP crop, measured when the folder was built and stored beside the
+        % volumes (the two methods are in build_demba_atlas.py)
         aplims_file = fullfile(atlas.dir, 'aplims.txt');
         if ~exist(aplims_file, 'file')
             error(['get_atlas: %s is missing. Re-run atlas\\build_demba_atlas.py %d, or write the ' ...
@@ -95,41 +136,10 @@ switch lower(atlas_key)
         end
         atlas.default_aplims  = lims;
 
-        % Two things about these entries are deliberate and easy to get wrong:
-        %
-        % The files are named *_10.nii.gz but hold 20 um data. LightSuite finds
-        % the atlas with which('average_template_10.nii.gz') in fourteen
-        % different files, so the name is forced by the vendored code. The real
-        % resolution is res_um here and px_atlas in local_settings.txt, and both
-        % must say 20 for a young brain or the AP scale silently doubles.
-        %
-        % The annotation here has been REMAPPED to Allen parcellation_index,
-        % the same space data\atlas\annotation_10.nii.gz uses and the only one
-        % get_allen_region_mask.m understands. BrainGlobe ships it in Allen
-        % structure IDs instead, and the two spaces collide numerically without
-        % meaning the same thing -- structure 672 (CP) is index 662. All 686
-        % ids translated, no labelled voxel lost. The original is kept beside it
-        % as annotation_structureids_original.nii.gz.
-        %
-        % default_aplims is measured twice per age, by two independent methods
-        % that agreed for P20: matching the brain's AP cross-sectional area
-        % profile gives [63 559], and regressing the AP centre of mass of 678
-        % corresponding regions gives [62 562] (r = 0.998, residual 0.17 mm).
-        % Mapping the adult crop across by brain fraction had given [97 566],
-        % which is wrong. build_demba_atlas.py runs both and writes the first
-        % into aplims.txt, warning if they disagree by more than half a mm.
-        %
-        % That regression also measures something worth knowing: its slope is
-        % 1.797 CCF planes per DeMBA plane, not the 2.000 the voxel sizes imply.
-        % DeMBA is about 11% longer in AP than the CCF for the same anatomy.
-        % Carey 2025 says why -- the CCFv3 template is rostrocaudally shrunken
-        % and the developmental templates are not. A slicethickness tuned
-        % against the CCF therefore under-scales against DeMBA by roughly that
-        % much. Reproduced by tmp/remap_demba.py and tmp/check_crop.py.
-
 end
 
-% Fail early and clearly rather than deep inside a registration call
+%% Check the files
+
 if ~exist(atlas.dir, 'dir')
     error('get_atlas: atlas dir not found: %s', atlas.dir);
 end
@@ -141,17 +151,9 @@ for k = 1:numel(required)
     end
 end
 
-% Every atlas directory holds files with the SAME names, because that is how
-% LightSuite finds them. So if two of them are on the MATLAB path at once,
-% which() silently picks whichever was added first and a brain can be registered
-% to the wrong atlas with nothing in the log to say so. Drop the others here.
-% Compare whole path ENTRIES, not substrings. 'atlas_demba_p20' contains
-% 'atlas', so a substring test on the path string reports the adult dir as
-% present whenever the DeMBA one is, and rmpath then warns about a directory
-% that was never there.
-% Every built age counts, not just the two that existed when this was written:
-% with P16 and P20 both present, a stale entry for one is exactly how a brain
-% gets registered to the template of the wrong age.
+%% Put this atlas alone on the path
+
+% every atlas folder: the CCF one and every DeMBA age built
 all_atlas_dirs = {p.atlas};
 demba_dirs = dir(fullfile(p.data, 'atlas_demba_p*'));
 for k = 1:numel(demba_dirs)
@@ -159,6 +161,9 @@ for k = 1:numel(demba_dirs)
         all_atlas_dirs{end+1} = fullfile(p.data, demba_dirs(k).name); %#ok<AGROW>
     end
 end
+
+% take the others off the path, comparing whole path entries rather than
+% substrings ('atlas_demba_p20' contains 'atlas')
 path_entries = strsplit(path, pathsep);
 for k = 1:numel(all_atlas_dirs)
     d = all_atlas_dirs{k};
@@ -170,7 +175,7 @@ for k = 1:numel(all_atlas_dirs)
 end
 addpath(atlas.dir);
 
-% Cheap proof that the atlas actually in force is the one that was asked for
+% check that the atlas in force is the one asked for
 resolved = which(atlas.template_file);
 if ~strcmpi(fileparts(resolved), atlas.dir)
     error(['get_atlas: %s still resolves to\n  %s\ninstead of\n  %s\n' ...

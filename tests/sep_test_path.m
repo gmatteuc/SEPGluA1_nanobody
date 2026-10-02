@@ -1,33 +1,37 @@
 function sep_test_path()
-% SEP_TEST_PATH Check that no function name is defined twice on the project path.
+%SEP_TEST_PATH  Check that no function name is defined twice on the project path.
+%   SEP_TEST_PATH() runs in a fresh session, after sep_setup_paths, from the
+%   code root:
 %
-% Run it in a fresh session, after sep_setup_paths, from the code root:
+%     restoredefaultpath; cd('D:\sep_histology\code'); sep_setup_paths
+%     run(fullfile('tests', 'sep_test_path.m'))
 %
-%   restoredefaultpath; cd('D:\sep_histology\code'); sep_setup_paths
-%   run(fullfile('tests', 'sep_test_path.m'))
+%   MATLAB takes the first function of a name it finds on the path, silently.
+%   Two files of the same name, ours or vendored, mean that one of them never
+%   runs, and which one depends on the order of the path. Both this project
+%   and the imaging repository (D:\dendrites\code) run in the same MATLAB, so
+%   a name both define would redirect one project into the other's code.
 %
-% MATLAB takes the first function of a name it finds on the path, silently.
-% Two files of the same name, ours or vendored, mean that one of them never
-% runs, and which one depends on the order of the path. Both this project and
-% the imaging repository (D:\dendrites\code) run in the same MATLAB, so a name
-% both define would redirect one project into the other's code.
+%   Lists every function on the project path: the folders under this code
+%   root that are on the path (third_party\ included; tests\ and tools\,
+%   which a check may add by hand, left out), with the .m, .p and MEX files
+%   and the @class folders of each. Fails on a name defined in two folders,
+%   compared without case (core.ignorecase is true, and Windows does not tell
+%   the files apart), except the known vendored duplicates of
+%   is_known_duplicate below. When D:\dendrites\code exists, it also fails on
+%   a name that project defines too.
 %
-% Lists every function on the project path: the folders under this code root
-% that are on the path (third_party\ included; tests\ and tools\, which a check
-% may add by hand, left out), with the .m, .p and MEX files and the @class
-% folders of each. Fails on a name defined in two folders, compared without
-% case (core.ignorecase is true, and Windows does not tell the files apart),
-% except the known vendored duplicates of is_known_duplicate below. When
-% D:\dendrites\code exists, it also fails on a name that project defines too.
-%
-% Then runs which -all on each of our names (the folders outside third_party\)
-% and fails if one of them shadows a MATLAB or toolbox function, or is shadowed
-% by anything. The vendored names that shadow a MATLAB function are listed,
-% not failed: the drivers have put LightSuite above MATLAB's functions from
-% the start, and sep_setup_paths keeps it there.
+%   Then runs which -all on each of our names (the folders outside
+%   third_party\) and fails if one of them shadows a MATLAB or toolbox
+%   function, or is shadowed by anything. The vendored names that shadow a
+%   MATLAB function are listed, not failed: the drivers have put LightSuite
+%   above MATLAB's functions from the start, and sep_setup_paths keeps it
+%   there.
 
 code_dir = fileparts(fileparts(mfilename('fullpath')));
 dendrites_dir = 'D:\dendrites\code';
+
+%% Check the path
 
 % the path must be the one sep_setup_paths of this code folder sets up
 if ~strcmpi(fileparts(which('sep_setup_paths')), code_dir)
@@ -36,9 +40,12 @@ if ~strcmpi(fileparts(which('sep_setup_paths')), code_dir)
            which('sep_setup_paths'), code_dir);
 end
 
+%% List the functions
+
 % the project's folders on the path
 entries = strsplit(path, pathsep);
-inside = strcmpi(entries, code_dir) | startsWith(lower(entries), lower([code_dir filesep]));
+inside = strcmpi(entries, code_dir) | ...
+    startsWith(lower(entries), lower([code_dir filesep]));
 by_hand = startsWith(lower(entries), lower(fullfile(code_dir, 'tests'))) | ...
     startsWith(lower(entries), lower(fullfile(code_dir, 'tools')));
 folders = entries(inside & ~by_hand);
@@ -76,6 +83,8 @@ else
 end
 
 n_fail = 0;
+
+%% Names defined twice
 
 % the same name in two folders of the project, without case
 [~, ~, group] = unique(lower(names));
@@ -116,6 +125,8 @@ if isfolder(dendrites_dir) && n_shared == 0
     fprintf('  PASS  no name is shared with %s\n', dendrites_dir);
 end
 
+%% Shadowed names
+
 % which -all on each name: ours must neither shadow nor be shadowed; the
 % vendored ones that shadow MATLAB's are listed
 matlab_dir = lower(matlabroot);
@@ -146,28 +157,29 @@ if n_shadowing_vendored > 0
              'drivers added them\n'], n_shadowing_vendored);
 end
 
+%% Result
+
 fprintf('sep_test_path: %d failures\n', n_fail);
 if n_fail > 0
     error('sep_test_path: %d name clashes on the project path (listed above).', n_fail);
 end
+
 end
 
 % ===== Local functions =====
 
 function known = is_known_duplicate(name, clash)
-% Duplicates inside a vendored package that nothing calls, left as they came.
-% matlab_elastix ships two example scripts named RUN_ALL (one per example
-% folder); the drivers have always put both on the path with genpath, and
-% neither is called by any code here.
+% Duplicates inside a vendored package that nothing calls, left as they came:
+% matlab_elastix's two example scripts named RUN_ALL, one per example folder.
 
 examples = fullfile('third_party', 'matlab_elastix', 'MelastiX_examples');
 known = strcmpi(name, 'RUN_ALL') && all(contains(lower(clash), lower(examples)));
+
 end
 
 function [names, files] = functions_in(folder)
 % The functions a folder puts on the path: .m, .p and MEX files and @class
-% folders, one entry per name (a MEX file beside its .m help file is one
-% function).
+% folders, one entry per name (a MEX file beside its .m help file is one).
 
 names = {};
 files = {};
@@ -189,4 +201,5 @@ for k = 1:numel(listing)
     names{end+1, 1} = name; %#ok<AGROW>
     files{end+1, 1} = fullfile(folder, item.name); %#ok<AGROW>
 end
+
 end

@@ -1,20 +1,37 @@
-function c = get_color2color_colormap(color1,color2)
+function c = get_color2color_colormap(color1, color2)
+%GET_COLOR2COLOR_COLORMAP  A diverging colormap from one colour through white to another.
+%   c = GET_COLOR2COLOR_COLORMAP(color1, color2) returns a 256 x 3 colormap
+%   that runs linearly from the RGB triplet color1 to white over its first
+%   half, and from white to color2 over its second. The difference maps use
+%   GET_COLOR2COLOR_COLORMAP([0 0 1], [1 0 0]), blue to red, with symmetric
+%   colour limits so that zero is white.
 
-% Set intermediate color
-intermediate_color=[1,1,1];
-% Set number of steps of colormap
-if size(gray,1)~=256
+% intermediate colour
+intermediate_color = [1, 1, 1];
+
+% number of steps of the colormap
+if size(gray, 1) ~= 256
     m = 256;
 else
-    m = size(gray,1);
+    m = size(gray, 1);
 end
-% Draw colormap in two steps
-m1 = m./2;
-% From red of color1 to red of intermediate color to red of color2
-r = [linspace(color1(1),intermediate_color(1),m1),linspace(intermediate_color(1),color2(1),m1)];
-% From green of color1 to green of intermediate color to green of color2
-g = [linspace(color1(2),intermediate_color(2),m1),linspace(intermediate_color(2),color2(2),m1)];
-% From blue of color1 to blue of intermediate color to blue of color2
-b = [linspace(color1(3),intermediate_color(3),m1),linspace(intermediate_color(3),color2(3),m1)];
-% Assign values to colormap
-c = [r;g;b]';
+
+% the colormap in two halves
+m1 = m ./ 2;
+
+% red from color1 to the intermediate colour to color2
+r = [linspace(color1(1), intermediate_color(1), m1), ...
+    linspace(intermediate_color(1), color2(1), m1)];
+
+% green, the same way
+g = [linspace(color1(2), intermediate_color(2), m1), ...
+    linspace(intermediate_color(2), color2(2), m1)];
+
+% blue, the same way
+b = [linspace(color1(3), intermediate_color(3), m1), ...
+    linspace(intermediate_color(3), color2(3), m1)];
+
+% one row per step
+c = [r; g; b]';
+
+end

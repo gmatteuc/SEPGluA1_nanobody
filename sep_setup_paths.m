@@ -1,29 +1,30 @@
 function sep_setup_paths()
-% SEP_SETUP_PATHS Put the project's code on the MATLAB path.
+%SEP_SETUP_PATHS  Put the project's code on the MATLAB path.
+%   SEP_SETUP_PATHS() runs once per session, before any driver. A check starts
+%   from a fresh session, so nothing an earlier run put on the path can shadow
+%   the code under test:
 %
-% Run it once per session, before any driver. A check starts from a fresh
-% session, so nothing an earlier run put on the path can shadow the code under
-% test:
+%     restoredefaultpath; cd('D:\sep_histology\code'); sep_setup_paths
 %
-%   restoredefaultpath; cd('D:\sep_histology\code'); sep_setup_paths
+%   It adds an explicit list of our code folders, and the vendored toolboxes
+%   in third_party\ (LightSuite, yamlmatlab, matlab_elastix, Bio-Formats) with
+%   their subfolders. The order on the path, from the top: our folders, then
+%   the toolboxes, then MATLAB's own functions: LightSuite above MATLAB's
+%   functions is the precedence every result so far was produced with.
+%   tests\sep_test_path checks that no function name is defined twice on this
+%   path.
 %
-% It adds an explicit list of our code folders, and the vendored toolboxes in
-% third_party\ (LightSuite, yamlmatlab, matlab_elastix, Bio-Formats) with their
-% subfolders. The order on the path, from the top: our folders, then the
-% toolboxes, then MATLAB's own functions. The drivers used to add the toolboxes
-% themselves with addpath(genpath(...)), which put LightSuite above MATLAB's
-% functions, and that precedence is kept. tests\sep_test_path checks that no
-% function name is defined twice on this path.
+%   Never added: the code root with its subfolders (genpath), archive\,
+%   tests\, tools\ (a check adds it by hand, see tools\README.md), mapping\
+%   (Python), the Python engines' folders, and any data or atlas folder.
+%   get_atlas adds the one atlas folder a run needs: LightSuite finds the
+%   atlas with which(), so a second atlas folder on the path would be picked
+%   up silently.
 %
-% Never added: the code root with its subfolders (genpath), archive\, tests\,
-% tools\ (a check adds it by hand, see tools\README.md), mapping\ (Python), the
-% Python engines' folders, and any data or atlas folder. get_atlas adds the one
-% atlas folder a run needs: LightSuite finds the atlas with which(), so a
-% second atlas folder on the path would be picked up silently.
-%
-% Refuses to run when a file the refactor moved out of the code root is back
-% there under its old name: an editor tab left open on the old file and saved
-% again recreates it, and the old copy would then run, or shadow the moved one.
+%   Refuses to run when a file the refactor moved out of the code root is back
+%   there under its old name: an editor tab left open on the old file and
+%   saved again recreates it, and the old copy would then run, or shadow the
+%   moved one.
 
 code_dir = fileparts(mfilename('fullpath'));
 

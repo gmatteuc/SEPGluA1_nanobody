@@ -1,24 +1,53 @@
 function bg_mask = select_background_pixels(I, p_min, p_max, plot_flag)
+%SELECT_BACKGROUND_PIXELS  Mask of the background pixels of one slice image.
+%   bg_mask = SELECT_BACKGROUND_PIXELS(I, p_min, p_max, plot_flag) returns a
+%   logical mask, the size of I, of the pixels below a threshold found at the
+%   knee of the image's percentile curve.
+%
+%   The pixel values above the most frequent one (usually the zero padding)
+%   are taken at the percentiles 1 to 100. On that curve, lightly smoothed,
+%   the knee is where background turns into tissue: a peak of the second
+%   derivative between the percentiles p_min and p_max, the one with the
+%   steepest first derivative within 7 percentiles of it. The peaks and
+%   troughs are found at a prominence of 10; at 5, then 2, when there is no
+%   peak or no trough, and at 5 when the knee lies above its nearest trough.
+%   With no peak at all, the threshold falls back to the percentile p_max,
+%   with a warning. A slice that is empty (at most 10% of its pixels above
+%   the most frequent value), or whose centre of mass lies outside the middle
+%   third of the image, is all background.
+%
+%   Inputs:
+%     I          one slice image
+%     p_min      lower end of the percentile window of the knee (default 20)
+%     p_max      upper end of that window (default 65)
+%     plot_flag  draw a diagnostic figure (default false)
 
-if nargin < 2 || isempty(p_min), p_min = 20; end
-if nargin < 3 || isempty(p_max), p_max = 65; end
-% plot_flag had no default, so calling this with three arguments (which is what
-% run_nano_equalisation does, at four different call sites) left it undefined
-% and the function errored at "if plot_flag" near the end. Diagnostics off by
-% default; run_normalise_groups passes the flag explicitly and is unaffected.
-if nargin < 4 || isempty(plot_flag), plot_flag = false; end
+if nargin < 2 || isempty(p_min)
+    p_min = 20;
+end
+if nargin < 3 || isempty(p_max)
+    p_max = 65;
+end
 
-% get input and cast to single
+% diagnostics off by default: run_nano_equalisation calls this with three
+% arguments, at four call sites; run_normalise_groups passes the flag
+if nargin < 4 || isempty(plot_flag)
+    plot_flag = false;
+end
+
+% the image as single
 I_single = im2single(I);
 
-% compute percentile curve
+% the pixel values for the percentile curve, without the most frequent value
+% (usually 0, the padding)
 p = 1:100;
 pix_vals = I_single(:);
-pix_vals(pix_vals<=mode(pix_vals)) = []; % Remove most frequent value (usually 0/padding)
+pix_vals(pix_vals <= mode(pix_vals)) = [];
 
-% Check if image is empty or quasi-empty
-bool_empty = or(isempty(pix_vals),numel(pix_vals)<=0.1*numel(I(:)));
-% Check if center of mass is unrealistically close to border
+% an empty or nearly empty image
+bool_empty = or(isempty(pix_vals), numel(pix_vals) <= 0.1 * numel(I(:)));
+
+% a centre of mass implausibly close to the border
 [rows, cols] = size(I_single);
 [x_grid, y_grid] = meshgrid(1:cols, 1:rows);
 total_mass = sum(I_single(:));
@@ -29,34 +58,35 @@ else
     x_center = sum(sum(x_grid .* I_single)) / total_mass;
     y_center = sum(sum(y_grid .* I_single)) / total_mass;
 end
-x_out_bool = or(x_center<0.33*size(I_single,2),x_center>0.66*size(I_single,2));
-y_out_bool = or(y_center<0.33*size(I_single,1),y_center>0.66*size(I_single,1));
-bool_out = or(x_out_bool,y_out_bool);
-% Return a full background mask if imege is empty or out
-if or(bool_empty,bool_out)
+x_out_bool = or(x_center < 0.33 * size(I_single, 2), x_center > 0.66 * size(I_single, 2));
+y_out_bool = or(y_center < 0.33 * size(I_single, 1), y_center > 0.66 * size(I_single, 1));
+bool_out = or(x_out_bool, y_out_bool);
+
+% all background if the image is empty or off centre
+if or(bool_empty, bool_out)
     bg_mask = true(size(I));
     return;
 end
-% ------------------------------
 
 vals = prctile(pix_vals, p);
 
-% detect smoothed max and min of d2
+% smooth the percentile curve (5-point Gaussian), then its second derivative
 w = 5;
-x = -(w-1)/2 : (w-1)/2;
-g = exp(-0.5*(x/(0.3*(w-1))).^2);
+x = -(w - 1) / 2 : (w - 1) / 2;
+g = exp(-0.5 * (x / (0.3 * (w - 1))).^2);
 g = g / sum(g);
 vals_smooth = conv(vals, g, 'same');
 d2 = [0 diff(diff(vals_smooth)) 0];
 
-% Find minima and maxima of second derivative in acceptability window
+% peaks and troughs of the second derivative in the percentile window
 win = (p >= p_min) & (p <= p_max);
-[~,locs_max] = findpeaks(d2 .* win, 'MinPeakProminence', 10);
-[~,locs_min] = findpeaks(-(d2 .* win), 'MinPeakProminence', 10);
+[~, locs_max] = findpeaks(d2 .* win, 'MinPeakProminence', 10);
+[~, locs_min] = findpeaks(-(d2 .* win), 'MinPeakProminence', 10);
 
 if not(isempty(locs_max)) && not(isempty(locs_min))
 
-    % Find max of first derivative in the points detected as peaks of second
+    % the knee: the peak with the steepest first derivative within 7 percentiles
+    % off: the first derivative at the peak itself (reason not recorded)
     % [~, choosen_max_idx] = max(max_vals_in_range);
     % d1 = [0, diff(vals_smooth)];
     % [~,choosen_max_idx] = max(d1(locs_max));
@@ -65,25 +95,32 @@ if not(isempty(locs_max)) && not(isempty(locs_min))
     tol_range = 7;
     max_vals_in_range = zeros(size(locs_max));
     for k = 1:length(locs_max)
-        idx_start = max(p_min+1, locs_max(k) - tol_range);
+        idx_start = max(p_min + 1, locs_max(k) - tol_range);
         idx_end   = min(p_max, locs_max(k) + tol_range);
         max_vals_in_range(k) = max(d1(idx_start:idx_end));
     end
     [~, choosen_max_idx] = max(max_vals_in_range);
-    % Pick that max as maximum (that will dtermine background)
+
+    % that peak is the knee, which sets the background threshold
     idx_max_bis = locs_max(choosen_max_idx);
-    % Pick close minimum
+
+    % the trough nearest to it
+    % off: the trough of the same rank, or 5 percentiles below the knee (reason
+    % not recorded)
     % if numel(locs_min) >= choosen_max_idx
     %     idx_min = locs_min(choosen_max_idx);
     % else
     %     idx_min = max(idx_max_bis-5, 1);
     % end
-    [~, idx_idx_min] = min(abs(locs_min-idx_max_bis));
+    [~, idx_idx_min] = min(abs(locs_min - idx_max_bis));
     idx_min = locs_min(idx_idx_min);
-    % Redo with lower prominence threshold if result inconsitent
+
+    % a knee above its trough is inconsistent: redo with a lower prominence
     if idx_max_bis > idx_min
-        [~,locs_max] = findpeaks(d2 .* win, 'MinPeakProminence', 5);
-        [~,locs_min] = findpeaks(-(d2 .* win), 'MinPeakProminence', 5);
+        [~, locs_max] = findpeaks(d2 .* win, 'MinPeakProminence', 5);
+        [~, locs_min] = findpeaks(-(d2 .* win), 'MinPeakProminence', 5);
+
+        % off, as above
         % [~, choosen_max_idx] = max(max_vals_in_range);
         % d1 = [0, diff(vals_smooth)];
         % [~,choosen_max_idx] = max(d1(locs_max));
@@ -98,22 +135,27 @@ if not(isempty(locs_max)) && not(isempty(locs_min))
         end
         [~, choosen_max_idx] = max(max_vals_in_range);
         idx_max_bis = locs_max(choosen_max_idx);
+
+        % off, as above
         % if numel(locs_min) >= choosen_max_idx
         %     idx_min = locs_min(choosen_max_idx);
         % else
         %     idx_min = max(idx_max_bis-5, 1);
         % end
-        [~, idx_idx_min] = min(abs(locs_min-idx_max_bis));
+        [~, idx_idx_min] = min(abs(locs_min - idx_max_bis));
         idx_min = locs_min(idx_idx_min);
     end
 else
-    % Redo with lower prominence threshold if result inconsitent
-    [~,locs_max] = findpeaks(d2 .* win, 'MinPeakProminence', 5);
-    [~,locs_min] = findpeaks(-(d2 .* win), 'MinPeakProminence', 5);
+
+    % no clear peak or trough: redo with a lower prominence, 5, then 2
+    [~, locs_max] = findpeaks(d2 .* win, 'MinPeakProminence', 5);
+    [~, locs_min] = findpeaks(-(d2 .* win), 'MinPeakProminence', 5);
     if not(not(isempty(locs_max)) && not(isempty(locs_min)))
-        [~,locs_max] = findpeaks(d2 .* win, 'MinPeakProminence', 2);
-        [~,locs_min] = findpeaks(-(d2 .* win), 'MinPeakProminence', 2);
+        [~, locs_max] = findpeaks(d2 .* win, 'MinPeakProminence', 2);
+        [~, locs_min] = findpeaks(-(d2 .* win), 'MinPeakProminence', 2);
     end
+
+    % off, as above
     % [~, choosen_max_idx] = max(max_vals_in_range);
     % d1 = [0, diff(vals_smooth)];
     % [~,choosen_max_idx] = max(d1(locs_max));
@@ -128,18 +170,19 @@ else
     end
     [~, choosen_max_idx] = max(max_vals_in_range);
     idx_max_bis = locs_max(choosen_max_idx);
+
+    % off, as above
     % if numel(locs_min) >= choosen_max_idx
     %     idx_min = locs_min(choosen_max_idx);
     % else
     %     idx_min = max(idx_max_bis-5, 1);
     % end
-    [~, idx_idx_min] = min(abs(locs_min-idx_max_bis));
+    [~, idx_idx_min] = min(abs(locs_min - idx_max_bis));
     idx_min = locs_min(idx_idx_min);
 end
 
-% Fallback: if no knee was detectable (all findpeaks attempts returned empty),
-% use p_max as the threshold percentile. This can happen on faint channels
-% (e.g. autofluo) where the smoothed-percentile curve has no clear knee.
+% no knee at any prominence (it happens on faint channels such as the
+% autofluorescence): the percentile p_max is the threshold
 if isempty(idx_max_bis)
     idx_max_bis = min(p_max, length(vals));
     warning('select_background_pixels:noKnee', ...
@@ -147,18 +190,17 @@ if isempty(idx_max_bis)
         idx_max_bis);
 end
 
-% Extract threshold value from the found index
+% the threshold at the knee, and the background mask (not dilated)
 val_max_bis = vals(idx_max_bis);
-% Create Background Mask (Undilated)
 bg_mask = I_single < val_max_bis;
 
-% Optional diagnostics
+% diagnostic figure: the slice, the mask, and the percentile curve with its knee
 if plot_flag
     val_max = max(I_single(:));
-    h_diag = figure('name','Background mask diagnostics',...
-        'units','normalized','outerposition',[-0.05 -0.05 0.9 0.9], ...
+    h_diag = figure('name', 'Background mask diagnostics', ...
+        'units', 'normalized', 'outerposition', [-0.05 -0.05 0.9 0.9], ...
         'Color', 'w'); %#ok<NASGU>
-    t = tiledlayout(1,3,'Padding','compact','TileSpacing','compact');
+    t = tiledlayout(1, 3, 'Padding', 'compact', 'TileSpacing', 'compact');
     nexttile;
     imagesc(I_single);
     axis image off;
@@ -175,7 +217,9 @@ if plot_flag
     title('Background mask', 'FontSize', 12);
     nexttile;
     yyaxis left
-    h_int = plot(p, vals, '-', 'LineWidth', 2, 'Color', [0 0 0.8]); % Blue
+
+    % the percentile curve in blue
+    h_int = plot(p, vals, '-', 'LineWidth', 2, 'Color', [0 0 0.8]);
     hold on;
     h_knee = plot(idx_max_bis, val_max_bis, 'o', 'MarkerSize', 8, ...
         'MarkerFaceColor', [0 0 0.8], 'MarkerEdgeColor', 'w');
@@ -184,9 +228,11 @@ if plot_flag
     ylim([min(vals(:)), max(vals(:))*1.05]);
     grid on;
     yyaxis right
-    h_d1 = plot(p, d1, '-', 'LineWidth', 1.5, 'Color', [0.8 0 0.8]); % Gold
+
+    % its first and second derivatives in purple
+    h_d1 = plot(p, d1, '-', 'LineWidth', 1.5, 'Color', [0.8 0 0.8]);
     hold on;
-    h_d2 = plot(p, d2, '--', 'LineWidth', 1.5, 'Color', [0.8 0 0.8]); % Purple
+    h_d2 = plot(p, d2, '--', 'LineWidth', 1.5, 'Color', [0.8 0 0.8]);
     ylabel('Derivatives (1st & 2nd)', 'FontSize', 11);
     set(gca, 'YColor', [0.8 0 0.8]);
     xlabel('Percentile', 'FontSize', 11);
@@ -198,7 +244,8 @@ if plot_flag
         {'Intensity', '1st Deriv', '2nd Deriv', 'Knee Point'}, ...
         'Location', 'best', 'FontSize', 9);
     hold off;
-    title(t, 'Reference Pixels Estimation Diagnostics', 'FontSize', 14, 'FontWeight', 'bold');
+    title(t, 'Reference Pixels Estimation Diagnostics', 'FontSize', 14, ...
+        'FontWeight', 'bold');
 end
 
 end
