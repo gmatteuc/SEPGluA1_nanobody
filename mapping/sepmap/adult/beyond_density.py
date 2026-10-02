@@ -96,15 +96,16 @@ import math
 import os
 from collections import defaultdict
 
-import numpy as np
 import matplotlib
+import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from scipy.stats import rankdata, spearmanr
 
-from sepmap.volumes.per_mouse import annotation_20, MICE, CSV_MAP, OUT as PER_MOUSE, DATA
 from sepmap.volumes.cohort import NAIVE, RWS
+from sepmap.volumes.per_mouse import CSV_MAP, DATA, MICE, annotation_20
+from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 
 NANO = os.path.join(
     DATA, "comparisons_v2", "young_vs_adult", "region_means_per_mouse.csv"

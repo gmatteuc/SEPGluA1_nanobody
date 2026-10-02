@@ -46,33 +46,32 @@ Run by run_beyond_regression.py.
 import csv
 import os
 
-import numpy as np
 import matplotlib
+import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from scipy.stats import rankdata, spearmanr
+from scipy.stats import spearmanr
 
-from sepmap.volumes.per_mouse import annotation_20
 from sepmap.adult.beyond_density import (
     ADULTS,
-    OUT,
-    SUBUNITS,
     MARKERS,
-    nano_per_mouse,
-    gene_profiles,
+    SUBUNITS,
     autofluorescence,
-    keep_structure,
     build_covariates,
-    half_map,
-    residual,
-    r_squared,
     cv_r2,
     flexible,
+    gene_profiles,
+    half_map,
+    keep_structure,
+    nano_per_mouse,
+    r_squared,
+    residual,
     structure_names,
     tidy,
 )
-from sepmap.adult.beyond_figures import RED, DARK, LIGHT, BLUE, FIGS, save
+from sepmap.adult.beyond_figures import DARK, FIGS, LIGHT, RED, save
+from sepmap.volumes.per_mouse import annotation_20
 
 # coronal planes to draw, in 20 um planes of the cropped CCF grid (450 of them):
 # cortex with hippocampus beneath it and thalamus at the midline, where the residual

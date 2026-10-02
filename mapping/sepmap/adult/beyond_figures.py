@@ -38,8 +38,8 @@ Run by run_beyond_figures.py.
 import csv
 import os
 
-import numpy as np
 import matplotlib
+import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -47,19 +47,19 @@ from scipy.stats import rankdata, spearmanr
 
 from sepmap.adult.beyond_density import (
     ADULTS,
+    MARKERS,
     OUT,
     SUBUNITS,
-    MARKERS,
-    nano_per_mouse,
-    gene_profiles,
     autofluorescence,
-    keep_structure,
     build_covariates,
-    half_map,
-    half_splits,
-    residual,
     cv_r2,
     flexible,
+    gene_profiles,
+    half_map,
+    half_splits,
+    keep_structure,
+    nano_per_mouse,
+    residual,
     spearman_brown,
     tidy,
 )

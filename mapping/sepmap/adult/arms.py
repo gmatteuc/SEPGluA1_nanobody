@@ -53,15 +53,16 @@ import math
 import os
 from collections import defaultdict
 
+import matplotlib
 import numpy as np
 from scipy.ndimage import gaussian_filter
-import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from sepmap.volumes.per_mouse import annotation_20, MICE, CSV_MAP, OUT as PER_MOUSE, DATA
-from sepmap.volumes.cohort import RATIO_CLIP, NAIVE, RWS
+from sepmap.volumes.cohort import NAIVE, RATIO_CLIP, RWS
+from sepmap.volumes.per_mouse import CSV_MAP, DATA, MICE, annotation_20
+from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 
 OUT = os.path.join(DATA, "adult_v2", "arms")
 
