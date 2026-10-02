@@ -888,8 +888,9 @@ geometry; record which version processed which cohort.
   when Esc is pressed again while its close dialog is open or the window is
   slow: the queued key presses run the close handler on a deleted figure
   (`uiresume(src)` on an invalid object), and a second launch can delete its
-  window before `uiwait`. Seen in the step 6 hand check (2 Oct). Fix: a
-  closing flag, `isvalid` before `uiresume`/`delete`, and before `uiwait`.
+  window before `uiwait`. Seen in the step 6 hand check (2 Oct). Not fixed:
+  P3 has not been used in production, and Giulio would rather replace the
+  annotator with something better or retire it (ROADMAP).
 - The annotate mode's "the automatic annotation is not installed" line is
   easy to miss among the start-up messages (Giulio, 2 Oct): make it a
   `warning` or a banner.
@@ -1059,3 +1060,21 @@ The style pass will add to this list.
   run its self-test before the first `annotate`, or annotate opens without
   the automatic layer; the leftover `code\landmark_refine\.venv` can be
   deleted (the root `.gitignore` now ignores both).
+- **2 Oct, step 6 hand check** (Giulio, `G:\sep_refactor\gui_check\HAND_CHECK.md`):
+  passed. Annotate mode with the engine (open a reviewed brain; review a
+  proposal with k, u, j, a, U, K, t, p, s), without the engine (plain GUI,
+  points only), the cutting angle (refused with points; set and saved on a
+  copy), the slice order editor (decisions file unchanged) and the artifact
+  annotator (saves; its old close-handler weakness, bug list) all behave as
+  before; every difference in the saved files came from the keys pressed.
+  The `s` key saves only the points, the close dialog also the affine, as
+  in the old GUI.
+- **2 Oct, step 7 decisions** (Giulio): `docs/STYLE.md` and the four
+  reference examples approved, with the seven open choices as recommended:
+  `ruff format`; MATLAB settings stay lower case; `clear all` becomes
+  `clear; clc; close all;` in the drivers, QC scripts, tools and test (kind B);
+  `sep_setup_paths` once per session; `collect_by_group`'s dead code goes in
+  step 8; the structural changes (kind C) are part of step 7, each its own
+  commit checked by a rerun; local variables may be renamed (kind B),
+  saved names, columns and settings keep theirs. The procedure is in
+  `docs/STYLE_PASS.md` (temporary).
