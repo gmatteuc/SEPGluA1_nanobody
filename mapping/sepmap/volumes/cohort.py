@@ -126,7 +126,7 @@ COHORTS = {
 }
 
 
-def mouse_scalars(mouse):
+def mouse_scalars(mouse: str) -> dict[str, float]:
     """The per-brain numbers the readings divide by, cached beside the per-mouse file.
 
     Measured on the brain's own atlas before any warp. cortex_mean and
@@ -195,7 +195,7 @@ def mouse_scalars(mouse):
     return out
 
 
-def mouse_modes(mouse):
+def mouse_modes(mouse: str) -> tuple[dict[str, np.ndarray], np.ndarray]:
     """The readings of one brain in the CCF, NaN off tissue, and its tissue mask.
 
     Returns ({reading: volume}, tissue) for the readings in MODES; a reading is
@@ -247,7 +247,7 @@ def mouse_modes(mouse):
     return ({k: out[k]() for k in MODES}, tissue)
 
 
-def main():
+def main() -> None:
     """Write the mean, SD and n of every reading for every cohort, a line each."""
     for cohort, mice in COHORTS.items():
         out = os.path.join(OUT_ROOT, cohort)

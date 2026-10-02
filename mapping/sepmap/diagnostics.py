@@ -51,7 +51,7 @@ YOUNG = [m for m, v in MICE.items() if v[1] != "ccf"]
 ADULT = [m for m, v in MICE.items() if v[1] == "ccf"]
 
 
-def save_figure(fig, path, dpi=95):
+def save_figure(fig: plt.Figure, path: str, dpi: int = 95) -> None:
     """Save `fig` as a PNG at `path`, or as <name>_new.png if a viewer holds it.
 
     Windows refuses to overwrite a PNG that an image viewer holds open; a sheet
@@ -69,7 +69,9 @@ def save_figure(fig, path, dpi=95):
         )
 
 
-def show(ax, img, mask=None, p=99.5):
+def show(
+    ax: plt.Axes, img: np.ndarray, mask: np.ndarray | None = None, p: float = 99.5
+) -> None:
     """A plane, dorsal up and ventral down, scaled to its own tissue.
 
     A plane of these volumes is (DV, ML), so it is drawn as it comes: rows run
@@ -86,7 +88,7 @@ def show(ax, img, mask=None, p=99.5):
     ax.axis("off")
 
 
-def sheet_tissue(mouse, ann, z):
+def sheet_tissue(mouse: str, ann: np.ndarray, z: np.lib.npyio.NpzFile) -> None:
     """Sheet 01: the tissue mask on four planes, with the atlas outline for scale.
 
     `ann` is the brain's own atlas at 20 um and `z` its per-mouse file.
@@ -129,7 +131,7 @@ def sheet_tissue(mouse, ann, z):
     plt.close(fig)
 
 
-def sheet_levels(mouse, ann, z):
+def sheet_levels(mouse: str, ann: np.ndarray, z: np.lib.npyio.NpzFile) -> None:
     """Sheet 02: the intensity distributions the mask and the background rest on.
 
     `ann` is the brain's own atlas at 20 um and `z` its per-mouse file; the
@@ -207,12 +209,12 @@ def sheet_levels(mouse, ann, z):
     plt.close(fig)
 
 
-def line_colours(n):
+def line_colours(n: int) -> np.ndarray:
     """`n` distinguishable line colours with no green in them (plasma, trimmed)."""
     return plt.get_cmap("plasma")(np.linspace(0.0, 0.88, max(n, 2)))
 
 
-def sheet_coverage():
+def sheet_coverage() -> None:
     """Sheet 03: per brain, the fraction of the atlas brain with tissue, per plane."""
     fig, axes = plt.subplots(2, 1, figsize=(14, 8))
     for ax, group, label in (
@@ -253,7 +255,7 @@ def sheet_coverage():
     plt.close(fig)
 
 
-def sheet_warp(mouse):
+def sheet_warp(mouse: str) -> None:
     """Sheet 04: one young brain before and after the transform, drawn and in numbers.
 
     Two planes in the brain's own atlas beside the same planes in the CCF, and
@@ -317,7 +319,7 @@ def sheet_warp(mouse):
     plt.close(fig)
 
 
-def sheet_cohort_n():
+def sheet_cohort_n() -> None:
     """Sheet 05: how many brains support each voxel, per cohort, on four CCF planes."""
     cohorts = ["young", "young_P20", "adult"]
     planes = [150, 250, 350, 450]
@@ -348,7 +350,7 @@ def sheet_cohort_n():
     plt.close(fig)
 
 
-def sheet_scaling():
+def sheet_scaling() -> None:
     """Sheet 06: the per-mouse numbers every normalisation rests on."""
     # per brain: mouse, cohort, nano and auto backgrounds, isocortex nano and auto
     rows = []
@@ -407,7 +409,7 @@ def sheet_scaling():
     plt.close(fig)
 
 
-def sheet_route_agreement():
+def sheet_route_agreement() -> None:
     """Sheet 07: the warped voxelwise route against the never-warped region route.
 
     The cref difference per structure from run_compare's region_table.csv
@@ -459,7 +461,7 @@ def sheet_route_agreement():
     plt.close(fig)
 
 
-def sheet_mask_vs_p6bis():
+def sheet_mask_vs_p6bis() -> None:
     """Sheet 08: this route's mask against run_normalise_groups', on two brains.
 
     The run_normalise_groups mask was checked by eye over many sessions, so it
@@ -542,7 +544,7 @@ def sheet_mask_vs_p6bis():
     plt.close(fig)
 
 
-def sheet_denominators():
+def sheet_denominators() -> None:
     """Sheet 09: the two reference channels side by side, and whether the answer moves.
 
     Only the brains that carry a SEP channel; the right panel needs
@@ -647,7 +649,7 @@ def sheet_denominators():
     plt.close(fig)
 
 
-def write_index():
+def write_index() -> None:
     """Write README.md beside the sheets: what to look for in each, what is wrong."""
     # the README as written; its table rows are longer than a line of code
     with open(os.path.join(OUT, "README.md"), "w", encoding="utf-8") as fh:
@@ -674,7 +676,7 @@ The numbers behind these are in `../young_vs_adult/region_stats.csv` and
 """)  # noqa: E501
 
 
-def main(named_mice):
+def main(named_mice: list[str]) -> None:
     """Every sheet of `named_mice`, or of every brain and the cohort-level ones too.
 
     With mouse names only those brains' sheets are refreshed; with none, every

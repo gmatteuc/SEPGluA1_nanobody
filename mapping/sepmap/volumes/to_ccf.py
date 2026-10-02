@@ -49,7 +49,7 @@ CCF_SHAPE = (660, 400, 570)
 CCF_CROP = (90, 540)
 
 
-def to_ccf(vol_demba_full, age, is_mask=False):
+def to_ccf(vol_demba_full: np.ndarray, age: int, is_mask: bool = False) -> np.ndarray:
     """Carry an (AP, DV, ML) volume on the full DeMBA canvas into the adult CCF.
 
     `vol_demba_full` is at 20 um on the canvas of age `age` (postnatal days);
@@ -72,7 +72,7 @@ def to_ccf(vol_demba_full, age, is_mask=False):
     return np.asarray(v.values, dtype=np.float32)
 
 
-def main(mice):
+def main(mice: list[str]) -> None:
     """Write the CCF file of each of `mice`, with one printed line each."""
     os.makedirs(OUT, exist_ok=True)
     for mouse in mice:

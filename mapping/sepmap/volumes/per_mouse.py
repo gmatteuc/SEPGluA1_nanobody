@@ -93,7 +93,7 @@ MICE = {
 }
 
 
-def atlas_grid(atlas_key):
+def atlas_grid(atlas_key: str) -> tuple[str, tuple[int, int], None]:
     """(annotation folder, AP crop, None) for an atlas key, read from disk.
 
     The crop, in 10 um planes counted from 1, is whatever build_demba_atlas.py
@@ -108,7 +108,7 @@ def atlas_grid(atlas_key):
     return d, (lo, hi), None
 
 
-def annotation_20(atlas_key):
+def annotation_20(atlas_key: str) -> np.ndarray:
     """Labels on the 20 um (AP, DV, ML) grid of the block-averaged registered stack.
 
     CCF ships at 10 um and is cropped then halved; the DeMBA atlases already are
@@ -145,34 +145,34 @@ class Source:
         "sep": ("volume_registered_sep", "chan02_SEP.tiff"),
     }
 
-    def __init__(self, mouse, group, chan):
+    def __init__(self, mouse: str, group: str, chan: str) -> None:
         """Open channel `chan` ('nano', 'auto' or 'sep') of `mouse` in `group`."""
         self.path = channel_path(mouse, group, chan)
         self.t = tifffile.TiffFile(self.path)
         self.n = len(self.t.pages)
 
-    def page(self, i):
+    def page(self, i: int) -> np.ndarray:
         """Page `i` as float32."""
         return np.asarray(self.t.pages[i].asarray(), dtype=np.float32)
 
 
-def channel_path(mouse, group, chan):
+def channel_path(mouse: str, group: str, chan: str) -> str:
     """The registered tiff of channel `chan` of `mouse`, in group folder `group`."""
     sub, name = Source.FILES[chan]
     return os.path.join(DATA, group, mouse, "lightsuite", sub, name)
 
 
-def has_sep(mouse):
+def has_sep(mouse: str) -> bool:
     """Whether run_add_sep_channel has carried the brain's SEP channel across."""
     return os.path.exists(channel_path(mouse, MICE[mouse][2], "sep"))
 
 
-def block2(a):
+def block2(a: np.ndarray) -> np.ndarray:
     """2x2 block mean of a 2D page with even dims."""
     return a.reshape(a.shape[0] // 2, 2, a.shape[1] // 2, 2).mean(axis=(1, 3))
 
 
-def main(mice):
+def main(mice: list[str]) -> None:
     """Write the per-brain file of each of `mice`, with one printed line each."""
     iso = set()
     with open(CSV_MAP, newline="", encoding="utf-8") as fh:

@@ -33,7 +33,7 @@ def _canonical(path):
     return drive.upper() + rest
 
 
-def code_root():
+def code_root() -> str:
     """The folder that holds get_paths.m, searched upwards from this file."""
     start = os.path.dirname(os.path.abspath(__file__))
     folder = start
@@ -54,7 +54,7 @@ def _inside(path, folder):
     return path == folder or path.startswith(folder + os.sep)
 
 
-def data_root():
+def data_root() -> str:
     """The data root: SEP_DATA_ROOT if set, else the code folder's sibling data."""
     code = code_root()
     override = os.environ.get("SEP_DATA_ROOT", "")
@@ -96,7 +96,7 @@ with open(_SETTINGS_PATH, "rb") as _fh:
     SETTINGS = tomllib.load(_fh)
 
 
-def print_settings(options):
+def print_settings(options: dict) -> None:
     """Print the settings a run works with, as the first lines of its log.
 
     The data root and where it came from (SEP_DATA_ROOT, or beside the code
