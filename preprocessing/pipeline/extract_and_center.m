@@ -5,24 +5,25 @@ function extract_and_center(run_settings)
 %   (groups_to_process, mice_to_process, atlas_key) and says what each one
 %   does.
 
-% The settings of run_extract_and_center, under the names the code below uses
+% settings of run_extract_and_center, under the names the code below uses
 groups_to_process = run_settings.groups_to_process;
 mice_to_process = run_settings.mice_to_process;
 atlas_key = run_settings.atlas_key;
 
 %% Add paths
 
-% The toolboxes are on the path from sep_setup_paths: LightSuite, yamlmatlab,
-% matlab_elastix, and the reader for the raw .czi (BioformatsImage class +
-% bundled bfmatlab) that getSliceInfo/generateSliceVolume need. Only the atlas
-% folder is added here.
+% the toolboxes, the reader of the raw .czi files included (BioformatsImage and
+% its bfmatlab), are on the path from sep_setup_paths; only the atlas is added here
 atlas = get_atlas(atlas_key);
 allenDir = atlas.dir;
 addpath(allenDir)
 
 %% Resolve cohort
 
+% check that the registry still lists the adults in their legacy order
 get_cohort('verify');
+
+% the mice named, or else every mouse of the groups
 if isempty(mice_to_process)
     cohort = get_cohort('groups', groups_to_process);
 else
@@ -30,70 +31,59 @@ else
 end
 fprintf('run_extract_and_center: %d mouse/mice selected.\n', numel(cohort));
 
-%% Loop over mice
+%% Extract each mouse
 
-% If one mouse fails we keep going, otherwise a whole unattended batch can be
-% lost to a single bad brain. Any failures are listed again at the end.
+% a mouse that fails is reported and the run goes on, so one bad brain does not
+% cost an unattended batch; the failures are listed again at the end
 failed_mice = {};
 
 for mouse_idx = 1:numel(cohort)
 
-    % Get current mouse metadata
+    % the mouse and its folder
     mousename = cohort(mouse_idx).name;
-    dp        = cohort(mouse_idx).base_dir;
+    dp = cohort(mouse_idx).base_dir;
     fprintf('\n=== %s (group %s) ===\n%s\n', mousename, cohort(mouse_idx).group, dp);
 
     try
 
-        %% Initialize extraction via Lightsuite
-
         if ~exist(dp, 'dir')
-            error('Mouse dir not found: %s\nCopy the raw .czi from the lab share first.', dp);
+            error('Mouse dir not found: %s\nCopy the raw .czi from the lab share first.', ...
+                dp);
         end
 
-        % Read settings (mouse root first, then the lightsuite subdir where the
-        % adult cohort keeps it; parseSettingsFile falls back to its internal
-        % defaults if neither exists, which is what the adults actually ran on)
+        % read the extraction settings: from the mouse folder, else from its
+        % lightsuite folder, else LightSuite's defaults, which the adults ran on
         settings_path = resolve_settings_path(dp);
-        sliceinfo     = parseSettingsFile(settings_path);
+        sliceinfo = parseSettingsFile(settings_path);
         fprintf('  settings: %s\n', settings_path);
         fprintf('  slicethickness=%g px_process=%g px_register=%g px_atlas=%g regchan=%s\n', ...
             sliceinfo.slicethickness, sliceinfo.px_process, sliceinfo.px_register, ...
             sliceinfo.px_atlas, sliceinfo.regchan);
 
-        sliceinfo.mousename   = mousename;
-        filelistcheck         = dir(fullfile(dp, '*.czi'));
+        % list the .czi files and find the sections in them (LightSuite)
+        sliceinfo.mousename = mousename;
+        filelistcheck = dir(fullfile(dp, '*.czi'));
         if isempty(filelistcheck)
-            error('No .czi found in %s\nCopy the raw files from the lab share first.', dp);
+            error('No .czi found in %s\nCopy the raw files from the lab share first.', ...
+                dp);
         end
-        filepaths             = fullfile({filelistcheck(:).folder}', {filelistcheck(:).name}');
-        sliceinfo.filepaths   = filepaths;
+        filepaths = fullfile({filelistcheck(:).folder}', {filelistcheck(:).name}');
+        sliceinfo.filepaths = filepaths;
         fprintf('  %d .czi file(s)\n', numel(filepaths));
-        sliceinfo             = getSliceInfo(sliceinfo);
+        sliceinfo = getSliceInfo(sliceinfo);
 
-        %% Generate the slice volume (auto)
-
-        % Generate centered volume from raw data
+        % write every channel, centred, with the ordering composite and sliceinfo.mat
         slicevol = generateSliceVolume(sliceinfo, sliceinfo.regchan); %#ok<NASGU>
 
-        %% Apply slice ordering if it has already been curated (auto)
-
-        % Rebuilds volume_ordered.tiff from volume_for_ordering_processing_decisions.txt
-        % when that file exists, otherwise writes identity ordering. Safe to run
-        % before curation; re-run afterwards to apply the decisions.
-        %
-        % The MANUAL reorder/flip/discard step is NOT here: it lives in
-        % run_order_slices.m. It used to be a commented-out SliceOrderEditor call
-        % at this spot, which was misleading -- the GUI is non-blocking, so inside
-        % this loop it would open one window per mouse at once, and it sat *after*
-        % generateReordedVolume so its output was never consumed in the same pass.
+        % write volume_ordered.tiff from the decisions file of run_order_slices
+        % when there is one, otherwise in the extracted order
         generateReordedVolume(sliceinfo);
 
         fprintf('  done: %s\n', mousename);
 
     catch err
         fprintf('  FAILED (%s): %s\n', mousename, err.message);
-        failed_mice{end+1} = mousename; %#ok<SAGROW>
+        failed_mice{end+1} = mousename; %#ok<AGROW>
     end
 
 end
@@ -109,14 +99,14 @@ end
 
 end
 
-%% Local function: locate local_settings.txt for a mouse
+% ===== Local functions =====
 
 function settings_path = resolve_settings_path(mouse_dir)
-% Returns the first existing local_settings.txt, checking the mouse root then
-% the lightsuite subdir. Returns the mouse-root path when neither exists, so
-% parseSettingsFile warns and applies its internal defaults (slicethickness=150,
-% px_process=5, px_register=20, px_atlas=10, regchan='dapi') -- the values the
-% adult cohort was processed with.
+% The first local_settings.txt found, in the mouse folder, then in its lightsuite
+% folder; when there is none, the path in the mouse folder, so that
+% parseSettingsFile warns and applies its defaults (slicethickness 150,
+% px_process 5, px_register 20, px_atlas 10, regchan 'dapi'), the values the
+% adults were processed with.
 
 candidates = { ...
     fullfile(mouse_dir, 'local_settings.txt'), ...

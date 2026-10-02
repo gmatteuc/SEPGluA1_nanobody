@@ -5,7 +5,7 @@ function nano_equalisation(run_settings)
 %   mice_to_process, atlas_key, save_results, base_output_dir) and says
 %   what each one does. The selected mice are processed together.
 
-% The settings of run_nano_equalisation, under the names the code below uses
+% settings of run_nano_equalisation, under the names the code below uses
 paths = run_settings.paths;
 groups_to_process = run_settings.groups_to_process;
 mice_to_process = run_settings.mice_to_process;
@@ -13,19 +13,21 @@ atlas_key = run_settings.atlas_key;
 save_results = run_settings.save_results;
 base_output_dir = run_settings.base_output_dir;
 
-%% 2. Add paths
+%% Add paths
 
-% Get Allen data path
+% the atlas folder; nothing below reads it
 atlas = get_atlas(atlas_key);
 allenDir = atlas.dir;
-% Add Allen data path
 addpath(allenDir);
 
-%% 3. Scan Dimensions and Load to RAM
+%% Load the volumes
 
-if ~exist(base_output_dir, 'dir'), mkdir(base_output_dir); end
+if ~exist(base_output_dir, 'dir')
+    mkdir(base_output_dir);
+end
 
-% Resolve cohort
+% check that the registry still lists the adults in their legacy order, then take
+% the mice named, or else every mouse of the groups
 get_cohort('verify');
 if isempty(mice_to_process)
     cohort = get_cohort('groups', groups_to_process);
@@ -34,96 +36,99 @@ else
 end
 
 num_mice = numel(cohort);
-processed_mouse_names  = {cohort.name};
+processed_mouse_names = {cohort.name};
 processed_mouse_groups = {cohort.group};
 fprintf('run_nano_equalisation: %d mouse/mice selected.\n', num_mice);
 
+% the size of each mouse's volume, and the largest of each dimension
 fprintf('--- Phase 1: Scanning Dimensions ---\n');
 
 [dim_store, file_paths] = scan_dimensions(cohort, paths, num_mice);
 
-% Determine Global Max Dimensions
-MAX_H = max(dim_store(:,1));
-MAX_W = max(dim_store(:,2));
-MAX_Z = max(dim_store(:,3));
+MAX_H = max(dim_store(:, 1));
+MAX_W = max(dim_store(:, 2));
+MAX_Z = max(dim_store(:, 3));
 
+% every volume in one array, padded to the largest size
 fprintf('--- Phase 2: Loading Volumes into Unified 4D Matrix ---\n');
 fprintf('  Max Dimensions: [%d x %d x %d]\n', MAX_H, MAX_W, MAX_Z);
 fprintf('  Allocating memory...\n');
 
 nano_4d = load_volumes(file_paths, dim_store, num_mice, MAX_H, MAX_W, MAX_Z);
 
-%% 4. Calculate Slice Statistics from Memory
+%% Slice statistics
 
 fprintf('--- Phase 3: Calculating Statistics ---\n');
 
 [intensity_medians, intensity_iqrs] = slice_statistics_raw(nano_4d, dim_store, ...
     num_mice, MAX_Z, processed_mouse_names);
 
-%% 5. Visualization & Analysis
+%% Figures before equalisation
 
 fprintf('--- Phase 4: Generating Diagnostic Plots ---\n');
 
-% --- Calculation for Relative Metrics ---
-mouse_consensus = repmat(nanmean(intensity_medians,1), [size(intensity_medians,1), 1]);
+% each slice's median relative to its mouse's mean median
+mouse_consensus = repmat(nanmean(intensity_medians, 1), [size(intensity_medians, 1), 1]);
 rel_diff_map = (intensity_medians - mouse_consensus) ./ mouse_consensus;
 
 [f1, f2, f3] = plot_intensity_raw(intensity_medians, rel_diff_map, ...
     processed_mouse_names, num_mice, MAX_Z);
 
-% --- Saving ---
+% save them with the statistics, named with the time of the run
 if save_results
-    timestamp = save_statistics_raw(base_output_dir, intensity_medians, intensity_iqrs, ...
-        rel_diff_map, processed_mouse_names, processed_mouse_groups, f1, f2, f3);
+    timestamp = save_statistics_raw(base_output_dir, intensity_medians, ...
+        intensity_iqrs, rel_diff_map, processed_mouse_names, processed_mouse_groups, ...
+        f1, f2, f3);
 end
 
-%% 7. Generate Individual Videos (Masked + Gray)
+%% Videos before equalisation
 
 fprintf('--- Phase 5: Generating Individual Videos ---\n');
 
 write_videos_raw(nano_4d, dim_store, intensity_medians, processed_mouse_names, ...
     num_mice, base_output_dir, timestamp);
 
-%% 8. Perform Slice-wise Equalization
+%% Equalise the slices
 
 fprintf('--- Phase 6: Performing Slice Equalization (Window: 5 slices) ---\n');
 
 nano_4d = equalise_slices(nano_4d, intensity_medians, dim_store, num_mice, ...
     processed_mouse_names);
 
-%% 9. Recalculate Statistics on Equalized Data
+%% Slice statistics after equalisation
 
 fprintf('--- Phase 7: Recalculating Statistics (Equalized) ---\n');
 
 [intensity_medians_eq, intensity_iqrs_eq] = slice_statistics_equalised(nano_4d, ...
     dim_store, num_mice, MAX_Z, processed_mouse_names);
 
-%% 10. Visualization (Equalized)
+%% Figures after equalisation
 
 fprintf('--- Phase 8: Generating Diagnostic Plots (Equalized) ---\n');
 
-% --- Calculation for Relative Metrics ---
-mouse_consensus_eq = repmat(nanmean(intensity_medians_eq,1), [size(intensity_medians_eq,1), 1]); %#ok<*NANMEAN>
+% each slice's median relative to its mouse's mean median
+mouse_consensus_eq = repmat(nanmean(intensity_medians_eq, 1), ...
+    [size(intensity_medians_eq, 1), 1]); %#ok<*NANMEAN>
 rel_diff_map_eq = (intensity_medians_eq - mouse_consensus_eq) ./ mouse_consensus_eq;
 
 [f4, f5, f6] = plot_intensity_equalised(intensity_medians_eq, rel_diff_map_eq, ...
     processed_mouse_names, num_mice, MAX_Z);
 
-% --- Saving ---
+% save them with the statistics, under the time stamp of the first save
 if save_results
     save_statistics_equalised(base_output_dir, timestamp, intensity_medians_eq, ...
         intensity_iqrs_eq, rel_diff_map_eq, processed_mouse_names, ...
         processed_mouse_groups, f4, f5, f6);
 end
 
-%% 11. Generate Individual Videos (Equalized)
+%% Videos after equalisation
 
 fprintf('--- Phase 9: Generating Individual Videos (Equalized) ---\n');
 
 write_videos_equalised(nano_4d, dim_store, intensity_medians_eq, ...
     processed_mouse_names, num_mice, base_output_dir, timestamp);
 
-%% 12. Save Equalized Volumes to Individual Mouse Directories
+%% Save the equalised volumes
 
 fprintf('--- Phase 10: Saving Equalized Volumes to Individual Folders ---\n');
 
@@ -135,10 +140,11 @@ end
 % ===== Local functions: loading =====
 
 function [dim_store, file_paths] = scan_dimensions(cohort, paths, num_mice)
-%SCAN_DIMENSIONS  Height, width and number of slices of each mouse's centered nano volume.
-%   Stops when a volume is missing; returns the sizes and the paths of the volumes.
+% Height, width and number of slices of each mouse's centred nano volume, one row
+% per mouse, and the paths of the volumes; stops when a volume is missing.
 
-dim_store = zeros(num_mice, 3); % [H, W, Z]
+% one row per mouse: [H, W, Z]
+dim_store = zeros(num_mice, 3);
 file_paths = cell(num_mice, 1);
 
 for i = 1:num_mice
@@ -158,27 +164,27 @@ for i = 1:num_mice
     dim_store(i, 2) = info(1).Width;
     dim_store(i, 3) = numel(info);
 
-    fprintf('  Mouse %s: [%d x %d x %d]\n', mouse_name, dim_store(i,1), dim_store(i,2), dim_store(i,3));
+    fprintf('  Mouse %s: [%d x %d x %d]\n', mouse_name, dim_store(i, 1), ...
+        dim_store(i, 2), dim_store(i, 3));
 end
 
 end
 
 function nano_4d = load_volumes(file_paths, dim_store, num_mice, MAX_H, MAX_W, MAX_Z)
-%LOAD_VOLUMES  All the mice's nano volumes in one 4D array, padded with NaN.
-%   Each volume sits in the top-left corner of its MAX_H x MAX_W x MAX_Z block.
+% All the mice's nano volumes in one 4D array padded with NaN, each volume in the
+% top-left corner of its MAX_H x MAX_W x MAX_Z block.
 
-% Allocate 4D Matrix
 nano_4d = NaN(MAX_H, MAX_W, MAX_Z, num_mice);
 
 for i = 1:num_mice
     fprintf('  Loading [%d/%d] into matrix...\n', i, num_mice);
 
-    % Get individual dimensions
+    % the mouse's own size
     cur_h = dim_store(i, 1);
     cur_w = dim_store(i, 2);
     cur_z = dim_store(i, 3);
 
-    % Load slices and place them into the top-left corner
+    % read its slices into the top-left corner
     for z = 1:cur_z
         nano_4d(1:cur_h, 1:cur_w, z, i) = imread(file_paths{i}, z);
     end
@@ -191,122 +197,161 @@ end
 
 function [intensity_medians, intensity_iqrs] = slice_statistics_raw(nano_4d, ...
     dim_store, num_mice, MAX_Z, processed_mouse_names)
-%SLICE_STATISTICS_RAW  Median and IQR of each slice's tissue pixels, before equalisation.
-%   The padding is set to the slice's mode before the background is selected.
+% Median and inter-quartile range of each slice's tissue pixels, before
+% equalisation; the padding is set to the slice's mode before the background is
+% selected.
 
 intensity_medians = nan(MAX_Z, num_mice);
-intensity_iqrs  = nan(MAX_Z, num_mice);
+intensity_iqrs = nan(MAX_Z, num_mice);
 
 for i = 1:num_mice
-    fprintf('  Calculating Stats for Mouse %d/%d (%s)...\n', i, num_mice, processed_mouse_names{i});
+    fprintf('  Calculating Stats for Mouse %d/%d (%s)...\n', i, num_mice, ...
+        processed_mouse_names{i});
 
-    mouse_vol = nano_4d(:,:,:,i);
+    mouse_vol = nano_4d(:, :, :, i);
 
     slice_medians = nan(MAX_Z, 1);
-    slice_iqrs  = nan(MAX_Z, 1);
+    slice_iqrs = nan(MAX_Z, 1);
 
     actual_z = dim_store(i, 3);
 
     parfor z = 1:MAX_Z
-        if z > actual_z, continue; end
 
-        img = im2single(mouse_vol(:,:,z));
-        if max(img(:)) == 0, continue; end
-
-        if z < 10, pmax_val = 75; pmin_val = 15;
-        else, pmax_val = 50; pmin_val = 15;
+        % padded and empty slices stay NaN
+        if z > actual_z
+            continue;
         end
-        img(isnan(img))=mode(img(:));
+
+        img = im2single(mouse_vol(:, :, z));
+        if max(img(:)) == 0
+            continue;
+        end
+
+        % background between the 15th and the 75th percentile in the first nine
+        % slices, the 50th after, with the padding set to the slice's mode
+        if z < 10
+            pmax_val = 75;
+            pmin_val = 15;
+        else
+            pmax_val = 50;
+            pmin_val = 15;
+        end
+        img(isnan(img)) = mode(img(:));
         bg_mask = select_background_pixels(img, pmin_val, pmax_val);
 
+        % statistics of the tissue pixels
         fg_pixels = img(~bg_mask);
 
         if ~isempty(fg_pixels)
             slice_medians(z) = nanmedian(fg_pixels);
-            slice_iqrs(z)  = quantile(fg_pixels,0.25)-quantile(fg_pixels,0.75);
+            slice_iqrs(z) = quantile(fg_pixels, 0.25)-quantile(fg_pixels, 0.75);
         end
     end
 
     intensity_medians(:, i) = slice_medians;
-    intensity_iqrs(:, i)  = slice_iqrs;
+    intensity_iqrs(:, i) = slice_iqrs;
 end
 
 end
 
 function [f1, f2, f3] = plot_intensity_raw(intensity_medians, rel_diff_map, ...
     processed_mouse_names, num_mice, MAX_Z)
-%PLOT_INTENSITY_RAW  Heatmaps and profiles of the slice medians, before equalisation.
-%   Returns the profiles (f1), absolute heatmap (f2) and relative heatmap (f3) figures.
+% Heatmaps and profiles of the slice medians, before equalisation: the profiles
+% (f1), the absolute heatmap (f2) and the relative heatmap (f3).
 
-% --- Plot 1: Absolute Heatmap ---
-f2 = figure('Name', 'Intensity Heatmap (Absolute)', 'Color', 'w', 'Units', 'normalized', 'Position', [0.1 0.1 0.5 0.8]);
+% absolute heatmap
+f2 = figure('Name', 'Intensity Heatmap (Absolute)', 'Color', 'w', ...
+    'Units', 'normalized', 'Position', [0.1 0.1 0.5 0.8]);
 imagesc(intensity_medians);
 colormap(f2, hot);
-c = colorbar; c.Label.String = 'Median Intensity (Raw)';
-xlabel('Mouse'); ylabel('Slice Number'); title('Absolute Intensity Heatmap');
-xticks(1:num_mice); xticklabels(strrep(processed_mouse_names, '_', ' ')); xtickangle(45);
+c = colorbar;
+c.Label.String = 'Median Intensity (Raw)';
+xlabel('Mouse');
+ylabel('Slice Number');
+title('Absolute Intensity Heatmap');
+xticks(1:num_mice);
+xticklabels(strrep(processed_mouse_names, '_', ' '));
+xtickangle(45);
 clim([0, max(intensity_medians(:))]);
 
-% --- Plot 2: Relative Deviation Heatmap ---
-f3 = figure('Name', 'Intensity Heatmap (Relative)', 'Color', 'w', 'Units', 'normalized', 'Position', [0.6 0.1 0.5 0.8]);
+% relative heatmap
+f3 = figure('Name', 'Intensity Heatmap (Relative)', 'Color', 'w', ...
+    'Units', 'normalized', 'Position', [0.6 0.1 0.5 0.8]);
 imagesc(rel_diff_map);
 colormap(f3, hot);
-c = colorbar; c.Label.String = 'Relative Deviation (from Mouse Mean)';
-xlabel('Mouse'); ylabel('Slice Number'); title('Relative Deviation Heatmap');
-xticks(1:num_mice); xticklabels(strrep(processed_mouse_names, '_', ' ')); xtickangle(45);
+c = colorbar;
+c.Label.String = 'Relative Deviation (from Mouse Mean)';
+xlabel('Mouse');
+ylabel('Slice Number');
+title('Relative Deviation Heatmap');
+xticks(1:num_mice);
+xticklabels(strrep(processed_mouse_names, '_', ' '));
+xtickangle(45);
 clim([-1, 1]);
 
-% --- Plot 3: Profiles (Absolute & Relative Subplots) ---
-f1 = figure('Name', 'Intensity Profiles', 'Color', 'w', 'Units', 'normalized', 'Position', [0.1 0.1 0.8 0.8]);
+% profiles, absolute above and relative below, one line per mouse
+f1 = figure('Name', 'Intensity Profiles', 'Color', 'w', 'Units', 'normalized', ...
+    'Position', [0.1 0.1 0.8 0.8]);
 colors = linspace(0.25, 0.75, num_mice)' * [1, 0, 1];
 
-% Subplot 1: Absolute Profiles
-subplot(2,1,1);
+% absolute profiles, with the median over mice
+subplot(2, 1, 1);
 hold on;
 for i = 1:num_mice
-    plot(intensity_medians(:, i), 'Color', [colors(i,:) 0.6], 'LineWidth', 2, 'DisplayName', processed_mouse_names{i});
+    plot(intensity_medians(:, i), 'Color', [colors(i, :) 0.6], 'LineWidth', 2, ...
+        'DisplayName', processed_mouse_names{i});
 end
-% Group Median line
 group_avg = nanmedian(intensity_medians, 2);
 plot(group_avg, 'k-', 'LineWidth', 2, 'DisplayName', 'Group Median');
-ylabel('Median Tissue Intensity'); title('Absolute Slice Intensity Profiles');
-grid on; xlim([1 MAX_Z]);
+ylabel('Median Tissue Intensity');
+title('Absolute Slice Intensity Profiles');
+grid on;
+xlim([1 MAX_Z]);
 
-% Subplot 2: Relative Profiles (Matching f3)
-subplot(2,1,2);
+% relative profiles, with the median over mice
+subplot(2, 1, 2);
 hold on;
 for i = 1:num_mice
-    plot(rel_diff_map(:, i), 'Color', [colors(i,:) 0.6], 'LineWidth', 2, 'DisplayName', processed_mouse_names{i});
+    plot(rel_diff_map(:, i), 'Color', [colors(i, :) 0.6], 'LineWidth', 2, ...
+        'DisplayName', processed_mouse_names{i});
 end
-% Group Median line
 group_rel_avg = nanmedian(rel_diff_map, 2); %#ok<*NANMEDIAN>
 plot(group_rel_avg, 'k-', 'LineWidth', 2, 'DisplayName', 'Group Median');
 yline(0, 'k--', 'LineWidth', 2, 'DisplayName', 'Mouse Mean (Zero Dev)');
-xlabel('Slice Number'); ylabel('Relative Deviation'); title('Relative Deviation Profiles');
-grid on; xlim([1 MAX_Z]); ylim([-0.75, 0.75]); % Matching heatmap limits
+xlabel('Slice Number');
+ylabel('Relative Deviation');
+title('Relative Deviation Profiles');
+grid on;
+xlim([1 MAX_Z]);
+ylim([-0.75, 0.75]);
 
 end
 
 function timestamp = save_statistics_raw(base_output_dir, intensity_medians, ...
     intensity_iqrs, rel_diff_map, processed_mouse_names, processed_mouse_groups, ...
     f1, f2, f3)
-%SAVE_STATISTICS_RAW  Save the statistics and the three figures from before equalisation.
-%   Returns the time stamp that names them, which every later file of the run takes.
+% Save the statistics and the three figures from before equalisation; returns the
+% time stamp that names them, which every later file of the run takes.
 
 timestamp = datestr(now, 'yyyymmdd_HHMM'); %#ok<DATST,TNOW1>
 savePathData = fullfile(base_output_dir, ['Intensity_Stats_' timestamp '.mat']);
 
-% Robust save (check if variables exist)
+% intensity_iqrs is an input here, so the first branch is the one that runs
 if exist('intensity_iqrs', 'var')
-    save(savePathData, 'intensity_medians', 'intensity_iqrs', 'rel_diff_map', 'processed_mouse_names', 'processed_mouse_groups', '-v7.3');
+    save(savePathData, 'intensity_medians', 'intensity_iqrs', 'rel_diff_map', ...
+        'processed_mouse_names', 'processed_mouse_groups', '-v7.3');
 else
-    save(savePathData, 'intensity_medians', 'rel_diff_map', 'processed_mouse_names', 'processed_mouse_groups', '-v7.3');
+    save(savePathData, 'intensity_medians', 'rel_diff_map', 'processed_mouse_names', ...
+        'processed_mouse_groups', '-v7.3');
 end
 fprintf('Data saved to: %s\n', savePathData);
 
-exportgraphics(f1, fullfile(base_output_dir, ['Plot_Traces_' timestamp '.png']), 'Resolution', 300);
-exportgraphics(f2, fullfile(base_output_dir, ['Plot_Heatmap_Abs_' timestamp '.png']), 'Resolution', 300);
-exportgraphics(f3, fullfile(base_output_dir, ['Plot_Heatmap_Rel_' timestamp '.png']), 'Resolution', 300);
+exportgraphics(f1, fullfile(base_output_dir, ['Plot_Traces_' timestamp '.png']), ...
+    'Resolution', 300);
+exportgraphics(f2, fullfile(base_output_dir, ['Plot_Heatmap_Abs_' timestamp '.png']), ...
+    'Resolution', 300);
+exportgraphics(f3, fullfile(base_output_dir, ['Plot_Heatmap_Rel_' timestamp '.png']), ...
+    'Resolution', 300);
 
 close all
 
@@ -314,18 +359,20 @@ end
 
 function write_videos_raw(nano_4d, dim_store, intensity_medians, ...
     processed_mouse_names, num_mice, base_output_dir, timestamp)
-%WRITE_VIDEOS_RAW  One video per mouse, background masked, before equalisation.
-%   Writes Video_<mouse>_<timestamp>.mp4 in base_output_dir.
+% One video per mouse, the background masked, before equalisation; writes
+% Video_<mouse>_<timestamp>.mp4 in base_output_dir.
 
-% Setup invisible figure once to reuse
-h_fig = figure('visible', 'off', 'units', 'pixels', 'position', [100 100 800 600], 'Color', 'k');
+% one hidden figure, reused for every frame
+h_fig = figure('visible', 'off', 'units', 'pixels', 'position', [100 100 800 600], ...
+    'Color', 'k');
 set(h_fig, 'InvertHardcopy', 'off');
 
 for i = 1:num_mice
     mouse_name = processed_mouse_names{i};
     fprintf('  Processing Video for Mouse %d/%d: %s...\n', i, num_mice, mouse_name);
 
-    video_filename = fullfile(base_output_dir, ['Video_' mouse_name '_' timestamp '.mp4']);
+    video_filename = fullfile(base_output_dir, ...
+        ['Video_' mouse_name '_' timestamp '.mp4']);
     vidObj = VideoWriter(video_filename, 'MPEG-4');
     vidObj.FrameRate = 5;
     vidObj.Quality = 95;
@@ -334,47 +381,50 @@ for i = 1:num_mice
     actual_z = dim_store(i, 3);
 
     for z = 1:actual_z
-        % 1. Access Image from RAM
-        img_uint16 = nano_4d(:,:,z,i);
 
-        % Cropping to original size
+        % the slice, cropped to the mouse's own size
+        img_uint16 = nano_4d(:, :, z, i);
         cur_h = dim_store(i, 1);
         cur_w = dim_store(i, 2);
         img_crop = img_uint16(1:cur_h, 1:cur_w);
 
-        % 2. Compute Mask (Same logic as Stats phase)
+        % an empty slice gets a black frame, so frame n stays slice n
         img_single = single(img_crop);
         if max(img_single(:)) == 0
-            % Skip empty frames to keep video smooth? Or write black frame?
-            % Writing black frame to maintain Z-index alignment
-            clf(h_fig); set(gca, 'Color', 'k'); axis off;
-            frame = getframe(h_fig); writeVideo(vidObj, frame);
+            clf(h_fig);
+            set(gca, 'Color', 'k');
+            axis off;
+            frame = getframe(h_fig);
+            writeVideo(vidObj, frame);
             continue;
         end
 
-        if z < 10, pmax_val = 75; pmin_val = 15; else, pmax_val = 50; pmin_val = 15; end
-        img_single(isnan(img_single))=mode(img_single(:));
+        % background mask, as for the statistics
+        if z < 10
+            pmax_val = 75;
+            pmin_val = 15;
+        else
+            pmax_val = 50;
+            pmin_val = 15;
+        end
+        img_single(isnan(img_single)) = mode(img_single(:));
         bg_mask = select_background_pixels(img_single, pmin_val, pmax_val);
 
-        % 3. Plot with Alpha Mask
+        % draw the slice in grey, the background transparent on black
         clf(h_fig);
-
-        % Display image
         h_im = imagesc(img_crop);
         colormap(gray);
         clim([0 5000]);
-
-        % Apply Alpha Data
         set(h_im, 'AlphaData', ~bg_mask);
-
-        % Formatting
-        axis image; axis off;
+        axis image;
+        axis off;
         set(gca, 'Color', 'k');
 
-        title([sprintf('%s - Slice %d', strrep(mouse_name, '_', ' '), z),' - median = ',num2str(round(intensity_medians(z,i),2))], ...
+        title([sprintf('%s - Slice %d', strrep(mouse_name, '_', ' '), z), ...
+            ' - median = ', num2str(round(intensity_medians(z, i), 2))], ...
             'Color', 'w', 'FontSize', 14, 'FontWeight', 'bold');
 
-        % 4. Write Frame
+        % add the frame
         frame = getframe(h_fig);
         writeVideo(vidObj, frame);
 
@@ -396,39 +446,36 @@ end
 
 function nano_4d = equalise_slices(nano_4d, intensity_medians, dim_store, num_mice, ...
     processed_mouse_names)
-%EQUALISE_SLICES  Scale each slice so its median becomes the moving median over 5 slices.
-%   Changes nano_4d in place (same name in and out); padded or empty slices keep factor 1.
+% Scale each slice so that its median becomes the moving median over 5 slices; in
+% place (the same name in and out), padded or empty slices keep a factor of 1.
 
-% Set window size (2 before + 2 after)
+% 5 slices: two before, the slice, two after
 window_size = 5;
 
 for i = 1:num_mice
     mouse_name = processed_mouse_names{i};
     fprintf('  Equalizing Mouse %d/%d: %s...\n', i, num_mice, mouse_name);
 
-    % Get the raw medians calculated in Phase 3
+    % the slice medians before equalisation, and their moving median
     raw_medians = intensity_medians(:, i);
-
-    % Calculate the Target Median (Moving median of the neighborhood)
     target_medians = movmedian(raw_medians, window_size, 'omitnan');
 
-    % Calculate Scaling Factors (Target / Raw)
+    % scaling factors; 1 where the slice was empty or padded (division by zero, NaN)
     scaling_factors = target_medians ./ raw_medians;
-
-    % Handle Division by Zero or NaNs (if raw slice was empty/padded)
     scaling_factors(isnan(scaling_factors) | isinf(scaling_factors)) = 1;
 
-    % Apply Scaling to the Volume in RAM
+    % scale the slices in memory
     actual_z = dim_store(i, 3);
 
     for z = 1:actual_z
         current_factor = scaling_factors(z);
 
-        % Skip if factor is 1 (optimization)
-        if current_factor == 1, continue; end
+        % a factor of 1 changes nothing
+        if current_factor == 1
+            continue;
+        end
 
-        % Apply multiplicative scaling
-        nano_4d(:,:,z,i) = nano_4d(:,:,z,i) * current_factor;
+        nano_4d(:, :, z, i) = nano_4d(:, :, z, i) * current_factor;
     end
 end
 fprintf('Equalization applied to nano_4d in memory.\n');
@@ -437,109 +484,151 @@ end
 
 function [intensity_medians_eq, intensity_iqrs_eq] = slice_statistics_equalised( ...
     nano_4d, dim_store, num_mice, MAX_Z, processed_mouse_names)
-%SLICE_STATISTICS_EQUALISED  Median and IQR of each slice's tissue, after equalisation.
-%   The mask comes from a copy with the padding set to its mode, the statistics from the
-%   slice itself.
+% Median and inter-quartile range of each slice's tissue pixels, after
+% equalisation; the mask comes from a copy with the padding set to its mode, the
+% statistics from the slice itself.
 
-% Reset stats matrices
 intensity_medians_eq = nan(MAX_Z, num_mice);
-intensity_iqrs_eq  = nan(MAX_Z, num_mice);
+intensity_iqrs_eq = nan(MAX_Z, num_mice);
 
 for i = 1:num_mice
-    fprintf('  Stats (Eq) for Mouse %d/%d (%s)...\n', i, num_mice, processed_mouse_names{i});
+    fprintf('  Stats (Eq) for Mouse %d/%d (%s)...\n', i, num_mice, ...
+        processed_mouse_names{i});
 
-    mouse_vol = nano_4d(:,:,:,i);
+    mouse_vol = nano_4d(:, :, :, i);
     actual_z = dim_store(i, 3);
 
     slice_medians = nan(MAX_Z, 1);
-    slice_iqrs  = nan(MAX_Z, 1);
+    slice_iqrs = nan(MAX_Z, 1);
 
     parfor z = 1:MAX_Z
-        if z > actual_z, continue; end
 
-        img = im2single(mouse_vol(:,:,z));
-        if max(img(:)) == 0, continue; end
+        % padded and empty slices stay NaN
+        if z > actual_z
+            continue;
+        end
 
-        if z < 10, pmax_val = 75; pmin_val = 15; else, pmax_val = 50; pmin_val = 15; end
+        img = im2single(mouse_vol(:, :, z));
+        if max(img(:)) == 0
+            continue;
+        end
 
-        % Masking
+        if z < 10
+            pmax_val = 75;
+            pmin_val = 15;
+        else
+            pmax_val = 50;
+            pmin_val = 15;
+        end
+
+        % background mask, from a copy with the padding set to the slice's mode
         img_temp = img;
         img_temp(isnan(img_temp)) = mode(img_temp(:));
         bg_mask = select_background_pixels(img_temp, pmin_val, pmax_val);
 
+        % statistics of the tissue pixels
         fg_pixels = img(~bg_mask);
 
         if ~isempty(fg_pixels)
             slice_medians(z) = nanmedian(fg_pixels);
-            slice_iqrs(z)  = quantile(fg_pixels,0.25)-quantile(fg_pixels,0.75);
+            slice_iqrs(z) = quantile(fg_pixels, 0.25)-quantile(fg_pixels, 0.75);
         end
     end
 
     intensity_medians_eq(:, i) = slice_medians;
-    intensity_iqrs_eq(:, i)  = slice_iqrs;
+    intensity_iqrs_eq(:, i) = slice_iqrs;
 end
 
 end
 
 function [f4, f5, f6] = plot_intensity_equalised(intensity_medians_eq, ...
     rel_diff_map_eq, processed_mouse_names, num_mice, MAX_Z)
-%PLOT_INTENSITY_EQUALISED  Heatmaps and profiles of the slice medians, after equalisation.
-%   Returns the absolute heatmap (f4), relative heatmap (f5) and profiles (f6) figures.
+% Heatmaps and profiles of the slice medians, after equalisation: the absolute
+% heatmap (f4), the relative heatmap (f5) and the profiles (f6).
 
-% --- Plot 1: Absolute Heatmap (Eq) ---
-f4 = figure('Name', 'Intensity Heatmap (Absolute - Equalized)', 'Color', 'w', 'Units', 'normalized', 'Position', [0.1 0.1 0.5 0.8]);
+% absolute heatmap
+f4 = figure('Name', 'Intensity Heatmap (Absolute - Equalized)', 'Color', 'w', ...
+    'Units', 'normalized', 'Position', [0.1 0.1 0.5 0.8]);
 imagesc(intensity_medians_eq);
 colormap(f4, hot);
-c = colorbar; c.Label.String = 'Median Intensity (Equalized)';
-xlabel('Mouse'); ylabel('Slice Number'); title('Absolute Intensity Heatmap (Equalized)');
-xticks(1:num_mice); xticklabels(strrep(processed_mouse_names, '_', ' ')); xtickangle(45);
+c = colorbar;
+c.Label.String = 'Median Intensity (Equalized)';
+xlabel('Mouse');
+ylabel('Slice Number');
+title('Absolute Intensity Heatmap (Equalized)');
+xticks(1:num_mice);
+xticklabels(strrep(processed_mouse_names, '_', ' '));
+xtickangle(45);
 clim([0, max(intensity_medians_eq(:))]);
 
-% --- Plot 2: Relative Deviation Heatmap (Eq) ---
-f5 = figure('Name', 'Intensity Heatmap (Relative - Equalized)', 'Color', 'w', 'Units', 'normalized', 'Position', [0.6 0.1 0.5 0.8]);
+% relative heatmap
+f5 = figure('Name', 'Intensity Heatmap (Relative - Equalized)', 'Color', 'w', ...
+    'Units', 'normalized', 'Position', [0.6 0.1 0.5 0.8]);
 imagesc(rel_diff_map_eq);
 colormap(f5, hot);
-c = colorbar; c.Label.String = 'Relative Deviation';
-xlabel('Mouse'); ylabel('Slice Number'); title('Relative Deviation Heatmap (Equalized)');
-xticks(1:num_mice); xticklabels(strrep(processed_mouse_names, '_', ' ')); xtickangle(45);
+c = colorbar;
+c.Label.String = 'Relative Deviation';
+xlabel('Mouse');
+ylabel('Slice Number');
+title('Relative Deviation Heatmap (Equalized)');
+xticks(1:num_mice);
+xticklabels(strrep(processed_mouse_names, '_', ' '));
+xtickangle(45);
 clim([-1, 1]);
 
-% --- Plot 3: Profiles (Eq) ---
-f6 = figure('Name', 'Intensity Profiles (Equalized)', 'Color', 'w', 'Units', 'normalized', 'Position', [0.1 0.1 0.8 0.8]);
+% profiles, absolute above and relative below, one line per mouse
+f6 = figure('Name', 'Intensity Profiles (Equalized)', 'Color', 'w', ...
+    'Units', 'normalized', 'Position', [0.1 0.1 0.8 0.8]);
 colors = linspace(0.25, 0.75, num_mice)' * [1, 0, 1];
 
-subplot(2,1,1); hold on;
+% absolute profiles, with the median over mice
+subplot(2, 1, 1);
+hold on;
 for i = 1:num_mice
-    plot(intensity_medians_eq(:, i), 'Color', [colors(i,:) 0.6], 'LineWidth', 2, 'DisplayName', processed_mouse_names{i});
+    plot(intensity_medians_eq(:, i), 'Color', [colors(i, :) 0.6], 'LineWidth', 2, ...
+        'DisplayName', processed_mouse_names{i});
 end
 group_avg_eq = nanmedian(intensity_medians_eq, 2);
 plot(group_avg_eq, 'k-', 'LineWidth', 2, 'DisplayName', 'Group Median');
-ylabel('Median Tissue Intensity'); title('Absolute Profiles (Equalized)');
-grid on; xlim([1 MAX_Z]);
+ylabel('Median Tissue Intensity');
+title('Absolute Profiles (Equalized)');
+grid on;
+xlim([1 MAX_Z]);
 
-subplot(2,1,2); hold on;
+% relative profiles
+subplot(2, 1, 2);
+hold on;
 for i = 1:num_mice
-    plot(rel_diff_map_eq(:, i), 'Color', [colors(i,:) 0.6], 'LineWidth', 2, 'DisplayName', processed_mouse_names{i});
+    plot(rel_diff_map_eq(:, i), 'Color', [colors(i, :) 0.6], 'LineWidth', 2, ...
+        'DisplayName', processed_mouse_names{i});
 end
 yline(0, 'k--', 'LineWidth', 2);
-xlabel('Slice Number'); ylabel('Relative Deviation'); title('Relative Deviation Profiles (Equalized)');
-grid on; xlim([1 MAX_Z]); ylim([-0.75, 0.75]);
+xlabel('Slice Number');
+ylabel('Relative Deviation');
+title('Relative Deviation Profiles (Equalized)');
+grid on;
+xlim([1 MAX_Z]);
+ylim([-0.75, 0.75]);
 
 end
 
 function save_statistics_equalised(base_output_dir, timestamp, intensity_medians_eq, ...
     intensity_iqrs_eq, rel_diff_map_eq, processed_mouse_names, ...
     processed_mouse_groups, f4, f5, f6)
-%SAVE_STATISTICS_EQUALISED  Save the statistics and the three figures after equalisation.
-%   Named with the time stamp of the statistics saved before equalisation.
+% Save the statistics and the three figures from after equalisation, named with
+% the time stamp of the statistics saved before it.
 
 savePathData = fullfile(base_output_dir, ['Intensity_Stats_Equalized_' timestamp '.mat']);
-save(savePathData, 'intensity_medians_eq', 'intensity_iqrs_eq', 'rel_diff_map_eq', 'processed_mouse_names', 'processed_mouse_groups', '-v7.3');
+save(savePathData, 'intensity_medians_eq', 'intensity_iqrs_eq', 'rel_diff_map_eq', ...
+    'processed_mouse_names', 'processed_mouse_groups', '-v7.3');
 fprintf('Equalized Data saved to: %s\n', savePathData);
 
-exportgraphics(f6, fullfile(base_output_dir, ['Plot_Traces_Equalized_' timestamp '.png']), 'Resolution', 300);
-exportgraphics(f4, fullfile(base_output_dir, ['Plot_Heatmap_Abs_Equalized_' timestamp '.png']), 'Resolution', 300);
-exportgraphics(f5, fullfile(base_output_dir, ['Plot_Heatmap_Rel_Equalized_' timestamp '.png']), 'Resolution', 300);
+exportgraphics(f6, fullfile(base_output_dir, ['Plot_Traces_Equalized_' timestamp ...
+    '.png']), 'Resolution', 300);
+exportgraphics(f4, fullfile(base_output_dir, ['Plot_Heatmap_Abs_Equalized_' timestamp ...
+    '.png']), 'Resolution', 300);
+exportgraphics(f5, fullfile(base_output_dir, ['Plot_Heatmap_Rel_Equalized_' timestamp ...
+    '.png']), 'Resolution', 300);
 
 close all
 
@@ -547,17 +636,20 @@ end
 
 function write_videos_equalised(nano_4d, dim_store, intensity_medians_eq, ...
     processed_mouse_names, num_mice, base_output_dir, timestamp)
-%WRITE_VIDEOS_EQUALISED  One video per mouse, background masked, after equalisation.
-%   Writes Video_<mouse>_Equalized_<timestamp>.mp4 in base_output_dir.
+% One video per mouse, the background masked, after equalisation; writes
+% Video_<mouse>_Equalized_<timestamp>.mp4 in base_output_dir.
 
-h_fig = figure('visible', 'off', 'units', 'pixels', 'position', [100 100 800 600], 'Color', 'k');
+% one hidden figure, reused for every frame
+h_fig = figure('visible', 'off', 'units', 'pixels', 'position', [100 100 800 600], ...
+    'Color', 'k');
 set(h_fig, 'InvertHardcopy', 'off');
 
 for i = 1:num_mice
     mouse_name = processed_mouse_names{i};
     fprintf('  Processing Video for Mouse %d/%d: %s...\n', i, num_mice, mouse_name);
 
-    video_filename = fullfile(base_output_dir, ['Video_' mouse_name '_Equalized_' timestamp '.mp4']);
+    video_filename = fullfile(base_output_dir, ['Video_' mouse_name '_Equalized_' ...
+        timestamp '.mp4']);
     vidObj = VideoWriter(video_filename, 'MPEG-4');
     vidObj.FrameRate = 5;
     vidObj.Quality = 95;
@@ -566,39 +658,56 @@ for i = 1:num_mice
     actual_z = dim_store(i, 3);
 
     for z = 1:actual_z
-        % Access Equalized Image from RAM
-        img_eq = nano_4d(:,:,z,i);
 
+        % the equalised slice, cropped to the mouse's own size
+        img_eq = nano_4d(:, :, z, i);
         cur_h = dim_store(i, 1);
         cur_w = dim_store(i, 2);
         img_crop = img_eq(1:cur_h, 1:cur_w);
 
-        % Compute Mask (on equalized data)
+        % an empty slice gets a black frame, so frame n stays slice n
         img_single = single(img_crop);
         if max(img_single(:)) == 0
-            clf(h_fig); set(gca, 'Color', 'k'); axis off;
-            frame = getframe(h_fig); writeVideo(vidObj, frame);
+            clf(h_fig);
+            set(gca, 'Color', 'k');
+            axis off;
+            frame = getframe(h_fig);
+            writeVideo(vidObj, frame);
             continue;
         end
 
-        if z < 10, pmax_val = 75; pmin_val = 15; else, pmax_val = 50; pmin_val = 15; end
-        img_single(isnan(img_single))=mode(img_single(:));
+        % background mask, on the equalised slice
+        if z < 10
+            pmax_val = 75;
+            pmin_val = 15;
+        else
+            pmax_val = 50;
+            pmin_val = 15;
+        end
+        img_single(isnan(img_single)) = mode(img_single(:));
         bg_mask = select_background_pixels(img_single, pmin_val, pmax_val);
 
+        % draw the slice in grey, the background transparent on black
         clf(h_fig);
         h_im = imagesc(img_crop);
         colormap(gray);
         clim([0 5000]);
         set(h_im, 'AlphaData', ~bg_mask);
-        axis image; axis off; set(gca, 'Color', 'k');
+        axis image;
+        axis off;
+        set(gca, 'Color', 'k');
 
-        title([sprintf('%s (Eq) - Slice %d', strrep(mouse_name, '_', ' '), z),' - med = ',num2str(round(intensity_medians_eq(z,i),2))], ...
+        title([sprintf('%s (Eq) - Slice %d', strrep(mouse_name, '_', ' '), z), ...
+            ' - med = ', num2str(round(intensity_medians_eq(z, i), 2))], ...
             'Color', 'w', 'FontSize', 14, 'FontWeight', 'bold');
 
+        % add the frame
         frame = getframe(h_fig);
         writeVideo(vidObj, frame);
 
-        if mod(z, 100) == 0, fprintf('    Frame %d / %d\n', z, actual_z); end
+        if mod(z, 100) == 0
+            fprintf('    Frame %d / %d\n', z, actual_z);
+        end
     end
     close(vidObj);
 end
@@ -610,17 +719,17 @@ end
 
 function save_equalised_volumes(nano_4d, cohort, paths, dim_store, intensity_medians, ...
     intensity_iqrs, intensity_medians_eq, intensity_iqrs_eq, num_mice)
-%SAVE_EQUALISED_VOLUMES  Save each mouse's equalised volume and statistics in its folder.
-%   Writes lightsuite\correction_output\equalized_volume.mat, cropped to the mouse's size.
+% Save each mouse's equalised volume and slice statistics, cropped to its own
+% size, in lightsuite\correction_output\equalized_volume.mat.
 
 for i = 1:num_mice
-    % 1. Get Mouse Identity
-    current_mouse = cohort(i).name;
-    current_type  = cohort(i).group;
 
-    % 2. Define Output Directory
+    % the mouse and its correction folder
+    current_mouse = cohort(i).name;
+    current_type = cohort(i).group;
     base_dir = fullfile(paths.data, current_type);
-    group_output_dir = fullfile(base_dir, current_mouse, 'lightsuite', 'correction_output');
+    group_output_dir = fullfile(base_dir, current_mouse, 'lightsuite', ...
+        'correction_output');
 
     if ~exist(group_output_dir, 'dir')
         mkdir(group_output_dir);
@@ -629,21 +738,19 @@ for i = 1:num_mice
 
     fprintf('  Saving data for %s (%d/%d)...\n', current_mouse, i, num_mice);
 
-    % 3. Extract and Crop Volume
+    % the volume, cropped to the mouse's own size
     cur_h = dim_store(i, 1);
     cur_w = dim_store(i, 2);
     cur_z = dim_store(i, 3);
-
-    % Extract strictly the valid data region
     equalized_volume = nano_4d(1:cur_h, 1:cur_w, 1:cur_z, i);
 
-    % 4. Extract Statistics for this specific mouse (Trimmed to valid Z)
+    % its slice statistics, before and after, without the padded slices
     stats_intensity_median_raw = intensity_medians(1:cur_z, i);
-    stats_intensity_iqr_raw    = intensity_iqrs(1:cur_z, i);
-    stats_intensity_median_eq  = intensity_medians_eq(1:cur_z, i);
-    stats_intensity_iqr_eq     = intensity_iqrs_eq(1:cur_z, i);
+    stats_intensity_iqr_raw = intensity_iqrs(1:cur_z, i);
+    stats_intensity_median_eq = intensity_medians_eq(1:cur_z, i);
+    stats_intensity_iqr_eq = intensity_iqrs_eq(1:cur_z, i);
 
-    % 5. Save to .mat file
+    % save
     save_filename = fullfile(group_output_dir, 'equalized_volume.mat');
 
     save(save_filename, ...

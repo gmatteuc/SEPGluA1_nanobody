@@ -4,7 +4,7 @@ function copy_raw_data(run_settings)
 %   sets the fields of run_settings (groups_to_process, mice_to_process,
 %   share_root, do_copy) and says what each one does.
 
-% The settings of run_copy_raw_data, under the names the code below uses
+% settings of run_copy_raw_data, under the names the code below uses
 groups_to_process = run_settings.groups_to_process;
 mice_to_process = run_settings.mice_to_process;
 share_root = run_settings.share_root;
@@ -12,7 +12,10 @@ do_copy = run_settings.do_copy;
 
 %% Resolve cohort
 
+% check that the registry still lists the adults in their legacy order
 get_cohort('verify');
+
+% the mice named, or else every mouse of the groups
 if isempty(mice_to_process)
     cohort = get_cohort('groups', groups_to_process);
 else
@@ -20,24 +23,27 @@ else
 end
 fprintf('run_copy_raw_data: %d mouse/mice selected.\n', numel(cohort));
 
-%% Loop over mice
+%% Copy each mouse
 
+% mice copied and checked, and mice with a problem
 n_ok = 0;
 n_bad = 0;
 
 for mouse_idx = 1:numel(cohort)
 
+    % the mouse's folder on the share, and its local folder
     mousename = cohort(mouse_idx).name;
-    src_dir   = fullfile(share_root, mousename, cohort(mouse_idx).share_subdir);
-    dst_dir   = cohort(mouse_idx).base_dir;
+    src_dir = fullfile(share_root, mousename, cohort(mouse_idx).share_subdir);
+    dst_dir = cohort(mouse_idx).base_dir;
 
     fprintf('\n=== %s (group %s) ===\n', mousename, cohort(mouse_idx).group);
     fprintf('  src: %s\n', src_dir);
     fprintf('  dst: %s\n', dst_dir);
 
-    % Guard: never write anywhere on the share
+    % never write anywhere on the share
     assert_local_destination(dst_dir, share_root);
 
+    % the .czi files on the share; a mouse without any is skipped
     src_files = dir(fullfile(src_dir, '*.czi'));
     if isempty(src_files)
         warning('No .czi found under %s -- skipping.', src_dir);
@@ -47,6 +53,7 @@ for mouse_idx = 1:numel(cohort)
     src_bytes = sum([src_files.bytes]);
     fprintf('  %d .czi, %.2f GB\n', numel(src_files), src_bytes/1024^3);
 
+    % a dry run stops here
     if ~do_copy
         fprintf('  (dry run, nothing copied)\n');
         continue
@@ -56,22 +63,23 @@ for mouse_idx = 1:numel(cohort)
         mkdir(dst_dir);
     end
 
-    % /Z restartable, /R:3 retries, /W:10 wait, /NP quiet progress,
-    % /NDL no dir list, /NJH no job header. Deliberately NO /MIR and NO /MOV.
-    cmd = sprintf('robocopy "%s" "%s" *.czi /Z /R:3 /W:10 /NP /NDL /NJH', src_dir, dst_dir);
+    % /Z restartable, /R:3 three retries, /W:10 ten seconds between them, /NP no
+    % progress, /NDL no folder list, /NJH no job header; never /MIR or /MOV
+    cmd = sprintf('robocopy "%s" "%s" *.czi /Z /R:3 /W:10 /NP /NDL /NJH', ...
+        src_dir, dst_dir);
     t0 = tic;
     [status, out] = system(cmd);
     fprintf('%s', out);
     fprintf('  robocopy exit %d, %.1f min\n', status, toc(t0)/60);
 
-    % robocopy uses 0-7 for success, 8+ for failure
+    % robocopy exits with 0 to 7 on success, 8 or more on failure
     if status >= 8
         warning('robocopy reported failure (exit %d) for %s.', status, mousename);
         n_bad = n_bad + 1;
         continue
     end
 
-    % Verify every source file arrived at the same size
+    % check that every file on the share arrived with the same size
     ok = true;
     for k = 1:numel(src_files)
         d = fullfile(dst_dir, src_files(k).name);
@@ -89,7 +97,8 @@ for mouse_idx = 1:numel(cohort)
     end
 
     if ok
-        fprintf('  VERIFIED: %d/%d files, %.2f GB\n', numel(src_files), numel(src_files), src_bytes/1024^3);
+        fprintf('  VERIFIED: %d/%d files, %.2f GB\n', numel(src_files), ...
+            numel(src_files), src_bytes/1024^3);
         n_ok = n_ok + 1;
     else
         n_bad = n_bad + 1;
@@ -97,19 +106,23 @@ for mouse_idx = 1:numel(cohort)
 
 end
 
+%% Report
+
 fprintf('\n%s\n', repmat('=', [1 60]));
-fprintf('run_copy_raw_data done: %d mouse/mice verified, %d with problems.\n', n_ok, n_bad);
+fprintf('run_copy_raw_data done: %d mouse/mice verified, %d with problems.\n', ...
+    n_ok, n_bad);
 fprintf('%s\n', repmat('=', [1 60]));
 
 end
 
-%% Local function: refuse to write anywhere on the read-only share
+% ===== Local functions =====
 
 function assert_local_destination(dst_dir, share_root)
-% The raw data share must never be written to. Fail loudly rather than risk it.
+% Stop if the destination is on the drive of the raw-data share, which is read
+% only.
 
 share_drive = upper(extractBefore([share_root ':'], ':'));
-dst_drive   = upper(extractBefore([dst_dir ':'], ':'));
+dst_drive = upper(extractBefore([dst_dir ':'], ':'));
 
 if strcmp(dst_drive, share_drive)
     error(['Refusing to write to the raw-data share.\n' ...

@@ -1,34 +1,37 @@
+%% make_atlas_reference_sheet
+% ===== Coronal plates of the atlas, spaced as the sections =====
+%
+% A tool, run by hand. Draws one sheet of coronal plates of the atlas template,
+% slice_spacing_um apart, so plate N and plate N+1 are one section apart in our
+% data: to keep open next to SliceOrderEditor when deciding the order of the
+% slices. Each plate is labelled with its number and its distance from the
+% anterior end of the cropped range, in mm.
+%
+% Setup: the CCF template, a plate every 150 um, written to
+% young\atlas_coronal_reference.png. Run sep_setup_paths first, once per MATLAB
+% session.
+
 close all
 clear all
 clc
 
-% Makes a coronal reference sheet from the Allen template, sampled at the same
-% AP spacing as our sections. Handy to keep open next to SliceOrderEditor when
-% deciding what order the slices should go in.
-%
-% The plates are spaced slice_spacing_um apart, so plate N and plate N+1 are one
-% section apart in our data. That makes it easy to walk through your sections and
-% the reference side by side.
-%
-% Run sep_setup_paths first, once per MATLAB session.
+%% Settings
 
-%% User-defined parameters
-
-% Where the project lives. Derived from the location of the code rather than
-% written out, so the tree can be moved or copied to another drive as is.
+% project folders, worked out from where the code sits, so the tree can be moved
+% or copied to another drive as is (SEP_DATA_ROOT points the data elsewhere)
 paths = get_paths();
 
-% Reference atlas
+% atlas ('ccf')
 atlas_key = 'ccf';
 
-% Spacing between plates, in micrometres. Keep this equal to slicethickness
-% so one plate corresponds to one section.
+% spacing between plates, in um; equal to slicethickness, so one plate is one
+% section
 slice_spacing_um = 150;
 
-% Where to write the sheet
+% the sheet
 out_file = fullfile(paths.data, 'young', 'atlas_coronal_reference.png');
 
-% How many plates per row
+% plates per row
 n_cols = 8;
 
 %% Load the atlas template
@@ -39,24 +42,26 @@ template_path = fullfile(atlas.dir, atlas.template_file);
 fprintf('Loading %s ...\n', template_path);
 vol = niftiread(template_path);
 
-% The volume is AP x DV x ML. We crop the AP range to the same limits the
-% pipeline uses, so the plates cover exactly the region we analyse.
+% the volume is AP x DV x ML; crop AP to the limits the pipeline uses, so the
+% plates cover the region analysed
 ap_limits = atlas.default_aplims;
 vol = vol(ap_limits(1):ap_limits(2), :, :);
 
-fprintf('Cropped volume is %d x %d x %d (AP x DV x ML)\n', size(vol,1), size(vol,2), size(vol,3));
+fprintf('Cropped volume is %d x %d x %d (AP x DV x ML)\n', size(vol, 1), size(vol, 2), ...
+    size(vol, 3));
 
 %% Pick the AP positions to show
 
 step = round(slice_spacing_um / atlas.res_um);
-ap_positions = 1:step:size(vol,1);
+ap_positions = 1:step:size(vol, 1);
 n_plates = numel(ap_positions);
 
-fprintf('Sampling every %d voxels (%d um): %d plates\n', step, slice_spacing_um, n_plates);
+fprintf('Sampling every %d voxels (%d um): %d plates\n', step, slice_spacing_um, ...
+    n_plates);
 
 %% Build the montage
 
-% Scale the plates down a bit, otherwise the sheet gets unwieldy
+% plates at 0.35 of their size, so the sheet stays manageable
 scale = 0.35;
 
 plates = cell(n_plates, 1);
@@ -68,6 +73,7 @@ end
 plate_h = size(plates{1}, 1);
 plate_w = size(plates{1}, 2);
 
+% the plates in rows of n_cols on one canvas
 n_rows = ceil(n_plates / n_cols);
 canvas = zeros(n_rows * plate_h, n_cols * plate_w, 'like', plates{1});
 
@@ -90,8 +96,8 @@ for k = 1:n_plates
     row = floor((k - 1) / n_cols);
     col = mod(k - 1, n_cols);
 
-    % Distance from the front of the cropped range, which is all we need to
-    % order sections relative to each other
+    % distance from the anterior end of the cropped range, enough to order the
+    % sections against each other
     depth_mm = (ap_positions(k) - 1) * atlas.res_um / 1000;
 
     label = sprintf('%d   %.2f mm', k, depth_mm);
@@ -103,4 +109,5 @@ exportgraphics(fig, out_file, 'Resolution', 130);
 close(fig);
 
 fprintf('Wrote %s\n', out_file);
-fprintf('Plate 1 is the anterior end of the cropped range (atlas AP index %d).\n', ap_limits(1));
+fprintf('Plate 1 is the anterior end of the cropped range (atlas AP index %d).\n', ...
+    ap_limits(1));
