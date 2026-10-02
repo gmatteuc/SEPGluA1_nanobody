@@ -165,7 +165,7 @@ end
 get_cohort('verify');
 cohort = get_cohort();
 
-cov = struct('name', {}, 'group', {}, 'n_slices', {}, 'span_mm', {}, 'frac', {});
+per_brain = struct('name', {}, 'group', {}, 'n_slices', {}, 'span_mm', {}, 'frac', {});
 
 for k = 1:numel(cohort)
 
@@ -190,19 +190,20 @@ for k = 1:numel(cohort)
     % sections times their spacing, against that crop
     span_mm = n_kept * slicethickness_um / 1000;
 
-    cov(end+1).name  = cohort(k).name;   %#ok<SAGROW>
-    cov(end).group    = cohort(k).group;
-    cov(end).n_slices = n_kept;
-    cov(end).span_mm  = span_mm;
-    cov(end).frac     = span_mm / crop_mm;
+    per_brain(end+1).name  = cohort(k).name;   %#ok<SAGROW>
+    per_brain(end).group    = cohort(k).group;
+    per_brain(end).n_slices = n_kept;
+    per_brain(end).span_mm  = span_mm;
+    per_brain(end).frac     = span_mm / crop_mm;
 
 end
 
 fprintf('\nAP coverage, %d curated brains (sections x %g um against the crop):\n', ...
-    numel(cov), slicethickness_um);
-for k = 1:numel(cov)
+    numel(per_brain), slicethickness_um);
+for k = 1:numel(per_brain)
     fprintf('  %-26s %-9s %3d sections  %5.2f mm  %4.0f%%\n', ...
-        cov(k).name, cov(k).group, cov(k).n_slices, cov(k).span_mm, 100 * cov(k).frac);
+        per_brain(k).name, per_brain(k).group, per_brain(k).n_slices, ...
+        per_brain(k).span_mm, 100 * per_brain(k).frac);
 end
 
 %% Crop-check figure
@@ -251,7 +252,7 @@ end
 %% Write the note
 
 write_note(note_file, info_adult, info_young, ...
-           adult_groups, young_groups, slicethickness_um, profile_rms, reg, cov);
+           adult_groups, young_groups, slicethickness_um, profile_rms, reg, per_brain);
 fprintf('wrote %s\n', note_file);
 
 % ===== Local functions =====
@@ -344,7 +345,7 @@ com = weighted ./ total;
 end
 
 function write_note(note_file, ia, iy, adult_groups, young_groups, ...
-                    slicethickness_um, profile_rms, reg, cov)
+                    slicethickness_um, profile_rms, reg, per_brain)
 % Write ATLAS_PARAMETERS.md from the measurements (ia, iy: the adult and young
 % atlas, from measure_atlas).
 
@@ -477,17 +478,18 @@ fprintf(fid, ['**The two percentage columns are not directly comparable.** Each 
               slicethickness_um * iy.crop_extent_mm / ia.crop_extent_mm, ...
               100 * (iy.crop_extent_mm / ia.crop_extent_mm - 1));
 fprintf(fid, '| mouse | group | sections | AP span | of crop |\n|---|---|---|---|---|\n');
-for k = 1:numel(cov)
+for k = 1:numel(per_brain)
     fprintf(fid, '| %s | %s | %d | %.2f mm | %.0f%% |\n', ...
-        cov(k).name, cov(k).group, cov(k).n_slices, cov(k).span_mm, 100 * cov(k).frac);
+        per_brain(k).name, per_brain(k).group, per_brain(k).n_slices, ...
+        per_brain(k).span_mm, 100 * per_brain(k).frac);
 end
 
 % the mean coverage of each cohort
-is_young_cov = ismember({cov.group}, young_groups);
+is_young_cov = ismember({per_brain.group}, young_groups);
 if any(is_young_cov)
     fprintf(fid, '\nadult mean %.0f%% of crop (n = %d), young mean %.0f%% (n = %d).\n', ...
-        100 * mean([cov(~is_young_cov).frac]), nnz(~is_young_cov), ...
-        100 * mean([cov(is_young_cov).frac]),  nnz(is_young_cov));
+        100 * mean([per_brain(~is_young_cov).frac]), nnz(~is_young_cov), ...
+        100 * mean([per_brain(is_young_cov).frac]),  nnz(is_young_cov));
 end
 
 end

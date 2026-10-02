@@ -24,19 +24,21 @@ switch lower(group)
             error(['cohort_atlas_key: the young group spans several ages, each on ' ...
                    'its own atlas. Give an age, e.g. ''young_P20''.']);
         end
-        u = unique(ages(:))';
-        if numel(u) > 1
+        age_days = unique(ages(:))';
+        if numel(age_days) > 1
             error(['cohort_atlas_key: ages P%s would need one atlas each. ' ...
                    'Analyse one age at a time.'], ...
-                   strjoin(arrayfun(@num2str, u, 'UniformOutput', false), ' and P'));
+                   strjoin(arrayfun(@num2str, age_days, 'UniformOutput', false), ...
+                   ' and P'));
         end
-        key = sprintf('demba_p%d', u);
+        key = sprintf('demba_p%d', age_days);
 
         % the atlas of that age must have been built
-        p = get_paths();
-        if ~exist(fullfile(p.data, sprintf('atlas_demba_p%d', u)), 'dir')
+        paths = get_paths();
+        if ~exist(fullfile(paths.data, sprintf('atlas_demba_p%d', age_days)), 'dir')
             error(['cohort_atlas_key: no DeMBA atlas has been built for P%d yet.\n' ...
-                   'Build it:  tools\\venv_atlas\\Scripts\\python.exe atlas\\build_demba_atlas.py %d'], u, u);
+                   'Build it:  tools\\venv_atlas\\Scripts\\python.exe atlas\\build_demba_atlas.py %d'], ...
+                   age_days, age_days);
         end
     otherwise
         error('cohort_atlas_key: unknown group ''%s''.', group);

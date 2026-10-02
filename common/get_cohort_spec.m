@@ -59,8 +59,8 @@ S.atlas_key = cohort_atlas_key(group, ages);
 % the mice in the order of the stack, when run_collect_by_group recorded it
 collected = fullfile(S.base_dir, ['collected_mice' tag '.mat']);
 if exist(collected, 'file')
-    C = load(collected, 'collected_mice');
-    S.mice = C.collected_mice;
+    S_collected = load(collected, 'collected_mice');
+    S.mice = S_collected.collected_mice;
 else
     S.mice = {cohort.name};
 end

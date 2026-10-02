@@ -50,12 +50,12 @@ end
 
 %% Registry
 
-p = get_paths();
-base_root = p.data;
+paths = get_paths();
+base_root = paths.data;
 
 % name, group, age_days, share_subdir; the adults in their legacy order, never
 % to be reordered (see the help)
-reg = { ...
+registry_rows = { ...
     'MG691_Gria1',        'rws',       NaN, ''
     'MG692_Gria1',        'rws',       NaN, ''
     'MG693_Gria1',        'rws',       NaN, ''
@@ -95,12 +95,13 @@ reg = { ...
 
 cohort = struct('name', {}, 'group', {}, 'age_days', {}, 'share_subdir', {}, ...
     'base_dir', {});
-for i = 1:size(reg, 1)
-    cohort(i).name         = reg{i, 1}; %#ok<AGROW>
-    cohort(i).group        = reg{i, 2}; %#ok<AGROW>
-    cohort(i).age_days     = reg{i, 3}; %#ok<AGROW>
-    cohort(i).share_subdir = reg{i, 4}; %#ok<AGROW>
-    cohort(i).base_dir     = fullfile(base_root, reg{i, 2}, reg{i, 1}); %#ok<AGROW>
+for i = 1:size(registry_rows, 1)
+    cohort(i).name         = registry_rows{i, 1}; %#ok<AGROW>
+    cohort(i).group        = registry_rows{i, 2}; %#ok<AGROW>
+    cohort(i).age_days     = registry_rows{i, 3}; %#ok<AGROW>
+    cohort(i).share_subdir = registry_rows{i, 4}; %#ok<AGROW>
+    cohort(i).base_dir     = fullfile(base_root, registry_rows{i, 2}, ...
+        registry_rows{i, 1}); %#ok<AGROW>
 end
 
 %% Check the legacy order

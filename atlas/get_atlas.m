@@ -25,7 +25,7 @@ function atlas = get_atlas(atlas_key)
 %     default_aplims   AP crop of this atlas, in its own planes
 %     description      a note for people
 %
-%   'ccf' gives exactly the paths and files every existing result was
+%   'ccf' gives exactly the folder and files every existing result was
 %   produced with, the atlas folder under the data root.
 %
 %   default_aplims: the registration reads the AP crop from each mouse's
@@ -78,13 +78,13 @@ if nargin < 1 || isempty(atlas_key)
     atlas_key = 'ccf';
 end
 
-p = get_paths();
+paths = get_paths();
 
 switch lower(atlas_key)
 
     case 'ccf'
         atlas.key             = 'ccf';
-        atlas.dir             = p.atlas;
+        atlas.dir             = paths.atlas;
         atlas.template_file   = 'average_template_10.nii.gz';
         atlas.annotation_file = 'annotation_10.nii.gz';
         atlas.boundary_file   = 'annotation_boundary_10.nii.gz';
@@ -105,7 +105,7 @@ switch lower(atlas_key)
         end
         age = str2double(tok{1});
         atlas.key             = sprintf('demba_p%d', age);
-        atlas.dir             = fullfile(p.data, sprintf('atlas_demba_p%d', age));
+        atlas.dir             = fullfile(paths.data, sprintf('atlas_demba_p%d', age));
         atlas.template_file   = 'average_template_10.nii.gz';
         atlas.annotation_file = 'annotation_10.nii.gz';
         atlas.boundary_file   = '';
@@ -154,11 +154,11 @@ end
 %% Put this atlas alone on the path
 
 % every atlas folder: the CCF one and every DeMBA age built
-all_atlas_dirs = {p.atlas};
-demba_dirs = dir(fullfile(p.data, 'atlas_demba_p*'));
+all_atlas_dirs = {paths.atlas};
+demba_dirs = dir(fullfile(paths.data, 'atlas_demba_p*'));
 for k = 1:numel(demba_dirs)
     if demba_dirs(k).isdir
-        all_atlas_dirs{end+1} = fullfile(p.data, demba_dirs(k).name); %#ok<AGROW>
+        all_atlas_dirs{end+1} = fullfile(paths.data, demba_dirs(k).name); %#ok<AGROW>
     end
 end
 

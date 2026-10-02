@@ -87,10 +87,10 @@ if not(isempty(locs_max)) && not(isempty(locs_min))
 
     % the knee: the peak with the steepest first derivative within 7 percentiles
     % off: the first derivative at the peak itself (reason not recorded)
-    % [~, choosen_max_idx] = max(max_vals_in_range);
+    % [~, chosen_max_idx] = max(max_vals_in_range);
     % d1 = [0, diff(vals_smooth)];
-    % [~,choosen_max_idx] = max(d1(locs_max));
-    % idx_max_bis = locs_max(choosen_max_idx);
+    % [~,chosen_max_idx] = max(d1(locs_max));
+    % idx_max_bis = locs_max(chosen_max_idx);
     d1 = [0, diff(vals_smooth)];
     tol_range = 7;
     max_vals_in_range = zeros(size(locs_max));
@@ -99,16 +99,16 @@ if not(isempty(locs_max)) && not(isempty(locs_min))
         idx_end   = min(p_max, locs_max(k) + tol_range);
         max_vals_in_range(k) = max(d1(idx_start:idx_end));
     end
-    [~, choosen_max_idx] = max(max_vals_in_range);
+    [~, chosen_max_idx] = max(max_vals_in_range);
 
     % that peak is the knee, which sets the background threshold
-    idx_max_bis = locs_max(choosen_max_idx);
+    idx_max_bis = locs_max(chosen_max_idx);
 
     % the trough nearest to it
     % off: the trough of the same rank, or 5 percentiles below the knee (reason
     % not recorded)
-    % if numel(locs_min) >= choosen_max_idx
-    %     idx_min = locs_min(choosen_max_idx);
+    % if numel(locs_min) >= chosen_max_idx
+    %     idx_min = locs_min(chosen_max_idx);
     % else
     %     idx_min = max(idx_max_bis-5, 1);
     % end
@@ -121,10 +121,10 @@ if not(isempty(locs_max)) && not(isempty(locs_min))
         [~, locs_min] = findpeaks(-(d2 .* win), 'MinPeakProminence', 5);
 
         % off, as above
-        % [~, choosen_max_idx] = max(max_vals_in_range);
+        % [~, chosen_max_idx] = max(max_vals_in_range);
         % d1 = [0, diff(vals_smooth)];
-        % [~,choosen_max_idx] = max(d1(locs_max));
-        % idx_max_bis = locs_max(choosen_max_idx);
+        % [~,chosen_max_idx] = max(d1(locs_max));
+        % idx_max_bis = locs_max(chosen_max_idx);
         d1 = [0, diff(vals_smooth)];
         tol_range = 7;
         max_vals_in_range = zeros(size(locs_max));
@@ -133,12 +133,12 @@ if not(isempty(locs_max)) && not(isempty(locs_min))
             idx_end   = min(length(d1), locs_max(k) + tol_range);
             max_vals_in_range(k) = max(d1(idx_start:idx_end));
         end
-        [~, choosen_max_idx] = max(max_vals_in_range);
-        idx_max_bis = locs_max(choosen_max_idx);
+        [~, chosen_max_idx] = max(max_vals_in_range);
+        idx_max_bis = locs_max(chosen_max_idx);
 
         % off, as above
-        % if numel(locs_min) >= choosen_max_idx
-        %     idx_min = locs_min(choosen_max_idx);
+        % if numel(locs_min) >= chosen_max_idx
+        %     idx_min = locs_min(chosen_max_idx);
         % else
         %     idx_min = max(idx_max_bis-5, 1);
         % end
@@ -156,10 +156,10 @@ else
     end
 
     % off, as above
-    % [~, choosen_max_idx] = max(max_vals_in_range);
+    % [~, chosen_max_idx] = max(max_vals_in_range);
     % d1 = [0, diff(vals_smooth)];
-    % [~,choosen_max_idx] = max(d1(locs_max));
-    % idx_max_bis = locs_max(choosen_max_idx);
+    % [~,chosen_max_idx] = max(d1(locs_max));
+    % idx_max_bis = locs_max(chosen_max_idx);
     d1 = [0, diff(vals_smooth)];
     tol_range = 7;
     max_vals_in_range = zeros(size(locs_max));
@@ -168,12 +168,12 @@ else
         idx_end   = min(length(d1), locs_max(k) + tol_range);
         max_vals_in_range(k) = max(d1(idx_start:idx_end));
     end
-    [~, choosen_max_idx] = max(max_vals_in_range);
-    idx_max_bis = locs_max(choosen_max_idx);
+    [~, chosen_max_idx] = max(max_vals_in_range);
+    idx_max_bis = locs_max(chosen_max_idx);
 
     % off, as above
-    % if numel(locs_min) >= choosen_max_idx
-    %     idx_min = locs_min(choosen_max_idx);
+    % if numel(locs_min) >= chosen_max_idx
+    %     idx_min = locs_min(chosen_max_idx);
     % else
     %     idx_min = max(idx_max_bis-5, 1);
     % end

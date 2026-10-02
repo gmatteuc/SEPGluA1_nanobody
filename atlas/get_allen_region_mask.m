@@ -1,7 +1,7 @@
-function mask_3d = get_allen_region_mask(allenDir, atlas_vol, target_roots, brain_mask, ...
+function mask_3d = get_allen_region_mask(csv_dir, atlas_vol, target_roots, brain_mask, ...
     name_filter)
 %GET_ALLEN_REGION_MASK  Mask of the voxels of named regions and all their descendants.
-%   mask_3d = GET_ALLEN_REGION_MASK(allenDir, atlas_vol, target_roots)
+%   mask_3d = GET_ALLEN_REGION_MASK(csv_dir, atlas_vol, target_roots)
 %   returns a logical mask, the size of atlas_vol, of the voxels that belong to
 %   the regions named in target_roots or to any region below them in the
 %   ontology.
@@ -11,7 +11,7 @@ function mask_3d = get_allen_region_mask(allenDir, atlas_vol, target_roots, brai
 %   the regions whose name contains one of the terms of name_filter.
 %
 %   Inputs:
-%     allenDir      folder of the ontology CSVs (parcellation_term.csv and
+%     csv_dir      folder of the ontology CSVs (parcellation_term.csv and
 %                   parcellation_to_parcellation_term_membership.csv)
 %     atlas_vol     annotation volume in Allen parcellation_index values
 %     target_roots  cell array of region names; each is matched exactly, else
@@ -44,15 +44,15 @@ end
 
 %% Load the ontology
 
-termFile = fullfile(allenDir, 'parcellation_term.csv');
-mapFile  = fullfile(allenDir, 'parcellation_to_parcellation_term_membership.csv');
+term_file = fullfile(csv_dir, 'parcellation_term.csv');
+map_file  = fullfile(csv_dir, 'parcellation_to_parcellation_term_membership.csv');
 
-if ~exist(termFile, 'file') || ~exist(mapFile, 'file')
-    error('Allen Atlas CSV files not found in: %s', allenDir);
+if ~exist(term_file, 'file') || ~exist(map_file, 'file')
+    error('Allen Atlas CSV files not found in: %s', csv_dir);
 end
 
-terms = readtable(termFile);
-mapping = readtable(mapFile);
+terms = readtable(term_file);
+mapping = readtable(map_file);
 
 %% Find the root regions
 
