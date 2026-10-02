@@ -24,9 +24,7 @@
 % Setup: MG903. Run sep_setup_paths first, once per MATLAB session; the code is
 % in pipeline\annotate_artifacts.m.
 
-clear all
-close all
-clc
+clear; clc; close all;
 
 %% Settings
 

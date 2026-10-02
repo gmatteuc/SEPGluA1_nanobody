@@ -20,9 +20,7 @@
 % Setup: the whole young cohort, nano in green. Run sep_setup_paths first, once
 % per MATLAB session.
 
-close all
-clear all
-clc
+clear; clc; close all;
 
 %% Settings
 

@@ -26,9 +26,7 @@
 % Setup: the young cohort, one mouse at a time. Run sep_setup_paths first, once
 % per MATLAB session; the code is in pipeline\order_slices.m.
 
-close all
-clear all
-clc
+clear; clc; close all;
 
 %% Settings
 

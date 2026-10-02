@@ -11,9 +11,7 @@
 % young\atlas_coronal_reference.png. Run sep_setup_paths first, once per MATLAB
 % session.
 
-close all
-clear all
-clc
+clear; clc; close all;
 
 %% Settings
 

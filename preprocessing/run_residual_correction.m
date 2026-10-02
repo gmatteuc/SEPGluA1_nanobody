@@ -32,9 +32,7 @@
 % Setup: the young brains MG909 to MG914. Run sep_setup_paths first, once per
 % MATLAB session; the code is in pipeline\residual_correction.m.
 
-clear all
-close all
-clc
+clear; clc; close all;
 
 %% Settings
 

@@ -28,9 +28,7 @@
 % Setup: the young brains MG909 to MG914. Run sep_setup_paths first, once per
 % MATLAB session; the code is in pipeline\extract_and_center.m.
 
-close all
-clear all
-clc
+clear; clc; close all;
 
 %% Settings
 
