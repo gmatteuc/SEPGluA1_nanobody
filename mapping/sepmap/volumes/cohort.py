@@ -84,7 +84,7 @@ if _want:
     chosen = tuple(s.strip() for s in _want.split(",") if s.strip())
     unknown = [c for c in chosen if c not in MODES]
     if unknown:
-        raise SystemExit(
+        raise ValueError(
             f"V2_READINGS: no such reading {unknown}; choose from {list(MODES)}"
         )
     MODES = chosen
@@ -211,7 +211,7 @@ def mouse_modes(mouse: str) -> tuple[dict[str, np.ndarray], np.ndarray]:
     # only sepratio needs the SEP channel, so the chain still runs on a brain
     # that run_add_sep_channel has not reached yet
     if "sepratio" in MODES and "sep" not in z.files:
-        raise SystemExit(
+        raise ValueError(
             f"{mouse}: no SEP channel in its per-mouse CCF file. Run\n"
             "  run_add_sep_channel.m for this brain, "
             "then run_per_mouse.py and run_to_ccf.py,\n"
