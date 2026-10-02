@@ -1,10 +1,29 @@
-function write_lr_video(lr_diff_vol, lr_sum_vol, atlas_vol, brain_mask, save_dir, video_filename, clim_values, group_name, label_string_diff, label_string_sum)
+function write_lr_video(lr_diff_vol, lr_sum_vol, atlas_vol, brain_mask, save_dir, ...
+    video_filename, clim_values, group_name, label_string_diff, label_string_sum)
+%WRITE_LR_VIDEO  Video of a left-right difference map and its sum map, plane by plane.
+%   WRITE_LR_VIDEO(lr_diff_vol, lr_sum_vol, atlas_vol, brain_mask, save_dir,
+%   video_filename, clim_values, group_name, label_string_diff,
+%   label_string_sum) writes save_dir\video_filename (MPEG-4, 15 frames per
+%   second), one frame per AP plane that has a voxel in brain_mask: the
+%   difference on the left, with colour limits clim_values, the sum on the
+%   right, with limits 2 * clim_values, both over the atlas boundaries.
+%   Symmetric limits give the blue-red colormap, others hot.
+%
+%   lr_diff_vol, lr_sum_vol   AP x DV x ML, one hemisphere
+%   atlas_vol                 the annotation the boundaries are drawn from
+%   brain_mask                AP x DV x ML, the voxels shown (1) or hidden (0)
+%   group_name                the start of each panel's title
+%   label_string_diff, label_string_sum
+%                             the end of each panel's title, and its colorbar label
+%
+%   Run by group_differences, and by P8.
 
-% Ensure directory exists
+% create the folder if needed
 if ~exist(save_dir, 'dir')
     mkdir(save_dir);
 end
 
+% open the video
 full_video_path = fullfile(save_dir, video_filename);
 vidObj = VideoWriter(full_video_path, 'MPEG-4');
 vidObj.FrameRate = 15;
@@ -16,30 +35,35 @@ fprintf('Writing video: %s\n', video_filename);
 
 for j = 1:n_slices
 
-    if sum(sum(brain_mask(j,:,:))) == 0
+    % skip the planes with no brain
+    if sum(sum(brain_mask(j, :, :))) == 0
         continue;
     end
 
+    % atlas boundaries: where the annotation changes along ML
     atlasim = squeeze(atlas_vol(j, :, :));
     atlasim = single(atlasim);
     av_warp_boundaries = gradient(atlasim) ~= 0 & (atlasim > 1);
     [row, col] = ind2sub(size(atlasim), find(av_warp_boundaries));
 
-    fh = figure('visible', 'off', 'units', 'normalized', 'outerposition', [0 0 1 1], 'Color', 'k');
+    fh = figure('visible', 'off', 'units', 'normalized', 'outerposition', [0 0 1 1], ...
+        'Color', 'k');
 
     set(fh, 'InvertHardcopy', 'off');
 
+    % left: the difference
     subplot(1, 2, 1);
     h1 = imagesc(squeeze(lr_diff_vol(j, :, :)));
     clim(clim_values);
 
     set(h1, 'AlphaData', squeeze(brain_mask(j, :, 1:size(lr_diff_vol, 3))));
 
+    % blue-red for symmetric limits (jet if the colormap function is missing)
     if abs(clim_values(1)) == abs(clim_values(2))
         try
             colormap(gca, get_color2color_colormap([0, 0, 1], [1, 0, 0]));
         catch
-            colormap(gca, jet); 
+            colormap(gca, jet);
         end
     else
         colormap(gca, hot);
@@ -47,12 +71,14 @@ for j = 1:n_slices
 
     ax1 = gca;
     ax1.Color = 'k';
-    axis equal; axis off;
+    axis equal;
+    axis off;
     hold on;
 
-    line(col, row, 'Marker', '.', 'LineStyle', 'none', 'Color', [0.66 0.66 0.66], 'MarkerSize', 0.5);
+    line(col, row, 'Marker', '.', 'LineStyle', 'none', 'Color', [0.66 0.66 0.66], ...
+        'MarkerSize', 0.5);
 
-    xlim([0, size(lr_diff_vol,3)]);
+    xlim([0, size(lr_diff_vol, 3)]);
 
     title([group_name ' - ' label_string_diff], 'Color', 'w', 'FontSize', 12);
 
@@ -62,6 +88,7 @@ for j = 1:n_slices
     cb1.Color = 'w';
     cb1.Label.Color = 'w';
 
+    % right: the sum, on twice the limits
     subplot(1, 2, 2);
     h2 = imagesc(squeeze(lr_sum_vol(j, :, :)));
     clim(2*clim_values);
@@ -80,12 +107,14 @@ for j = 1:n_slices
 
     ax2 = gca;
     ax2.Color = 'k';
-    axis equal; axis off;
+    axis equal;
+    axis off;
     hold on;
 
-    line(col, row, 'Marker', '.', 'LineStyle', 'none', 'Color', [0.66 0.66 0.66], 'MarkerSize', 0.5);
+    line(col, row, 'Marker', '.', 'LineStyle', 'none', 'Color', [0.66 0.66 0.66], ...
+        'MarkerSize', 0.5);
 
-    xlim([0, size(lr_diff_vol,3)]);
+    xlim([0, size(lr_diff_vol, 3)]);
     title([group_name ' - ' label_string_sum], 'Color', 'w', 'FontSize', 12);
 
     cb2 = colorbar;
@@ -96,6 +125,7 @@ for j = 1:n_slices
 
     sgtitle(['Slice # ' num2str(j)], 'Color', 'w', 'FontSize', 14);
 
+    % write the frame
     frame = getframe(fh);
     writeVideo(vidObj, frame);
     close(fh);
