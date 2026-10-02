@@ -44,7 +44,7 @@ from sepmap.adult import beyond_figures
 
 
 def main():
-    """The summary figures of the beyond-abundance result."""
+    """Print the settings in force, then draw panels A to D and their numbers."""
     # settings in force
     config.print_settings({})
 
@@ -53,6 +53,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(
         description="the summary figures of the beyond-abundance result"
     )

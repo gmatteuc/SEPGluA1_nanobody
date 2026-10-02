@@ -44,7 +44,7 @@ from sepmap.adult import sep_channel_check
 
 
 def main():
-    """What the green channel reports."""
+    """Print the settings in force, then measure what the green channel reports."""
     # settings in force
     config.print_settings({})
 
@@ -53,6 +53,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(description="what the green channel reports")
     parser.parse_args()
     main()

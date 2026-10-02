@@ -45,7 +45,7 @@ from sepmap.adult import arms
 
 
 def main():
-    """The channel arms per adult."""
+    """Print the settings in force, then write the arms table and its self-check."""
     # settings in force
     config.print_settings({})
 
@@ -54,6 +54,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(description="the channel arms per adult")
     parser.parse_args()
     main()

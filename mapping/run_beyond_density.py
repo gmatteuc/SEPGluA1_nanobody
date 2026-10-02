@@ -45,7 +45,7 @@ from sepmap.adult import beyond_density
 
 
 def main():
-    """What abundance and density leave unexplained."""
+    """Print the settings in force, then run the steps of the analysis."""
     # settings in force
     config.print_settings({})
 
@@ -54,6 +54,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(
         description="what abundance and density leave unexplained"
     )

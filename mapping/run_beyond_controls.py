@@ -44,7 +44,7 @@ from sepmap.adult import beyond_controls
 
 
 def main():
-    """Seven controls of the beyond-abundance result."""
+    """Print the settings in force, then run the seven controls."""
     # settings in force
     config.print_settings({})
 
@@ -53,6 +53,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(
         description="seven controls of the beyond-abundance result"
     )
