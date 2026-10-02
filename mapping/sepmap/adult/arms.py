@@ -124,7 +124,7 @@ def mouse_table(
     """
     z = np.load(os.path.join(PER_MOUSE, mouse + ".npz"))
     if "sep" not in z.files:
-        raise SystemExit(
+        raise ValueError(
             f"{mouse}: no SEP channel. Run run_add_sep_channel.m, "
             f"then run_per_mouse.py, for this brain."
         )
@@ -170,8 +170,9 @@ def check_against_existing(rows: list[dict]) -> dict[str, list[float]]:
 
     They are computed here from the same per-mouse files with the same
     arithmetic, so anything above rounding means the two modules have drifted
-    apart and nothing downstream can be trusted. Returns the absolute
-    differences per arm, or an empty dict when that table does not exist.
+    apart and nothing downstream can be trusted; a RuntimeError stops the run
+    then. Returns the absolute differences per arm, or an empty dict when that
+    table does not exist.
     """
     if not os.path.exists(EXISTING):
         print("no existing table to check against -- skipped")
@@ -199,7 +200,9 @@ def check_against_existing(rows: list[dict]) -> dict[str, list[float]]:
             f"{'agrees' if worst <= tol else 'DRIFTED'}"
         )
     if not ok:
-        raise SystemExit("the two scripts no longer compute the same thing -- stop here")
+        raise RuntimeError(
+            "the two scripts no longer compute the same thing -- stop here"
+        )
     return diffs
 
 
