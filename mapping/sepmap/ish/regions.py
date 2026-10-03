@@ -269,7 +269,8 @@ def main(only: list[str] | None = None, panel_name: str = DEFAULT_PANEL) -> None
     # the panel's experiments, the structure names and the annotation on the grid
     panel_path, table_name = panel_files(panel_name)
     OUT.mkdir(parents=True, exist_ok=True)
-    panel = [r for r in csv.DictReader(open(panel_path, newline="", encoding="utf-8"))]
+    with open(panel_path, newline="", encoding="utf-8") as fh:
+        panel = [r for r in csv.DictReader(fh)]
     if only:
         want = {g.lower() for g in only}
         panel = [r for r in panel if r["symbol"].lower() in want]

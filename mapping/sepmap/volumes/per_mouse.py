@@ -106,7 +106,7 @@ def atlas_grid(atlas_key: str) -> tuple[Path, tuple[int, int], None]:
     if atlas_key == "ccf":
         return DATA / "atlas", (180, 1079), None
     d = DATA / ("atlas_" + atlas_key)
-    lo, hi = (int(v) for v in open(d / "aplims.txt").read().split())
+    lo, hi = (int(v) for v in (d / "aplims.txt").read_text().split())
     return d, (lo, hi), None
 
 

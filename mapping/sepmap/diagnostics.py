@@ -446,15 +446,17 @@ def sheet_route_agreement() -> None:
     d = DATA / "comparisons_v2" / "young_vs_adult"
 
     # acronym -> (log2 difference, division, voxels), and acronym -> difference
-    vox = {
-        r["acronym"]: (float(r["log2_cref"]), r["division"], int(r["voxels_20um"]))
-        for r in csv.DictReader(open(d / "region_table.csv", encoding="utf-8"))
-    }
-    reg = {
-        r["acronym"]: float(r["diff_log2"])
-        for r in csv.DictReader(open(d / "region_stats.csv", encoding="utf-8"))
-        if r["reading"] == "cref"
-    }
+    with open(d / "region_table.csv", encoding="utf-8") as fh:
+        vox = {
+            r["acronym"]: (float(r["log2_cref"]), r["division"], int(r["voxels_20um"]))
+            for r in csv.DictReader(fh)
+        }
+    with open(d / "region_stats.csv", encoding="utf-8") as fh:
+        reg = {
+            r["acronym"]: float(r["diff_log2"])
+            for r in csv.DictReader(fh)
+            if r["reading"] == "cref"
+        }
     keys = [a for a in vox if a in reg and vox[a][2] >= 500]
     x = np.array([vox[a][0] for a in keys])
     y = np.array([reg[a] for a in keys])
@@ -651,9 +653,12 @@ def panel_swap(ax: plt.Axes) -> None:
     stats = DATA / "comparisons_v2" / "young_vs_adult" / "region_stats.csv"
     pairs = {}
     if stats.exists():
-        for r in csv.DictReader(open(stats, encoding="utf-8")):
-            if r["reading"] in ("ratio", "sepratio"):
-                pairs.setdefault(r["acronym"], {})[r["reading"]] = float(r["diff_log2"])
+        with open(stats, encoding="utf-8") as fh:
+            for r in csv.DictReader(fh):
+                if r["reading"] in ("ratio", "sepratio"):
+                    pairs.setdefault(r["acronym"], {})[r["reading"]] = float(
+                        r["diff_log2"]
+                    )
     keys = [k for k, v in pairs.items() if len(v) == 2]
     if keys:
         x = np.array([pairs[k]["ratio"] for k in keys])

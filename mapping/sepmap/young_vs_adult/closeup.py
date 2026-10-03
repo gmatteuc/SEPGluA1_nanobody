@@ -333,7 +333,8 @@ def layer_thicknesses() -> dict[str, float]:
     The file gives the depth of each layer's lower border below the pia, so the
     thicknesses are the differences between them.
     """
-    d = json.load(open(ASSETS / "avg_layer_depths.json"))
+    with open(ASSETS / "avg_layer_depths.json") as fh:
+        d = json.load(fh)
     names = [
         "Isocortex layer 1",
         "Isocortex layer 2/3",
