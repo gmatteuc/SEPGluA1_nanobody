@@ -10,8 +10,9 @@ outlines and acronyms on both.
     cohorts   young (every registered young brain), young_P20, adult, naive, rws
     readings  those of the region tables: ratio (per unit autofluorescence),
               sepratio (per unit SEP), cref (relative to the brain's own
-              isocortex), subref (relative to the subcortex without HPF, STR,
-              white matter and ventricles) and zref (range-matched; a signed
+              isocortex), subref (relative to the subcortex, TH, HY, PAL, MB, P
+              and MY: no isocortex, OLF, HPF, CTXsp, STR, CB, fiber tracts,
+              ventricles or unassigned labels) and zref (range-matched; a signed
               position, not an intensity)
 
 The colour range of the mean is fixed per reading, so that cohorts can be compared

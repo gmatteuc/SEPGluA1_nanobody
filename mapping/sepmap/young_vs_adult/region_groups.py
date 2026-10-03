@@ -19,10 +19,10 @@ in that brain. The readings and their references are those of region_plot: ratio
 nano per autofluorescence; sepratio, nano per unit SEP, which was meant as surface
 receptor per unit receptor expressed and is not, the green channel being mostly
 autofluorescence here (adult.sep_channel_check); cref and subref, relative to the
-brain's isocortex and to its subcortex without HPF, STR, white matter and
-ventricles; zref, range-matched to
-each brain's own spread. So is the test, Mann-Whitney of the young group against
-the adults, uncorrected in the figure, with BH q-values in the CSV.
+brain's isocortex and to its subcortex (TH, HY, PAL, MB, P and MY: no isocortex,
+OLF, HPF, CTXsp, STR, CB, fiber tracts, ventricles or unassigned labels); zref,
+range-matched to each brain's own spread. So is the test, Mann-Whitney of the young
+group against the adults, uncorrected in the figure, with BH q-values in the CSV.
 
 Writes into comparisons_v2/young_vs_adult/:
 
