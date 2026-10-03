@@ -41,10 +41,10 @@ downloaded on first use.
     ... then get_atlas('demba_p16') finds the folder by its key.
 """
 
+import argparse
 import csv
 import os
 import re
-import sys
 from pathlib import Path
 
 import nibabel as nib
@@ -306,6 +306,9 @@ def main(age):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2 or not sys.argv[1].isdigit():
-        raise SystemExit(__doc__.strip().splitlines()[-2].strip())
-    main(int(sys.argv[1]))
+    parser = argparse.ArgumentParser(
+        description="the DeMBA atlas folder of one postnatal age"
+    )
+    parser.add_argument("age", type=int, help="postnatal day, e.g. 16 for P16")
+    args = parser.parse_args()
+    main(args.age)
