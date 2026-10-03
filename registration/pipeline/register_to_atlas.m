@@ -71,6 +71,12 @@ if strcmp(run_mode, 'align')
     refuse_annotated_mice(cohort);
 end
 
+% the registered volumes come out on the grid sliceinfo.mat's px_atlas sets,
+% which must be every other brain's; checked before any brain is registered
+if strcmp(run_mode, 'register')
+    check_registered_grid(cohort);
+end
+
 %% Run the selected mode on each mouse
 
 for mouse_idx = 1:numel(cohort)
@@ -182,6 +188,35 @@ for k = 1:numel(cohort)
     end
 end
 fprintf('run_register_to_atlas: atlas resolution agrees with local_settings for all selected mice.\n');
+end
+
+function check_registered_grid(cohort)
+% Stop unless px_atlas in each mouse's sliceinfo.mat is 10, the grid every
+% registered brain is on (a mouse without the file is skipped).
+
+% sliceinfo.mat's px_atlas, which run_extract_and_center copied from
+% local_settings.txt, sets the grid of volume_registered. Every brain, adult and
+% young, was extracted with 10, and the Python route block-averages that
+% 10 um-sampled grid to 20 um; a young brain extracted again would read 20 from
+% its local_settings.txt (where 'align' needs the DeMBA resolution) and come out
+% on a grid half as fine, without an error
+registered_px = 10;
+for k = 1:numel(cohort)
+    sliceinfo_name = fullfile(cohort(k).base_dir, 'lightsuite', 'sliceinfo.mat');
+    if ~exist(sliceinfo_name, 'file')
+        continue
+    end
+    S_slice = load(sliceinfo_name, 'sliceinfo');
+    px = S_slice.sliceinfo.px_atlas;
+    if px ~= registered_px
+        error(['run_register_to_atlas: %s has px_atlas = %g in sliceinfo.mat, so ' ...
+               'its registered volumes would be sampled at %g um, not at the %g um ' ...
+               'of every other brain, which the Python route expects.\n  %s'], ...
+               cohort(k).name, px, px, registered_px, sliceinfo_name);
+    end
+end
+fprintf(['run_register_to_atlas: every selected mouse registers onto the %g ' ...
+         'um-sampled grid.\n'], registered_px);
 end
 
 function refuse_annotated_mice(cohort)
