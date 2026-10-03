@@ -400,6 +400,11 @@ fig_norm = figure('Visible', 'off', 'Name', ['Normalization_Profile_LR_' comp_ta
 % five shades of blue for the control mice, five of red for the experimental ones
 cmap_ctrl = [linspace(0.6, 0, 5)', linspace(0.7, 0.2, 5)', linspace(1, 0.4, 5)'];
 cmap_exp = [linspace(1, 0.5, 5)', linspace(0.6, 0.1, 5)', linspace(0.6, 0.1, 5)'];
+
+% a group of more than five mice takes the shades again from the first
+n_rows = max([5, size(med_data_4d_ctrl, 2), size(med_data_4d_exp, 2)]);
+cmap_ctrl = cmap_ctrl(mod(0:n_rows - 1, 5) + 1, :);
+cmap_exp = cmap_exp(mod(0:n_rows - 1, 5) + 1, :);
 slices = 1:size(med_data_4d_ctrl, 1);
 
 % left: the raw profiles
