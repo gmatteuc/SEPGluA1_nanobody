@@ -1178,11 +1178,13 @@ function save_output_dir = checks_folder(global_diagnostics_dir, channel)
 % The folder normalization_checks_<channel>\ in the diagnostics folder, made if it
 % is missing.
 
-if exist('global_diagnostics_dir', 'var')
-    save_output_dir = fullfile(global_diagnostics_dir, ['normalization_checks_' channel]);
-else
-    save_output_dir = fullfile(pwd, ['normalization_checks_' channel]);
+% never the current folder, which is wherever MATLAB happens to be
+if nargin < 1 || isempty(global_diagnostics_dir)
+    error(['run_normalise_groups: no diagnostics folder for normalization_checks_%s ' ...
+           '(the group''s global_diagnostics folder, which load_cohort_stack sets).'], ...
+           channel);
 end
+save_output_dir = fullfile(global_diagnostics_dir, ['normalization_checks_' channel]);
 if ~exist(save_output_dir, 'dir')
     mkdir(save_output_dir);
 end
