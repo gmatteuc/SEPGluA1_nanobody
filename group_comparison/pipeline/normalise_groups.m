@@ -420,7 +420,12 @@ for i = 1:num_mice_subset
             mdl = fitlm(x_ref(valid_idx), y_raw(valid_idx), 'RobustOpts', 'on');
             p(1) = mdl.Coefficients.Estimate(2);
             p(2) = mdl.Coefficients.Estimate(1);
-        catch
+        catch err
+
+            % said, since the mouse's line then comes from another kind of fit
+            warning('run_normalise_groups:robustFitFailed', ...
+                ['run_normalise_groups: the robust fit of mouse %d failed (%s); ' ...
+                 'its line is a least-squares fit instead.'], i, err.message);
             p = polyfit(x_ref(valid_idx), y_raw(valid_idx), 1);
         end
     else
