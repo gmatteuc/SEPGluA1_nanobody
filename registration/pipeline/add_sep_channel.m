@@ -74,7 +74,7 @@ for mouse_idx = 1:numel(cohort)
 
 end
 
-fprintf('\nP4bis: done.\n');
+fprintf('\nrun_add_sep_channel: done.\n');
 
 end
 
