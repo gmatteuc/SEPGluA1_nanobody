@@ -214,21 +214,21 @@ def main(argv):
     """Run the mode `argv` names; any other call exits with the usage.
 
     In the section modes an exception goes into the response file, ok 0 and its
-    message, which the GUI shows; a SystemExit (no atlas file, too few anchors)
-    still ends the process without one.
+    message, which the GUI shows; so does a SystemExit (no atlas file, too few
+    anchors), which would otherwise end the process without a response.
     """
     if len(argv) >= 2 and argv[0] == "propose":
         propose(argv[1])
     elif len(argv) >= 4 and argv[0] == "sections":
         try:
             sections(argv[1], argv[2], argv[3])
-        except Exception as err:
+        except (Exception, SystemExit) as err:
             # the GUI shows the message
             savemat(argv[3], {"ok": 0, "message": f"{type(err).__name__}: {err}"})
     elif len(argv) >= 5 and argv[0] == "section":
         try:
             section(argv[1], int(argv[2]), int(argv[3]), argv[4])
-        except Exception as err:
+        except (Exception, SystemExit) as err:
             # the GUI shows the message
             savemat(argv[4], {"ok": 0, "message": f"{type(err).__name__}: {err}"})
     else:
