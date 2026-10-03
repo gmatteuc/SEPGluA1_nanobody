@@ -439,9 +439,23 @@ def sheet_route_agreement() -> None:
 
     The cref difference per structure from run_compare's region_table.csv
     against run_region_plot's region_stats.csv, for structures of at least 500
-    voxels at 20 um.
+    voxels at 20 um. Skipped, with a printed line, when either table is missing.
     """
     d = DATA / "comparisons_v2" / "young_vs_adult"
+
+    # the two tables, which run_compare and run_region_plot write
+    missing = [
+        name
+        for name in ("region_table.csv", "region_stats.csv")
+        if not (d / name).exists()
+    ]
+    if missing:
+        print(
+            f"sheet 07 skipped: {', '.join(missing)} missing in {d} "
+            "(run run_compare.py and run_region_plot.py first)",
+            flush=True,
+        )
+        return
 
     # acronym -> (log2 difference, division, voxels), and acronym -> difference
     with open(d / "region_table.csv", encoding="utf-8") as fh:
