@@ -80,8 +80,8 @@ generate_rolling_videos = true;
 generate_signed_diff_videos = true;
 
 % region analyses, off in production: fine (every leaf region, montages and an
-% annotated video) and coarse (a fixed list of regions, bar charts; it needs the
-% fine one, which sets the hemisphere width)
+% annotated video) and coarse (a fixed list of regions, bar charts); either runs
+% without the other
 perform_area_based_analysis_fine = false;
 perform_area_based_analysis_coarse = false;
 

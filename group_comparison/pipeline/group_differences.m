@@ -130,6 +130,13 @@ end
 
 if perform_area_based_analysis_coarse
 
+    % the width of the left hemisphere along ML, which the fine analysis returns;
+    % without it, worked out here as wholebrain_tmaps does
+    if ~perform_area_based_analysis_fine
+        [~, ~, n_width] = size(AllenCrop);
+        half_width = floor(n_width / 2);
+    end
+
     coarse_region_tstats(AllenCrop, allenDir, brainMask, half_width, lr_diff_ctrl, ...
         lr_diff_exp, lr_sum_ctrl, lr_sum_exp, mask_bg_ctrl, mask_bg_exp, n_ctrl, ...
         n_exp, ctrl_mousenames, exp_mousenames, ctrl_type, exp_type, comp_tag, ...
