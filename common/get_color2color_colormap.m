@@ -10,11 +10,7 @@ function c = get_color2color_colormap(color1, color2)
 intermediate_color = [1, 1, 1];
 
 % number of steps of the colormap
-if size(gray, 1) ~= 256
-    m = 256;
-else
-    m = size(gray, 1);
-end
+m = 256;
 
 % the colormap in two halves
 m1 = m ./ 2;
