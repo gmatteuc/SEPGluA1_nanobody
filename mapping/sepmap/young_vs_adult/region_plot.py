@@ -14,7 +14,9 @@ tissue voxels, and from them per mouse:
     ratio      nano per unit autofluorescence, no reference. Not an absolute
                measure: the young cortex is 2.0 log2 below the adult in nano and
                1.0 log2 below it in autofluorescence, so the denominator carries
-               an age effect of its own (see volumes.cohort).
+               an age effect of its own (see volumes.cohort). Its zero is a
+               structure as bright in nano as in autofluorescence at the two
+               channels' exposures, so the level depends on them.
     sepratio   nano per unit SEP, meant as membrane receptor per unit receptor
                expressed, SEP being the tag on GluA1 itself. It is not that:
                adult.sep_channel_check finds the green channel dominated by
@@ -126,8 +128,8 @@ AREAS = [
 READINGS = [
     (
         "ratio",
-        "nanobody / autofluorescence, both background-subtracted  (log2; its level "
-        "follows the exposures, so 0 is not nano = autofluorescence)",
+        "nanobody / autofluorescence, both background-subtracted  (log2; 0 = equally "
+        "bright)",
     ),
     (
         "sepratio",
