@@ -120,8 +120,9 @@ rewrote its outputs, and for a fix, the old code fails the same test.
   shadows the path, so a session started in one code folder uses that
   folder's `get_paths` whatever else is on the path. The runner always starts
   in `-CodeDir`.
-- **clear all.** Drivers start with it. `sep_run_driver_copy` runs the copy in
-  a workspace of its own, so the variable it restores afterwards survives.
+- **clear.** Drivers start with `clear; clc; close all;`, which empties the
+  workspace they run in. `sep_run_driver_copy` runs the copy in a workspace of
+  its own, so the variable it restores afterwards survives.
 - **Renderer noise.** Anti-aliasing can put an edge or a glyph a fraction of
   a pixel elsewhere, which changes the pixels along it. `sep_compare_outputs`
   calls such an image `same render` only if every changed pixel, in each
