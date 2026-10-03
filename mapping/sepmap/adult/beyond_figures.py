@@ -40,6 +40,7 @@ from collections.abc import Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.colors import to_rgb
 from scipy.stats import rankdata, spearmanr
 
 from sepmap.adult.beyond_density import (
@@ -198,7 +199,11 @@ def panel_a(
         point, y, xerr=[lo, hi], fmt="none", ecolor="0.2", elinewidth=0.9, capsize=2.5
     )
     ax.axvline(ceiling, color=DARK_GREY, lw=1.8)
-    ax.axvspan(ceiling_ci[0], ceiling_ci[1], color=DARK_GREY, alpha=0.15, lw=0)
+
+    # the ceiling's interval in the grey that 15% of DARK_GREY gives on white, opaque
+    # and under the bars: EPS has no transparency and printed the band solid
+    band = 0.85 * np.ones(3) + 0.15 * np.array(to_rgb(DARK_GREY))
+    ax.axvspan(ceiling_ci[0], ceiling_ci[1], color=band, lw=0, zorder=0)
     ax.text(
         ceiling - 0.015,
         0.97,
