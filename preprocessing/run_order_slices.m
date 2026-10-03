@@ -16,9 +16,9 @@
 %            window. It writes volume_for_ordering_processing_decisions.txt next
 %            to the tiff, with the columns OriginalIndex, FlipState and
 %            NewOrderOriginalIndex.
-%   'apply'  rebuilds volume_ordered.tiff from the decisions file, in the folder
-%            that sliceinfo.mat names: never on a copied mouse folder (see
-%            pipeline\order_slices.m).
+%   'apply'  rebuilds volume_ordered.tiff from the decisions file, in the
+%            mouse's folder under the data root (SEP_DATA_ROOT moves it), not
+%            in the folder whose path sliceinfo.mat stores.
 % Run with 'edit', curate, close the window, set 'apply' and run again; then
 % run_residual_correction. A step of its own, so the curation does not need the
 % ten-minute extraction of run_extract_and_center again.
