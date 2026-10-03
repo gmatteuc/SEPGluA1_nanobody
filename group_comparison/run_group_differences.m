@@ -48,16 +48,16 @@ ctrl_type = 'naive';
 exp_type = 'behavior';
 
 % the mice run_normalise_groups kept in each group, by position within the group,
-% to name the mice in the figures and videos (must match its selection)
+% to name the mice in the figures and videos (must match its selection); the
+% behavior mice are named by behavior_mice below
 selected_mice_idx_list{1} = 1:5;
 selected_mice_idx_list{2} = 1:5;
 selected_mice_idx_list{3} = [1,3,4,5];
 
-% mice of the behavior volume to analyse, by position along its fourth
-% dimension: run_normalise_groups saves the four behavior mice selected above
-% (MG705, MG709, MG716, MG718), and all four are used. Applied only when
-% exp_type is 'behavior'; the other groups use every mouse saved.
-behavior_subset = [1, 2, 3, 4];
+% behavior mice to analyse, by name, among the four run_normalise_groups saved
+% (MG705, MG709, MG716, MG718): all four. Applied only when exp_type is
+% 'behavior'; the other groups use every mouse saved.
+behavior_mice = {'MG705_Gria1', 'MG709_Gria1', 'MG716_Gria1', 'MG718_Gria1'};
 
 % the names of the mice of the two groups
 ctrl_group_idx = find(strcmp(mousetypes_list, ctrl_type));
@@ -115,7 +115,7 @@ run_settings.ctrl_type = ctrl_type;
 run_settings.exp_type = exp_type;
 run_settings.ctrl_mousenames = ctrl_mousenames;
 run_settings.exp_mousenames = exp_mousenames;
-run_settings.behavior_subset = behavior_subset;
+run_settings.behavior_mice = behavior_mice;
 run_settings.generate_diff_videos = generate_diff_videos;
 run_settings.generate_individual_diff_videos = generate_individual_diff_videos;
 run_settings.generate_t_scored_videos = generate_t_scored_videos;

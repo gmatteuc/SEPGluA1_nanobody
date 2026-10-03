@@ -27,7 +27,7 @@ ctrl_type = run_settings.ctrl_type;
 exp_type = run_settings.exp_type;
 ctrl_mousenames = run_settings.ctrl_mousenames;
 exp_mousenames = run_settings.exp_mousenames;
-behavior_subset = run_settings.behavior_subset;
+behavior_mice = run_settings.behavior_mice;
 generate_diff_videos = run_settings.generate_diff_videos;
 generate_individual_diff_videos = run_settings.generate_individual_diff_videos;
 generate_t_scored_videos = run_settings.generate_t_scored_videos;
@@ -51,8 +51,8 @@ comp_out_dir = run_settings.comp_out_dir;
 %% Load both groups
 
 [data_4d_new_ctrl, data_4d_new_exp, med_data_4d_ctrl, recomputed_bkg_mask_4d_ctrl, ...
-    med_data_4d_exp, recomputed_bkg_mask_4d_exp] = load_groups(channel, ctrl_type, ...
-    exp_type, ctrl_dir, exp_dir, behavior_subset);
+    med_data_4d_exp, recomputed_bkg_mask_4d_exp, exp_mousenames] = load_groups(channel, ...
+    ctrl_type, exp_type, ctrl_dir, exp_dir, behavior_mice, exp_mousenames);
 
 %% Smooth each mouse's tissue
 
@@ -230,10 +230,12 @@ clear bg_L_c bg_R_c bg_L_e bg_R_e AllenVol
 end
 
 function [data_4d_new_ctrl, data_4d_new_exp, med_data_4d_ctrl, ...
-    recomputed_bkg_mask_4d_ctrl, med_data_4d_exp, recomputed_bkg_mask_4d_exp] = ...
-    load_groups(channel, ctrl_type, exp_type, ctrl_dir, exp_dir, behavior_subset)
+    recomputed_bkg_mask_4d_ctrl, med_data_4d_exp, recomputed_bkg_mask_4d_exp, ...
+    exp_mousenames] = load_groups(channel, ctrl_type, exp_type, ctrl_dir, exp_dir, ...
+    behavior_mice, exp_mousenames)
 % Both groups' normalised volumes and background masks, and each mouse's mean
-% tissue intensity per plane.
+% tissue intensity per plane; for behavior, the mice named in behavior_mice, which
+% then name the experimental mice.
 
 % the files of the channel, and the name of the volume inside them
 norm_var_name = [channel '_4d_normalized'];
@@ -252,7 +254,7 @@ clear S_ctrl_vol S_ctrl_mask
 fprintf('  Kept %d mice based on selection.\n', size(data_4d_new_ctrl, 4));
 
 % the experimental group: every mouse saved for rws (the selection is off, as
-% above), the mice behavior_subset picks for behavior
+% above), the mice behavior_mice names for behavior
 fprintf('Loading Experimental group data (%s, channel=%s)...\n', exp_type, channel);
 S_exp_vol = load(fullfile(exp_dir, norm_filename), norm_var_name);
 S_exp_mask = load(fullfile(exp_dir, bkgmask_filename), 'recomputed_bkg_mask_4d');
@@ -260,8 +262,10 @@ if strcmp(exp_type, 'rws')
     data_4d_new_exp = S_exp_vol.(norm_var_name);
     data_4d_new_exp_bkgmask = S_exp_mask.recomputed_bkg_mask_4d;
 elseif strcmp(exp_type, 'behavior')
-    data_4d_new_exp = S_exp_vol.(norm_var_name)(:, :, :, behavior_subset);
-    data_4d_new_exp_bkgmask = S_exp_mask.recomputed_bkg_mask_4d(:, :, :, behavior_subset);
+    behavior_idx = saved_positions(behavior_mice, fullfile(exp_dir, norm_filename));
+    data_4d_new_exp = S_exp_vol.(norm_var_name)(:, :, :, behavior_idx);
+    data_4d_new_exp_bkgmask = S_exp_mask.recomputed_bkg_mask_4d(:, :, :, behavior_idx);
+    exp_mousenames = behavior_mice;
 else
     error('run_group_differences: unknown exp_type ''%s'' (use ''rws'' or ''behavior'').', ...
         exp_type);
@@ -284,6 +288,21 @@ fprintf(['Plane means of the tissue, on the saved background masks, experimental
 med_data_4d_exp = plane_tissue_means(data_4d_new_exp, data_4d_new_exp_bkgmask);
 recomputed_bkg_mask_4d_exp = data_4d_new_exp_bkgmask;
 clear data_4d_new_exp_bkgmask
+end
+
+function mouse_idx = saved_positions(mouse_names, norm_file)
+% The positions of the named mice along the fourth dimension of a normalised
+% volume, from the mouse names run_normalise_groups saved with it.
+
+S_saved = load(norm_file, 'current_mice');
+[is_saved, mouse_idx] = ismember(mouse_names, S_saved.current_mice);
+if ~all(is_saved)
+    error(['run_group_differences: %s not among the mice run_normalise_groups ' ...
+           'saved in %s (%s). Name some of those in behavior_mice, or select the ' ...
+           'mice in run_normalise_groups and rerun it.'], ...
+          strjoin(mouse_names(~is_saved), ', '), norm_file, ...
+          strjoin(S_saved.current_mice, ', '));
+end
 end
 
 function med_data_4d = plane_tissue_means(data_4d, bkgmask_4d)
