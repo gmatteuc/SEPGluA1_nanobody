@@ -9,10 +9,6 @@
 % series' first plane. The files are read with Bio-Formats (bfGetReader), on the
 % path from sep_setup_paths (third_party\BioformatsImage).
 %
-% The scene count is read from the global metadata before the series loop
-% fetches it, so the first file reports no scene information and later files
-% the previous file's (on the bug list of docs\REFACTOR_PLAN.md).
-%
 % Setup: three files of MG705 on the lab share. Run sep_setup_paths first, once
 % per MATLAB session.
 
@@ -31,17 +27,23 @@ for f = 1:length(fileNames)
     filePath = fullfile(folderPath, fileNames{f});
     fprintf('Exploring file: %s\n', fileNames{f});
 
-    % open the reader and its metadata
+    % open the reader and its metadata; the global metadata (a Java hash map) is
+    % the file's, the same for every series
     reader = bfGetReader(filePath);
     omeMeta = reader.getMetadataStore();
+    globalMeta = reader.getGlobalMetadata();
 
     % number of series
     numSeries = reader.getSeriesCount();
     fprintf('Number of series: %d\n', numSeries);
 
     % number of scenes and their positions, from the original metadata if there
+    % (a missing key reads as NaN)
     try
         sizeS = str2double(globalMeta.get('Global Information|Image|SizeS #1'));
+        if isnan(sizeS)
+            error('explore_czi_G:noSizeS', 'no SizeS key');
+        end
         fprintf('Number of scenes (SizeS): %d\n', sizeS);
         for scene = 1:sizeS
             xKey = sprintf('Global Information|Image|S|Scene|Position|X #%d', scene);
@@ -148,22 +150,24 @@ for f = 1:length(fileNames)
         % the global metadata keys about tiling, with their values
         fprintf('Analyzing relevant metadata keys (containing Scene, Tile, Position, Overlap, Grid):\n');
 
-        % a Java hash map
-        globalMeta = reader.getGlobalMetadata();
-
         if ~isempty(globalMeta)
 
             % collect the values of every key about scenes, tiles, positions,
-            % overlap or grid
+            % overlap or grid, in a containers.Map: a key such as
+            % 'Global Information|Image|SizeS #1' is not a valid struct field name
             metaKeys = cell(globalMeta.keySet().toArray());
             relevantKeys = {};
-            keyValues = struct();
+            keyValues = containers.Map('KeyType', 'char', 'ValueType', 'any');
             for k = 1:length(metaKeys)
                 key = char(metaKeys{k});
                 if contains(lower(key), {'scene', 'tile', 'position', 'overlap', 'grid'})
                     value = char(globalMeta.get(key));
                     relevantKeys{end+1} = key; %#ok<SAGROW>
-                    keyValues.(key) = [keyValues.(key), {value}];
+                    if isKey(keyValues, key)
+                        keyValues(key) = [keyValues(key), {value}];
+                    else
+                        keyValues(key) = {value};
+                    end
                 end
             end
 
@@ -172,7 +176,7 @@ for f = 1:length(fileNames)
             fprintf('Found %d unique relevant keys:\n', length(uniqueKeys));
             for i = 1:length(uniqueKeys)
                 key = uniqueKeys{i};
-                values = keyValues.(key);
+                values = keyValues(key);
                 uniqueValues = unique(values);
 
                 fprintf('  Key: %s\n', key);
