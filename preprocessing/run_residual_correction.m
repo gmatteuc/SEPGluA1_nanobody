@@ -47,7 +47,7 @@ groups_to_process = {'young'};
 mice_to_process = {'MG909_SepGluA_P20', 'MG910_SepGluA_P20', 'MG911_SepGluA_P16', ...
     'MG912_SepGluA_P20', 'MG913_SepGluA_P20', 'MG914_SepGluA_P28'};
 
-% atlas ('ccf'); its annotation is loaded but not used
+% atlas ('ccf'); only put on the path
 atlas_key = 'ccf';
 
 % draw the figures of the reference-pixel selection (one per slice)

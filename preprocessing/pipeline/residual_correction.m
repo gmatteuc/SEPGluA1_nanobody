@@ -22,12 +22,6 @@ atlas = get_atlas(atlas_key);
 atlas_dir = atlas.dir;
 addpath(atlas_dir)
 
-%% Load atlas
-
-% the annotation volume, which nothing below uses
-AllenFile = fullfile(atlas_dir, atlas.annotation_file);
-AllenVol = niftiread(AllenFile);
-
 %% Resolve cohort
 
 % check that the registry still lists the adults in their legacy order
