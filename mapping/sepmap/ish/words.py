@@ -29,8 +29,8 @@ panel was built; contrasts within it, such as postsynaptic against presynaptic
 (named before the test was run), are safer.
 
 The bootstrap of each reading draws from one generator, feature after feature in
-the order Python sets give them, so the intervals repeat only with PYTHONHASHSEED
-fixed.
+sorted order, so the intervals repeat from run to run whatever the string
+hashing.
 
 Run by run_ish_words.py.
 """
@@ -210,11 +210,12 @@ def test_features(features: dict[str, set[str]], rho: dict[str, float]) -> list[
     genes = set(rho)
     min_genes = ISH_WORDS["min_genes"]
 
-    # seeded, so a re-run gives the same intervals (with the features in the same
-    # order)
+    # seeded, and the features taken in sorted order, so a re-run gives the same
+    # intervals (a set's order changes with each run's string hashing)
     rng = np.random.default_rng(0)
     rows = []
-    for feature, carriers in features.items():
+    for feature in sorted(features):
+        carriers = features[feature]
         inside = sorted(carriers & genes)
         outside = sorted(genes - carriers)
         if (

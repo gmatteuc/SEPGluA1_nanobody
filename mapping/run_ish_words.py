@@ -39,14 +39,9 @@ sepmap/ish/words.py. Writes, in adult_v2/ish/ under the data root:
                                  advance, for zref
 
     python run_ish_words.py
-
-The bootstrap intervals follow the order of Python sets, which changes with
-string hashing: set PYTHONHASHSEED (the checks use 0) for intervals that
-repeat from run to run. The run prints it.
 """
 
 import argparse
-import os
 
 import matplotlib
 
@@ -57,8 +52,7 @@ from sepmap.ish import words
 def main():
     """Print the settings in force, then test the GO terms and words."""
     # settings in force
-    seed = os.environ.get("PYTHONHASHSEED", "not set, so the intervals vary between runs")
-    config.print_settings({"PYTHONHASHSEED": seed})
+    config.print_settings({})
 
     # features tested
     words.main()
