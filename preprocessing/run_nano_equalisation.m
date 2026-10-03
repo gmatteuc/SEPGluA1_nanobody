@@ -23,11 +23,10 @@
 %      run_register_to_atlas reads (use_equalized_nano = 1)
 % The statistics, profiles and heatmaps before and after equalisation, and a
 % video of each mouse's slices before and after, go to base_output_dir
-% (intensity_diagnostics\), named with the time of the run. The videos are
-% written whatever save_results says, and with it off the run stops at the
-% first video, whose name takes the time the saving sets. The padding is filled
-% with each slice's mode before the background is selected, so a brain's result
-% can depend on which mice run with it.
+% (intensity_diagnostics\), named with the time of the run; save_results switches
+% the statistics and figures, not the videos. The padding is filled with each
+% slice's mode before the background is selected, so a brain's result can depend
+% on which mice run with it.
 %
 % Setup: the young brains MG909 to MG914, together. Run sep_setup_paths first,
 % once per MATLAB session; the code is in pipeline\nano_equalisation.m.
@@ -50,8 +49,8 @@ mice_to_process = {'MG909_SepGluA_P20', 'MG910_SepGluA_P20', 'MG911_SepGluA_P16'
 % atlas ('ccf'); only put on the path
 atlas_key = 'ccf';
 
-% save the statistics and their figures; keep it on: the videos are written
-% either way, and with it off the run stops (see above)
+% save the statistics and their figures (the videos and the equalised volumes are
+% written either way)
 save_results = true;
 
 % folder of the statistics, figures and videos

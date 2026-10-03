@@ -75,11 +75,19 @@ rel_diff_map = (intensity_medians - mouse_consensus) ./ mouse_consensus;
 [fig_traces, fig_heatmap_abs, fig_heatmap_rel] = plot_intensity_raw(intensity_medians, ...
     rel_diff_map, processed_mouse_names, num_mice, MAX_Z);
 
-% save them with the statistics, named with the time of the run
+% the time of the run, which names every file written to base_output_dir, the
+% videos included, whether or not the statistics are saved
+timestamp = datestr(now, 'yyyymmdd_HHMM'); %#ok<DATST,TNOW1>
+
+% save them with the statistics, which closes every figure; when not saving they
+% are closed here, since with another figure open the videos' frames, drawn into
+% the current figure, land outside the hidden figure they are taken from
 if save_results
-    timestamp = save_statistics_raw(base_output_dir, intensity_medians, ...
+    save_statistics_raw(base_output_dir, timestamp, intensity_medians, ...
         intensity_iqrs, rel_diff_map, processed_mouse_names, processed_mouse_groups, ...
         fig_traces, fig_heatmap_abs, fig_heatmap_rel);
+else
+    close(fig_traces, fig_heatmap_abs, fig_heatmap_rel);
 end
 
 %% Videos before equalisation
@@ -115,11 +123,14 @@ rel_diff_map_eq = (intensity_medians_eq - mouse_consensus_eq) ./ mouse_consensus
 [fig_heatmap_abs_eq, fig_heatmap_rel_eq, fig_traces_eq] = plot_intensity_equalised( ...
     intensity_medians_eq, rel_diff_map_eq, processed_mouse_names, num_mice, MAX_Z);
 
-% save them with the statistics, under the time stamp of the first save
+% save them with the statistics, under the run's time stamp, or close them (see
+% above)
 if save_results
     save_statistics_equalised(base_output_dir, timestamp, intensity_medians_eq, ...
         intensity_iqrs_eq, rel_diff_map_eq, processed_mouse_names, ...
         processed_mouse_groups, fig_heatmap_abs_eq, fig_heatmap_rel_eq, fig_traces_eq);
+else
+    close(fig_heatmap_abs_eq, fig_heatmap_rel_eq, fig_traces_eq);
 end
 
 %% Videos after equalisation
@@ -336,13 +347,12 @@ ylim([-0.75, 0.75]);
 
 end
 
-function timestamp = save_statistics_raw(base_output_dir, intensity_medians, ...
+function save_statistics_raw(base_output_dir, timestamp, intensity_medians, ...
     intensity_iqrs, rel_diff_map, processed_mouse_names, processed_mouse_groups, ...
     fig_traces, fig_heatmap_abs, fig_heatmap_rel)
-% Save the statistics and the three figures from before equalisation; returns the
-% time stamp that names them, which every later file of the run takes.
+% Save the statistics and the three figures from before equalisation, named with
+% the time stamp of the run.
 
-timestamp = datestr(now, 'yyyymmdd_HHMM'); %#ok<DATST,TNOW1>
 savePathData = fullfile(base_output_dir, ['Intensity_Stats_' timestamp '.mat']);
 
 % intensity_iqrs is an input here, so the first branch is the one that runs
@@ -625,7 +635,7 @@ function save_statistics_equalised(base_output_dir, timestamp, intensity_medians
     intensity_iqrs_eq, rel_diff_map_eq, processed_mouse_names, ...
     processed_mouse_groups, fig_heatmap_abs_eq, fig_heatmap_rel_eq, fig_traces_eq)
 % Save the statistics and the three figures from after equalisation, named with
-% the time stamp of the statistics saved before it.
+% the time stamp of the run.
 
 savePathData = fullfile(base_output_dir, ['Intensity_Stats_Equalized_' timestamp '.mat']);
 save(savePathData, 'intensity_medians_eq', 'intensity_iqrs_eq', 'rel_diff_map_eq', ...
