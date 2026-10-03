@@ -22,7 +22,7 @@ These are correlations, not tests: two brain maps agree partly because everythin
 is high in cortex and hippocampus, and the usual null is inflated about 875-fold in
 mouse (Fulcher 2021, docs/adult_ish_design.md). The ranking is descriptive, and the
 figure says so. The old ranking (P9's frozen gene_panel_summary.csv) is compared
-with the new one when it is there.
+with the new one, and the run stops before writing anything when it is missing.
 
 Run by run_ish_compare.py.
 """
@@ -120,9 +120,15 @@ def correlate(
 
 
 def old_ranking() -> dict[str, float]:
-    """The MATLAB route's distance-weighted Spearman, {gene: rho}, if it is there."""
+    """The MATLAB route's distance-weighted Spearman, {gene: rho}.
+
+    Raises FileNotFoundError when P9's summary is missing, rather than leave the
+    comparison with the old route out without a word.
+    """
     if not OLD.exists():
-        return {}
+        raise FileNotFoundError(
+            f"P9's gene ranking, which the new one is compared with, is missing: {OLD}"
+        )
     with open(OLD, newline="", encoding="utf-8") as fh:
         return {
             r["symbol"]: float(r["r_spearman_dw"])
@@ -343,6 +349,9 @@ def main() -> None:
         f"readings {list(READINGS)}"
     )
 
+    # the old route's ranking, which must be there
+    old = old_ranking()
+
     # one Spearman per gene and reading
     rows = correlate(nano, genes, category)
     if not rows:
@@ -355,8 +364,7 @@ def main() -> None:
         w.writerows(rows)
     print(f"{len(rows)} rows -> {path}")
 
-    # the report, and the comparison with the old ranking when it is there
-    old = old_ranking()
+    # the report, and the comparison with the old ranking
     report(rows, old, category)
     if old:
         figure(rows, old, category)
