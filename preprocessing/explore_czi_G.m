@@ -2,12 +2,12 @@
 % ===== Print the metadata of .czi files =====
 %
 % A tool, run by hand. For each .czi file named below, prints the number of
-% series and of scenes (with the scene positions), and for each series its
-% dimensions, voxel sizes, channel names, the stage position of each tile (or,
-% for a stitched image, the reader's optimal tile size) and the global metadata
-% keys about scenes, tiles, positions, overlap and grid; it also shows each
-% series' first plane. The files are read with Bio-Formats (bfGetReader), on the
-% path from sep_setup_paths (third_party\BioformatsImage).
+% series and of scenes (with each scene's name, centre and size), and for each
+% series its dimensions, voxel sizes, channel names, the stage position of each
+% tile (or, for a stitched image, the reader's optimal tile size) and the global
+% metadata keys about scenes, tiles, positions, overlap and grid; it also shows
+% each series' first plane. The files are read with Bio-Formats (bfGetReader), on
+% the path from sep_setup_paths (third_party\BioformatsImage).
 %
 % Setup: three files of MG705 on the lab share. Run sep_setup_paths first, once
 % per MATLAB session.
@@ -37,26 +37,27 @@ for f = 1:length(fileNames)
     numSeries = reader.getSeriesCount();
     fprintf('Number of series: %d\n', numSeries);
 
-    % number of scenes and their positions, from the original metadata if there
-    % (a missing key reads as NaN)
-    try
-        sizeS = str2double(globalMeta.get('Global Information|Image|SizeS #1'));
-        if isnan(sizeS)
-            error('explore_czi_G:noSizeS', 'no SizeS key');
-        end
-        fprintf('Number of scenes (SizeS): %d\n', sizeS);
-        for scene = 1:sizeS
-            xKey = sprintf('Global Information|Image|S|Scene|Position|X #%d', scene);
-            yKey = sprintf('Global Information|Image|S|Scene|Position|Y #%d', scene);
-            zKey = sprintf('Global Information|Image|S|Scene|Position|Z #%d', scene);
-            posX = str2double(globalMeta.get(xKey));
-            posY = str2double(globalMeta.get(yKey));
-            posZ = str2double(globalMeta.get(zKey));
-            fprintf('  Scene %d Position: X=%.2f, Y=%.2f, Z=%.2f µm\n', ...
-                scene, posX, posY, posZ);
-        end
-    catch
+    % number of scenes, and each one's name, centre and size, from the original
+    % metadata: the adult and the young files alike name them
+    % 'Information|Image|SizeS' and 'Information|Image|S|Scene|<field> #<scene>'
+    % (a missing key reads as empty, so as NaN)
+    sizeS = str2double(char(globalMeta.get('Information|Image|SizeS')));
+    if isnan(sizeS)
         fprintf('Scene information (SizeS) not found in metadata.\n');
+    else
+        fprintf('Number of scenes (SizeS): %d\n', sizeS);
+
+        % the scene number in a key is zero-padded to the digits of the count
+        % ('#01' to '#17' for 17 scenes)
+        nDigits = numel(num2str(sizeS));
+        for scene = 1:sizeS
+            sceneKey = sprintf('Information|Image|S|Scene|%%s #%0*d', nDigits, scene);
+            sceneName = char(globalMeta.get(sprintf(sceneKey, 'Name')));
+            centre = scene_pair(globalMeta, sprintf(sceneKey, 'CenterPosition'));
+            extent = scene_pair(globalMeta, sprintf(sceneKey, 'ContourSize'));
+            fprintf('  Scene %d (%s): centre %.2f, %.2f µm, size %.0f x %.0f µm\n', ...
+                scene, sceneName, centre(1), centre(2), extent(1), extent(2));
+        end
     end
 
     for s = 1:numSeries
@@ -218,3 +219,16 @@ end
 % reader.setSeries(0);
 % javaMethod('openBytes', reader, 0, 0, 0, 512, 512);
 % reader.close();
+
+% ===== Local functions =====
+
+function pair = scene_pair(globalMeta, key)
+% The two numbers of a scene field written "x,y" in the global metadata; NaN NaN
+% when the key is missing.
+
+pair = [NaN NaN];
+value = char(globalMeta.get(key));
+if ~isempty(value)
+    pair = str2double(strsplit(value, ','));
+end
+end
