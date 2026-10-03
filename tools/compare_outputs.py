@@ -98,11 +98,19 @@ def same_arrays(a, b):
     return "same"
 
 
+def as_colours(image):
+    """A palette image as the colours it shows (RGBA); any other image as it is."""
+    if image.mode == "P":
+        return image.convert("RGBA")
+    return image
+
+
 def same_image(a, b, render_tolerance):
     """Same pixels on every frame of two images.
 
-    With `render_tolerance`, "same render" when at most 1 grey level differs,
-    on under 0.1% of the pixels of a frame.
+    A palette image is compared by the colours it shows, not by its indices, so
+    a changed palette is a difference. With `render_tolerance`, "same render"
+    when at most 1 grey level differs, on under 0.1% of the pixels of a frame.
     """
     status = "same"
     with Image.open(a) as image_a, Image.open(b) as image_b:
@@ -114,8 +122,8 @@ def same_image(a, b, render_tolerance):
         for index in range(n_frames):
             image_a.seek(index)
             image_b.seek(index)
-            pixels_a = np.asarray(image_a).astype(np.int64)
-            pixels_b = np.asarray(image_b).astype(np.int64)
+            pixels_a = np.asarray(as_colours(image_a)).astype(np.int64)
+            pixels_b = np.asarray(as_colours(image_b)).astype(np.int64)
             if pixels_a.shape != pixels_b.shape:
                 return "DIFFERENT"
             diff = np.abs(pixels_a - pixels_b)
