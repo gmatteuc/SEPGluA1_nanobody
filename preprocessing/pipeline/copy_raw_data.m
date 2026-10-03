@@ -135,7 +135,7 @@ end
 
 function assert_local_destination(dst_dir, share_root)
 % Stop if the destination is on the drive of the raw-data share, which is read
-% only.
+% only, or is a network (UNC) path, which can name the share without its letter.
 
 share_drive = upper(extractBefore([share_root ':'], ':'));
 dst_drive = upper(extractBefore([dst_dir ':'], ':'));
@@ -144,5 +144,12 @@ if strcmp(dst_drive, share_drive)
     error(['Refusing to write to the raw-data share.\n' ...
            '  destination: %s\n  share root : %s\n' ...
            'Raw acquisition data is read-only.'], dst_dir, share_root);
+end
+
+% the data root is a local drive; a path starting with \\ or // is a network one
+if startsWith(dst_dir, {'\\', '//'})
+    error(['Refusing to write to a network path, which may be the raw-data share.\n' ...
+           '  destination: %s\n  share root : %s\n' ...
+           'Copy the raw data to a local data root.'], dst_dir, share_root);
 end
 end
