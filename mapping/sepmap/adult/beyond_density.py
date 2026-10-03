@@ -108,9 +108,11 @@ from sepmap.volumes.per_mouse import DATA, MICE, annotation_20, structure_terms
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 
 # the reading, the half-cohorts, the grey-matter divisions and the gene sets; the
-# smallest structure kept, as in young_vs_adult.region_plot
+# smallest structure kept, as in young_vs_adult.region_plot; the agreement a
+# leftover needs to count as replicating, as in adult.beyond_controls
 BEYOND = SETTINGS["beyond"]
 REGION_TABLES = SETTINGS["region_tables"]
+BEYOND_CONTROLS = SETTINGS["beyond_controls"]
 
 NANO = DATA / "comparisons_v2" / "young_vs_adult" / "region_means_per_mouse.csv"
 OUT = DATA / "adult_v2" / "beyond"
@@ -284,6 +286,11 @@ def half_splits() -> list[tuple[list[int], list[int]]]:
 def spearman_brown(r: float) -> float:
     """Reliability of a whole cohort from the agreement of its two halves; NaN at -1."""
     return 2 * r / (1 + r) if r > -1 else float("nan")
+
+
+def replicates(agreement: float) -> bool:
+    """Whether two half-cohort maps or leftovers agree at beyond_controls.replication."""
+    return agreement >= BEYOND_CONTROLS["replication"]
 
 
 def half_map(
@@ -475,8 +482,9 @@ def step1_ceiling(
     ax.axvline(half, color=RED, lw=1.8)
     ax.set_xlabel("Spearman between the two half-cohort maps", fontsize=8)
     ax.set_ylabel(f"splits of ten animals ({len(splits)})", fontsize=8)
+    verdict = "is reproducible" if replicates(half) else "does not reproduce"
     ax.set_title(
-        "Step 1. the map is highly reproducible\n"
+        f"Step 1. the map {verdict}\n"
         f"half-cohorts agree at {half:.3f}, whole cohort {full:.3f}",
         fontsize=9,
     )
@@ -525,10 +533,11 @@ def figure_covariates(
     ax.set_xlabel(
         "variance explained on held-out structures (cross-validated R2)", fontsize=8
     )
-    ax.set_title(
-        "Step 2. neither explanation fills the map,\neven when allowed to bend",
-        fontsize=9,
-    )
+    if vals[-1] < ceiling**2:
+        title = "Step 2. neither explanation fills the map,\neven when allowed to bend"
+    else:
+        title = "Step 2. allowed to bend, the explanations\nreach the map's ceiling"
+    ax.set_title(title, fontsize=9)
     tidy(ax)
     fig.tight_layout()
     save(fig, "fig2_covariates.png")
@@ -624,7 +633,10 @@ def step3_residual(
         f"(the map itself: {np.mean(raw_agreement):.3f})"
     )
     print(f"    Spearman-Brown      rho = {spearman_brown(half):.3f}")
-    print("  noise cannot replicate across independent animals, so this is real.")
+    if replicates(half):
+        print("  noise cannot replicate across independent animals, so this is real.")
+    else:
+        print(f"  below {BEYOND_CONTROLS['replication']:g}: the leftover may be noise.")
     return agreement
 
 
@@ -660,7 +672,8 @@ def residual_against_genes(
     )
     for _, rho, gene in scored[:5]:
         print(f"    {gene:10s} rho {rho:+.3f}   ({role[gene]})")
-    print("    no single gene in the panel accounts for it.")
+    _, rho, gene = scored[0]
+    print(f"    the closest, {gene}, shares {rho**2:.0%} of the residual's rank variance")
 
 
 def figure_residual(
@@ -701,8 +714,12 @@ def figure_residual(
     axes[0].set_xlabel("half-cohort against half-cohort (Spearman)", fontsize=8)
     axes[0].set_ylabel(f"splits of ten animals ({len(agreement)})", fontsize=8)
     axes[0].legend(fontsize=7.5, frameon=False, loc="upper left")
+    if replicates(float(np.mean(agreement))):
+        verdict = "is reproducible, not noise"
+    else:
+        verdict = "may be noise"
     axes[0].set_title(
-        "Step 3. the leftover is reproducible, not noise\n"
+        f"Step 3. the leftover {verdict}\n"
         f"map {np.mean(raw_agreement):.3f}, "
         f"residual {np.mean(agreement):.3f}",
         fontsize=9,
@@ -722,7 +739,7 @@ def figure_residual(
     axes[1].invert_yaxis()
     axes[1].axvline(0, color="0.3", lw=0.7)
     axes[1].set_xlabel("nano rank minus predicted rank", fontsize=8)
-    axes[1].set_title("Step 4. and it is anatomically organised", fontsize=9)
+    axes[1].set_title("Step 4. where it is largest", fontsize=9)
     tidy(axes[1])
     fig.tight_layout()
     save(fig, "fig3_residual.png")

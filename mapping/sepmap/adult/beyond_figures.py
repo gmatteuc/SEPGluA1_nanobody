@@ -52,6 +52,7 @@ from sepmap.adult.beyond_density import (
     half_map,
     half_splits,
     prepare,
+    replicates,
     residual,
     spearman_brown,
 )
@@ -83,6 +84,14 @@ def save(fig: plt.Figure, name: str) -> None:
 def percentile_interval(values: Sequence[float] | np.ndarray) -> tuple[float, float]:
     """The 95% interval of `values`, from the 2.5th to the 97.5th percentile."""
     return float(np.percentile(values, 2.5)), float(np.percentile(values, 97.5))
+
+
+def p_text(p: float) -> str:
+    """The noise null's p as written: a bound when no permutation reached the observed."""
+    n_perm = BEYOND_FIGURES["n_perm"]
+    if p <= 1 / (n_perm + 1):
+        return f"p < {1 / n_perm:.0e}"
+    return f"p = {p:.2g}"
 
 
 def bootstrap_models(
@@ -222,8 +231,15 @@ def panel_a(
         "(cross-validated, 95% bootstrap interval over structures)",
         fontsize=8.5,
     )
+    # the title follows the numbers: the four together against the ceiling
+    if point[-1] >= ceiling:
+        share = "all of the map that is explainable"
+    elif point[-1] > 0:
+        share = "part of the map"
+    else:
+        share = "none of the map"
     ax.set_title(
-        "A.  Receptor abundance and synaptic density explain part of the map",
+        f"A.  Receptor abundance and synaptic density explain {share}",
         fontsize=10,
         loc="left",
     )
@@ -265,10 +281,11 @@ def panel_b(
     ax.set_ylabel("how often, each curve scaled to its own peak", fontsize=8.5)
     ax.set_ylim(0, 1.15)
     ax.legend(fontsize=8, frameon=False, loc="upper left")
+    verdict = "replicates" if replicates(rep_point) else "does not replicate"
     ax.set_title(
-        f"B.  What is left over replicates across animals\n"
+        f"B.  What is left over {verdict} across animals\n"
         f"leftover {rep_point:.3f} [{rep_ci[0]:.3f}, {rep_ci[1]:.3f}], "
-        f"against noise p < {max(p, 1e-4):.0e}",
+        f"against noise {p_text(p)}",
         fontsize=10,
         loc="left",
     )
@@ -297,7 +314,7 @@ def panel_c(res: np.ndarray, structures: list[str], n_show: int = 9) -> None:
     ax.set_xlabel(
         "surface GluA1, minus what abundance and density predict (ranks)", fontsize=8.5
     )
-    ax.set_title("C.  The leftover is anatomically organised", fontsize=10, loc="left")
+    ax.set_title("C.  Where the leftover lives", fontsize=10, loc="left")
     tidy(ax)
     fig.tight_layout()
     save(fig, "C_where")
@@ -308,7 +325,8 @@ def panel_d(controls: list[dict[str, str]]) -> None:
     fig, ax = plt.subplots(figsize=(9.4, 4.0))
     ax.axis("off")
     ax.set_title(
-        "D.  Seven ways the result could be an artefact, and the number for each",
+        f"D.  {len(controls)} ways the result could be an artefact, and the number "
+        "for each",
         fontsize=10,
         loc="left",
     )
@@ -453,10 +471,27 @@ def write_caption_numbers(
     rep_point: float,
     rep_ci: tuple[float, float],
     p: float,
+    n_structures: int,
+    controls: list[dict[str, str]],
 ) -> None:
-    """Write numbers_for_the_caption.txt: every figure's numbers as a sentence."""
+    """Write numbers_for_the_caption.txt: every figure's numbers as a sentence.
+
+    `controls` holds the rows of controls.csv, empty when there is none.
+    """
+    # panel D's sentence follows the verdicts of the controls
+    failed = [c["control"] for c in controls if c["verdict"] != "pass"]
+    if not controls:
+        caption_d = "D. Not drawn: run run_beyond_controls.py first."
+    elif failed:
+        caption_d = f"D. {len(controls)} controls; not ruled out: {', '.join(failed)}."
+    else:
+        caption_d = (
+            f"D. {len(controls)} controls, each ruling out a way the leftover could "
+            "be an artefact."
+        )
     lines = [
-        "Numbers for the captions (all on 125 grey-matter structures, ten adult mice).",
+        f"Numbers for the captions (all on {n_structures} grey-matter structures, "
+        f"{len(ADULTS)} adult mice).",
         "",
         f"A. The map is reproducible enough that {ceiling:.1%} of its variance is",
         f"   explainable in principle (95% CI {ceiling_ci[0]:.1%} "
@@ -476,12 +511,12 @@ def write_caption_numbers(
         f"After the four",
         f"   explanations are removed, the two leftovers still agree at {rep_point:.3f}",
         f"   (95% CI {rep_ci[0]:.3f} to {rep_ci[1]:.3f}). Were the leftover noise, that",
-        f"   agreement would be zero; p < {max(p, 1e-4):.0e} by permutation.",
+        f"   agreement would be zero; {p_text(p)} by permutation.",
         "",
         "C. Structures where surface GluA1 most exceeds and falls short of what",
-        "   abundance and density predict, in ranks among the 125.",
+        f"   abundance and density predict, in ranks among the {n_structures}.",
         "",
-        "D. Seven controls, each ruling out a way the leftover could be an artefact.",
+        caption_d,
         "",
         "What this does NOT show: that the leftover is the surface fraction. A residual",
         "is only ever what the model left out.",
@@ -542,4 +577,6 @@ def main() -> None:
         rep_point,
         rep_ci,
         p,
+        len(structures),
+        controls,
     )

@@ -185,9 +185,13 @@ def print_summary(rows: list[dict]) -> None:
     print("\nwhat the green channel tracks (per mouse, over structures)")
     print(f"  SEP  ~ autofluo   {say(rows, 'rho_sep_auto')}")
     print(f"  SEP  ~ nano       {say(rows, 'rho_sep_nano')}")
+
+    # nano is its own channel only if it tracks the autofluorescence less than SEP does
+    own = np.mean(col(rows, "rho_nano_auto")) < np.mean(col(rows, "rho_sep_auto"))
+    note = "its own thing" if own else "as tied to autofluo as SEP is"
     print(
         f"  nano ~ autofluo   {say(rows, 'rho_nano_auto')}   "
-        "<- the nano channel is its own thing"
+        f"<- the nano channel is {note}"
     )
     print(f"\nagainst {ISH['control_gene']} expression")
     for k, label in (

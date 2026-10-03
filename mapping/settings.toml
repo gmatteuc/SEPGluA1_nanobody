@@ -86,6 +86,9 @@ min_word = 4               # shortest word kept, in characters; drops "of", "to"
 n_shown = 12               # features per panel in the figure
 n_boot = 2000              # bootstrap resamples behind each feature's interval
 
+[ish_roles]
+evidence_p = 0.05          # the within-family permutation p below which the figure's title reads the split by function as evidence
+
 [ish_panel_build]
 max_hits = 1000            # genes asked of mygene.info per GO term; a term with more stops the run
 allen_rows = 50            # experiments asked of the Allen API per gene
@@ -117,7 +120,7 @@ size_rho = 0.4             # B: |rho| of the residual with structure volume abov
 pair_rho = 0.1             # C: two mice whose leftovers agree below this, one animal may carry it
 groups_rho = 0.5           # D: naive and RWS leftovers agreeing below this, the pooling hides something
 curvature_gain = 0.05      # E: cross-validated R2 gained by fifth powers above this, the model is not bent enough
-replication = 0.5          # F: the whole-panel model's leftover replicating below this, the panel accounts for the map
+replication = 0.5          # F: the whole-panel model's leftover replicating below this, the panel accounts for the map; the same bound decides whether the quoted model's leftover (and the map) replicates where beyond_density and beyond_figures say so
 readings_replication = 0.8 # G: every reading's leftover must replicate above this
 
 [beyond_figures]
@@ -135,6 +138,7 @@ planes = [215, 265, 315]
 # would vanish into a white page; hot also begins in black, so the floor is set below
 # the data and rank 1 lands about a tenth of the way up the colormap
 floor = 0.12
+diagnostic_p = 0.05        # panel E: a tilt or a fan of the residuals against the prediction (Spearman) below this p reads as a mis-specified model
 
 # The ISH chain runs twice: on the hand-written 100-gene panel, then on the
 # 390-gene ontology panel that run_panel_build writes. run_ish_regions.py and

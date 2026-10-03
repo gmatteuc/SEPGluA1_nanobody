@@ -67,7 +67,8 @@ from sepmap.plotting import DARK_GREY, MID_GREY, RED, tidy
 from sepmap.volumes.per_mouse import annotation_20, structure_terms
 from sepmap.volumes.to_ccf import CCF_CROP
 
-# the coronal planes drawn, and the floor of the colour scale (settings.toml says why)
+# the coronal planes drawn, the floor of the colour scale (settings.toml says why), and
+# the p at which the residuals' tilt or fan calls the model mis-specified
 BEYOND_REGRESSION = SETTINGS["beyond_regression"]
 
 # the planes as a tuple, in 20 um planes of the cropped CCF grid
@@ -131,8 +132,33 @@ def draw_fit(
     tidy(ax)
 
 
-def draw_diagnostic(ax: plt.Axes, predicted: np.ndarray, res: np.ndarray) -> None:
-    """Draw the residual against the prediction, the standard diagnostic."""
+def diagnostic(
+    predicted: np.ndarray, res: np.ndarray
+) -> tuple[float, float, float, float]:
+    """The tilt and the fan of the residuals against the prediction.
+
+    Returns Spearman's rho and p of the residual (tilt) and of its size (fan)
+    against the prediction; a model that is incomplete rather than mis-specified
+    has neither.
+    """
+    tilt = spearmanr(predicted, res)
+    fan = spearmanr(predicted, np.abs(res))
+    return (
+        float(tilt.statistic),
+        float(tilt.pvalue),
+        float(fan.statistic),
+        float(fan.pvalue),
+    )
+
+
+def draw_diagnostic(
+    ax: plt.Axes, predicted: np.ndarray, res: np.ndarray, misspecified: bool
+) -> None:
+    """Draw the residual against the prediction, the standard diagnostic.
+
+    The title follows `misspecified`, whether a tilt or a fan reached
+    beyond_regression.diagnostic_p.
+    """
     ax.axhline(0, color=MID_GREY, lw=1.0)
     ax.scatter(
         predicted,
@@ -145,11 +171,18 @@ def draw_diagnostic(ax: plt.Axes, predicted: np.ndarray, res: np.ndarray) -> Non
     )
     ax.set_xlabel("predicted (rank)", fontsize=8.5)
     ax.set_ylabel("residual (ranks)", fontsize=8.5)
-    ax.set_title(
-        "the diagnostic\nno tilt and no fan, so the model is\n"
-        "incomplete rather than mis-specified",
-        fontsize=9.5,
-    )
+    if misspecified:
+        p_max = BEYOND_REGRESSION["diagnostic_p"]
+        title = (
+            f"the diagnostic\na tilt or a fan (p < {p_max:g}), so the model\n"
+            "may be mis-specified"
+        )
+    else:
+        title = (
+            "the diagnostic\nno tilt and no fan, so the model is\n"
+            "incomplete rather than mis-specified"
+        )
+    ax.set_title(title, fontsize=9.5)
     tidy(ax)
 
 
@@ -173,6 +206,7 @@ def panel_e(
     structures: list[str],
     fitted_r2: float,
     cv: float,
+    misspecified: bool,
 ) -> None:
     """Draw panel E: observed against predicted, the diagnostic, the residuals."""
     fig, axes = plt.subplots(1, 3, figsize=(13.4, 4.3))
@@ -180,7 +214,7 @@ def panel_e(
     # observed against predicted, the five largest residuals named; the residual
     # against the prediction; the residuals
     draw_fit(axes[0], observed, predicted, res, structures, fitted_r2, cv)
-    draw_diagnostic(axes[1], predicted, res)
+    draw_diagnostic(axes[1], predicted, res, misspecified)
     draw_leftover(axes[2], res)
 
     fig.suptitle(
@@ -309,10 +343,13 @@ def main() -> None:
         f"  R2 {fitted:.3f} fitted, {cv:.3f} cross-validated; "
         f"observed against predicted rho {spearmanr(observed, predicted).statistic:.3f}"
     )
+    tilt, p_tilt, fan, p_fan = diagnostic(predicted, res)
+    misspecified = min(p_tilt, p_fan) < BEYOND_REGRESSION["diagnostic_p"]
     print(
         f"  residual spread {res.std():.1f} ranks; "
-        f"residual against predicted rho {spearmanr(predicted, res).statistic:+.3f} "
-        f"(should be ~0 if the model is not mis-specified)"
+        f"residual against predicted rho {tilt:+.3f} (p {p_tilt:.2g}), "
+        f"|residual| against predicted rho {fan:+.3f} (p {p_fan:.2g}) "
+        f"(both should be ~0 if the model is not mis-specified)"
     )
 
     # every structure, largest residual first
@@ -329,5 +366,5 @@ def main() -> None:
                 ]
             )
 
-    panel_e(observed, predicted, res, structures, fitted, cv)
+    panel_e(observed, predicted, res, structures, fitted, cv, misspecified)
     panel_f(observed, predicted, res, structures)

@@ -56,6 +56,9 @@ from sepmap.plotting import DARK_BLUE, RED, tidy
 # the adult groups, the reading of the tests and the structures a correlation needs
 ISH = SETTINGS["ish"]
 
+# the permutation p under which the figure reads the split by function as evidence
+ISH_ROLES = SETTINGS["ish_roles"]
+
 OUT = DATA / "adult_v2" / "ish"
 
 # every reading, for the table by role
@@ -504,8 +507,13 @@ def figure(
     s_comp: np.ndarray,
     m_comp: np.ndarray,
     y: np.ndarray,
+    n_family: int,
 ) -> None:
-    """Draw steps 1 to 3 for the reading of the tests; saved as ish_roles.png."""
+    """Draw steps 1 to 3 for the reading of the tests; saved as ish_roles.png.
+
+    The title reads the split by function from its sign and its permutation p
+    (ish_roles.evidence_p); `n_family` is the number of family genes split.
+    """
     fig, axes = plt.subplots(
         1, 3, figsize=(15.5, 5.2), gridspec_kw=dict(width_ratios=[1.7, 0.8, 1.0])
     )
@@ -519,12 +527,25 @@ def figure(
     for ax in axes:
         tidy(ax)
 
-    # the title says what the panels show
+    # the title says what the panels show: the direction of the split by function,
+    # then whether other splits of the same genes reach it
+    if observed > 0:
+        direction = "as predicted -- localisation adds more than the subunits"
+    else:
+        direction = "not as predicted -- the subunits add more than localisation"
+    if p < ISH_ROLES["evidence_p"]:
+        verdict = (
+            f"and few other splits of the same {n_family} genes do as well "
+            f"(panel 3, p = {p:.3f})."
+        )
+    else:
+        verdict = (
+            f"but splitting the same {n_family} genes any other way does as well "
+            "(panel 3), so this panel is no evidence either way."
+        )
     fig.suptitle(
         "Does the map need the localisation genes, or do the subunits account for it?"
-        "\nThe direction is as predicted -- the subunits add almost nothing beyond "
-        "localisation -- but splitting the same 19 genes any other way does as well "
-        "(panel 3), so this panel is no evidence either way.",
+        f"\nThe direction is {direction} -- {verdict}",
         fontsize=9,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.89))
@@ -567,4 +588,4 @@ def main() -> None:
 
     # the sensitivity run (step 4) and the figure
     sensitivity(y, expr, structures, family, roles)
-    figure(by_role, c, stats, observed, p, s_comp, m_comp, y)
+    figure(by_role, c, stats, observed, p, s_comp, m_comp, y, len(family))

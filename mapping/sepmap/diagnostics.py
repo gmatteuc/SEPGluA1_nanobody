@@ -420,13 +420,20 @@ def sheet_scaling() -> None:
         )
     ax.set_xlabel("isocortex mean, nano")
     ax.set_ylabel("isocortex mean, auto")
-    ax.set_title("the two channels track each other across brains", fontsize=10)
+    corr = np.corrcoef(
+        [row["cortex_nano"] for row in rows], [row["cortex_auto"] for row in rows]
+    )[0, 1]
+    ax.set_title(f"the two channels across brains, r = {corr:.2f}", fontsize=10)
     ax.legend(fontsize=8)
     ax.grid(lw=0.3, alpha=0.6)
+
+    # the spread of the adults' isocortex means, highest over lowest
+    cortex = [r["cortex_nano"] for r in adult]
     fig.suptitle(
         "Per-brain levels: what the background subtraction removes, "
         "and what the cortex scaling divides by\n"
-        "The 4x spread among adults is why no analysis uses raw counts",
+        f"The {max(cortex) / min(cortex):.0f}x spread among adults is why no analysis "
+        "uses raw counts",
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.9))
@@ -528,8 +535,8 @@ def draw_mask_plane(
     mine: np.ndarray,
     old: np.ndarray,
     ann: np.ndarray,
-) -> None:
-    """Draw plane `k`: this route's mask, the old one, the atlas brain, and the Dice."""
+) -> float:
+    """Draw plane `k` with both masks and the atlas brain; return the masks' Dice."""
     show(ax, sig[k], mine[k])
 
     # both are (DV, ML) like the plane underneath, so neither is transposed
@@ -550,6 +557,7 @@ def draw_mask_plane(
     # the Dice coefficient of the two masks on this plane
     agree = 2 * (mine[k] & (old > 0.5)).sum() / max(mine[k].sum() + (old > 0.5).sum(), 1)
     ax.set_title(f"{mouse}  plane {k}   Dice {agree:.3f}", fontsize=10)
+    return float(agree)
 
 
 def sheet_mask_vs_p6bis() -> None:
@@ -579,6 +587,7 @@ def sheet_mask_vs_p6bis() -> None:
         ),
     ]
     fig, axes = plt.subplots(2, 3, figsize=(18, 10.5))
+    dice = []
     for row, (mouse, mask_file, idx, planes) in enumerate(cases):
         ann = ANN[MICE[mouse][1]]
         z = np.load(PER_MOUSE / (mouse + ".npz"))
@@ -588,11 +597,12 @@ def sheet_mask_vs_p6bis() -> None:
             for col, k in enumerate(planes):
                 old = old_mask_plane(mask_4d, idx, k, mine)
                 ax = axes[row, col]
-                draw_mask_plane(ax, mouse, k, sig, mine, old, ann)
+                dice.append(draw_mask_plane(ax, mouse, k, sig, mine, old, ann))
     fig.suptitle(
         "red = v2 mask (auto channel), "
         "blue dashed = run_normalise_groups mask (nano channel), grey = atlas brain.\n"
-        "Swapping one for the other moves every cortical result by at most 0.02 log2",
+        f"The two masks agree at Dice {min(dice):.3f} to {max(dice):.3f} on the "
+        f"{len(dice)} planes shown",
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.94))
@@ -725,8 +735,9 @@ def sheet_denominators() -> None:
     panel_swap(axes[2])
 
     fig.suptitle(
-        "Choosing the reference channel: autofluorescence measures tissue, "
-        "SEP measures the receptor itself.\n"
+        "Choosing the reference channel: autofluorescence measures tissue, SEP was "
+        "meant to measure the receptor and is mostly autofluorescence "
+        "(run_sep_channel_check).\n"
         "Points off the identity line on the right are structures "
         "whose answer depends on that choice",
         fontsize=11,

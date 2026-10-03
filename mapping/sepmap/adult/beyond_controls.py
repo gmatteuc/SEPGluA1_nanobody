@@ -59,6 +59,7 @@ from sepmap.adult.beyond_density import (
     half_splits,
     prepare,
     r_squared,
+    replicates,
     residual,
     save,
     spearman_brown,
@@ -183,8 +184,9 @@ def control_a_space(
         + [rankdata([coords[s][i] for s in structures]) for i in range(3)],
         splits,
     )
+    still = "still replicates" if replicates(with_pos) else "replicates only"
     print(
-        f"   and with position added as a covariate the leftover still replicates "
+        f"   and with position added as a covariate the leftover {still} "
         f"at {with_pos:.3f}"
     )
     if smooth > BEYOND_CONTROLS["gradient_r2"]:
@@ -394,7 +396,8 @@ def control_f_gene_space(
         f"   in-sample R2 {r_squared(y, pcs):.3f}, cross-validated {best_cv:.3f}, "
         f"{best_cv / ceiling**2:.0%} of the ceiling"
     )
-    print(f"   and the leftover of THAT model still replicates at {rep:.3f}")
+    still = "still replicates" if replicates(rep) else "replicates only"
+    print(f"   and the leftover of THAT model {still} at {rep:.3f}")
 
     # the question is not whether a model this rich explains a lot (with 253 genes
     # it should) but whether it explains the map completely
@@ -498,8 +501,13 @@ def figure_artefacts(
     naive: np.ndarray,
     rws: np.ndarray,
     coords: dict[str, np.ndarray],
+    passed: dict[str, bool],
 ) -> None:
-    """Draw controls A to D: position, size, pairs of mice, naive against RWS."""
+    """Draw controls A to D: position, size, pairs of mice, naive against RWS.
+
+    `passed` holds each control's verdict by letter (A is missing when skipped);
+    each title says what its verdict says.
+    """
     fig, axes = plt.subplots(1, 4, figsize=(15.5, 3.9))
 
     xyz = np.array([coords[s] for s in structures])
@@ -510,7 +518,13 @@ def figure_artefacts(
     axes[0].axhline(0, color="0.85", lw=0.7)
     axes[0].set_xlabel("structure centroid, anterior-posterior (mm)", fontsize=8)
     axes[0].set_ylabel("residual (ranks)", fontsize=8)
-    axes[0].set_title("A. not a front-to-back gradient", fontsize=9)
+    if "A" not in passed:
+        title = "A. not tested: too few centroids"
+    elif passed["A"]:
+        title = "A. not a front-to-back gradient"
+    else:
+        title = "A. a gradient could explain it"
+    axes[0].set_title(title, fontsize=9)
     tidy(axes[0])
 
     good = np.isfinite(sizes)
@@ -525,14 +539,16 @@ def figure_artefacts(
     axes[1].axhline(0, color="0.85", lw=0.7)
     axes[1].set_xlabel("log10 structure volume (20 um voxels)", fontsize=8)
     axes[1].set_ylabel("residual (ranks)", fontsize=8)
-    axes[1].set_title("B. not small-structure noise", fontsize=9)
+    title = "B. not small-structure noise" if passed["B"] else "B. size may drive it"
+    axes[1].set_title(title, fontsize=9)
     tidy(axes[1])
 
     axes[2].hist(pairs, bins=20, color="0.7", edgecolor="0.35", linewidth=0.4)
     axes[2].axvline(float(np.median(pairs)), color=RED, lw=1.8)
     axes[2].set_xlabel("leftover of one mouse against another (Spearman)", fontsize=8)
     axes[2].set_ylabel("pairs of animals", fontsize=8)
-    axes[2].set_title("C. every animal shows it", fontsize=9)
+    title = "C. every animal shows it" if passed["C"] else "C. one animal may carry it"
+    axes[2].set_title(title, fontsize=9)
     tidy(axes[2])
 
     axes[3].scatter(naive, rws, s=12, facecolor="0.6", edgecolor="0.25", linewidth=0.3)
@@ -540,13 +556,25 @@ def figure_artefacts(
     axes[3].plot(lim, lim, color="0.75", ls="--", lw=0.8)
     axes[3].set_xlabel("leftover, five naive animals", fontsize=8)
     axes[3].set_ylabel("leftover, five RWS animals", fontsize=8)
+    title = (
+        "D. not the whisker manipulation" if passed["D"] else "D. naive and RWS disagree"
+    )
     axes[3].set_title(
-        f"D. not the whisker manipulation\nrho {spearmanr(naive, rws).statistic:+.2f}",
+        f"{title}\nrho {spearmanr(naive, rws).statistic:+.2f}",
         fontsize=9,
     )
     tidy(axes[3])
 
-    fig.suptitle("Four ways the leftover could be an artefact, and is not", fontsize=9)
+    # the overall title names the controls that did not rule their artefact out
+    not_ruled_out = [k for k in "ABCD" if not passed.get(k, False)]
+    if not_ruled_out:
+        title = (
+            "Four ways the leftover could be an artefact; not ruled out: "
+            + ", ".join(not_ruled_out)
+        )
+    else:
+        title = "Four ways the leftover could be an artefact, and is not"
+    fig.suptitle(title, fontsize=9)
     fig.tight_layout(rect=(0, 0, 1, 0.92))
     save(fig, "fig4_controls.png")
 
@@ -557,8 +585,12 @@ def figure_model_space(
     ceiling: float,
     cubic: float,
     quintic: float,
+    passed: dict[str, bool],
 ) -> None:
-    """Draw controls F and E: the gene-space curve, and bending further."""
+    """Draw controls F and E: the gene-space curve, and bending further.
+
+    `passed` holds each control's verdict by letter; each title follows its own.
+    """
     fig, axes = plt.subplots(1, 2, figsize=(11.0, 4.2))
     ks = [c["n_components"] for c in curve]
     axes[0].plot(ks, [c["r2"] for c in curve], color="0.6", lw=1.5, label="fitted")
@@ -576,10 +608,12 @@ def figure_model_space(
     )
     axes[0].set_ylabel("variance of the map explained", fontsize=8)
     axes[0].legend(fontsize=7.5, frameon=False)
+    if passed["F"]:
+        title = "F. even the whole panel falls short"
+    else:
+        title = "F. the whole panel accounts for the map"
     axes[0].set_title(
-        "F. even the whole panel falls short\n"
-        "the gap between the two lines is overfitting",
-        fontsize=9,
+        f"{title}\nthe gap between the two lines is overfitting", fontsize=9
     )
     tidy(axes[0])
 
@@ -595,15 +629,22 @@ def figure_model_space(
         ["the model\n(squares, cubes)", "bent further\n(to fifth powers)"], fontsize=8
     )
     axes[1].set_ylabel("cross-validated R2", fontsize=8)
-    axes[1].set_title("E. and bending it further buys nothing", fontsize=9)
+    if passed["E"]:
+        title = "E. and bending it further buys nothing"
+    else:
+        title = "E. and bending it further still pays"
+    axes[1].set_title(title, fontsize=9)
     tidy(axes[1])
 
     fig.tight_layout()
     save(fig, "fig5_model_space.png")
 
 
-def figure_readings(rows: list[dict]) -> None:
-    """Draw control G: per reading, the map's and the leftover's replication, and R2."""
+def figure_readings(rows: list[dict], passed: bool) -> None:
+    """Draw control G: per reading, the map's and the leftover's replication, and R2.
+
+    The title follows the control's verdict, `passed`.
+    """
     fig, ax = plt.subplots(figsize=(7.0, 4.0))
     labels = [r["reading"] for r in rows]
     x = np.arange(len(rows))
@@ -638,7 +679,11 @@ def figure_readings(rows: list[dict]) -> None:
     ax.set_xticklabels(labels, fontsize=8)
     ax.set_ylim(0, 1.05)
     ax.legend(fontsize=7.5, frameon=False, loc="lower right")
-    ax.set_title("G. the same picture under every reading, not just zref", fontsize=9)
+    if passed:
+        title = "G. the same picture under every reading, not just zref"
+    else:
+        title = "G. not the same picture under every reading"
+    ax.set_title(title, fontsize=9)
     tidy(ax)
     fig.tight_layout()
     save(fig, "fig6_readings.png")
@@ -732,6 +777,9 @@ def main() -> None:
     # the verdicts, and the figures
     write_verdicts(verdicts)
     sizes_arr = np.array([size_mean.get(s, np.nan) for s in structures])
-    figure_artefacts(res, structures, sizes_arr, per_mouse, pairs, naive, rws, coords)
-    figure_model_space(curve, best_k, ceiling, cubic, quintic)
-    figure_readings(reading_rows)
+    passed = {v["control"][0]: v["verdict"] == "pass" for v in verdicts if v}
+    figure_artefacts(
+        res, structures, sizes_arr, per_mouse, pairs, naive, rws, coords, passed
+    )
+    figure_model_space(curve, best_k, ceiling, cubic, quintic, passed)
+    figure_readings(reading_rows, passed["G"])
