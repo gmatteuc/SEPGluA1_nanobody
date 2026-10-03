@@ -214,7 +214,7 @@ total_slices = size(data_4d, 1);
 median_vecs = NaN(total_slices, size(data_4d, 4));
 area_vecs = NaN(total_slices, size(data_4d, 4));
 for iii = 1:size(data_4d, 4)
-    fprintf('  Processing Mouse %d / 5 ...\n', iii);
+    fprintf('  Processing Mouse %d / %d ...\n', iii, size(data_4d, 4));
     for slice_idx_loop = 1:total_slices
         if mod(slice_idx_loop, 100) == 0
             fprintf('    -> Slice %d / %d\n', slice_idx_loop, total_slices);
