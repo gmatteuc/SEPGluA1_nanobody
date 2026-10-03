@@ -118,20 +118,14 @@ def residual(y: np.ndarray, x: np.ndarray) -> np.ndarray:
     return y - a @ np.linalg.lstsq(a, y, rcond=None)[0]
 
 
-def main() -> None:
-    """Measure the three channels per adult, write the table, print and draw it."""
-    OUT.mkdir(parents=True, exist_ok=True)
+def channel_rows(
+    per: dict[str, dict[str, dict[str, float]]], profile: dict[str, float]
+) -> list[dict]:
+    """Per adult: the channels' ranges, their correlations, and with Gria1.
 
-    # structure means of the three channels per adult
-    names, _, _ = structure_terms()
-    per = {}
-    for mouse in ADULTS:
-        per[mouse] = mouse_channels(mouse, names)
-        print(f"{mouse:20s} {len(per[mouse]['sep'])} structures", flush=True)
-
-    # per adult: range, correlations between channels and with Gria1, over the
-    # structures all three channels have
-    profile = gria1_profile()
+    Over the structures all three channels have; one row of
+    sep_channel_check.csv per adult.
+    """
     rows = []
     for mouse in ADULTS:
         ch = per[mouse]
@@ -157,7 +151,11 @@ def main() -> None:
             rho_sepresid_nano=float(spearmanr(res, v["sig"]).statistic),
         )
         rows.append(row)
+    return rows
 
+
+def write_table(rows: list[dict]) -> None:
+    """Write sep_channel_check.csv, floats to four decimals, and say where."""
     path = OUT / "sep_channel_check.csv"
     with open(path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
@@ -168,15 +166,19 @@ def main() -> None:
         )
     print(f"\n{len(rows)} mice -> {path}")
 
-    def col(k):
-        """One column of the table as an array, a value per adult."""
-        return np.array([r[k] for r in rows])
 
-    def say(k):
-        """A column's mean +- SD over the adults, as printed."""
-        return f"{np.mean(col(k)):+.3f} +- {np.std(col(k)):.3f}"
+def col(rows: list[dict], k: str) -> np.ndarray:
+    """One column of the table as an array, a value per adult."""
+    return np.array([r[k] for r in rows])
 
-    # the summary over adults, mean +- SD
+
+def say(rows: list[dict], k: str) -> str:
+    """A column's mean +- SD over the adults, as printed."""
+    return f"{np.mean(col(rows, k)):+.3f} +- {np.std(col(rows, k)):.3f}"
+
+
+def print_summary(rows: list[dict]) -> None:
+    """Print the summary over the adults, mean +- SD."""
     print(
         f"\ndynamic range across structures, p90-p10 of log2, "
         f"mean over {len(rows)} adults"
@@ -186,12 +188,12 @@ def main() -> None:
         ("range_auto", "autofluo"),
         ("range_sep", "SEP"),
     ):
-        print(f"  {label:10s} {np.mean(col(k)):.2f} +- {np.std(col(k)):.2f}")
+        print(f"  {label:10s} {np.mean(col(rows, k)):.2f} +- {np.std(col(rows, k)):.2f}")
     print("\nwhat the green channel tracks (per mouse, over structures)")
-    print(f"  SEP  ~ autofluo   {say('rho_sep_auto')}")
-    print(f"  SEP  ~ nano       {say('rho_sep_nano')}")
+    print(f"  SEP  ~ autofluo   {say(rows, 'rho_sep_auto')}")
+    print(f"  SEP  ~ nano       {say(rows, 'rho_sep_nano')}")
     print(
-        f"  nano ~ autofluo   {say('rho_nano_auto')}   "
+        f"  nano ~ autofluo   {say(rows, 'rho_nano_auto')}   "
         "<- the nano channel is its own thing"
     )
     print(f"\nagainst {ISH['control_gene']} expression")
@@ -201,17 +203,14 @@ def main() -> None:
         ("rho_sep_gria", "SEP"),
         ("rho_sepresid_gria", "SEP minus autofluo"),
     ):
-        print(f"  {label:20s} {say(k)}")
-    print(f"\n  SEP minus autofluo, against nano: {say('rho_sepresid_nano')}")
+        print(f"  {label:20s} {say(rows, k)}")
+    print(f"\n  SEP minus autofluo, against nano: {say(rows, 'rho_sepresid_nano')}")
 
-    # figure: the ranges, the green channel against the other two in the first
-    # adult, and the correlations with Gria1; one jitter generator for the figure
-    fig, axes = plt.subplots(1, 4, figsize=(15.5, 4.0))
-    rng = np.random.default_rng(0)
 
-    ax = axes[0]
+def panel_ranges(ax: plt.Axes, rows: list[dict], rng: np.random.Generator) -> None:
+    """Draw how much each channel varies across the brain, a dot per adult."""
     for i, k in enumerate(("range_nano", "range_auto", "range_sep")):
-        v = col(k)
+        v = col(rows, k)
         ax.scatter(
             np.full(len(v), i) + rng.uniform(-0.1, 0.1, len(v)),
             v,
@@ -228,6 +227,11 @@ def main() -> None:
     ax.set_ylim(bottom=0)
     ax.set_title("how much each channel varies\nacross the brain", fontsize=9)
 
+
+def panels_first_adult(
+    axes: np.ndarray, per: dict[str, dict[str, dict[str, float]]]
+) -> None:
+    """Draw the green channel against autofluorescence and against nano, first adult."""
     ax = axes[1]
     mouse = ADULTS[0]
     ch = per[mouse]
@@ -251,11 +255,13 @@ def main() -> None:
         f"SEP against nano, rho = {spearmanr(nano, y).statistic:+.2f}", fontsize=9
     )
 
-    ax = axes[3]
+
+def panel_gria1(ax: plt.Axes, rows: list[dict], rng: np.random.Generator) -> None:
+    """Draw each channel's correlation with Gria1 expression, a dot per adult."""
     keys = ("rho_nano_gria", "rho_auto_gria", "rho_sep_gria", "rho_sepresid_gria")
     labels = ["nano", "autofluo", "SEP", "SEP minus\nautofluo"]
     for i, k in enumerate(keys):
-        v = col(k)
+        v = col(rows, k)
         ax.scatter(
             np.full(len(v), i) + rng.uniform(-0.1, 0.1, len(v)),
             v,
@@ -275,6 +281,17 @@ def main() -> None:
         fontsize=9,
     )
 
+
+def figure(per: dict[str, dict[str, dict[str, float]]], rows: list[dict]) -> None:
+    """Draw sep_channel_check.png: the ranges, the first adult, the Gria1 correlations.
+
+    One jitter generator for the figure, drawn from in panel order.
+    """
+    fig, axes = plt.subplots(1, 4, figsize=(15.5, 4.0))
+    rng = np.random.default_rng(0)
+    panel_ranges(axes[0], rows, rng)
+    panels_first_adult(axes, per)
+    panel_gria1(axes[3], rows, rng)
     for ax in axes:
         tidy(ax)
     fig.suptitle(
@@ -287,3 +304,25 @@ def main() -> None:
     fig.savefig(path, dpi=200)
     plt.close(fig)
     print(f"\n{path}")
+
+
+def main() -> None:
+    """Measure the three channels per adult, write the table, print and draw it."""
+    OUT.mkdir(parents=True, exist_ok=True)
+
+    # structure means of the three channels per adult
+    names, _, _ = structure_terms()
+    per = {}
+    for mouse in ADULTS:
+        per[mouse] = mouse_channels(mouse, names)
+        print(f"{mouse:20s} {len(per[mouse]['sep'])} structures", flush=True)
+
+    # per adult: range, correlations between channels and with Gria1, over the
+    # structures all three channels have
+    profile = gria1_profile()
+    rows = channel_rows(per, profile)
+    write_table(rows)
+
+    # the summary over adults, mean +- SD, and the figure
+    print_summary(rows)
+    figure(per, rows)

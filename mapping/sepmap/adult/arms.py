@@ -176,15 +176,11 @@ def check_against_existing(rows: list[dict]) -> dict[str, list[float]]:
     return diffs
 
 
-def figure(
-    per: dict[str, dict[str, tuple[int, dict[str, float]]]], diffs: dict[str, list[float]]
-) -> None:
-    """Draw the self-check: the shared arms' agreement and the log-space identity."""
-    fig, axes = plt.subplots(1, 3, figsize=(12.6, 3.9))
+def panel_shared(ax: plt.Axes, diffs: dict[str, list[float]]) -> None:
+    """Draw the differences of the shared arms, jittered, on a log axis.
 
-    # the differences of the shared arms, jittered, on a log axis (an exact zero
-    # is drawn at 1e-17); each arm's jitter restarts from seed 0
-    ax = axes[0]
+    An exact zero is drawn at 1e-17; each arm's jitter restarts from seed 0.
+    """
     if diffs:
         for i, (arm, d) in enumerate(sorted(diffs.items())):
             ax.scatter(
@@ -202,8 +198,15 @@ def figure(
         ax.set_ylabel("|this script - run_region_plot|  (log2 units)", fontsize=8)
     ax.set_title("the two shared arms agree", fontsize=9)
 
-    # log(nano/sep) should equal log(nano/auto) - log(sep/auto), except that
-    # each arm is a mean of voxelwise ratios rather than a ratio of means
+
+def panel_jensen_gap(
+    ax: plt.Axes, per: dict[str, dict[str, tuple[int, dict[str, float]]]]
+) -> None:
+    """Draw how far log(nano/sep) is from log(nano/auto) - log(sep/auto).
+
+    The two would be equal but that each arm is a mean of voxelwise ratios rather
+    than a ratio of means.
+    """
     gap = []
     for mouse, table in per.items():
         for k, (_, m) in table.items():
@@ -212,21 +215,22 @@ def figure(
                     math.log2(m["sepratio"])
                     - (math.log2(m["ratio"]) - math.log2(m["sepauto"]))
                 )
-    axes[1].hist(gap, bins=60, color="0.6", edgecolor="0.3", linewidth=0.4)
-    axes[1].axvline(0, color=RED, lw=0.9)
-    axes[1].set_xlabel(
-        "log2(nano/SEP)  -  [log2(nano/auto) - log2(SEP/auto)]", fontsize=8
-    )
-    axes[1].set_title(
+    ax.hist(gap, bins=60, color="0.6", edgecolor="0.3", linewidth=0.4)
+    ax.axvline(0, color=RED, lw=0.9)
+    ax.set_xlabel("log2(nano/SEP)  -  [log2(nano/auto) - log2(SEP/auto)]", fontsize=8)
+    ax.set_title(
         f"Jensen gap: median {np.median(gap):+.3f}, "
         f"p5-p95 {np.percentile(gap, 5):+.2f} "
         f"to {np.percentile(gap, 95):+.2f}",
         fontsize=9,
     )
-    axes[1].set_ylabel("structures x mice", fontsize=8)
+    ax.set_ylabel("structures x mice", fontsize=8)
 
-    # the two channels against each other in the first mouse, one dot per structure
-    ax = axes[2]
+
+def panel_channels(
+    ax: plt.Axes, per: dict[str, dict[str, tuple[int, dict[str, float]]]]
+) -> None:
+    """Draw the two channels against each other in the first mouse, by structure."""
     mouse = sorted(per)[0]
     t = per[mouse]
     ks = [k for k in t if min(t[k][1].values()) > 0]
@@ -241,6 +245,19 @@ def figure(
     ax.set_xlabel("log2 SEP / auto", fontsize=8)
     ax.set_ylabel("log2 nano / auto", fontsize=8)
     ax.set_title(f"the two channels, {mouse}", fontsize=9)
+
+
+def figure(
+    per: dict[str, dict[str, tuple[int, dict[str, float]]]], diffs: dict[str, list[float]]
+) -> None:
+    """Draw the self-check: the shared arms' agreement and the log-space identity."""
+    fig, axes = plt.subplots(1, 3, figsize=(12.6, 3.9))
+
+    # the differences of the shared arms; the gap between the arms in log space; the
+    # two channels against each other in the first mouse
+    panel_shared(axes[0], diffs)
+    panel_jensen_gap(axes[1], per)
+    panel_channels(axes[2], per)
 
     for ax in axes:
         tidy(ax)

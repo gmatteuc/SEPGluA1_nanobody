@@ -327,23 +327,17 @@ def panel_d(controls: list[dict[str, str]]) -> None:
     save(fig, "D_controls")
 
 
-def main() -> None:
-    """Compute the statistics, draw panels A to D and write the caption numbers."""
-    FIGS.mkdir(parents=True, exist_ok=True)
-    rng = np.random.default_rng(0)
+def ceiling_with_interval(
+    nano: dict[str, dict[str, float]],
+    structures: list[str],
+    splits: list[tuple[list[int], list[int]]],
+    rng: np.random.Generator,
+) -> tuple[list[float], float, tuple[float, float]]:
+    """The ceiling, with an interval over structures.
 
-    # the structures and the quoted model, as adult.beyond_density builds them
-    nano, _, expr, role, auto, structures = prepare()
-    covariates, _, _ = build_covariates(nano, expr, role, auto, structures)
-    splits = half_splits()
-    y = half_map(nano, range(len(ADULTS)), structures)
-    model = flexible(list(covariates.values()))
-    print(
-        f"{len(structures)} structures, {len(ADULTS)} adults, {len(splits)} half-splits"
-    )
-
-    # the ceiling, with an interval over structures (beyond_figures.n_boot_halves
-    # replicates)
+    Returns the half-cohort agreement of every split, the ceiling and its interval
+    from beyond_figures.n_boot_halves replicates, each drawn from `rng`.
+    """
     map_agreement = [
         spearmanr(half_map(nano, a, structures), half_map(nano, b, structures)).statistic
         for a, b in splits
@@ -374,8 +368,21 @@ def main() -> None:
         )
     ceiling_ci = percentile_interval(boot_ceiling)
     print(f"ceiling {ceiling:.3f} [{ceiling_ci[0]:.3f}, {ceiling_ci[1]:.3f}]")
+    return map_agreement, ceiling, ceiling_ci
 
-    # what each explanation predicts, with intervals
+
+def explanations(
+    covariates: dict[str, np.ndarray],
+    model: list[np.ndarray],
+    y: np.ndarray,
+    ceiling: float,
+    rng: np.random.Generator,
+) -> tuple[list[tuple[str, list[np.ndarray]]], list[float], list[tuple[float, float]]]:
+    """What each explanation predicts, with intervals; printed.
+
+    Returns the models as (label, predictors), their cross-validated R2 and
+    intervals.
+    """
     c = covariates
     models = [
         ("receptor abundance\n(Gria1-4)", [c["abundance"]]),
@@ -390,10 +397,21 @@ def main() -> None:
             f"  {label.splitlines()[0]:34s} CV R2 {pt:.3f} [{iv[0]:.3f}, {iv[1]:.3f}]"
             f"   {pt / ceiling:5.1%} of the ceiling"
         )
-    unexplained = 1 - point[-1] / ceiling
-    print(f"  unexplained share of the ceiling: {unexplained:.1%}")
+    return models, point, intervals
 
-    # the leftover's replication, its interval and the noise null
+
+def leftover_replication(
+    nano: dict[str, dict[str, float]],
+    structures: list[str],
+    model: list[np.ndarray],
+    splits: list[tuple[list[int], list[int]]],
+    rng: np.random.Generator,
+) -> tuple[list[float], float, tuple[float, float], np.ndarray, float]:
+    """The leftover's replication, its interval and the noise null; printed.
+
+    Returns the agreement of every split, the replication and its interval, the
+    null values and the p.
+    """
     leftover_agreement = [
         spearmanr(
             residual(half_map(nano, a, structures), model),
@@ -407,23 +425,31 @@ def main() -> None:
         f"  leftover replicates {rep_point:.3f} [{rep_ci[0]:.3f}, {rep_ci[1]:.3f}]; "
         f"against the noise null p = {p:.2e}"
     )
+    return leftover_agreement, rep_point, rep_ci, null, p
 
-    res = residual(y, model)
 
-    # panel D needs run_beyond_controls' table
+def load_controls() -> list[dict[str, str]]:
+    """The rows of run_beyond_controls' controls.csv, which panel D needs, if any."""
     controls = []
     path = OUT / "controls.csv"
     if path.exists():
         with open(path, newline="", encoding="utf-8") as fh:
             controls = list(csv.DictReader(fh))
+    return controls
 
-    panel_a(point, intervals, [m[0] for m in models], ceiling, ceiling_ci)
-    panel_b(map_agreement, leftover_agreement, null, p, rep_point, rep_ci)
-    panel_c(res, structures)
-    if controls:
-        panel_d(controls)
 
-    # the numbers for the captions
+def write_caption_numbers(
+    ceiling: float,
+    ceiling_ci: tuple[float, float],
+    point: list[float],
+    unexplained: float,
+    splits: list[tuple[list[int], list[int]]],
+    map_agreement: list[float],
+    rep_point: float,
+    rep_ci: tuple[float, float],
+    p: float,
+) -> None:
+    """Write numbers_for_the_caption.txt: every figure's numbers as a sentence."""
     lines = [
         "Numbers for the captions (all on 125 grey-matter structures, ten adult mice).",
         "",
@@ -458,3 +484,57 @@ def main() -> None:
     with open(FIGS / "numbers_for_the_caption.txt", "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
     print(f"  -> {FIGS / 'numbers_for_the_caption.txt'}")
+
+
+def main() -> None:
+    """Compute the statistics, draw panels A to D and write the caption numbers.
+
+    One generator feeds every interval and the null, in this order: the ceiling,
+    the explanations, the leftover's replication, the noise null.
+    """
+    FIGS.mkdir(parents=True, exist_ok=True)
+    rng = np.random.default_rng(0)
+
+    # the structures and the quoted model, as adult.beyond_density builds them
+    nano, _, expr, role, auto, structures = prepare()
+    covariates, _, _ = build_covariates(nano, expr, role, auto, structures)
+    splits = half_splits()
+    y = half_map(nano, range(len(ADULTS)), structures)
+    model = flexible(list(covariates.values()))
+    print(
+        f"{len(structures)} structures, {len(ADULTS)} adults, {len(splits)} half-splits"
+    )
+
+    # the ceiling, what each explanation predicts, and how the leftover replicates
+    map_agreement, ceiling, ceiling_ci = ceiling_with_interval(
+        nano, structures, splits, rng
+    )
+    models, point, intervals = explanations(covariates, model, y, ceiling, rng)
+    unexplained = 1 - point[-1] / ceiling
+    print(f"  unexplained share of the ceiling: {unexplained:.1%}")
+    leftover_agreement, rep_point, rep_ci, null, p = leftover_replication(
+        nano, structures, model, splits, rng
+    )
+
+    res = residual(y, model)
+
+    # the panels; panel D needs run_beyond_controls' table
+    controls = load_controls()
+    panel_a(point, intervals, [m[0] for m in models], ceiling, ceiling_ci)
+    panel_b(map_agreement, leftover_agreement, null, p, rep_point, rep_ci)
+    panel_c(res, structures)
+    if controls:
+        panel_d(controls)
+
+    # the numbers for the captions
+    write_caption_numbers(
+        ceiling,
+        ceiling_ci,
+        point,
+        unexplained,
+        splits,
+        map_agreement,
+        rep_point,
+        rep_ci,
+        p,
+    )

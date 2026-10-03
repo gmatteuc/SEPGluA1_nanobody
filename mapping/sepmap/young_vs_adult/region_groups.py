@@ -183,6 +183,103 @@ def define_groups(
     return groups
 
 
+def label_sums(
+    mouse: str, ann: np.ndarray
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, int]:
+    """Sums per parcellation index of one brain's tissue voxels, sig and the two ratios.
+
+    Returns (voxels, sig, ratio, sepratio, number of labels). Stops if the brain
+    has no SEP channel while the sepratio reading is in force.
+    """
+    z = np.load(PER_MOUSE / (mouse + ".npz"))
+    sig = z["sig"].astype(np.float32)
+    auto = z["auto"].astype(np.float32)
+    tissue = z["tissue"]
+    if any(r == "sepratio" for r, _ in READINGS) and "sep" not in z.files:
+        raise ValueError(
+            f"{mouse}: no SEP channel in its per-mouse file. Run\n"
+            "  run_add_sep_channel.m for this brain, then run_per_mouse.py,\n"
+            "  or drop the reading with V2_READINGS."
+        )
+
+    # sums per parcellation index of the voxels, sig and the two ratios
+    ratio = per_unit(sig, auto, tissue)
+    if "sep" in z.files:
+        sepratio = per_unit(sig, z["sep"].astype(np.float32), tissue)
+    else:
+        sepratio = np.zeros_like(sig)
+    lab = ann[tissue]
+    nlab = int(ann.max()) + 1
+    n = np.bincount(lab, minlength=nlab)
+    s_sig = np.bincount(lab, weights=sig[tissue], minlength=nlab)
+    s_rat = np.bincount(lab, weights=ratio[tissue], minlength=nlab)
+    s_sep = np.bincount(lab, weights=sepratio[tissue], minlength=nlab)
+    return n, s_sig, s_rat, s_sep, nlab
+
+
+def group_cells(
+    groups: dict[tuple[str, str], set[int]],
+    n: np.ndarray,
+    s_sig: np.ndarray,
+    s_rat: np.ndarray,
+    s_sep: np.ndarray,
+    nlab: int,
+) -> dict[tuple[str, str], tuple | None]:
+    """The voxel-weighted means of each group large enough, None for the others."""
+    cells = {}
+    for key, ids in groups.items():
+        ids = [i for i in ids if i < nlab]
+        c = n[ids].sum()
+        if c >= REGION_TABLES["min_vox20"]:
+            cells[key] = (
+                int(c),
+                s_sig[ids].sum() / c,
+                s_rat[ids].sum() / c,
+                s_sep[ids].sum() / c,
+            )
+        else:
+            cells[key] = None
+    return cells
+
+
+def references(
+    stru: dict[int, str],
+    divi: dict[int, str],
+    n: np.ndarray,
+    s_sig: np.ndarray,
+    nlab: int,
+) -> dict[str, float]:
+    """The two references: mean sig of the isocortex, and of the subcortex.
+
+    The subcortex leaves out the divisions in NOT_SUBCORTEX.
+    """
+    iso = [i for i in stru if divi.get(i) == "Isocortex" and i < nlab]
+    sub_ids = [i for i in stru if divi.get(i, "") not in NOT_SUBCORTEX and i < nlab]
+    return {
+        "cref": s_sig[iso].sum() / n[iso].sum(),
+        "subref": s_sig[sub_ids].sum() / n[sub_ids].sum(),
+    }
+
+
+def structure_sig_means(
+    stru: dict[int, str], n: np.ndarray, s_sig: np.ndarray
+) -> dict[str, float]:
+    """The brain's own distribution over structures, for the range match.
+
+    Taken per structure so that it does not depend on the grouping; structures
+    under region_tables.min_vox20 voxels are left out.
+    """
+    by_struct = defaultdict(lambda: [0, 0.0])
+    for i in np.nonzero(n)[0]:
+        if i == 0 or i not in stru:
+            continue
+        by_struct[stru[i]][0] += int(n[i])
+        by_struct[stru[i]][1] += s_sig[i]
+    return {
+        k: v[1] / v[0] for k, v in by_struct.items() if v[0] >= REGION_TABLES["min_vox20"]
+    }
+
+
 def group_means(
     mice: list[str],
     groups: dict[tuple[str, str], set[int]],
@@ -202,67 +299,13 @@ def group_means(
         if atlas_key not in anns:
             anns[atlas_key] = annotation_20(atlas_key)
         ann = anns[atlas_key]
-        z = np.load(PER_MOUSE / (mouse + ".npz"))
-        sig = z["sig"].astype(np.float32)
-        auto = z["auto"].astype(np.float32)
-        tissue = z["tissue"]
-        if any(r == "sepratio" for r, _ in READINGS) and "sep" not in z.files:
-            raise ValueError(
-                f"{mouse}: no SEP channel in its per-mouse file. Run\n"
-                "  run_add_sep_channel.m for this brain, then run_per_mouse.py,\n"
-                "  or drop the reading with V2_READINGS."
-            )
 
-        # sums per parcellation index of the voxels, sig and the two ratios
-        ratio = per_unit(sig, auto, tissue)
-        if "sep" in z.files:
-            sepratio = per_unit(sig, z["sep"].astype(np.float32), tissue)
-        else:
-            sepratio = np.zeros_like(sig)
-        lab = ann[tissue]
-        nlab = int(ann.max()) + 1
-        n = np.bincount(lab, minlength=nlab)
-        s_sig = np.bincount(lab, weights=sig[tissue], minlength=nlab)
-        s_rat = np.bincount(lab, weights=ratio[tissue], minlength=nlab)
-        s_sep = np.bincount(lab, weights=sepratio[tissue], minlength=nlab)
-
-        # the voxel-weighted means of each group large enough
-        per[mouse] = {}
-        for key, ids in groups.items():
-            ids = [i for i in ids if i < nlab]
-            c = n[ids].sum()
-            if c >= REGION_TABLES["min_vox20"]:
-                per[mouse][key] = (
-                    int(c),
-                    s_sig[ids].sum() / c,
-                    s_rat[ids].sum() / c,
-                    s_sep[ids].sum() / c,
-                )
-            else:
-                per[mouse][key] = None
-
-        # the two references: mean sig of the isocortex, and of the subcortex
-        # without the divisions in NOT_SUBCORTEX
-        iso = [i for i in stru if divi.get(i) == "Isocortex" and i < nlab]
-        sub_ids = [i for i in stru if divi.get(i, "") not in NOT_SUBCORTEX and i < nlab]
-        refs[mouse] = {
-            "cref": s_sig[iso].sum() / n[iso].sum(),
-            "subref": s_sig[sub_ids].sum() / n[sub_ids].sum(),
-        }
-
-        # the brain's own distribution over structures, for the range match, taken
-        # per structure so that it does not depend on the grouping
-        by_struct = defaultdict(lambda: [0, 0.0])
-        for i in np.nonzero(n)[0]:
-            if i == 0 or i not in stru:
-                continue
-            by_struct[stru[i]][0] += int(n[i])
-            by_struct[stru[i]][1] += s_sig[i]
-        struct_mean[mouse] = {
-            k: v[1] / v[0]
-            for k, v in by_struct.items()
-            if v[0] >= REGION_TABLES["min_vox20"]
-        }
+        # sums per parcellation index, then the groups, the two references and the
+        # structure means
+        n, s_sig, s_rat, s_sep, nlab = label_sums(mouse, ann)
+        per[mouse] = group_cells(groups, n, s_sig, s_rat, s_sep, nlab)
+        refs[mouse] = references(stru, divi, n, s_sig, nlab)
+        struct_mean[mouse] = structure_sig_means(stru, n, s_sig)
         print(
             f"{mouse:20s} {sum(v is not None for v in per[mouse].values())}"
             f"/{len(groups)} groups",
@@ -438,6 +481,69 @@ def print_group_table(
             print(f"  {key[1]:22s} " + " ".join(cells))
 
 
+def draw_group_dots(
+    ax: plt.Axes,
+    reading: str,
+    g: str,
+    keys: list[tuple[str, str]],
+    per: dict[str, dict],
+    norm: dict[str, tuple[float, float]],
+    refs: dict[str, dict[str, float]],
+) -> None:
+    """Draw group `g`'s mice side by side for each of `keys`, its median as a bar."""
+    ms = GROUPS[g]
+    jit = np.linspace(-0.2, 0.2, len(ms))
+    xo = 0.26 if g == "young" else -0.1
+    mids = []
+    for i, key in enumerate(keys):
+        ys = [value(reading, m, key, per, norm, refs) for m in ms]
+        ys = [y for y in ys if y is not None]
+        for j, y in enumerate(ys):
+            ax.plot(
+                i + jit[j] + xo,
+                y,
+                "o",
+                ms=4.5,
+                color=GROUP_COLOURS[g],
+                alpha=0.9,
+                mec="none",
+            )
+        mids.append(np.median(ys) if ys else np.nan)
+    ax.plot(
+        np.arange(len(keys)) + xo,
+        mids,
+        "_",
+        ms=16,
+        mew=2.4,
+        color=GROUP_COLOURS[g],
+        label=LABEL[g],
+    )
+
+
+def draw_stars(
+    ax: plt.Axes,
+    reading: str,
+    keys: list[tuple[str, str]],
+    star: dict[tuple[str, str, str], str],
+) -> None:
+    """Draw the young-vs-adult rank-sum stars, just under the top of the panel."""
+    lo, hi = ax.get_ylim()
+    ax.set_ylim(lo, hi + 0.14 * (hi - lo))
+    lo, hi = ax.get_ylim()
+    for i, key in enumerate(keys):
+        st = star.get((reading, key[0], key[1]), "")
+        if st:
+            ax.text(
+                i,
+                hi - 0.04 * (hi - lo),
+                st,
+                ha="center",
+                va="top",
+                fontsize=12,
+                color=GROUP_COLOURS["young"],
+            )
+
+
 def dotplot(
     keys: list[tuple[str, str]],
     labels: list[str],
@@ -458,50 +564,10 @@ def dotplot(
     for ax, (reading, rtitle) in zip(axes, READINGS):
         # each group's mice side by side, and its median as a bar
         for g in ("naive", "rws", "young"):
-            ms = GROUPS[g]
-            jit = np.linspace(-0.2, 0.2, len(ms))
-            xo = 0.26 if g == "young" else -0.1
-            mids = []
-            for i, key in enumerate(keys):
-                ys = [value(reading, m, key, per, norm, refs) for m in ms]
-                ys = [y for y in ys if y is not None]
-                for j, y in enumerate(ys):
-                    ax.plot(
-                        i + jit[j] + xo,
-                        y,
-                        "o",
-                        ms=4.5,
-                        color=GROUP_COLOURS[g],
-                        alpha=0.9,
-                        mec="none",
-                    )
-                mids.append(np.median(ys) if ys else np.nan)
-            ax.plot(
-                np.arange(len(keys)) + xo,
-                mids,
-                "_",
-                ms=16,
-                mew=2.4,
-                color=GROUP_COLOURS[g],
-                label=LABEL[g],
-            )
+            draw_group_dots(ax, reading, g, keys, per, norm, refs)
 
         # stars for the young-vs-adult rank-sum test, just under the top of the panel
-        lo, hi = ax.get_ylim()
-        ax.set_ylim(lo, hi + 0.14 * (hi - lo))
-        lo, hi = ax.get_ylim()
-        for i, key in enumerate(keys):
-            st = star.get((reading, key[0], key[1]), "")
-            if st:
-                ax.text(
-                    i,
-                    hi - 0.04 * (hi - lo),
-                    st,
-                    ha="center",
-                    va="top",
-                    fontsize=12,
-                    color=GROUP_COLOURS["young"],
-                )
+        draw_stars(ax, reading, keys, star)
         ax.axhline(0, color="k", lw=0.6)
         ax.set_title(rtitle, fontsize=10.5, loc="left")
         ax.set_ylabel(

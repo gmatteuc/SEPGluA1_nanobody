@@ -358,15 +358,8 @@ def figure(terms: list[dict], words: list[dict], rho: dict[str, float]) -> None:
     print(f"\n{path}")
 
 
-def main() -> None:
-    """Test every GO term and word against the gene ranking, write, report and draw."""
-    # the rho of each gene and reading
-    plot_reading = ISH["reading"]
-    rho = load_rho()
-    genes = sorted(rho[plot_reading])
-    print(f"{len(genes)} genes, readings {sorted(rho)}")
-
-    # the genes of each GO term and of each word
+def feature_genes(genes: list[str]) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+    """The genes of each GO term and of each word; prints how many of each."""
     term_genes, word_genes, no_go = defaultdict(set), defaultdict(set), []
     for gene in genes:
         record = fetch(gene)
@@ -381,14 +374,25 @@ def main() -> None:
         f"{len(term_genes)} distinct GO terms, {len(word_genes)} distinct words"
         + (f"; no GO annotation for {no_go}" if no_go else "")
     )
+    return term_genes, word_genes
 
-    # every feature tested, for every reading
+
+def enrichment_rows(
+    rho: dict[str, dict[str, float]],
+    term_genes: dict[str, set[str]],
+    word_genes: dict[str, set[str]],
+) -> list[dict]:
+    """Every feature tested, for every reading: the rows of feature_enrichment.csv."""
     rows = []
     for reading in sorted(rho):
         for kind, features in (("term", term_genes), ("word", word_genes)):
             for r in test_features(features, rho[reading]):
                 rows.append(dict(reading=reading, kind=kind, **r))
+    return rows
 
+
+def write_table(rows: list[dict]) -> None:
+    """Write feature_enrichment.csv, floats to four significant digits."""
     path = OUT / "feature_enrichment.csv"
     fields = [
         "reading",
@@ -413,7 +417,12 @@ def main() -> None:
         )
     print(f"{len(rows)} rows -> {path}")
 
-    # the words named in advance, then the top features, for the reading shown
+
+def report(rows: list[dict], plot_reading: str) -> tuple[list[dict], list[dict]]:
+    """Print the words named in advance, then the top features, for the reading shown.
+
+    Returns that reading's rows of GO terms and of words.
+    """
     terms = [r for r in rows if r["reading"] == plot_reading and r["kind"] == "term"]
     words = [r for r in rows if r["reading"] == plot_reading and r["kind"] == "word"]
     by = {r["feature"]: r for r in words}
@@ -432,4 +441,22 @@ def main() -> None:
                 f"  {r['gap']:+.3f} [{r['gap_lo']:+.2f} {r['gap_hi']:+.2f}]  "
                 f"n={r['n_genes']:3d}  q={r['q']:.3f}  {r['feature']}"
             )
+    return terms, words
+
+
+def main() -> None:
+    """Test every GO term and word against the gene ranking, write, report and draw."""
+    # the rho of each gene and reading
+    plot_reading = ISH["reading"]
+    rho = load_rho()
+    genes = sorted(rho[plot_reading])
+    print(f"{len(genes)} genes, readings {sorted(rho)}")
+
+    # the genes of each GO term and of each word, every feature tested
+    term_genes, word_genes = feature_genes(genes)
+    rows = enrichment_rows(rho, term_genes, word_genes)
+    write_table(rows)
+
+    # the words named in advance, then the top features, for the reading shown
+    terms, words = report(rows, plot_reading)
     figure(terms, words, rho[plot_reading])

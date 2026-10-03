@@ -624,15 +624,12 @@ def figure_readings(rows: list[tuple[str, float, float, float]]) -> None:
     save(fig, "fig6_readings.png")
 
 
-def main() -> None:
-    """Run the seven controls, write their verdicts and draw them."""
-    # the structures and the quoted model, as adult.beyond_density builds them
-    nano, _, expr, role, auto, structures = prepare()
-
-    covariates, _, _ = build_covariates(nano, expr, role, auto, structures)
-    splits = half_splits()
-    y = half_map(nano, range(len(ADULTS)), structures)
-    res = residual(y, flexible(list(covariates.values())))
+def map_ceiling(
+    nano: dict[str, dict[str, float]],
+    structures: list[str],
+    splits: list[tuple[list[int], list[int]]],
+) -> float:
+    """The map's reliability: Spearman-Brown of the mean half-cohort agreement."""
     ceiling = spearman_brown(
         float(
             np.mean(
@@ -645,6 +642,46 @@ def main() -> None:
             )
         )
     )
+    return ceiling
+
+
+def mean_sizes() -> dict[str, float]:
+    """Mean structure volume over the adults, in 20 um voxels."""
+    sizes = {}
+    with open(NANO, newline="", encoding="utf-8") as fh:
+        for r in csv.DictReader(fh):
+            if r["reading"] == "zref" and r["mouse"] in ADULTS:
+                sizes.setdefault(r["structure"], []).append(float(r["n_vox20"]))
+    size_mean = {k: float(np.mean(v)) for k, v in sizes.items()}
+    return size_mean
+
+
+def write_verdicts(verdicts: list[dict[str, str] | None]) -> None:
+    """Write controls.csv, a skipped control (None) left out, and print the verdict."""
+    path = OUT / "controls.csv"
+    with open(path, "w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=["control", "number", "verdict"])
+        writer.writeheader()
+        writer.writerows([v for v in verdicts if v])
+    print(f"\n-> {path}")
+    failed = [v["control"] for v in verdicts if v and v["verdict"] != "pass"]
+    if not failed:
+        verdict = "every control passes; the claim stands as written."
+    else:
+        verdict = f"look closer at {failed}"
+    print("VERDICT: " + verdict)
+
+
+def main() -> None:
+    """Run the seven controls, write their verdicts and draw them."""
+    # the structures and the quoted model, as adult.beyond_density builds them
+    nano, _, expr, role, auto, structures = prepare()
+
+    covariates, _, _ = build_covariates(nano, expr, role, auto, structures)
+    splits = half_splits()
+    y = half_map(nano, range(len(ADULTS)), structures)
+    res = residual(y, flexible(list(covariates.values())))
+    ceiling = map_ceiling(nano, structures, splits)
     quoted_replication = replication(
         nano, structures, flexible(list(covariates.values())), splits
     )
@@ -654,12 +691,7 @@ def main() -> None:
     )
 
     # mean structure volume over the adults, in 20 um voxels
-    sizes = {}
-    with open(NANO, newline="", encoding="utf-8") as fh:
-        for r in csv.DictReader(fh):
-            if r["reading"] == "zref" and r["mouse"] in ADULTS:
-                sizes.setdefault(r["structure"], []).append(float(r["n_vox20"]))
-    size_mean = {k: float(np.mean(v)) for k, v in sizes.items()}
+    size_mean = mean_sizes()
 
     # the seven controls
     verdicts = []
@@ -677,20 +709,8 @@ def main() -> None:
     vg, reading_rows = control_g_readings(expr, role, auto, structures, splits)
     verdicts.append(vg)
 
-    # the verdicts, a skipped control (None) left out
-    path = OUT / "controls.csv"
-    with open(path, "w", newline="", encoding="utf-8") as fh:
-        writer = csv.DictWriter(fh, fieldnames=["control", "number", "verdict"])
-        writer.writeheader()
-        writer.writerows([v for v in verdicts if v])
-    print(f"\n-> {path}")
-    failed = [v["control"] for v in verdicts if v and v["verdict"] != "pass"]
-    if not failed:
-        verdict = "every control passes; the claim stands as written."
-    else:
-        verdict = f"look closer at {failed}"
-    print("VERDICT: " + verdict)
-
+    # the verdicts, and the figures
+    write_verdicts(verdicts)
     sizes_arr = np.array([size_mean.get(s, np.nan) for s in structures])
     figure_artefacts(res, structures, sizes_arr, per_mouse, pairs, naive, rws, coords)
     figure_model_space(curve, best_k, ceiling, cubic, quintic)

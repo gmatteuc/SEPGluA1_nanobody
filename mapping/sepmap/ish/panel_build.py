@@ -38,6 +38,7 @@ import urllib.parse
 import urllib.request
 from collections import defaultdict
 from collections.abc import Callable
+from pathlib import Path
 
 from sepmap.config import DATA, SETTINGS
 
@@ -192,27 +193,22 @@ def assign_roles() -> tuple[dict[str, str], dict[str, list[str]]]:
     return roles, why
 
 
-def main() -> None:
-    """Build the panel from the ontology and the Allen API; write both tables."""
-    # the gene sets
-    OUT.mkdir(parents=True, exist_ok=True)
-    print("gene sets, straight from the ontology:")
-    roles, why = assign_roles()
-    counts = defaultdict(int)
-    for r in roles.values():
-        counts[r] += 1
-    print("\nassigned:", ", ".join(f"{r} {counts[r]}" for r in ROLE_ORDER))
-    print(
-        "  subunit set is", ", ".join(sorted(g for g in roles if roles[g] == "subunit"))
-    )
-
-    # the old panel's category of each gene, recorded beside the new role
+def old_categories() -> dict[str, str]:
+    """The old panel's category of each gene, recorded beside the new role."""
     old = {}
     with open(OLD_PANEL, newline="", encoding="utf-8") as fh:
         for r in csv.DictReader(fh):
             old[r["symbol"]] = r["category"]
+    return old
 
-    # the Allen experiments of each gene
+
+def experiment_rows(
+    roles: dict[str, str], why: dict[str, list[str]], old: dict[str, str]
+) -> tuple[list[dict], list[dict], list[str]]:
+    """The Allen experiments of each gene: a row per experiment, a row per gene.
+
+    Also returns the genes with no usable experiment.
+    """
     rows, per_gene, no_exp = [], [], []
     for i, gene in enumerate(sorted(roles), 1):
         exps = allen_experiments(gene)
@@ -244,8 +240,11 @@ def main() -> None:
             )
         if i % 25 == 0:
             print(f"  {i}/{len(roles)} genes resolved", flush=True)
+    return rows, per_gene, no_exp
 
-    # one row per experiment, one row per gene
+
+def write_panel(rows: list[dict], per_gene: list[dict]) -> Path:
+    """Write panel_v2.csv (a row per experiment) and panel_genes.csv (per gene)."""
     path = OUT / "panel_v2.csv"
     with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
@@ -255,8 +254,13 @@ def main() -> None:
         w = csv.DictWriter(fh, fieldnames=list(per_gene[0].keys()))
         w.writeheader()
         w.writerows(per_gene)
+    return path
 
-    # what the panel holds, and how much of it is already downloaded
+
+def print_summary(
+    rows: list[dict], per_gene: list[dict], no_exp: list[str], path: Path
+) -> None:
+    """Print what the panel holds, and how much of it is already downloaded."""
     both = [g for g in per_gene if len(g["planes"].split()) > 1]
     print(
         f"\n{len(per_gene)} genes with at least one experiment, "
@@ -283,3 +287,26 @@ def main() -> None:
         if (DATA / "atlas_ish" / f"{r['experiment_id']}_energy.mhd").exists()
     )
     print(f"  {already} of {len(rows)} grids are already on disk")
+
+
+def main() -> None:
+    """Build the panel from the ontology and the Allen API; write both tables."""
+    # the gene sets
+    OUT.mkdir(parents=True, exist_ok=True)
+    print("gene sets, straight from the ontology:")
+    roles, why = assign_roles()
+    counts = defaultdict(int)
+    for r in roles.values():
+        counts[r] += 1
+    print("\nassigned:", ", ".join(f"{r} {counts[r]}" for r in ROLE_ORDER))
+    print(
+        "  subunit set is", ", ".join(sorted(g for g in roles if roles[g] == "subunit"))
+    )
+
+    # the old panel's category of each gene, and the Allen experiments of each gene
+    old = old_categories()
+    rows, per_gene, no_exp = experiment_rows(roles, why, old)
+
+    # one row per experiment, one row per gene, and what the panel holds
+    path = write_panel(rows, per_gene)
+    print_summary(rows, per_gene, no_exp, path)

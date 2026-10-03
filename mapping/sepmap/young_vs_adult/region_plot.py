@@ -366,6 +366,57 @@ def value(
     return math.log2(v) if v > 0 else None
 
 
+def structure_row(
+    reading: str,
+    k: str,
+    meta: dict[str, tuple[str, str]],
+    yo: list[float],
+    y20: list[float],
+    p16: list[float],
+    ad: list[float],
+    nv: list[float],
+    rw: list[float],
+) -> tuple:
+    """One structure's test row, in the columns of region_stats.csv but the q-values.
+
+    `yo`, `y20`, `p16`, `ad`, `nv` and `rw` are the values of the young, the P20
+    and P16 young, the adults, the naive and the RWS adults.
+    """
+    return (
+        reading,
+        k,
+        meta[k][0],
+        meta[k][1],
+        len(yo),
+        len(ad),
+        np.mean(yo),
+        np.mean(ad),
+        np.mean(yo) - np.mean(ad),
+        np.median(yo) - np.median(ad),
+        welch(yo, ad),
+        mannwhitney(yo, ad),
+        (np.mean(y20) - np.mean(ad)) if len(y20) >= 2 else float("nan"),
+        welch(y20, ad) if len(y20) >= 2 else float("nan"),
+        (p16[0] - np.mean(ad)) if p16 else float("nan"),
+        (np.mean(nv) - np.mean(rw)) if nv and rw else float("nan"),
+    )
+
+
+def with_q_values(rows_st: list[tuple]) -> list[tuple]:
+    """The test rows with the BH q of the Welch and of the Mann-Whitney p inserted.
+
+    The q-values are taken within each reading, so the brain-wide lists can be
+    read honestly; they go in after the Mann-Whitney p.
+    """
+    q_welch, q_mw = {}, {}
+    for reading, _ in READINGS:
+        idx = [i for i, r in enumerate(rows_st) if r[0] == reading]
+        for store, col in ((q_welch, 10), (q_mw, 11)):
+            for i, qi in zip(idx, bh_fdr([rows_st[i][col] for i in idx])):
+                store[i] = qi
+    return [r[:12] + (q_welch[i], q_mw[i]) + r[12:] for i, r in enumerate(rows_st)]
+
+
 def region_rows(
     mice: list[str],
     meta: dict[str, tuple[str, str]],
@@ -415,35 +466,10 @@ def region_rows(
 
             # one row per structure, in the columns of region_stats.csv but the
             # q-values, which go in after the Mann-Whitney p below
-            rows_st.append(
-                (
-                    reading,
-                    k,
-                    meta[k][0],
-                    meta[k][1],
-                    len(yo),
-                    len(ad),
-                    np.mean(yo),
-                    np.mean(ad),
-                    np.mean(yo) - np.mean(ad),
-                    np.median(yo) - np.median(ad),
-                    welch(yo, ad),
-                    mannwhitney(yo, ad),
-                    (np.mean(y20) - np.mean(ad)) if len(y20) >= 2 else float("nan"),
-                    welch(y20, ad) if len(y20) >= 2 else float("nan"),
-                    (p16[0] - np.mean(ad)) if p16 else float("nan"),
-                    (np.mean(nv) - np.mean(rw)) if nv and rw else float("nan"),
-                )
-            )
+            rows_st.append(structure_row(reading, k, meta, yo, y20, p16, ad, nv, rw))
 
     # q-values within each reading, so the brain-wide lists can be read honestly
-    q_welch, q_mw = {}, {}
-    for reading, _ in READINGS:
-        idx = [i for i, r in enumerate(rows_st) if r[0] == reading]
-        for store, col in ((q_welch, 10), (q_mw, 11)):
-            for i, qi in zip(idx, bh_fdr([rows_st[i][col] for i in idx])):
-                store[i] = qi
-    rows_st = [r[:12] + (q_welch[i], q_mw[i]) + r[12:] for i, r in enumerate(rows_st)]
+    rows_st = with_q_values(rows_st)
     return rows_pm, rows_st
 
 
@@ -528,6 +554,103 @@ def print_cortex_table(rows_st: list[tuple]) -> None:
         print(f"  {a:9s} " + " ".join(cells) + " " + tail)
 
 
+def draw_group_dots(
+    ax: plt.Axes,
+    reading: str,
+    g: str,
+    xs: list[int],
+    by_acro: dict[str, str],
+    per: dict[str, dict],
+    norm: dict[str, tuple[float, float]],
+    refs: dict[str, dict[str, float]],
+) -> None:
+    """Draw group `g`'s mice side by side in each of AREAS, and its median as a bar."""
+    ms = GROUPS[g]
+    jit = np.linspace(-0.22, 0.22, len(ms))
+    xo = 0.28 if g == "young" else -0.1
+    mids = []
+    for i, a in enumerate(AREAS):
+        if a == "|":
+            mids.append(np.nan)
+            continue
+        k = by_acro.get(a)
+        ys = []
+        for j, m in enumerate(ms):
+            y = value(reading, m, k, per, norm, refs)
+            if y is None:
+                continue
+            ys.append(y)
+            ax.plot(
+                i + jit[j] + xo,
+                y,
+                "o",
+                ms=4.5,
+                color=GROUP_COLOURS[g],
+                alpha=0.9,
+                mec="none",
+            )
+        mids.append(np.median(ys) if ys else np.nan)
+    ax.plot(
+        np.array(xs) + xo,
+        [mids[i] for i in xs],
+        "_",
+        ms=14,
+        mew=2.2,
+        color=GROUP_COLOURS[g],
+        label=LABEL[g],
+    )
+
+
+def draw_stars(
+    ax: plt.Axes, reading: str, star_of: dict[tuple[str, str], str]
+) -> tuple[float, float]:
+    """Draw the rank-sum stars just under the top of the panel; returns its y limits."""
+    lo, hi = ax.get_ylim()
+    ax.set_ylim(lo, hi + 0.12 * (hi - lo))
+    lo, hi = ax.get_ylim()
+    for i, a in enumerate(AREAS):
+        st = star_of.get((reading, a), "")
+        if st:
+            ax.text(
+                i,
+                hi - 0.04 * (hi - lo),
+                st,
+                ha="center",
+                va="top",
+                fontsize=11,
+                color=GROUP_COLOURS["young"],
+            )
+    return lo, hi
+
+
+def draw_divide(ax: plt.Axes, lo: float, hi: float) -> None:
+    """Draw the zero line and the cortex-subcortex divide, labelled."""
+    ax.axhline(0, color="k", lw=0.6)
+    sep = AREAS.index("|")
+    ax.axvline(sep, color="k", lw=0.6, ls=":")
+    box = dict(facecolor="w", edgecolor="none", alpha=0.85, pad=1.5)
+    ax.text(
+        sep - 0.5,
+        lo + 0.02 * (hi - lo),
+        "cortex",
+        ha="right",
+        va="bottom",
+        fontsize=9,
+        color="#333",
+        bbox=box,
+    )
+    ax.text(
+        sep + 0.5,
+        lo + 0.02 * (hi - lo),
+        "subcortex",
+        ha="left",
+        va="bottom",
+        fontsize=9,
+        color="#333",
+        bbox=box,
+    )
+
+
 def plot_regions(
     rows_st: list[tuple],
     by_acro: dict[str, str],
@@ -556,83 +679,12 @@ def plot_regions(
     for ax, (reading, title) in zip(axes, READINGS):
         # each group's mice, side by side, and its median as a bar
         for g in ("naive", "rws", "young"):
-            ms = GROUPS[g]
-            jit = np.linspace(-0.22, 0.22, len(ms))
-            xo = 0.28 if g == "young" else -0.1
-            mids = []
-            for i, a in enumerate(AREAS):
-                if a == "|":
-                    mids.append(np.nan)
-                    continue
-                k = by_acro.get(a)
-                ys = []
-                for j, m in enumerate(ms):
-                    y = value(reading, m, k, per, norm, refs)
-                    if y is None:
-                        continue
-                    ys.append(y)
-                    ax.plot(
-                        i + jit[j] + xo,
-                        y,
-                        "o",
-                        ms=4.5,
-                        color=GROUP_COLOURS[g],
-                        alpha=0.9,
-                        mec="none",
-                    )
-                mids.append(np.median(ys) if ys else np.nan)
-            ax.plot(
-                np.array(xs) + xo,
-                [mids[i] for i in xs],
-                "_",
-                ms=14,
-                mew=2.2,
-                color=GROUP_COLOURS[g],
-                label=LABEL[g],
-            )
+            draw_group_dots(ax, reading, g, xs, by_acro, per, norm, refs)
 
-        # stars for the young-vs-adult rank-sum test, just under the top of the panel
-        lo, hi = ax.get_ylim()
-        ax.set_ylim(lo, hi + 0.12 * (hi - lo))
-        lo, hi = ax.get_ylim()
-        for i, a in enumerate(AREAS):
-            st = star_of.get((reading, a), "")
-            if st:
-                ax.text(
-                    i,
-                    hi - 0.04 * (hi - lo),
-                    st,
-                    ha="center",
-                    va="top",
-                    fontsize=11,
-                    color=GROUP_COLOURS["young"],
-                )
-
-        # zero line, and the cortex-subcortex divide
-        ax.axhline(0, color="k", lw=0.6)
-        sep = AREAS.index("|")
-        ax.axvline(sep, color="k", lw=0.6, ls=":")
-        box = dict(facecolor="w", edgecolor="none", alpha=0.85, pad=1.5)
-        ax.text(
-            sep - 0.5,
-            lo + 0.02 * (hi - lo),
-            "cortex",
-            ha="right",
-            va="bottom",
-            fontsize=9,
-            color="#333",
-            bbox=box,
-        )
-        ax.text(
-            sep + 0.5,
-            lo + 0.02 * (hi - lo),
-            "subcortex",
-            ha="left",
-            va="bottom",
-            fontsize=9,
-            color="#333",
-            bbox=box,
-        )
+        # stars for the young-vs-adult rank-sum test, just under the top of the
+        # panel; the zero line, and the cortex-subcortex divide
+        lo, hi = draw_stars(ax, reading, star_of)
+        draw_divide(ax, lo, hi)
         ax.set_title(title, fontsize=10.5, loc="left")
         ax.set_ylabel(ylab[reading], fontsize=10)
         ax.grid(axis="y", lw=0.3, alpha=0.6)

@@ -168,22 +168,8 @@ def region_means(
     return out
 
 
-def main(only: list[str] | None = None, panel_name: str = DEFAULT_PANEL) -> None:
-    """Write the region table of one panel pass, and the table of dropped genes.
-
-    With `only`, a list of gene symbols, only those genes of the panel.
-    """
-    # the panel's experiments, the structure names and the annotation on the grid
-    panel_path, table_name = panel_files(panel_name)
-    OUT.mkdir(parents=True, exist_ok=True)
-    panel = [r for r in csv.DictReader(open(panel_path, newline="", encoding="utf-8"))]
-    if only:
-        want = {g.lower() for g in only}
-        panel = [r for r in panel if r["symbol"].lower() in want]
-    names, _, _ = structure_terms()
-    ann_full = annotation_200()
-
-    # erode each structure by one voxel, once, and reuse it for every gene
+def eroded_annotation(ann_full: np.ndarray) -> np.ndarray:
+    """Each structure eroded by one voxel, once, to be reused for every gene."""
     print("eroding structure masks once (200 um, one voxel)...", flush=True)
     eroded = np.zeros_like(ann_full)
     for idx in np.unique(ann_full):
@@ -194,8 +180,20 @@ def main(only: list[str] | None = None, panel_name: str = DEFAULT_PANEL) -> None
 
         # a structure too small to erode keeps its full mask
         eroded[e if e.any() else m] = idx
+    return eroded
 
-    # one mean per structure for every experiment of the panel
+
+def experiment_rows(
+    panel: list[dict],
+    ann_full: np.ndarray,
+    names: dict[int, str],
+    eroded: np.ndarray,
+) -> tuple[list[dict], list[dict]]:
+    """One mean per structure for every experiment of the panel, and the drops.
+
+    Returns the rows of the region table and of its drops table, an experiment
+    whose grid is missing or in a box of its own being dropped with the reason.
+    """
     rows, dropped = [], []
     for i, gene in enumerate(panel, 1):
         t0 = time.time()
@@ -236,8 +234,13 @@ def main(only: list[str] | None = None, panel_name: str = DEFAULT_PANEL) -> None
             f"{time.time() - t0:.1f} s",
             flush=True,
         )
+    return rows, dropped
 
-    # the region table, and the experiments dropped with their reason
+
+def write_tables(
+    rows: list[dict], dropped: list[dict], panel: list[dict], table_name: str
+) -> None:
+    """Write the region table, and the experiments dropped with their reason."""
     path = OUT / table_name
     with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
@@ -256,3 +259,26 @@ def main(only: list[str] | None = None, panel_name: str = DEFAULT_PANEL) -> None
         w.writeheader()
         w.writerows(dropped)
     print(f"{len(dropped)} genes dropped -> {path}", flush=True)
+
+
+def main(only: list[str] | None = None, panel_name: str = DEFAULT_PANEL) -> None:
+    """Write the region table of one panel pass, and the table of dropped genes.
+
+    With `only`, a list of gene symbols, only those genes of the panel.
+    """
+    # the panel's experiments, the structure names and the annotation on the grid
+    panel_path, table_name = panel_files(panel_name)
+    OUT.mkdir(parents=True, exist_ok=True)
+    panel = [r for r in csv.DictReader(open(panel_path, newline="", encoding="utf-8"))]
+    if only:
+        want = {g.lower() for g in only}
+        panel = [r for r in panel if r["symbol"].lower() in want]
+    names, _, _ = structure_terms()
+    ann_full = annotation_200()
+
+    # erode each structure by one voxel, once, and reuse it for every gene
+    eroded = eroded_annotation(ann_full)
+
+    # one mean per structure for every experiment of the panel, and the tables
+    rows, dropped = experiment_rows(panel, ann_full, names, eroded)
+    write_tables(rows, dropped, panel, table_name)

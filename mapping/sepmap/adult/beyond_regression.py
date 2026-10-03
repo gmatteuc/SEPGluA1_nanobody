@@ -88,7 +88,8 @@ def paint(
     return out
 
 
-def panel_e(
+def draw_fit(
+    ax: plt.Axes,
     observed: np.ndarray,
     predicted: np.ndarray,
     res: np.ndarray,
@@ -96,11 +97,7 @@ def panel_e(
     fitted_r2: float,
     cv: float,
 ) -> None:
-    """Draw panel E: observed against predicted, the diagnostic, the residuals."""
-    fig, axes = plt.subplots(1, 3, figsize=(13.4, 4.3))
-
-    # observed against predicted, the five largest residuals named
-    ax = axes[0]
+    """Draw observed against predicted, the five largest residuals named."""
     lim = [
         min(observed.min(), predicted.min()) - 4,
         max(observed.max(), predicted.max()) + 4,
@@ -132,7 +129,9 @@ def panel_e(
     ax.set_title(f"the fit\nR2 {fitted_r2:.2f} fitted, {cv:.2f} predicted", fontsize=9.5)
     tidy(ax)
 
-    ax = axes[1]
+
+def draw_diagnostic(ax: plt.Axes, predicted: np.ndarray, res: np.ndarray) -> None:
+    """Draw the residual against the prediction, the standard diagnostic."""
     ax.axhline(0, color=MID_GREY, lw=1.0)
     ax.scatter(
         predicted,
@@ -152,7 +151,9 @@ def panel_e(
     )
     tidy(ax)
 
-    ax = axes[2]
+
+def draw_leftover(ax: plt.Axes, res: np.ndarray) -> None:
+    """Draw the distribution of the residuals, the leftover."""
     ax.hist(res, bins=26, color=MID_GREY, edgecolor="0.3", linewidth=0.4)
     ax.axvline(0, color=DARK_GREY, lw=1.4)
     ax.set_xlabel("residual (ranks)", fontsize=8.5)
@@ -163,6 +164,24 @@ def panel_e(
     )
     tidy(ax)
 
+
+def panel_e(
+    observed: np.ndarray,
+    predicted: np.ndarray,
+    res: np.ndarray,
+    structures: list[str],
+    fitted_r2: float,
+    cv: float,
+) -> None:
+    """Draw panel E: observed against predicted, the diagnostic, the residuals."""
+    fig, axes = plt.subplots(1, 3, figsize=(13.4, 4.3))
+
+    # observed against predicted, the five largest residuals named; the residual
+    # against the prediction; the residuals
+    draw_fit(axes[0], observed, predicted, res, structures, fitted_r2, cv)
+    draw_diagnostic(axes[1], predicted, res)
+    draw_leftover(axes[2], res)
+
     fig.suptitle(
         "E.  The regression behind the claim: surface GluA1 predicted from "
         "receptor abundance and synaptic density",
@@ -170,6 +189,57 @@ def panel_e(
     )
     fig.tight_layout(rect=(0, 0, 1, 0.93))
     save(fig, "E_regression")
+
+
+def draw_map(
+    fig: plt.Figure,
+    axes: np.ndarray,
+    r: int,
+    c: int,
+    plane: int,
+    img: np.ndarray,
+    title: str,
+    cmap: str,
+    span: float | None,
+    structures: list[str],
+) -> None:
+    """Draw one map, plane `r` of column `c`, with the column's colour bar at the bottom.
+
+    `span` is the symmetric limit of the residual, None for the ranks of the others.
+    """
+    ax = axes[r, c]
+    if span is None:
+        lo = 1 - BEYOND_REGRESSION["floor"] * (len(structures) - 1)
+        im = ax.imshow(
+            img, cmap=cmap, vmin=lo, vmax=len(structures), interpolation="nearest"
+        )
+    else:
+        im = ax.imshow(img, cmap=cmap, vmin=-span, vmax=span, interpolation="nearest")
+
+    # the image rasterised in the EPS, the text kept vector; NaN is
+    # transparent, so the black face is the ground
+    im.set_rasterized(True)
+    ax.set_facecolor("black")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    for side in ax.spines.values():
+        side.set_visible(False)
+    if r == 0:
+        ax.set_title(title, fontsize=9)
+    if c == 0:
+        ax.set_ylabel(f"{plane * 0.02:.1f} mm", fontsize=8)
+    if r == len(PLANES) - 1:
+        cb = fig.colorbar(im, ax=ax, fraction=0.04, pad=0.02, orientation="horizontal")
+        cb.ax.tick_params(labelsize=6.5)
+        if span is None:
+            label = "rank among structures"
+        else:
+            label = "observed minus predicted (ranks)"
+        cb.set_label(label, fontsize=7)
+        if span is None:
+            # the floor sits below rank 1 so that nothing draws as black;
+            # the ticks still stop at the real range
+            cb.set_ticks([1, 25, 50, 75, 100, len(structures)])
 
 
 def panel_f(
@@ -200,43 +270,7 @@ def panel_f(
     for r, plane in enumerate(PLANES):
         for c, (title, values, cmap, span) in enumerate(maps):
             img = paint(plane, values, names)
-            ax = axes[r, c]
-            if span is None:
-                lo = 1 - BEYOND_REGRESSION["floor"] * (len(structures) - 1)
-                im = ax.imshow(
-                    img, cmap=cmap, vmin=lo, vmax=len(structures), interpolation="nearest"
-                )
-            else:
-                im = ax.imshow(
-                    img, cmap=cmap, vmin=-span, vmax=span, interpolation="nearest"
-                )
-
-            # the image rasterised in the EPS, the text kept vector; NaN is
-            # transparent, so the black face is the ground
-            im.set_rasterized(True)
-            ax.set_facecolor("black")
-            ax.set_xticks([])
-            ax.set_yticks([])
-            for side in ax.spines.values():
-                side.set_visible(False)
-            if r == 0:
-                ax.set_title(title, fontsize=9)
-            if c == 0:
-                ax.set_ylabel(f"{plane * 0.02:.1f} mm", fontsize=8)
-            if r == len(PLANES) - 1:
-                cb = fig.colorbar(
-                    im, ax=ax, fraction=0.04, pad=0.02, orientation="horizontal"
-                )
-                cb.ax.tick_params(labelsize=6.5)
-                if span is None:
-                    label = "rank among structures"
-                else:
-                    label = "observed minus predicted (ranks)"
-                cb.set_label(label, fontsize=7)
-                if span is None:
-                    # the floor sits below rank 1 so that nothing draws as black;
-                    # the ticks still stop at the real range
-                    cb.set_ticks([1, 25, 50, 75, 100, len(structures)])
+            draw_map(fig, axes, r, c, plane, img, title, cmap, span, structures)
 
     fig.suptitle(
         "F.  The same three quantities on the brain.  Red in the third column is "

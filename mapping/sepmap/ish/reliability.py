@@ -113,22 +113,15 @@ def merge(
     )
 
 
-def main(panel_name: str = DEFAULT_PANEL) -> None:
-    """Write each gene's reliability and merged profile for one panel pass; draw."""
-    # the region table of the panel pass
-    table_name = ISH_PANELS[panel_name]["table"]
-    path = OUT / table_name
-    if not path.exists():
-        raise FileNotFoundError(
-            f"{path} not found -- run run_ish_regions.py with --panel {panel_name} first"
-        )
-    per, meta = load(path)
-    print(
-        f"{len(per)} genes, {sum(len(v) for v in per.values())} experiments, "
-        f"from {table_name}"
-    )
+def gene_tables(
+    per: dict[str, dict[str, dict[str, float]]],
+    meta: dict[tuple[str, str], tuple[str, str]],
+) -> tuple[list[dict], list[dict], dict[str, list[float]]]:
+    """Each gene's reliability, by pairing too, and its merged profile.
 
-    # each gene's reliability, by pairing too, and its merged profile
+    Returns the rows of gene_reliability.csv and of gene_region_table_merged.csv,
+    and {pairing: [rho, ...]}.
+    """
     rows, merged_rows = [], []
     rel_by_pairing = defaultdict(list)
     for gene, profiles in sorted(per.items()):
@@ -166,8 +159,11 @@ def main(panel_name: str = DEFAULT_PANEL) -> None:
                     n_experiments=n_exp[structure],
                 )
             )
+    return rows, merged_rows, rel_by_pairing
 
-    # the two tables
+
+def write_tables(rows: list[dict], merged_rows: list[dict]) -> None:
+    """Write gene_reliability.csv and gene_region_table_merged.csv."""
     p1 = OUT / "gene_reliability.csv"
     with open(p1, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
@@ -180,7 +176,14 @@ def main(panel_name: str = DEFAULT_PANEL) -> None:
         w.writerows(merged_rows)
     print(f"{len(rows)} genes -> {p1}\n{len(merged_rows):,} rows -> {p2}")
 
-    # the distribution, by pairing, and the genes the panel test turns on
+
+def print_reliability(
+    rows: list[dict], rel_by_pairing: dict[str, list[float]]
+) -> np.ndarray:
+    """Print the distribution, by pairing, and the genes the panel test turns on.
+
+    Returns the reliability of every gene measured more than once.
+    """
     have = [r for r in rows if r["reliability"] != ""]
     rel = np.array([float(r["reliability"]) for r in have])
     print(f"\n{len(have)} genes measured more than once")
@@ -200,35 +203,47 @@ def main(panel_name: str = DEFAULT_PANEL) -> None:
                 f"    {gene:8s} {r['n_experiments']} experiments ({r['planes']}), "
                 f"reliability {r['reliability'] or 'n/a'}"
             )
+    return rel
 
+
+def main(panel_name: str = DEFAULT_PANEL) -> None:
+    """Write each gene's reliability and merged profile for one panel pass; draw."""
+    # the region table of the panel pass
+    table_name = ISH_PANELS[panel_name]["table"]
+    path = OUT / table_name
+    if not path.exists():
+        raise FileNotFoundError(
+            f"{path} not found -- run run_ish_regions.py with --panel {panel_name} first"
+        )
+    per, meta = load(path)
+    print(
+        f"{len(per)} genes, {sum(len(v) for v in per.values())} experiments, "
+        f"from {table_name}"
+    )
+
+    # each gene's reliability, by pairing too, and its merged profile, as two tables
+    rows, merged_rows, rel_by_pairing = gene_tables(per, meta)
+    write_tables(rows, merged_rows)
+
+    # the distribution, by pairing, and the genes the panel test turns on
+    rel = print_reliability(rows, rel_by_pairing)
     figure(rows, rel, rel_by_pairing, per, meta)
 
 
-def figure(
-    rows: list[dict],
-    rel: np.ndarray,
-    rel_by_pairing: dict[str, list[float]],
-    per: dict,
-    meta: dict,
-) -> None:
-    """Draw the reliability, its dependence on expression, and the pairings.
-
-    Saved as ish_reliability.png.
-    """
-    fig, axes = plt.subplots(1, 3, figsize=(13.2, 4.0))
-
-    # left: the distribution of the reliability
-    axes[0].hist(rel, bins=40, color="0.7", edgecolor="0.35", linewidth=0.4)
-    axes[0].axvline(float(np.median(rel)), color=RED, lw=1.6)
-    axes[0].set_xlabel("Spearman between two experiments of the same gene", fontsize=8)
-    axes[0].set_ylabel("genes", fontsize=8)
-    axes[0].set_title(
+def panel_distribution(ax: plt.Axes, rel: np.ndarray) -> None:
+    """Draw the distribution of the reliability."""
+    ax.hist(rel, bins=40, color="0.7", edgecolor="0.35", linewidth=0.4)
+    ax.axvline(float(np.median(rel)), color=RED, lw=1.6)
+    ax.set_xlabel("Spearman between two experiments of the same gene", fontsize=8)
+    ax.set_ylabel("genes", fontsize=8)
+    ax.set_title(
         f"how reliable one Allen map is\nmedian {np.median(rel):+.2f}, n = {len(rel)}",
         fontsize=9,
     )
 
-    # middle: reliability against expression level
-    ax = axes[1]
+
+def panel_expression(ax: plt.Axes, rows: list[dict]) -> None:
+    """Draw the reliability against the expression level."""
     have = [r for r in rows if r["reliability"] != ""]
     x = np.log10([float(r["median_energy"]) + 1e-3 for r in have])
     y = [float(r["reliability"]) for r in have]
@@ -241,8 +256,9 @@ def figure(
         fontsize=9,
     )
 
-    # right: reliability by the pairing available
-    ax = axes[2]
+
+def panel_pairing(ax: plt.Axes, rel_by_pairing: dict[str, list[float]]) -> None:
+    """Draw the reliability by the pairing available; the jitter has its own generator."""
     rng = np.random.default_rng(0)
     keys = sorted(rel_by_pairing)
     for i, k in enumerate(keys):
@@ -262,6 +278,26 @@ def figure(
     ax.axhline(0, color="0.85", lw=0.7)
     ax.set_ylabel("reliability", fontsize=8)
     ax.set_title("which pairing was available", fontsize=9)
+
+
+def figure(
+    rows: list[dict],
+    rel: np.ndarray,
+    rel_by_pairing: dict[str, list[float]],
+    per: dict,
+    meta: dict,
+) -> None:
+    """Draw the reliability, its dependence on expression, and the pairings.
+
+    Saved as ish_reliability.png.
+    """
+    fig, axes = plt.subplots(1, 3, figsize=(13.2, 4.0))
+
+    # left: the distribution of the reliability; middle: reliability against
+    # expression level; right: reliability by the pairing available
+    panel_distribution(axes[0], rel)
+    panel_expression(axes[1], rows)
+    panel_pairing(axes[2], rel_by_pairing)
 
     for ax in axes:
         tidy(ax)

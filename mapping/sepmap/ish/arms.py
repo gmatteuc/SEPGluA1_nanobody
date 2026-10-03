@@ -149,22 +149,14 @@ def by_gene(rows: list[dict], field: str) -> dict[str, dict[str, float]]:
     return out
 
 
-def report(
-    rows: list[dict], category: dict[str, str]
-) -> tuple[dict[str, dict[str, float]], dict[str, dict[str, float]], list[str]]:
-    """Print both tests and the paired contrast; return the rho tables and machinery.
-
-    Returns ({gene: {arm: rho}}, {gene: {arm: partial rho}}, the machinery genes
-    sorted by their sepratio rho, highest first).
-    """
-    control = ISH["control_gene"]
-    plain, partial = by_gene(rows, "rho"), by_gene(rows, "rho_partial")
-    mach = sorted(
-        (g for g in plain if category[g] in MACHINERY),
-        key=lambda g: -plain[g]["sepratio"],
-    )
-
-    # test 1: Gria1 and the top machinery genes across the arms
+def print_test1(
+    plain: dict[str, dict[str, float]],
+    mach: list[str],
+    category: dict[str, str],
+    control: str,
+) -> None:
+    """Print test 1: the ordering across the arms, and the swing towards the surface."""
+    # Gria1 and the top machinery genes across the arms
     print("\nTEST 1 -- the ordering across arms")
     print(
         f"  {'':12s} {'sepauto':>9s} {'ratio':>9s} {'sepratio':>9s}   "
@@ -178,7 +170,7 @@ def report(
             f"{rhos['sepratio']:+9.3f}   {rhos['sepratio'] - rhos['sepauto']:+17.3f}"
         )
 
-    # test 1: the swing towards the surface fraction, Gria1 against the machinery
+    # the swing towards the surface fraction, Gria1 against the machinery
     swing = {g: plain[g]["sepratio"] - plain[g]["sepauto"] for g in plain}
     mach_swing = [swing[g] for g in plain if category[g] in MACHINERY]
     print(f"\n  {control} swing towards the surface fraction: {swing[control]:+.3f}")
@@ -193,7 +185,15 @@ def report(
         "or falls less"
     )
 
-    # test 2: what is left of the machinery genes with Gria1 partialled out
+
+def print_test2(
+    plain: dict[str, dict[str, float]],
+    partial: dict[str, dict[str, float]],
+    mach: list[str],
+    category: dict[str, str],
+    control: str,
+) -> None:
+    """Print test 2: what is left of the machinery genes, the control partialled out."""
     print(f"\nTEST 2 -- with {control} partialled out, what is left")
     print(f"  {'':12s} {'sepauto':>9s} {'ratio':>9s} {'sepratio':>9s}")
     for gene in mach[:8]:
@@ -213,7 +213,9 @@ def report(
             f"{sum(1 for v in vals if v > 0)} of {len(vals)} positive"
         )
 
-    # the paired contrast: same genes, same structures, two arms
+
+def print_paired(plain: dict[str, dict[str, float]], mach: list[str]) -> None:
+    """Print the paired contrast: same genes, same structures, two arms."""
     a = np.array([plain[g]["sepratio"] for g in mach])
     b = np.array([plain[g]["sepauto"] for g in mach])
     stat, p = wilcoxon(a, b)
@@ -221,21 +223,38 @@ def report(
         f"\n  machinery, sepratio vs sepauto, paired over {len(mach)} genes: "
         f"median difference {np.median(a - b):+.3f}, Wilcoxon p = {p:.4f}"
     )
+
+
+def report(
+    rows: list[dict], category: dict[str, str]
+) -> tuple[dict[str, dict[str, float]], dict[str, dict[str, float]], list[str]]:
+    """Print both tests and the paired contrast; return the rho tables and machinery.
+
+    Returns ({gene: {arm: rho}}, {gene: {arm: partial rho}}, the machinery genes
+    sorted by their sepratio rho, highest first).
+    """
+    control = ISH["control_gene"]
+    plain, partial = by_gene(rows, "rho"), by_gene(rows, "rho_partial")
+    mach = sorted(
+        (g for g in plain if category[g] in MACHINERY),
+        key=lambda g: -plain[g]["sepratio"],
+    )
+
+    # test 1, test 2, and the paired contrast
+    print_test1(plain, mach, category, control)
+    print_test2(plain, partial, mach, category, control)
+    print_paired(plain, mach)
     return plain, partial, mach
 
 
-def figure(
+def panel_across_arms(
+    ax: plt.Axes,
     plain: dict[str, dict[str, float]],
-    partial: dict[str, dict[str, float]],
     mach: list[str],
     category: dict[str, str],
+    control: str,
 ) -> None:
-    """Draw the two tests in three panels; saved as arms_vs_genes.png."""
-    control = ISH["control_gene"]
-    fig, axes = plt.subplots(1, 3, figsize=(13.2, 4.3))
-
-    # left: every gene's rho across the three arms, Gria1 and machinery picked out
-    ax = axes[0]
+    """Draw every gene's rho across the three arms, Gria1 and machinery picked out."""
     x = np.arange(len(ARMS))
     for gene in sorted(plain):
         if gene == control or category[gene] in MACHINERY:
@@ -276,14 +295,21 @@ def figure(
         fontsize=9,
     )
 
-    # middle: the swing, machinery against everything else
-    ax = axes[1]
+
+def panel_swing(
+    ax: plt.Axes,
+    plain: dict[str, dict[str, float]],
+    mach: list[str],
+    category: dict[str, str],
+    control: str,
+    rng: np.random.Generator,
+) -> None:
+    """Draw the swing towards the surface fraction, machinery against the rest."""
     swing = {g: plain[g]["sepratio"] - plain[g]["sepauto"] for g in plain}
     groups = [
         [swing[g] for g in plain if category[g] not in MACHINERY and g != control],
         [swing[g] for g in mach],
     ]
-    rng = np.random.default_rng(0)
     for i, (vals, colour) in enumerate(zip(groups, ("0.65", RED))):
         ax.scatter(
             np.full(len(vals), i) + rng.uniform(-0.12, 0.12, len(vals)),
@@ -314,8 +340,15 @@ def figure(
     ax.set_ylabel("rho(surface fraction) - rho(total receptor)", fontsize=8)
     ax.set_title("Test 1: the swing towards the surface fraction", fontsize=9)
 
-    # right: what survives partialling out Gria1
-    ax = axes[2]
+
+def panel_partial(
+    ax: plt.Axes,
+    partial: dict[str, dict[str, float]],
+    mach: list[str],
+    control: str,
+    rng: np.random.Generator,
+) -> None:
+    """Draw what of the machinery genes survives partialling out the control gene."""
     for i, arm in enumerate(ARMS):
         vals = [partial[g][arm] for g in mach if np.isfinite(partial[g][arm])]
         ax.scatter(
@@ -335,6 +368,24 @@ def figure(
     ax.set_xticklabels([LABEL[a] for a in ARMS], fontsize=7.5)
     ax.set_ylabel(f"partial rho with {control} removed", fontsize=8)
     ax.set_title(f"Test 2: machinery genes, {control} partialled out", fontsize=9)
+
+
+def figure(
+    plain: dict[str, dict[str, float]],
+    partial: dict[str, dict[str, float]],
+    mach: list[str],
+    category: dict[str, str],
+) -> None:
+    """Draw the two tests in three panels; saved as arms_vs_genes.png."""
+    control = ISH["control_gene"]
+    fig, axes = plt.subplots(1, 3, figsize=(13.2, 4.3))
+
+    # left: every gene's rho across the three arms; middle: the swing; right: what
+    # survives partialling out Gria1; one jitter generator for the last two
+    panel_across_arms(axes[0], plain, mach, category, control)
+    rng = np.random.default_rng(0)
+    panel_swing(axes[1], plain, mach, category, control, rng)
+    panel_partial(axes[2], partial, mach, control, rng)
 
     for ax in axes:
         tidy(ax)

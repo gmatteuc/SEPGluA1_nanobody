@@ -116,6 +116,76 @@ def sheet_tissue(mouse: str, ann: np.ndarray, z: np.lib.npyio.NpzFile) -> None:
     plt.close(fig)
 
 
+def draw_levels(
+    ax: plt.Axes,
+    arr: np.ndarray,
+    name: str,
+    bg: float,
+    off: np.ndarray,
+    tissue: np.ndarray,
+    mad: float,
+) -> None:
+    """Draw one raw channel, tissue against off tissue, with its background marked.
+
+    The auto channel also gets the mask threshold.
+    """
+    ax.hist(
+        arr[off][::17] + bg,
+        bins=200,
+        range=(0, 4 * bg),
+        color="#95a5a6",
+        label="off tissue",
+        density=True,
+    )
+    ax.hist(
+        arr[tissue][::37] + bg,
+        bins=200,
+        range=(0, 4 * bg),
+        color=RED,
+        alpha=0.6,
+        label="tissue",
+        density=True,
+    )
+    ax.axvline(bg, color="k", lw=1.2, label=f"background {bg:.0f}")
+    if name == "auto":
+        ax.axvline(
+            bg + 4 * mad,
+            color="#2980b9",
+            lw=1.2,
+            ls="--",
+            label=f"mask threshold {bg + 4 * mad:.0f}",
+        )
+    ax.set_xlabel(f"{name} channel, raw counts")
+    ax.set_ylabel("density")
+    ax.legend(fontsize=8)
+    ax.set_title(f"{name}: tissue vs off tissue", fontsize=10)
+
+
+def draw_cortex_scaling(
+    ax: plt.Axes,
+    sig: np.ndarray,
+    tissue: np.ndarray,
+    ann: np.ndarray,
+    z: np.lib.npyio.NpzFile,
+) -> None:
+    """Draw the isocortex after scaling by its mean, which should centre on 1."""
+    iso = tissue & np.isin(ann, ISO)
+    ax.hist(
+        (sig[iso] / float(z["cortex_mean"]))[::37],
+        bins=200,
+        range=(0, 3),
+        color=RED,
+        density=True,
+    )
+    ax.axvline(1, color="k", lw=1.2)
+    ax.set_xlabel("sig / isocortex mean")
+    ax.set_ylabel("density")
+    ax.set_title(
+        f"cortex after scaling (mean {float(z['cortex_mean']):.0f} counts -> 1.0)",
+        fontsize=10,
+    )
+
+
 def sheet_levels(mouse: str, ann: np.ndarray, z: np.lib.npyio.NpzFile) -> None:
     """Sheet 02: the intensity distributions the mask and the background rest on.
 
@@ -136,54 +206,10 @@ def sheet_levels(mouse: str, ann: np.ndarray, z: np.lib.npyio.NpzFile) -> None:
     # the raw auto and nano channels, tissue against off tissue
     fig, axes = plt.subplots(1, 3, figsize=(17, 4.6))
     for ax, (arr, name, bg) in zip(axes[:2], ((auto, "auto", bg_a), (sig, "nano", bg_n))):
-        ax.hist(
-            arr[off][::17] + bg,
-            bins=200,
-            range=(0, 4 * bg),
-            color="#95a5a6",
-            label="off tissue",
-            density=True,
-        )
-        ax.hist(
-            arr[tissue][::37] + bg,
-            bins=200,
-            range=(0, 4 * bg),
-            color=RED,
-            alpha=0.6,
-            label="tissue",
-            density=True,
-        )
-        ax.axvline(bg, color="k", lw=1.2, label=f"background {bg:.0f}")
-        if name == "auto":
-            ax.axvline(
-                bg + 4 * mad,
-                color="#2980b9",
-                lw=1.2,
-                ls="--",
-                label=f"mask threshold {bg + 4 * mad:.0f}",
-            )
-        ax.set_xlabel(f"{name} channel, raw counts")
-        ax.set_ylabel("density")
-        ax.legend(fontsize=8)
-        ax.set_title(f"{name}: tissue vs off tissue", fontsize=10)
+        draw_levels(ax, arr, name, bg, off, tissue, mad)
 
     # the isocortex after scaling by its mean, which should centre on 1
-    ax = axes[2]
-    iso = tissue & np.isin(ann, ISO)
-    ax.hist(
-        (sig[iso] / float(z["cortex_mean"]))[::37],
-        bins=200,
-        range=(0, 3),
-        color=RED,
-        density=True,
-    )
-    ax.axvline(1, color="k", lw=1.2)
-    ax.set_xlabel("sig / isocortex mean")
-    ax.set_ylabel("density")
-    ax.set_title(
-        f"cortex after scaling (mean {float(z['cortex_mean']):.0f} counts -> 1.0)",
-        fontsize=10,
-    )
+    draw_cortex_scaling(axes[2], sig, tissue, ann, z)
     fig.suptitle(
         f"{mouse}: what the background subtraction and the mask threshold "
         "actually separate",
@@ -440,6 +466,60 @@ def sheet_route_agreement() -> None:
     plt.close(fig)
 
 
+def old_mask_plane(mask_4d, idx: int, k: int, mine: np.ndarray) -> np.ndarray:
+    """Plane `k` of the run_normalise_groups mask of brain `idx`, at 20 um.
+
+    The fraction of tissue in each 2x2x2 block of the 10 um mask, (DV, ML) like the
+    per-mouse volumes.
+    """
+    old = np.zeros((mine.shape[1], mine.shape[2]), np.float32)
+    for j in range(mine.shape[2]):
+        q = (
+            sum(
+                (np.asarray(mask_4d[idx, 2 * j + dj, :, 2 * k + dk]) == 0).astype(
+                    np.float32
+                )
+                for dj in (0, 1)
+                for dk in (0, 1)
+            )
+            / 4
+        )
+        old[:, j] = q.reshape(mine.shape[1], 2).mean(axis=1)
+    return old
+
+
+def draw_mask_plane(
+    ax: plt.Axes,
+    mouse: str,
+    k: int,
+    sig: np.ndarray,
+    mine: np.ndarray,
+    old: np.ndarray,
+    ann: np.ndarray,
+) -> None:
+    """Draw plane `k`: this route's mask, the old one, the atlas brain, and the Dice."""
+    show(ax, sig[k], mine[k])
+
+    # both are (DV, ML) like the plane underneath, so neither is transposed
+    ax.contour(
+        (old > 0.5).astype(float),
+        levels=[0.5],
+        colors="#3498db",
+        linewidths=0.9,
+        linestyles="--",
+    )
+    ax.contour(
+        (ann[k] > 0).astype(float),
+        levels=[0.5],
+        colors="#cccccc",
+        linewidths=0.6,
+    )
+
+    # the Dice coefficient of the two masks on this plane
+    agree = 2 * (mine[k] & (old > 0.5)).sum() / max(mine[k].sum() + (old > 0.5).sum(), 1)
+    ax.set_title(f"{mouse}  plane {k}   Dice {agree:.3f}", fontsize=10)
+
+
 def sheet_mask_vs_p6bis() -> None:
     """Sheet 08: this route's mask against run_normalise_groups', on two brains.
 
@@ -474,44 +554,9 @@ def sheet_mask_vs_p6bis() -> None:
         with h5py.File(mask_file, "r") as f:
             mask_4d = f["recomputed_bkg_mask_4d"]
             for col, k in enumerate(planes):
-                old = np.zeros((mine.shape[1], mine.shape[2]), np.float32)
-                for j in range(mine.shape[2]):
-                    q = (
-                        sum(
-                            (
-                                np.asarray(mask_4d[idx, 2 * j + dj, :, 2 * k + dk]) == 0
-                            ).astype(np.float32)
-                            for dj in (0, 1)
-                            for dk in (0, 1)
-                        )
-                        / 4
-                    )
-                    old[:, j] = q.reshape(mine.shape[1], 2).mean(axis=1)
+                old = old_mask_plane(mask_4d, idx, k, mine)
                 ax = axes[row, col]
-                show(ax, sig[k], mine[k])
-
-                # both are (DV, ML) like the plane underneath, so neither is transposed
-                ax.contour(
-                    (old > 0.5).astype(float),
-                    levels=[0.5],
-                    colors="#3498db",
-                    linewidths=0.9,
-                    linestyles="--",
-                )
-                ax.contour(
-                    (ann[k] > 0).astype(float),
-                    levels=[0.5],
-                    colors="#cccccc",
-                    linewidths=0.6,
-                )
-
-                # the Dice coefficient of the two masks on this plane
-                agree = (
-                    2
-                    * (mine[k] & (old > 0.5)).sum()
-                    / max(mine[k].sum() + (old > 0.5).sum(), 1)
-                )
-                ax.set_title(f"{mouse}  plane {k}   Dice {agree:.3f}", fontsize=10)
+                draw_mask_plane(ax, mouse, k, sig, mine, old, ann)
     fig.suptitle(
         "red = v2 mask (auto channel), "
         "blue dashed = run_normalise_groups mask (nano channel), grey = atlas brain.\n"
@@ -523,13 +568,8 @@ def sheet_mask_vs_p6bis() -> None:
     plt.close(fig)
 
 
-def sheet_denominators() -> None:
-    """Sheet 09: the two reference channels side by side, and whether the answer moves.
-
-    Only the brains that carry a SEP channel; the right panel needs
-    run_region_plot's region_stats.csv and says so when it is missing.
-    """
-    # per brain: mouse, cohort, isocortex nano, auto and SEP
+def denominator_rows() -> list[tuple]:
+    """Per brain with a SEP channel: mouse, cohort, isocortex nano, auto and SEP."""
     rows = []
     for mouse in list(MICE):
         z = np.load(PER_MOUSE / (mouse + ".npz"))
@@ -546,17 +586,11 @@ def sheet_denominators() -> None:
                 float(z["sep"].astype(np.float32)[iso].mean()),
             )
         )
-    if not rows:
-        print("09 skipped: no brain carries a SEP channel yet", flush=True)
-        return
-    young = [r for r in rows if r[1].startswith("young")]
-    adult = [r for r in rows if not r[1].startswith("young")]
-    order = young + adult
+    return rows
 
-    fig, axes = plt.subplots(1, 3, figsize=(17, 4.8))
 
-    # what each denominator does with age, in the cortex, per brain
-    ax = axes[0]
+def panel_denominators(ax: plt.Axes, order: list[tuple], young: list[tuple]) -> None:
+    """Draw what each denominator does with age, in the cortex, per brain."""
     for i, r in enumerate(order):
         col = RED if r[1].startswith("young") else DARK_GREY
         ax.plot(i, r[3], "o", color=col, mfc="none", label="auto" if i == 0 else None)
@@ -569,8 +603,9 @@ def sheet_denominators() -> None:
     ax.set_title("the two denominators (open = auto, filled = SEP)", fontsize=10)
     ax.grid(lw=0.3, alpha=0.6)
 
-    # how much of the nano difference each one would absorb
-    ax = axes[1]
+
+def panel_nano_sep(ax: plt.Axes, young: list[tuple], adult: list[tuple]) -> None:
+    """Draw how much of the nano difference SEP would absorb, across brains."""
     for grp, col, lbl in ((young, RED, "young"), (adult, DARK_GREY, "adult")):
         ax.plot([r[2] for r in grp], [r[4] for r in grp], "o", color=col, label=lbl)
     ax.set_xlabel("isocortex mean, nano")
@@ -579,8 +614,9 @@ def sheet_denominators() -> None:
     ax.legend(fontsize=8)
     ax.grid(lw=0.3, alpha=0.6)
 
-    # the part that matters: does the young-adult difference survive the swap
-    ax = axes[2]
+
+def panel_swap(ax: plt.Axes) -> None:
+    """Draw whether the young-adult difference survives the swap of denominator."""
     stats = DATA / "comparisons_v2" / "young_vs_adult" / "region_stats.csv"
     pairs = {}
     if stats.exists():
@@ -615,6 +651,30 @@ def sheet_denominators() -> None:
     ax.set_xlabel("log2 difference, nano / auto")
     ax.set_ylabel("log2 difference, nano / SEP")
     ax.grid(lw=0.3, alpha=0.6)
+
+
+def sheet_denominators() -> None:
+    """Sheet 09: the two reference channels side by side, and whether the answer moves.
+
+    Only the brains that carry a SEP channel; the right panel needs
+    run_region_plot's region_stats.csv and says so when it is missing.
+    """
+    # per brain: mouse, cohort, isocortex nano, auto and SEP
+    rows = denominator_rows()
+    if not rows:
+        print("09 skipped: no brain carries a SEP channel yet", flush=True)
+        return
+    young = [r for r in rows if r[1].startswith("young")]
+    adult = [r for r in rows if not r[1].startswith("young")]
+    order = young + adult
+
+    fig, axes = plt.subplots(1, 3, figsize=(17, 4.8))
+
+    # what each denominator does with age; how much of the nano difference each
+    # one would absorb; and the part that matters, does the difference survive
+    panel_denominators(axes[0], order, young)
+    panel_nano_sep(axes[1], young, adult)
+    panel_swap(axes[2])
 
     fig.suptitle(
         "Choosing the reference channel: autofluorescence measures tissue, "

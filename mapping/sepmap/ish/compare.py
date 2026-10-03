@@ -142,17 +142,8 @@ def rank_of(sel: list[dict], gene: str) -> tuple[int | None, float]:
     return None, np.nan
 
 
-def report(rows: list[dict], old: dict[str, float], category: dict[str, str]) -> None:
-    """Print what the decision rests on, in the order it gets asked."""
-    # each reading's rows, highest rho first
-    per_reading = {
-        reading: sorted(
-            [r for r in rows if r["reading"] == reading], key=lambda r: -float(r["rho"])
-        )
-        for reading in READINGS
-    }
-
-    # the top of each ranking, and where Cacng8 and Gria1 sit
+def print_tops(per_reading: dict[str, list[dict]]) -> None:
+    """Print the top of each ranking, and where Cacng8 and Gria1 sit."""
     print("\ntop of each ranking, and where the two named genes sit")
     for reading, sel in per_reading.items():
         top = ", ".join(f"{r['symbol']} {float(r['rho']):+.2f}" for r in sel[:5])
@@ -162,7 +153,11 @@ def report(rows: list[dict], old: dict[str, float], category: dict[str, str]) ->
             if i:
                 print(f"  {'':9s}   {gene:8s} rank {i:3d}/{len(sel)}   rho {rho:+.3f}")
 
-    # the new ordering of the genes against the old one
+
+def print_old_against_new(
+    per_reading: dict[str, list[dict]], old: dict[str, float]
+) -> None:
+    """Print the new ordering of the genes against the old one."""
     if old:
         print("\ndoes the simple normalisation reproduce the old ranking?")
         for reading, sel in per_reading.items():
@@ -176,7 +171,17 @@ def report(rows: list[dict], old: dict[str, float], category: dict[str, str]) ->
                 f"{len(both)} genes in common"
             )
 
-    # the old route's claim, measured as it was stated: machinery genes top the list,
+
+def print_dissociation(
+    per_reading: dict[str, list[dict]],
+    old: dict[str, float],
+    category: dict[str, str],
+) -> None:
+    """Print the old route's claim, measured as it was stated, for each ranking.
+
+    Machinery genes top the list, Gria1 well down it: Gria1's gap to the best
+    machinery gene, and the count above it; the same line for the old ranking.
+    """
     # Gria1 well down it (Gria1's gap to the best machinery gene, the count above it)
     print("\nthe dissociation, stated the way it was stated of the old route")
     print(
@@ -216,6 +221,78 @@ def report(rows: list[dict], old: dict[str, float], category: dict[str, str]) ->
         )
 
 
+def report(rows: list[dict], old: dict[str, float], category: dict[str, str]) -> None:
+    """Print what the decision rests on, in the order it gets asked."""
+    # each reading's rows, highest rho first
+    per_reading = {
+        reading: sorted(
+            [r for r in rows if r["reading"] == reading], key=lambda r: -float(r["rho"])
+        )
+        for reading in READINGS
+    }
+
+    # the top of each ranking, the new ordering against the old one, and the
+    # dissociation as the old route stated it
+    print_tops(per_reading)
+    print_old_against_new(per_reading, old)
+    print_dissociation(per_reading, old, category)
+
+
+def draw_reading(
+    ax: plt.Axes,
+    reading: str,
+    rows: list[dict],
+    old: dict[str, float],
+    category: dict[str, str],
+    lim: list[float],
+) -> None:
+    """Draw one reading's panel: each gene's old rho against its new one."""
+    new = {r["symbol"]: float(r["rho"]) for r in rows if r["reading"] == reading}
+    both = sorted(set(old) & set(new))
+    x = np.array([old[g] for g in both])
+    y = np.array([new[g] for g in both])
+    mach = np.array([category.get(g, "") in MACHINERY for g in both])
+
+    # the axes, the diagonal, the other genes, then the machinery genes
+    ax.axhline(0, color="0.85", lw=0.6, zorder=0)
+    ax.axvline(0, color="0.85", lw=0.6, zorder=0)
+    ax.plot(lim, lim, color="0.75", lw=0.8, ls="--", zorder=1)
+    ax.scatter(
+        x[~mach],
+        y[~mach],
+        s=14,
+        facecolor="0.75",
+        edgecolor="0.45",
+        linewidth=0.4,
+        zorder=2,
+    )
+    ax.scatter(
+        x[mach],
+        y[mach],
+        s=20,
+        facecolor=RED,
+        edgecolor="0.2",
+        linewidth=0.4,
+        zorder=3,
+    )
+    for gene, dx, dy in (("Cacng8", -34, 7), ("Gria1", 6, -3)):
+        if gene in both:
+            ax.annotate(
+                gene,
+                (old[gene], new[gene]),
+                textcoords="offset points",
+                xytext=(dx, dy),
+                fontsize=7,
+            )
+
+    rho, _ = spearmanr(x, y)
+    ax.set_title(f"{reading}\nrho = {rho:+.3f}, n = {len(both)}", fontsize=9)
+    ax.set_xlabel("old route (affine + z-score)", fontsize=8)
+    ax.set_xlim(lim)
+    ax.set_ylim(lim)
+    tidy(ax)
+
+
 def figure(rows: list[dict], old: dict[str, float], category: dict[str, str]) -> None:
     """Draw each gene's old rho against its new one, a panel per reading.
 
@@ -238,50 +315,7 @@ def figure(rows: list[dict], old: dict[str, float], category: dict[str, str]) ->
     lim = [min(everything) - 0.06, max(everything) + 0.06]
 
     for ax, reading in zip(axes, readings):
-        new = {r["symbol"]: float(r["rho"]) for r in rows if r["reading"] == reading}
-        both = sorted(set(old) & set(new))
-        x = np.array([old[g] for g in both])
-        y = np.array([new[g] for g in both])
-        mach = np.array([category.get(g, "") in MACHINERY for g in both])
-
-        # the axes, the diagonal, the other genes, then the machinery genes
-        ax.axhline(0, color="0.85", lw=0.6, zorder=0)
-        ax.axvline(0, color="0.85", lw=0.6, zorder=0)
-        ax.plot(lim, lim, color="0.75", lw=0.8, ls="--", zorder=1)
-        ax.scatter(
-            x[~mach],
-            y[~mach],
-            s=14,
-            facecolor="0.75",
-            edgecolor="0.45",
-            linewidth=0.4,
-            zorder=2,
-        )
-        ax.scatter(
-            x[mach],
-            y[mach],
-            s=20,
-            facecolor=RED,
-            edgecolor="0.2",
-            linewidth=0.4,
-            zorder=3,
-        )
-        for gene, dx, dy in (("Cacng8", -34, 7), ("Gria1", 6, -3)):
-            if gene in both:
-                ax.annotate(
-                    gene,
-                    (old[gene], new[gene]),
-                    textcoords="offset points",
-                    xytext=(dx, dy),
-                    fontsize=7,
-                )
-
-        rho, _ = spearmanr(x, y)
-        ax.set_title(f"{reading}\nrho = {rho:+.3f}, n = {len(both)}", fontsize=9)
-        ax.set_xlabel("old route (affine + z-score)", fontsize=8)
-        ax.set_xlim(lim)
-        ax.set_ylim(lim)
-        tidy(ax)
+        draw_reading(ax, reading, rows, old, category, lim)
     axes[0].set_ylabel("v2 route, one reading", fontsize=8)
 
     fig.suptitle(

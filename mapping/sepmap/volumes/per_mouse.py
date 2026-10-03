@@ -206,6 +206,99 @@ def block2(a: np.ndarray) -> np.ndarray:
     return a.reshape(a.shape[0] // 2, 2, a.shape[1] // 2, 2).mean(axis=(1, 3))
 
 
+def block_means(
+    mouse: str, group: str, n_ap: int, n_dv: int, n_ml: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, np.ndarray]:
+    """The 2x2x2 block mean of nano, auto and SEP, at 20 um, from the registered tiffs.
+
+    Returns (sig, aut, sp, nz): nano, auto, SEP (None without a SEP channel) and the
+    fraction of the 8 fine voxels with nano non-zero. Read two ML pages at a time,
+    each 2x2 block-averaged.
+    """
+    nano, auto = Source(mouse, group, "nano"), Source(mouse, group, "auto")
+    sep = Source(mouse, group, "sep") if has_sep(mouse) else None
+    sig = np.zeros((n_ap, n_dv, n_ml), np.float32)
+    aut = np.zeros((n_ap, n_dv, n_ml), np.float32)
+    sp = np.zeros((n_ap, n_dv, n_ml), np.float32) if sep is not None else None
+
+    # fraction of the 8 fine voxels with nano != 0
+    nz = np.zeros((n_ap, n_dv, n_ml), np.float32)
+
+    # 2x2x2 block mean: two ML pages at a time, each 2x2 block-averaged
+    for j in range(n_ml):
+        s = a = z = g = None
+        for i in (2 * j, 2 * j + 1):
+            v = nano.page(i)
+            u = auto.page(i)
+            s = block2(v) if s is None else s + block2(v)
+            a = block2(u) if a is None else a + block2(u)
+            if z is None:
+                z = block2((v != 0).astype(np.float32))
+            else:
+                z = z + block2((v != 0).astype(np.float32))
+            if sep is not None:
+                w = sep.page(i)
+                g = block2(w) if g is None else g + block2(w)
+        sig[:, :, j] = s / 2
+        aut[:, :, j] = a / 2
+        nz[:, :, j] = z / 2
+        if sep is not None:
+            sp[:, :, j] = g / 2
+    return sig, aut, sp, nz
+
+
+def reached_planes(nz: np.ndarray, brain: np.ndarray, n_ap: int) -> np.ndarray:
+    """Planes a section reached: nano non-zero on more than half the atlas brain."""
+    min_reached = TISSUE["min_reached"]
+    reached = np.array(
+        [
+            (nz[k][brain[k]] > 0).mean() > min_reached if brain[k].any() else False
+            for k in range(n_ap)
+        ]
+    )
+    return reached
+
+
+def backgrounds(
+    sig: np.ndarray,
+    aut: np.ndarray,
+    nz: np.ndarray,
+    brain: np.ndarray,
+    reached: np.ndarray,
+) -> tuple[np.ndarray, float, float, float]:
+    """The off-tissue voxels, and the nano and auto backgrounds and auto MAD there.
+
+    Off tissue is off the atlas brain but imaged, in a plane a section reached;
+    1.4826 turns a median absolute deviation into an SD.
+    """
+    off = (~brain) & (nz > 0) & reached[:, None, None]
+    bg_n = float(np.median(sig[off]))
+    bg_a = float(np.median(aut[off]))
+    mad_a = float(np.median(np.abs(aut[off] - bg_a))) * 1.4826
+    return off, bg_n, bg_a, mad_a
+
+
+def write_mouse(
+    mouse: str,
+    sig: np.ndarray,
+    aut: np.ndarray,
+    tissue: np.ndarray,
+    reached: np.ndarray,
+    scalars: dict,
+    extra: dict,
+) -> None:
+    """Write <mouse>.npz: the volumes as float16, the mask and the scalars."""
+    np.savez_compressed(
+        OUT / (mouse + ".npz"),
+        sig=sig.astype(np.float16),
+        auto=aut.astype(np.float16),
+        tissue=tissue,
+        reached=reached,
+        **scalars,
+        **extra,
+    )
+
+
 def main(mice: list[str]) -> None:
     """Write the per-brain file of each of `mice`, with one printed line each."""
     iso = isocortex_ids()
@@ -217,55 +310,15 @@ def main(mice: list[str]) -> None:
         if atlas_key not in anns:
             anns[atlas_key] = annotation_20(atlas_key)
 
-        # the atlas brain, (AP, DV, ML) at 20 um
+        # the atlas brain, (AP, DV, ML) at 20 um, and the block-averaged channels
         ann = anns[atlas_key]
         brain = ann > 0
-        nano, auto = Source(mouse, group, "nano"), Source(mouse, group, "auto")
-        sep = Source(mouse, group, "sep") if has_sep(mouse) else None
         n_ap, n_dv, n_ml = ann.shape
-        sig = np.zeros((n_ap, n_dv, n_ml), np.float32)
-        aut = np.zeros((n_ap, n_dv, n_ml), np.float32)
-        sp = np.zeros((n_ap, n_dv, n_ml), np.float32) if sep is not None else None
+        sig, aut, sp, nz = block_means(mouse, group, n_ap, n_dv, n_ml)
 
-        # fraction of the 8 fine voxels with nano != 0
-        nz = np.zeros((n_ap, n_dv, n_ml), np.float32)
-
-        # 2x2x2 block mean: two ML pages at a time, each 2x2 block-averaged
-        for j in range(n_ml):
-            s = a = z = g = None
-            for i in (2 * j, 2 * j + 1):
-                v = nano.page(i)
-                u = auto.page(i)
-                s = block2(v) if s is None else s + block2(v)
-                a = block2(u) if a is None else a + block2(u)
-                if z is None:
-                    z = block2((v != 0).astype(np.float32))
-                else:
-                    z = z + block2((v != 0).astype(np.float32))
-                if sep is not None:
-                    w = sep.page(i)
-                    g = block2(w) if g is None else g + block2(w)
-            sig[:, :, j] = s / 2
-            aut[:, :, j] = a / 2
-            nz[:, :, j] = z / 2
-            if sep is not None:
-                sp[:, :, j] = g / 2
-
-        # planes a section reached: nano non-zero on more than half the atlas brain
-        min_reached = TISSUE["min_reached"]
-        reached = np.array(
-            [
-                (nz[k][brain[k]] > 0).mean() > min_reached if brain[k].any() else False
-                for k in range(n_ap)
-            ]
-        )
-
-        # backgrounds from voxels off the atlas brain but imaged; 1.4826 turns a
-        # median absolute deviation into an SD
-        off = (~brain) & (nz > 0) & reached[:, None, None]
-        bg_n = float(np.median(sig[off]))
-        bg_a = float(np.median(aut[off]))
-        mad_a = float(np.median(np.abs(aut[off] - bg_a))) * 1.4826
+        # the planes a section reached, and the backgrounds off tissue
+        reached = reached_planes(nz, brain, n_ap)
+        off, bg_n, bg_a, mad_a = backgrounds(sig, aut, nz, brain, reached)
 
         # the tissue mask, on the autofluorescence even with SEP, so that swapping the
         # reference changes only the divisor; without 'reached', which guards only the
@@ -281,7 +334,7 @@ def main(mice: list[str]) -> None:
         cortex_mean = float(sig[cortex].mean())
         lo, hi = atlas_grid(atlas_key)[1]
         extra = {}
-        if sep is not None:
+        if sp is not None:
             bg_s = float(np.median(sp[off]))
             sp -= bg_s
             extra = dict(sep=sp.astype(np.float16), bg_sep=bg_s)
@@ -289,12 +342,7 @@ def main(mice: list[str]) -> None:
             sep_text = f"bg sep {extra['bg_sep']:5.0f}  "
         else:
             sep_text = "no sep       "
-        np.savez_compressed(
-            OUT / (mouse + ".npz"),
-            sig=sig.astype(np.float16),
-            auto=aut.astype(np.float16),
-            tissue=tissue,
-            reached=reached,
+        scalars = dict(
             bg_nano=bg_n,
             bg_auto=bg_a,
             mad_auto=mad_a,
@@ -302,8 +350,8 @@ def main(mice: list[str]) -> None:
             cohort=cohort,
             atlas=atlas_key,
             aplims=(lo, hi),
-            **extra,
         )
+        write_mouse(mouse, sig, aut, tissue, reached, scalars, extra)
         print(
             f"{mouse:20s} {cohort:10s} bg nano {bg_n:6.0f}  "
             f"bg auto {bg_a:5.0f} (mad {mad_a:4.0f})  "

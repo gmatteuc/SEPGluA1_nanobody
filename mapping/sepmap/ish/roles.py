@@ -298,27 +298,8 @@ def sensitivity(
     print(f"   observed {observed:+.4f} against {len(stats):,} splits, p = {p:.4f}")
 
 
-def main() -> None:
-    """Run the three steps and the sensitivity run on the map, write, print and draw."""
-    # the map, the gene profiles and each gene's role
-    nano = adult_profile(ISH["reading"])
-    expr, category = gene_profiles()
-    roles = {g: role_of(g, category) for g in expr}
-
-    # every test uses the same structures: those the map and all 19 family
-    # genes have in common, so nothing moves between comparisons
-    family = sorted(g for g in expr if roles[g] in FAMILY)
-    structures = sorted(set(nano).intersection(*[set(expr[g]) for g in family]))
-    print(
-        f"{len(expr)} genes, {len(family)} in the AMPAR family, "
-        f"{len(structures)} shared structures, reading {ISH['reading']}"
-    )
-    sub = sorted(g for g in family if roles[g] == "subunit")
-    loc = sorted(g for g in family if roles[g] == "localisation")
-    print(f"  subunit      ({len(sub):2d})  {', '.join(sub)}")
-    print(f"  localisation ({len(loc):2d})  {', '.join(loc)}")
-
-    # rho by role (step 1), every gene against every reading
+def rho_by_role(expr: dict[str, dict[str, float]], roles: dict[str, str]) -> list[dict]:
+    """Step 1, every gene against every reading: a row per reading and gene."""
     rows = []
     for reading in ALL_READINGS:
         prof = adult_profile(reading)
@@ -336,6 +317,16 @@ def main() -> None:
                     rho=float(rho),
                 )
             )
+    return rows
+
+
+def write_tables(
+    rows: list[dict],
+    expr: dict[str, dict[str, float]],
+    roles: dict[str, str],
+    category: dict[str, str],
+) -> None:
+    """Write role_summary.csv, and gene_roles.csv, the curated roles to argue with."""
     path = OUT / "role_summary.csv"
     with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
@@ -353,7 +344,9 @@ def main() -> None:
         for g in sorted(expr):
             w.writerow([g, roles[g], category.get(g, "")])
 
-    # step 1 printed for the reading of the tests
+
+def print_by_role(rows: list[dict]) -> dict[str, list[float]]:
+    """Print step 1 for the reading of the tests; returns {role: [rho, ...]}."""
     here = [r for r in rows if r["reading"] == ISH["reading"]]
     by_role = defaultdict(list)
     for r in here:
@@ -366,8 +359,21 @@ def main() -> None:
                 f"  {role:15s} n={len(v):3d}   median {np.median(v):+.3f}   "
                 f"[{np.percentile(v, 25):+.3f} {np.percentile(v, 75):+.3f}]"
             )
+    return by_role
 
-    # the commonality of the two composites (step 2)
+
+def commonality_step(
+    nano: dict[str, float],
+    structures: list[str],
+    sub: list[str],
+    loc: list[str],
+    expr: dict[str, dict[str, float]],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict[str, float]]:
+    """Step 2, the commonality of the two composites, printed.
+
+    Returns the ranked map, the subunit and the localisation composite, and the
+    commonality.
+    """
     y = rankdata([nano[s] for s in structures])
     s_comp = composite(sub, expr, structures)
     m_comp = composite(loc, expr, structures)
@@ -386,8 +392,18 @@ def main() -> None:
         f"  composites correlate with each other at rho "
         f"{spearmanr(s_comp, m_comp).statistic:+.3f}"
     )
+    return y, s_comp, m_comp, c
 
-    # the within-family permutation (step 3)
+
+def permutation_step(
+    y: np.ndarray,
+    expr: dict[str, dict[str, float]],
+    structures: list[str],
+    family: list[str],
+    sub: list[str],
+    c: dict[str, float],
+) -> tuple[float, np.ndarray, float]:
+    """Step 3, the within-family permutation, printed: (observed, null, p)."""
     observed = c["unique_localisation"] - c["unique_subunit"]
     stats, p = permutation(y, expr, structures, family, len(sub), observed)
     print(
@@ -399,8 +415,11 @@ def main() -> None:
         f"p95 {np.percentile(stats, 95):+.4f}"
     )
     print(f"  p = {p:.4f}  (fraction of splits reaching the functional one)")
+    return observed, stats, p
 
-    # the specificity control
+
+def print_specificity(by_role: dict[str, list[float]]) -> None:
+    """Print the specificity control, the presynaptic vesicle machinery."""
     pre = by_role.get("presyn", [])
     print(
         f"\n  specificity control -- presynaptic vesicle machinery: "
@@ -408,29 +427,11 @@ def main() -> None:
         f"against localisation {np.median(by_role['localisation']):+.3f}"
     )
 
-    # the sensitivity run (step 4) and the figure
-    sensitivity(y, expr, structures, family, roles)
-    figure(by_role, c, stats, observed, p, s_comp, m_comp, y)
 
-
-def figure(
-    by_role: dict[str, list[float]],
-    c: dict[str, float],
-    stats: np.ndarray,
-    observed: float,
-    p: float,
-    s_comp: np.ndarray,
-    m_comp: np.ndarray,
-    y: np.ndarray,
+def panel_by_role(
+    ax: plt.Axes, by_role: dict[str, list[float]], rng: np.random.Generator
 ) -> None:
-    """Draw steps 1 to 3 for the reading of the tests; saved as ish_roles.png."""
-    fig, axes = plt.subplots(
-        1, 3, figsize=(15.5, 5.2), gridspec_kw=dict(width_ratios=[1.7, 0.8, 1.0])
-    )
-    rng = np.random.default_rng(0)
-
-    # left: rho by role, subunit genes in blue, localisation genes in red
-    ax = axes[0]
+    """Draw rho by role, subunit genes in blue, localisation genes in red."""
     roles = [r for r in ORDER if by_role.get(r)]
     for i, role in enumerate(roles):
         v = by_role[role]
@@ -460,8 +461,11 @@ def figure(
         fontsize=9,
     )
 
-    # middle: the commonality
-    ax = axes[1]
+
+def panel_commonality(
+    ax: plt.Axes, c: dict[str, float], s_comp: np.ndarray, m_comp: np.ndarray
+) -> None:
+    """Draw the commonality: unique to each composite, and shared."""
     parts = [c["unique_subunit"], c["shared"], c["unique_localisation"]]
     ax.bar(
         range(3),
@@ -483,8 +487,11 @@ def figure(
         fontsize=9,
     )
 
-    # right: the splits of the family, and the split by function
-    ax = axes[2]
+
+def panel_family_splits(
+    ax: plt.Axes, stats: np.ndarray, observed: float, p: float
+) -> None:
+    """Draw the splits of the family, and the split by function."""
     ax.hist(stats, bins=60, color="0.72", edgecolor="0.35", linewidth=0.3)
     ax.axvline(observed, color=RED, lw=2)
     ax.annotate(
@@ -500,6 +507,28 @@ def figure(
     ax.set_xlabel("unique(localisation) - unique(subunit)", fontsize=8)
     ax.set_ylabel(f"splits of the same {len(stats):,}", fontsize=8)
     ax.set_title(f"3. every 4-of-19 split of the family\np = {p:.4f}", fontsize=9)
+
+
+def figure(
+    by_role: dict[str, list[float]],
+    c: dict[str, float],
+    stats: np.ndarray,
+    observed: float,
+    p: float,
+    s_comp: np.ndarray,
+    m_comp: np.ndarray,
+    y: np.ndarray,
+) -> None:
+    """Draw steps 1 to 3 for the reading of the tests; saved as ish_roles.png."""
+    fig, axes = plt.subplots(
+        1, 3, figsize=(15.5, 5.2), gridspec_kw=dict(width_ratios=[1.7, 0.8, 1.0])
+    )
+    rng = np.random.default_rng(0)
+
+    # left: rho by role; middle: the commonality; right: the splits of the family
+    panel_by_role(axes[0], by_role, rng)
+    panel_commonality(axes[1], c, s_comp, m_comp)
+    panel_family_splits(axes[2], stats, observed, p)
 
     for ax in axes:
         tidy(ax)
@@ -517,3 +546,39 @@ def figure(
     fig.savefig(path, dpi=200)
     plt.close(fig)
     print(f"\n{path}")
+
+
+def main() -> None:
+    """Run the three steps and the sensitivity run on the map, write, print and draw."""
+    # the map, the gene profiles and each gene's role
+    nano = adult_profile(ISH["reading"])
+    expr, category = gene_profiles()
+    roles = {g: role_of(g, category) for g in expr}
+
+    # every test uses the same structures: those the map and all 19 family
+    # genes have in common, so nothing moves between comparisons
+    family = sorted(g for g in expr if roles[g] in FAMILY)
+    structures = sorted(set(nano).intersection(*[set(expr[g]) for g in family]))
+    print(
+        f"{len(expr)} genes, {len(family)} in the AMPAR family, "
+        f"{len(structures)} shared structures, reading {ISH['reading']}"
+    )
+    sub = sorted(g for g in family if roles[g] == "subunit")
+    loc = sorted(g for g in family if roles[g] == "localisation")
+    print(f"  subunit      ({len(sub):2d})  {', '.join(sub)}")
+    print(f"  localisation ({len(loc):2d})  {', '.join(loc)}")
+
+    # rho by role (step 1), every gene against every reading, and the tables
+    rows = rho_by_role(expr, roles)
+    write_tables(rows, expr, roles, category)
+
+    # step 1 printed, then the commonality (step 2), the within-family
+    # permutation (step 3) and the specificity control
+    by_role = print_by_role(rows)
+    y, s_comp, m_comp, c = commonality_step(nano, structures, sub, loc, expr)
+    observed, stats, p = permutation_step(y, expr, structures, family, sub, c)
+    print_specificity(by_role)
+
+    # the sensitivity run (step 4) and the figure
+    sensitivity(y, expr, structures, family, roles)
+    figure(by_role, c, stats, observed, p, s_comp, m_comp, y)

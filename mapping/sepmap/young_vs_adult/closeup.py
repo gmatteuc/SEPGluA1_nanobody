@@ -200,6 +200,55 @@ def annotation_half() -> np.ndarray:
     return ann[:, :, : ann.shape[2] // 2]
 
 
+def structure_acronyms() -> dict[int, str]:
+    """Structure acronyms by parcellation index, read from CSV_MAP.
+
+    The package reads them through volumes.per_mouse, which this module cannot
+    import in the flatmap environment.
+    """
+    acro = {}
+    with open(CSV_MAP, newline="", encoding="utf-8") as fh:
+        for row in csv.DictReader(fh):
+            if row["parcellation_term_set_name"] == "structure":
+                acro[int(row["parcellation_index"])] = row["parcellation_term_acronym"]
+    return acro
+
+
+def write_detail_video(
+    reading: str,
+    fig: plt.Figure,
+    axes: list[plt.Axes],
+    caxes: list[plt.Axes],
+    both: np.ndarray,
+    ann_h: np.ndarray,
+    acro: dict[int, str],
+    panels_at,
+    header_at,
+    out_dir: Path,
+) -> None:
+    """Redraw the still's figure plane by plane into detail_video_<reading>.mp4.
+
+    `panels_at` and `header_at` give the panels and the header of a plane; the
+    video runs over the planes with more than 200 compared voxels.
+    """
+    t0 = time.time()
+    frames = [i for i in range(ann_h.shape[0]) if both[i].sum() > 200]
+    out = out_dir / f"detail_video_{reading}.mp4"
+    writer = imageio_ffmpeg.write_frames(
+        out, (1920, 760), fps=VIDEOS["fps"], quality=7, macro_block_size=8
+    )
+    writer.send(None)
+    for i in frames:
+        coronal_frame(fig, axes, caxes, i, panels_at(i), ann_h, acro, header_at(i))
+        fig.canvas.draw()
+        writer.send(np.ascontiguousarray(np.asarray(fig.canvas.buffer_rgba())[:, :, :3]))
+    writer.close()
+    print(
+        f"  wrote {out.name}, {len(frames)} frames, {time.time() - t0:.0f} s",
+        flush=True,
+    )
+
+
 def coronal(
     reading: str,
     vals: dict[str, tuple[np.ndarray, np.ndarray]],
@@ -221,11 +270,7 @@ def coronal(
     each cohort. The video runs over the planes with more than 200 compared voxels.
     """
     ann_h = annotation_half()
-    acro = {}
-    with open(CSV_MAP, newline="", encoding="utf-8") as fh:
-        for row in csv.DictReader(fh):
-            if row["parcellation_term_set_name"] == "structure":
-                acro[int(row["parcellation_index"])] = row["parcellation_term_acronym"]
+    acro = structure_acronyms()
     cmap_mean, rdbu = cmaps
 
     # one 1920 x 760 figure, three panels with their colour bars
@@ -273,23 +318,8 @@ def coronal(
 
     # the video, redrawing the same figure plane by plane
     if want_video:
-        t0 = time.time()
-        frames = [i for i in range(ann_h.shape[0]) if both[i].sum() > 200]
-        out = out_dir / f"detail_video_{reading}.mp4"
-        writer = imageio_ffmpeg.write_frames(
-            out, (1920, 760), fps=VIDEOS["fps"], quality=7, macro_block_size=8
-        )
-        writer.send(None)
-        for i in frames:
-            coronal_frame(fig, axes, caxes, i, panels_at(i), ann_h, acro, header_at(i))
-            fig.canvas.draw()
-            writer.send(
-                np.ascontiguousarray(np.asarray(fig.canvas.buffer_rgba())[:, :, :3])
-            )
-        writer.close()
-        print(
-            f"  wrote {out.name}, {len(frames)} frames, {time.time() - t0:.0f} s",
-            flush=True,
+        write_detail_video(
+            reading, fig, axes, caxes, both, ann_h, acro, panels_at, header_at, out_dir
         )
     plt.close(fig)
 
@@ -397,35 +427,13 @@ def draw_flat(
     return h
 
 
-def flatmaps(
-    reading: str,
-    vals: dict[str, tuple[np.ndarray, np.ndarray]],
-    signed: bool,
-    lim_mean: tuple[tuple[float, float], tuple[float, float]],
-    cmaps: tuple[Colormap, Colormap],
-    sigma_txt: str,
-    n: dict[str, int],
-    out_dir: Path,
-) -> None:
-    """Draw the flatmaps of `reading`: through the full depth, and by depth band.
-
-    Each cohort's folded volumes are mirrored back to both hemispheres at 10 um and
-    projected along the streamlines, value and mask apart, so that their ratio
-    averages over tissue only: summed through the full depth for the first figure,
-    and over the depth bins of each of BANDS for the second.
-    """
+def flatmap_borders() -> tuple[
+    dict[str, np.ndarray], dict[str, np.ndarray], dict[str, np.ndarray]
+]:
+    """Area borders of both hemispheres on the flatmap, and where each name goes."""
     # ccf_streamlines only for the flatmaps, so a run with --no-flatmap does without it
-    from ccf_streamlines.projection import (
-        BoundaryFinder,
-        Isocortex2dProjector,
-        Isocortex3dProjector,
-    )
+    from ccf_streamlines.projection import BoundaryFinder
 
-    cmap_mean, rdbu = cmaps
-    proj_file = str(ASSETS / "flatmap_butterfly.h5")
-    path_file = str(ASSETS / "surface_paths_10_v3.h5")
-
-    # area borders of both hemispheres, and where each name goes
     bf = BoundaryFinder(
         projected_atlas_file=str(ASSETS / "flatmap_butterfly.nrrd"),
         labels_file=str(ASSETS / "labelDescription_ITKSNAPColor.txt"),
@@ -440,8 +448,15 @@ def flatmaps(
         if len(v)
     }
     label_xy = {a: left[a].mean(axis=0) for a in LABEL_AREAS if a in left}
+    return left, right, label_xy
 
-    # projectors: onto the flat surface, and into a slab of depth bins by layer
+
+def flatmap_projectors():
+    """The projectors onto the flat surface, and into a slab of depth bins by layer."""
+    from ccf_streamlines.projection import Isocortex2dProjector, Isocortex3dProjector
+
+    proj_file = str(ASSETS / "flatmap_butterfly.h5")
+    path_file = str(ASSETS / "surface_paths_10_v3.h5")
     p2 = Isocortex2dProjector(
         proj_file,
         path_file,
@@ -457,15 +472,25 @@ def flatmaps(
         hemisphere="both",
         view_space_for_other_hemisphere="flatmap_butterfly",
     )
+    return p2, p3
 
-    def to_10um(half):
-        """Mirror a folded half back onto both hemispheres and repeat it to 10 um."""
-        full = np.concatenate([half, half[:, :, ::-1]], axis=2)
 
-        # each voxel repeated 2 x 2 x 2: the exact inverse of the block mean
-        return np.repeat(np.repeat(np.repeat(full, 2, 0), 2, 1), 2, 2)
+def to_10um(half: np.ndarray) -> np.ndarray:
+    """Mirror a folded half back onto both hemispheres and repeat it to 10 um."""
+    full = np.concatenate([half, half[:, :, ::-1]], axis=2)
 
-    # each cohort through the full depth, and its slab
+    # each voxel repeated 2 x 2 x 2: the exact inverse of the block mean
+    return np.repeat(np.repeat(np.repeat(full, 2, 0), 2, 1), 2, 2)
+
+
+def project_cohorts(
+    vals: dict[str, tuple[np.ndarray, np.ndarray]], p2, p3
+) -> tuple[dict[str, np.ndarray], dict[str, tuple[np.ndarray, np.ndarray]]]:
+    """Each cohort through the full depth, and its slab of depth bins.
+
+    Value and mask are projected apart, so that their ratio averages over tissue
+    only. Returns ({cohort: flatmap}, {cohort: (value slab, mask slab)}).
+    """
     flat, slab = {}, {}
     for cohort in (YOUNG, ADULT):
         v10, m10 = to_10um(vals[cohort][0]), to_10um(vals[cohort][1])
@@ -480,23 +505,39 @@ def flatmaps(
             p3.project_volume(m10).swapaxes(0, 1),
         )
         del v10, m10
-    edges = band_edges(p3, slab[YOUNG][0].shape[2])
+    return flat, slab
 
-    def diff_of(y, a):
-        """Young against adult: a difference if signed, else a floored log2 ratio."""
-        if signed:
-            return y - a
-        else:
-            floor = READINGS["log2_floor"]
-            return np.log2(np.maximum(y, floor) / np.maximum(a, floor))
 
-    # through the full depth: young, adult, difference
+def diff_of(y: np.ndarray, a: np.ndarray, signed: bool) -> np.ndarray:
+    """Young against adult: a difference if signed, else a floored log2 ratio."""
+    if signed:
+        return y - a
+    else:
+        floor = READINGS["log2_floor"]
+        return np.log2(np.maximum(y, floor) / np.maximum(a, floor))
+
+
+def draw_full_depth(
+    reading: str,
+    flat: dict[str, np.ndarray],
+    signed: bool,
+    lim_mean: tuple[tuple[float, float], tuple[float, float]],
+    cmaps: tuple[Colormap, Colormap],
+    sigma_txt: str,
+    n: dict[str, int],
+    borders: tuple[dict[str, np.ndarray], dict[str, np.ndarray]],
+    label_xy: dict[str, np.ndarray],
+    out_dir: Path,
+) -> None:
+    """Draw detail_flatmap_<reading>.png: young, adult, difference, full depth."""
+    cmap_mean, rdbu = cmaps
+    left, right = borders
     fig, axes = plt.subplots(1, 3, figsize=(19, 5.2), facecolor="k")
     panels = (
         (flat[YOUNG], cmap_mean, lim_mean[0], f"young (n = {n[YOUNG]})   {reading}"),
         (flat[ADULT], cmap_mean, lim_mean[0], f"adult (n = {n[ADULT]})   {reading}"),
         (
-            diff_of(flat[YOUNG], flat[ADULT]),
+            diff_of(flat[YOUNG], flat[ADULT], signed),
             rdbu,
             lim_mean[1],
             "young - adult" if signed else "log2( young / adult )",
@@ -520,7 +561,22 @@ def flatmaps(
     )
     plt.close(fig)
 
-    # by depth band, one row per band
+
+def draw_bands(
+    reading: str,
+    slab: dict[str, tuple[np.ndarray, np.ndarray]],
+    edges: dict[str, tuple[int, int]],
+    signed: bool,
+    lim_mean: tuple[tuple[float, float], tuple[float, float]],
+    cmaps: tuple[Colormap, Colormap],
+    sigma_txt: str,
+    borders: tuple[dict[str, np.ndarray], dict[str, np.ndarray]],
+    label_xy: dict[str, np.ndarray],
+    out_dir: Path,
+) -> None:
+    """Draw detail_flatmap_layers_<reading>.png: one row per depth band of BANDS."""
+    cmap_mean, rdbu = cmaps
+    left, right = borders
     fig, axes = plt.subplots(3, 3, figsize=(19, 13), facecolor="k")
     for row, (bname, keys) in enumerate(BANDS):
         lo, hi = edges[keys[0]][0], edges[keys[-1]][1]
@@ -534,7 +590,7 @@ def flatmaps(
             (band[YOUNG], cmap_mean, lim_mean[0], f"young   {bname}"),
             (band[ADULT], cmap_mean, lim_mean[0], f"adult   {bname}"),
             (
-                diff_of(band[YOUNG], band[ADULT]),
+                diff_of(band[YOUNG], band[ADULT], signed),
                 rdbu,
                 lim_mean[1],
                 f"young - adult   {bname}",
@@ -558,6 +614,58 @@ def flatmaps(
         facecolor="k",
     )
     plt.close(fig)
+
+
+def flatmaps(
+    reading: str,
+    vals: dict[str, tuple[np.ndarray, np.ndarray]],
+    signed: bool,
+    lim_mean: tuple[tuple[float, float], tuple[float, float]],
+    cmaps: tuple[Colormap, Colormap],
+    sigma_txt: str,
+    n: dict[str, int],
+    out_dir: Path,
+) -> None:
+    """Draw the flatmaps of `reading`: through the full depth, and by depth band.
+
+    Each cohort's folded volumes are mirrored back to both hemispheres at 10 um and
+    projected along the streamlines, value and mask apart, so that their ratio
+    averages over tissue only: summed through the full depth for the first figure,
+    and over the depth bins of each of BANDS for the second.
+    """
+    # area borders of both hemispheres and where each name goes; the projectors
+    left, right, label_xy = flatmap_borders()
+    p2, p3 = flatmap_projectors()
+
+    # each cohort through the full depth, and its slab
+    flat, slab = project_cohorts(vals, p2, p3)
+    edges = band_edges(p3, slab[YOUNG][0].shape[2])
+
+    # through the full depth, then by depth band
+    draw_full_depth(
+        reading,
+        flat,
+        signed,
+        lim_mean,
+        cmaps,
+        sigma_txt,
+        n,
+        (left, right),
+        label_xy,
+        out_dir,
+    )
+    draw_bands(
+        reading,
+        slab,
+        edges,
+        signed,
+        lim_mean,
+        cmaps,
+        sigma_txt,
+        (left, right),
+        label_xy,
+        out_dir,
+    )
     print(
         f"  wrote detail_flatmap_{reading}.png and detail_flatmap_layers_{reading}.png",
         flush=True,

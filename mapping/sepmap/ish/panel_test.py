@@ -155,30 +155,22 @@ def two_sample(
     return obs, p, null
 
 
-def main() -> None:
-    """Run the test, its sensitivity run and the positive control; write and draw."""
-    # the map, the merged gene profiles, each gene's reliability and level
-    nano = adult_profile(ISH["reading"])
-    expr, role = merged_profiles()
-    rel, level = reliability_and_level()
+def gene_rows(
+    loc: list[str],
+    ctrl: list[str],
+    common: list[str],
+    y: np.ndarray,
+    s_comp: np.ndarray,
+    expr: dict[str, dict[str, float]],
+    role: dict[str, str],
+    rel: dict[str, float],
+    level: dict[str, float],
+) -> list[dict]:
+    """Plain and partial rho of every localisation and control gene, a row each.
 
-    # the three sets of genes
-    subunit = sorted(g for g in expr if role[g] == "subunit")
-    loc = sorted(g for g in expr if role[g] == "localisation")
-    ctrl = sorted(g for g in expr if role[g] == "control_psd")
-    print(
-        f"{len(expr)} genes: {len(subunit)} subunit, {len(loc)} localisation, "
-        f"{len(ctrl)} control; reading {ISH['reading']}"
-    )
-    print(f"  subunits: {', '.join(subunit)}")
-
-    # one structure set for everything, so no comparison moves the ground
-    common = sorted(set(nano).intersection(*[set(expr[g]) for g in subunit]))
-    y = np.array([nano[s] for s in common])
-    s_comp = np.mean([rankdata([expr[g][s] for s in common]) for g in subunit], axis=0)
-    print(f"  {len(common)} structures shared by the map and all subunit genes")
-
-    # plain and partial rho of every localisation and control gene
+    A gene sharing fewer than ish_panel_test.min_structures structures with the map
+    and the subunit composite has no row.
+    """
     rows = []
     for gene in loc + ctrl:
         shared = [s for s in common if s in expr[gene]]
@@ -198,18 +190,11 @@ def main() -> None:
                 median_energy=level.get(gene, np.nan),
             )
         )
-    by = {r["symbol"]: r for r in rows}
-    loc = [g for g in loc if g in by]
-    ctrl = [g for g in ctrl if g in by]
-    print(f"  usable: {len(loc)} localisation, {len(ctrl)} control")
+    return rows
 
-    # each localisation gene's expression-matched control
-    pairs = greedy_match(loc, ctrl, level)
-    for r in rows:
-        r["matched_to"] = pairs.get(r["symbol"], "")
-    matched_ctrl = sorted(set(pairs.values()))
 
-    # the per-gene table
+def write_table(rows: list[dict]) -> None:
+    """Write panel_test.csv, the per-gene table, floats to four decimals."""
     path = OUT / "panel_test.csv"
     with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(
@@ -232,9 +217,19 @@ def main() -> None:
         )
     print(f"{len(rows)} genes -> {path}")
 
-    # the test against all controls and against the matched ones; this generator
-    # feeds every permutation test below, in this order
-    rng = np.random.default_rng(0)
+
+def localisation_tests(
+    loc: list[str],
+    ctrl: list[str],
+    matched_ctrl: list[str],
+    by: dict[str, dict],
+    rng: np.random.Generator,
+) -> dict[str, tuple]:
+    """The test against all controls and against the matched ones, then plain rho.
+
+    Returns {label: (a, b, difference, p, null)} of the two partial-rho tests;
+    `rng` is drawn from in the order the tests are printed.
+    """
     print("\nTEST -- partial rho given the subunit composite, localisation vs control")
     results = {}
     for label, cs in (("all controls", ctrl), ("expression-matched", matched_ctrl)):
@@ -262,8 +257,13 @@ def main() -> None:
         f"  {'before partialling':20s} localisation {np.median(a):+.3f}, "
         f"control {np.median(b):+.3f}, difference {obs:+.3f}, p = {p:.4f}"
     )
+    return results
 
-    # sensitivity: only genes whose map has been shown to be reproducible
+
+def sensitivity_test(
+    loc: list[str], matched_ctrl: list[str], by: dict[str, dict], rng: np.random.Generator
+) -> None:
+    """Print the matched test again on the genes whose map is reproducible."""
     min_rel = ISH_PANEL_TEST["min_reliability"]
     min_genes = ISH_PANEL_TEST["min_sensitivity_genes"]
     good_loc = [g for g in loc if by[g]["reliability"] >= min_rel]
@@ -278,9 +278,15 @@ def main() -> None:
             f"difference {obs2:+.3f}, p = {p2:.4f}"
         )
 
-    # positive control, the same test on a contrast that must exist: among the
-    # control genes, those with a reproducible map should correlate better with
-    # anything than the others; if not, the test detects nothing at all
+
+def positive_control(
+    ctrl: list[str], by: dict[str, dict], rng: np.random.Generator
+) -> None:
+    """Print the same test on a contrast that must exist.
+
+    Among the control genes, those with a reproducible map should correlate better
+    with anything than the others; if not, the test detects nothing at all.
+    """
     have = [g for g in ctrl if np.isfinite(by[g]["reliability"])]
     if len(have) >= ISH_PANEL_TEST["min_control_genes"]:
         cut = float(np.median([by[g]["reliability"] for g in have]))
@@ -296,7 +302,9 @@ def main() -> None:
             f"(n={len(lo)}), difference {obs_c:+.3f}, p = {p_c:.4f}"
         )
 
-    # the top localisation genes
+
+def print_top(loc: list[str], by: dict[str, dict]) -> None:
+    """Print the ten localisation genes with the highest partial rho."""
     print("\n  top localisation genes by partial rho:")
     for r in sorted((by[g] for g in loc), key=lambda r: -r["rho_partial"])[:10]:
         shown = "n/a" if np.isnan(r["reliability"]) else f"{r['reliability']:.2f}"
@@ -305,27 +313,65 @@ def main() -> None:
             f"plain {r['rho']:+.3f}  reliability {shown}"
         )
 
+
+def main() -> None:
+    """Run the test, its sensitivity run and the positive control; write and draw."""
+    # the map, the merged gene profiles, each gene's reliability and level
+    nano = adult_profile(ISH["reading"])
+    expr, role = merged_profiles()
+    rel, level = reliability_and_level()
+
+    # the three sets of genes
+    subunit = sorted(g for g in expr if role[g] == "subunit")
+    loc = sorted(g for g in expr if role[g] == "localisation")
+    ctrl = sorted(g for g in expr if role[g] == "control_psd")
+    print(
+        f"{len(expr)} genes: {len(subunit)} subunit, {len(loc)} localisation, "
+        f"{len(ctrl)} control; reading {ISH['reading']}"
+    )
+    print(f"  subunits: {', '.join(subunit)}")
+
+    # one structure set for everything, so no comparison moves the ground
+    common = sorted(set(nano).intersection(*[set(expr[g]) for g in subunit]))
+    y = np.array([nano[s] for s in common])
+    s_comp = np.mean([rankdata([expr[g][s] for s in common]) for g in subunit], axis=0)
+    print(f"  {len(common)} structures shared by the map and all subunit genes")
+
+    # plain and partial rho of every localisation and control gene
+    rows = gene_rows(loc, ctrl, common, y, s_comp, expr, role, rel, level)
+    by = {r["symbol"]: r for r in rows}
+    loc = [g for g in loc if g in by]
+    ctrl = [g for g in ctrl if g in by]
+    print(f"  usable: {len(loc)} localisation, {len(ctrl)} control")
+
+    # each localisation gene's expression-matched control, and the per-gene table
+    pairs = greedy_match(loc, ctrl, level)
+    for r in rows:
+        r["matched_to"] = pairs.get(r["symbol"], "")
+    matched_ctrl = sorted(set(pairs.values()))
+    write_table(rows)
+
+    # the tests; this generator feeds every permutation test, in this order: all
+    # controls, the matched ones, before partialling, sensitivity, positive control
+    rng = np.random.default_rng(0)
+    results = localisation_tests(loc, ctrl, matched_ctrl, by, rng)
+    sensitivity_test(loc, matched_ctrl, by, rng)
+    positive_control(ctrl, by, rng)
+
+    # the top localisation genes, and the figure
+    print_top(loc, by)
     figure(results, by, loc, matched_ctrl, ctrl, level)
 
 
-def figure(
-    results: dict[str, tuple],
-    by: dict[str, dict],
-    loc: list[str],
-    matched_ctrl: list[str],
-    ctrl: list[str],
-    level: dict[str, float],
+def panel_matched(
+    ax: plt.Axes,
+    a: np.ndarray,
+    b: np.ndarray,
+    obs: float,
+    p: float,
+    rng: np.random.Generator,
 ) -> None:
-    """Draw the matched test, the expression of each set and the null.
-
-    Saved as ish_panel_test.png; the jitter has a generator of its own.
-    """
-    fig, axes = plt.subplots(1, 3, figsize=(13.8, 4.3))
-    rng = np.random.default_rng(0)
-
-    # left: the matched controls against the localisation genes
-    a, b, obs, p, null = results["expression-matched"]
-    ax = axes[0]
+    """Draw the matched controls against the localisation genes, the test."""
     for i, (v, colour) in enumerate(((b, "0.65"), (a, RED))):
         ax.scatter(
             np.full(len(v), i) + rng.uniform(-0.14, 0.14, len(v)),
@@ -345,8 +391,16 @@ def figure(
     ax.set_ylabel("partial rho with the map, subunits removed", fontsize=8)
     ax.set_title(f"the test\ndifference {obs:+.3f}, p = {p:.4f}", fontsize=9)
 
-    # middle: the expression level of each set
-    ax = axes[1]
+
+def panel_expression(
+    ax: plt.Axes,
+    ctrl: list[str],
+    matched_ctrl: list[str],
+    loc: list[str],
+    level: dict[str, float],
+    rng: np.random.Generator,
+) -> None:
+    """Draw the expression level of each set: why matching was needed."""
     for i, (genes, colour, label) in enumerate(
         (
             (ctrl, "0.8", "all controls"),
@@ -372,13 +426,38 @@ def figure(
         "why matching was needed\na quiet gene correlates with nothing", fontsize=9
     )
 
-    # right: the permutation null and the observed difference
-    ax = axes[2]
+
+def panel_null(ax: plt.Axes, null: np.ndarray, obs: float, p: float) -> None:
+    """Draw the permutation null and the observed difference."""
     ax.hist(null, bins=60, color="0.72", edgecolor="0.35", linewidth=0.3)
     ax.axvline(obs, color=RED, lw=2)
     ax.set_xlabel("median(localisation) - median(control)", fontsize=8)
     ax.set_ylabel(f"label permutations ({len(null):,})", fontsize=8)
     ax.set_title(f"the null\np = {p:.4f}", fontsize=9)
+
+
+def figure(
+    results: dict[str, tuple],
+    by: dict[str, dict],
+    loc: list[str],
+    matched_ctrl: list[str],
+    ctrl: list[str],
+    level: dict[str, float],
+) -> None:
+    """Draw the matched test, the expression of each set and the null.
+
+    Saved as ish_panel_test.png; the jitter has a generator of its own.
+    """
+    fig, axes = plt.subplots(1, 3, figsize=(13.8, 4.3))
+    rng = np.random.default_rng(0)
+
+    # left: the matched controls against the localisation genes; middle: the
+    # expression level of each set; right: the permutation null and the observed
+    # difference
+    a, b, obs, p, null = results["expression-matched"]
+    panel_matched(axes[0], a, b, obs, p, rng)
+    panel_expression(axes[1], ctrl, matched_ctrl, loc, level, rng)
+    panel_null(axes[2], null, obs, p)
 
     for ax in axes:
         tidy(ax)

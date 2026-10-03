@@ -373,44 +373,8 @@ def save(fig: plt.Figure, name: str) -> None:
 # ===== Steps =====
 
 
-def step0_structures(
-    nano: dict[str, dict[str, float]],
-    division: dict[str, str],
-    expr: dict[str, dict[str, float]],
-) -> list[str]:
-    """Choose the structures, and show what the choice threw away."""
-    print("\nSTEP 0  which structures the analysis may use")
-    everywhere = set.intersection(*[set(nano[m]) for m in ADULTS])
-    everywhere &= set.intersection(*[set(expr[g]) for g in SUBUNITS + MARKERS])
-
-    # every structure measured everywhere, kept or dropped, with the reason
-    rows = []
-    for name in sorted(everywhere):
-        ok, why = keep_structure(name, division.get(name, ""))
-        rows.append(
-            dict(
-                structure=name,
-                division=division.get(name, ""),
-                kept="yes" if ok else "no",
-                reason=why,
-            )
-        )
-    with open(OUT / "structures_used.csv", "w", newline="", encoding="utf-8") as fh:
-        writer = csv.DictWriter(
-            fh, fieldnames=["structure", "division", "kept", "reason"]
-        )
-        writer.writeheader()
-        writer.writerows(rows)
-
-    kept = [r["structure"] for r in rows if r["kept"] == "yes"]
-    dropped = [r for r in rows if r["kept"] == "no"]
-    print(f"  {len(everywhere)} structures measured in every mouse and every covariate")
-    print(f"  {len(kept)} kept, {len(dropped)} dropped:")
-    for reason in sorted({r["reason"] for r in dropped}):
-        names = [r["structure"] for r in dropped if r["reason"] == reason]
-        print(f"    {len(names):3d}  {reason}")
-
-    # figure: the structures kept per division, and those dropped per reason
+def figure_structures(rows: list[dict], kept: list[str], dropped: list[dict]) -> None:
+    """Draw fig0: the structures kept per division, and those dropped per reason."""
     fig, axes = plt.subplots(
         1, 2, figsize=(11.0, 3.9), gridspec_kw=dict(width_ratios=[1, 1.25])
     )
@@ -455,6 +419,47 @@ def step0_structures(
     tidy(axes[1])
     fig.tight_layout()
     save(fig, "fig0_structures.png")
+
+
+def step0_structures(
+    nano: dict[str, dict[str, float]],
+    division: dict[str, str],
+    expr: dict[str, dict[str, float]],
+) -> list[str]:
+    """Choose the structures, and show what the choice threw away."""
+    print("\nSTEP 0  which structures the analysis may use")
+    everywhere = set.intersection(*[set(nano[m]) for m in ADULTS])
+    everywhere &= set.intersection(*[set(expr[g]) for g in SUBUNITS + MARKERS])
+
+    # every structure measured everywhere, kept or dropped, with the reason
+    rows = []
+    for name in sorted(everywhere):
+        ok, why = keep_structure(name, division.get(name, ""))
+        rows.append(
+            dict(
+                structure=name,
+                division=division.get(name, ""),
+                kept="yes" if ok else "no",
+                reason=why,
+            )
+        )
+    with open(OUT / "structures_used.csv", "w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(
+            fh, fieldnames=["structure", "division", "kept", "reason"]
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+
+    kept = [r["structure"] for r in rows if r["kept"] == "yes"]
+    dropped = [r for r in rows if r["kept"] == "no"]
+    print(f"  {len(everywhere)} structures measured in every mouse and every covariate")
+    print(f"  {len(kept)} kept, {len(dropped)} dropped:")
+    for reason in sorted({r["reason"] for r in dropped}):
+        names = [r["structure"] for r in dropped if r["reason"] == reason]
+        print(f"    {len(names):3d}  {reason}")
+
+    # figure: the structures kept per division, and those dropped per reason
+    figure_structures(rows, kept, dropped)
     return kept
 
 
@@ -492,6 +497,54 @@ def step1_ceiling(
     fig.tight_layout()
     save(fig, "fig1_ceiling.png")
     return full, splits, agreement
+
+
+def write_partition(
+    models: list[tuple[str, list[np.ndarray]]],
+    vals: list[float],
+    y: np.ndarray,
+    ceiling: float,
+) -> None:
+    """Write variance_partition.csv: each model's R2, held out and in-sample."""
+    with open(OUT / "variance_partition.csv", "w", newline="", encoding="utf-8") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(["model", "cv_r2", "in_sample_r2", "share_of_ceiling"])
+        for (label, xs), v in zip(models, vals):
+            writer.writerow(
+                [label, f"{v:.4f}", f"{r_squared(y, xs):.4f}", f"{v / ceiling**2:.4f}"]
+            )
+
+
+def figure_covariates(
+    models: list[tuple[str, list[np.ndarray]]], vals: list[float], ceiling: float
+) -> None:
+    """Draw fig2: each model's cross-validated R2 against the ceiling."""
+    fig, ax = plt.subplots(figsize=(7.6, 4.5))
+    ax.barh(np.arange(len(models)), vals, color="0.65", edgecolor="0.25", linewidth=0.5)
+    ax.axvline(ceiling**2, color=RED, lw=1.8)
+    ax.annotate(
+        f"ceiling {ceiling**2:.2f}\n(the map's own reliability)",
+        (ceiling**2, len(models) - 0.4),
+        color=RED,
+        fontsize=7.5,
+        ha="right",
+        va="top",
+        xytext=(-6, 0),
+        textcoords="offset points",
+    )
+    ax.set_yticks(np.arange(len(models)))
+    ax.set_yticklabels([m[0] for m in models], fontsize=8)
+    ax.set_xlim(0, 1.02)
+    ax.set_xlabel(
+        "variance explained on held-out structures (cross-validated R2)", fontsize=8
+    )
+    ax.set_title(
+        "Step 2. neither explanation fills the map,\neven when allowed to bend",
+        fontsize=9,
+    )
+    tidy(ax)
+    fig.tight_layout()
+    save(fig, "fig2_covariates.png")
 
 
 def step2_covariates(
@@ -551,40 +604,9 @@ def step2_covariates(
         f"explainable variance unaccounted for."
     )
 
-    with open(OUT / "variance_partition.csv", "w", newline="", encoding="utf-8") as fh:
-        writer = csv.writer(fh)
-        writer.writerow(["model", "cv_r2", "in_sample_r2", "share_of_ceiling"])
-        for (label, xs), v in zip(models, vals):
-            writer.writerow(
-                [label, f"{v:.4f}", f"{r_squared(y, xs):.4f}", f"{v / ceiling**2:.4f}"]
-            )
-
-    fig, ax = plt.subplots(figsize=(7.6, 4.5))
-    ax.barh(np.arange(len(models)), vals, color="0.65", edgecolor="0.25", linewidth=0.5)
-    ax.axvline(ceiling**2, color=RED, lw=1.8)
-    ax.annotate(
-        f"ceiling {ceiling**2:.2f}\n(the map's own reliability)",
-        (ceiling**2, len(models) - 0.4),
-        color=RED,
-        fontsize=7.5,
-        ha="right",
-        va="top",
-        xytext=(-6, 0),
-        textcoords="offset points",
-    )
-    ax.set_yticks(np.arange(len(models)))
-    ax.set_yticklabels([m[0] for m in models], fontsize=8)
-    ax.set_xlim(0, 1.02)
-    ax.set_xlabel(
-        "variance explained on held-out structures (cross-validated R2)", fontsize=8
-    )
-    ax.set_title(
-        "Step 2. neither explanation fills the map,\neven when allowed to bend",
-        fontsize=9,
-    )
-    tidy(ax)
-    fig.tight_layout()
-    save(fig, "fig2_covariates.png")
+    # the partition as a table, and drawn
+    write_partition(models, vals, y, ceiling)
+    figure_covariates(models, vals, ceiling)
     return covariates, y
 
 
@@ -619,22 +641,10 @@ def step3_residual(
     return agreement
 
 
-def step4_where(
-    nano: dict[str, dict[str, float]],
-    structures: list[str],
-    covariates: dict[str, np.ndarray],
-    expr: dict[str, dict[str, float]],
-    role: dict[str, str],
-    agreement: list[float],
-    raw_agreement: list[float],
+def write_residuals(
+    structures: list[str], y: np.ndarray, predicted: np.ndarray, res: np.ndarray
 ) -> None:
-    """Which structures carry the leftover, and whether any single gene is behind it."""
-    print("\nSTEP 4  where the leftover lives")
-    y = half_map(nano, range(len(ADULTS)), structures)
-    res = residual(y, flexible(list(covariates.values())))
-    predicted = y - res
-
-    # the residual per structure, largest first
+    """Write residual_by_structure.csv, the residual per structure, largest first."""
     with open(OUT / "residual_by_structure.csv", "w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
         writer.writerow(["structure", "nano_rank", "predicted_rank", "residual"])
@@ -643,15 +653,14 @@ def step4_where(
                 [structures[i], f"{y[i]:.1f}", f"{predicted[i]:.1f}", f"{res[i]:.2f}"]
             )
 
-    order = np.argsort(-res)
-    print("  more surface GluA1 than abundance and density predict:")
-    for i in order[:8]:
-        print(f"    {structures[i][:48]:50s} {res[i]:+6.1f} ranks")
-    print("  less:")
-    for i in order[-6:]:
-        print(f"    {structures[i][:48]:50s} {res[i]:+6.1f} ranks")
 
-    # the residual against every gene measured in all the structures
+def residual_against_genes(
+    res: np.ndarray,
+    expr: dict[str, dict[str, float]],
+    role: dict[str, str],
+    structures: list[str],
+) -> None:
+    """Print the five genes, of those measured everywhere, closest to the residual."""
     scored = []
     for gene in expr:
         if all(s in expr[gene] for s in structures):
@@ -663,7 +672,15 @@ def step4_where(
         print(f"    {gene:10s} rho {rho:+.3f}   ({role[gene]})")
     print("    no single gene in the panel accounts for it.")
 
-    # figure: the half-cohort agreement of the map and of the leftover, and the
+
+def figure_residual(
+    raw_agreement: list[float],
+    agreement: list[float],
+    order: np.ndarray,
+    res: np.ndarray,
+    structures: list[str],
+) -> None:
+    """Draw fig3: the half-cohort agreements, and the structures most off prediction."""
     # structures with the largest residuals
     fig, axes = plt.subplots(
         1, 2, figsize=(11.8, 4.5), gridspec_kw=dict(width_ratios=[1, 1.15])
@@ -719,6 +736,40 @@ def step4_where(
     tidy(axes[1])
     fig.tight_layout()
     save(fig, "fig3_residual.png")
+
+
+def step4_where(
+    nano: dict[str, dict[str, float]],
+    structures: list[str],
+    covariates: dict[str, np.ndarray],
+    expr: dict[str, dict[str, float]],
+    role: dict[str, str],
+    agreement: list[float],
+    raw_agreement: list[float],
+) -> None:
+    """Which structures carry the leftover, and whether any single gene is behind it."""
+    print("\nSTEP 4  where the leftover lives")
+    y = half_map(nano, range(len(ADULTS)), structures)
+    res = residual(y, flexible(list(covariates.values())))
+    predicted = y - res
+
+    # the residual per structure, largest first
+    write_residuals(structures, y, predicted, res)
+
+    order = np.argsort(-res)
+    print("  more surface GluA1 than abundance and density predict:")
+    for i in order[:8]:
+        print(f"    {structures[i][:48]:50s} {res[i]:+6.1f} ranks")
+    print("  less:")
+    for i in order[-6:]:
+        print(f"    {structures[i][:48]:50s} {res[i]:+6.1f} ranks")
+
+    # the residual against every gene measured in all the structures
+    residual_against_genes(res, expr, role, structures)
+
+    # figure: the half-cohort agreement of the map and of the leftover, and the
+    # structures with the largest residuals
+    figure_residual(raw_agreement, agreement, order, res, structures)
 
 
 def main() -> None:

@@ -23,11 +23,13 @@ Run by run_video.py.
 """
 
 import time
+from pathlib import Path
 
 import imageio_ffmpeg
 import matplotlib.pyplot as plt
 import nibabel as nib
 import numpy as np
+from matplotlib.colors import Colormap
 
 from sepmap.config import SETTINGS
 from sepmap.plotting import coronal_frame, hot_cut, transparent_bad
@@ -48,6 +50,107 @@ def annotation_ccf20() -> np.ndarray:
     ]
 
 
+def cohort_maps(
+    cohort: str, reading: str, n_h: np.ndarray
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Folded mean and SD, the voxels with enough brains, and t where there is an SD."""
+    mean = fold(np.load(CCF_ROOT / cohort / f"{reading}_mean.npy"))
+    sd = fold(np.load(CCF_ROOT / cohort / f"{reading}_sd.npy"))
+    ok = (n_h >= VIDEOS["min_n"][cohort]) & np.isfinite(mean)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        tval = np.where(ok & (sd > 0), mean / (sd / np.sqrt(np.maximum(n_h, 1))), np.nan)
+    return mean, sd, ok, tval
+
+
+def colour_limits(
+    reading: str, signed: bool, ok: np.ndarray, sd: np.ndarray, tval: np.ndarray
+) -> tuple[tuple[float, float], tuple[float, float]]:
+    """The limits of the mean, fixed per reading, and of the t panel.
+
+    The t panel runs to the videos.t_pct percentile of t, of |t| for a signed
+    reading.
+    """
+    t_vmax = float(
+        np.nanpercentile(
+            np.abs(tval[ok & (sd > 0)]) if signed else tval[ok & (sd > 0)],
+            VIDEOS["t_pct"],
+        )
+    )
+    if signed:
+        lim_mean = (-VIDEOS["mean_vmax"][reading], VIDEOS["mean_vmax"][reading])
+    else:
+        lim_mean = (0, VIDEOS["mean_vmax"][reading])
+    lim_t = (-t_vmax, t_vmax) if signed else (0, t_vmax)
+    return lim_mean, lim_t
+
+
+def video_figure() -> tuple[plt.Figure, list[plt.Axes], list[plt.Axes]]:
+    """One 1600 x 800 figure on black: the mean and the t panel, with colour bars."""
+    fig = plt.figure(figsize=(16, 8), dpi=100, facecolor="k")
+    axes = [
+        fig.add_axes([0.04, 0.06, 0.40, 0.82]),
+        fig.add_axes([0.53, 0.06, 0.40, 0.82]),
+    ]
+    caxes = [
+        fig.add_axes([0.445, 0.12, 0.012, 0.70]),
+        fig.add_axes([0.935, 0.12, 0.012, 0.70]),
+    ]
+    return fig, axes, caxes
+
+
+def write_video(
+    out: Path,
+    frames: list[int],
+    title: str,
+    mean: np.ndarray,
+    tval: np.ndarray,
+    ok: np.ndarray,
+    n_h: np.ndarray,
+    cmap_use: Colormap,
+    lims: tuple[tuple[float, float], tuple[float, float]],
+    ann_h: np.ndarray,
+    acro: dict[int, str],
+) -> None:
+    """Draw `frames` into one figure, plane by plane, and encode them into `out`."""
+    lim_mean, lim_t = lims
+    writer = imageio_ffmpeg.write_frames(
+        out, (1600, 800), fps=VIDEOS["fps"], quality=7, macro_block_size=8
+    )
+    writer.send(None)
+    fig, axes, caxes = video_figure()
+    for k in frames:
+        panels = (
+            (
+                np.where(ok[k], mean[k], np.nan),
+                cmap_use,
+                lim_mean,
+                f"{title} - mean (hemispheres averaged)",
+            ),
+            (
+                np.where(ok[k], tval[k], np.nan),
+                cmap_use,
+                lim_t,
+                f"{title} - reliability t = mean/SEM  "
+                f"(range = {VIDEOS['t_pct']:.0f}th pct)",
+            ),
+        )
+
+        # black outside the atlas, grey inside it where there is no data,
+        # colour where there is; the header gives the plane and the most
+        # brains behind any voxel of it
+        header = (
+            f"CCF plane {2 * k} / 10 um   "
+            f"n = {int(np.nanmax(np.where(ok[k], n_h[k], 0)))} "
+            "mice at this plane"
+        )
+        coronal_frame(fig, axes, caxes, k, panels, ann_h, acro, header)
+        fig.canvas.draw()
+        rgba = np.asarray(fig.canvas.buffer_rgba())
+        writer.send(np.ascontiguousarray(rgba[:, :, :3]))
+    writer.close()
+    plt.close(fig)
+
+
 def main(cohorts: list[str]) -> None:
     """Write the videos of each of `cohorts`, one per reading in force."""
     # acronyms by parcellation index
@@ -66,83 +169,23 @@ def main(cohorts: list[str]) -> None:
         for reading in MODES:
             t0 = time.time()
 
-            # folded mean and SD, and t where there are enough brains and an SD
-            mean = fold(np.load(CCF_ROOT / cohort / f"{reading}_mean.npy"))
-            sd = fold(np.load(CCF_ROOT / cohort / f"{reading}_sd.npy"))
+            # folded mean and SD, and t where there are enough brains and an SD; the
+            # colour limits, fixed for the mean
+            mean, sd, ok, tval = cohort_maps(cohort, reading, n_h)
             signed = reading in SIGNED_READINGS
-            ok = (n_h >= VIDEOS["min_n"][cohort]) & np.isfinite(mean)
-            with np.errstate(divide="ignore", invalid="ignore"):
-                tval = np.where(
-                    ok & (sd > 0), mean / (sd / np.sqrt(np.maximum(n_h, 1))), np.nan
-                )
-
-            # colour limits: fixed for the mean; for the t panel the videos.t_pct
-            # percentile of t, of |t| for a signed reading
-            t_vmax = float(
-                np.nanpercentile(
-                    np.abs(tval[ok & (sd > 0)]) if signed else tval[ok & (sd > 0)],
-                    VIDEOS["t_pct"],
-                )
-            )
+            lims = colour_limits(reading, signed, ok, sd, tval)
             cmap_use = puor if signed else hot
-            if signed:
-                lim_mean = (-VIDEOS["mean_vmax"][reading], VIDEOS["mean_vmax"][reading])
-            else:
-                lim_mean = (0, VIDEOS["mean_vmax"][reading])
-            lim_t = (-t_vmax, t_vmax) if signed else (0, t_vmax)
 
-            # a video of the planes with more than 200 voxels with data, drawn into
-            # one 1600 x 800 figure plane by plane
+            # a video of the planes with more than 200 voxels with data
             frames = [k for k in range(ann_h.shape[0]) if ok[k].sum() > 200]
             out = CCF_ROOT / cohort / f"video_{reading}_{cohort}.mp4"
-            writer = imageio_ffmpeg.write_frames(
-                out, (1600, 800), fps=VIDEOS["fps"], quality=7, macro_block_size=8
-            )
-            writer.send(None)
-            fig = plt.figure(figsize=(16, 8), dpi=100, facecolor="k")
-            axes = [
-                fig.add_axes([0.04, 0.06, 0.40, 0.82]),
-                fig.add_axes([0.53, 0.06, 0.40, 0.82]),
-            ]
-            caxes = [
-                fig.add_axes([0.445, 0.12, 0.012, 0.70]),
-                fig.add_axes([0.935, 0.12, 0.012, 0.70]),
-            ]
             title = (
                 f"{cohort.replace('_', ' ')} nano, v2 {reading} "
                 f"(n = {len(COHORTS[cohort])})"
             )
-            for k in frames:
-                panels = (
-                    (
-                        np.where(ok[k], mean[k], np.nan),
-                        cmap_use,
-                        lim_mean,
-                        f"{title} - mean (hemispheres averaged)",
-                    ),
-                    (
-                        np.where(ok[k], tval[k], np.nan),
-                        cmap_use,
-                        lim_t,
-                        f"{title} - reliability t = mean/SEM  "
-                        f"(range = {VIDEOS['t_pct']:.0f}th pct)",
-                    ),
-                )
-
-                # black outside the atlas, grey inside it where there is no data,
-                # colour where there is; the header gives the plane and the most
-                # brains behind any voxel of it
-                header = (
-                    f"CCF plane {2 * k} / 10 um   "
-                    f"n = {int(np.nanmax(np.where(ok[k], n_h[k], 0)))} "
-                    "mice at this plane"
-                )
-                coronal_frame(fig, axes, caxes, k, panels, ann_h, acro, header)
-                fig.canvas.draw()
-                rgba = np.asarray(fig.canvas.buffer_rgba())
-                writer.send(np.ascontiguousarray(rgba[:, :, :3]))
-            writer.close()
-            plt.close(fig)
+            write_video(
+                out, frames, title, mean, tval, ok, n_h, cmap_use, lims, ann_h, acro
+            )
             print(
                 f"{cohort:10s} {reading:6s} {len(frames)} frames -> {out}   "
                 f"{time.time() - t0:.0f} s",
