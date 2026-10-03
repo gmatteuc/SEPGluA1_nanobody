@@ -218,6 +218,9 @@ def print_dissociation(
         )
         gria1_rank, gria1_rho = rank_of(sel, "Gria1")
         mach = [r for r in sel if r["category"] in MACHINERY]
+        if not mach or gria1_rank is None:
+            print("  old       no machinery gene or no Gria1 in the old ranking")
+            return
         above = sum(1 for r in mach if float(r["rho"]) > gria1_rho)
         print(
             f"  {'old':9s} {mach[0]['symbol']:>12s} {float(mach[0]['rho']):+8.3f} "
