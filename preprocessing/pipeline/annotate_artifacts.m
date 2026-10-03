@@ -46,12 +46,9 @@ for mouse_idx = 1:numel(cohort)
     mouse_type = cohort(mouse_idx).group;
 
     % its correction folder, where run_residual_correction writes and
-    % run_register_to_atlas reads
+    % run_register_to_atlas reads (a mouse without it is skipped below)
     base_dir = fullfile(paths.data, mouse_type);
     output_dir = fullfile(base_dir, mouse_name, 'lightsuite', 'correction_output');
-    if ~exist(output_dir, 'dir')
-        mkdir(output_dir);
-    end
 
     % load what run_residual_correction saved: scaledautoVol, nanoVol, bg_mask_vol,
     % slice_data, average_slope, average_intercept and correction_type
