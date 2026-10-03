@@ -15,14 +15,16 @@ questions than one area at a time:
                 measured.
 
 Nothing is warped: a group mean is the voxel-weighted mean over the group's labels
-in that brain. The readings and their references are those of region_plot: ratio,
-nano per autofluorescence; sepratio, nano per unit SEP, which was meant as surface
-receptor per unit receptor expressed and is not, the green channel being mostly
-autofluorescence here (adult.sep_channel_check); cref and subref, relative to the
-brain's isocortex and to its subcortex (TH, HY, PAL, MB, P and MY: no isocortex,
-OLF, HPF, CTXsp, STR, CB, fiber tracts, ventricles or unassigned labels); zref,
-range-matched to each brain's own spread. So is the test, Mann-Whitney of the young
-group against the adults, uncorrected in the figure, with BH q-values in the CSV.
+in that brain, a ratio's over the voxels where its smoothed reference is positive
+(region_plot.label_sums). The readings and their references are those of
+region_plot: ratio, nano per autofluorescence; sepratio, nano per unit SEP, which
+was meant as surface receptor per unit receptor expressed and is not, the green
+channel being mostly autofluorescence here (adult.sep_channel_check); cref and
+subref, relative to the brain's isocortex and to its subcortex (TH, HY, PAL, MB, P
+and MY: no isocortex, OLF, HPF, CTXsp, STR, CB, fiber tracts, ventricles or
+unassigned labels); zref, range-matched to each brain's own spread. So is the test,
+Mann-Whitney of the young group against the adults, uncorrected in the figure, with
+BH q-values in the CSV.
 
 Writes into comparisons_v2/young_vs_adult/:
 
@@ -49,10 +51,8 @@ from sepmap.volumes.cohort import (
     RWS,
     SIGNED_READINGS,
     YOUNG_P20,
-    per_unit,
 )
 from sepmap.volumes.per_mouse import CSV_MAP, DATA, MICE, annotation_20
-from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 from sepmap.young_vs_adult.region_plot import (
     ADULTS,
     GROUPS,
@@ -60,6 +60,7 @@ from sepmap.young_vs_adult.region_plot import (
     NOT_SUBCORTEX,
     READINGS,
     bh_fdr,
+    label_sums,
     mannwhitney,
     welch,
 )
@@ -184,59 +185,27 @@ def define_groups(
     return groups
 
 
-def label_sums(
-    mouse: str, ann: np.ndarray
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, int]:
-    """Sums per parcellation index of one brain's tissue voxels, sig and the two ratios.
-
-    Returns (voxels, sig, ratio, sepratio, number of labels). Stops if the brain
-    has no SEP channel while the sepratio reading is in force.
-    """
-    z = np.load(PER_MOUSE / (mouse + ".npz"))
-    sig = z["sig"].astype(np.float32)
-    auto = z["auto"].astype(np.float32)
-    tissue = z["tissue"]
-    if any(r == "sepratio" for r, _ in READINGS) and "sep" not in z.files:
-        raise ValueError(
-            f"{mouse}: no SEP channel in its per-mouse file. Run\n"
-            "  run_add_sep_channel.m for this brain, then run_per_mouse.py,\n"
-            "  or drop the reading with V2_READINGS."
-        )
-
-    # sums per parcellation index of the voxels, sig and the two ratios
-    ratio = per_unit(sig, auto, tissue)
-    if "sep" in z.files:
-        sepratio = per_unit(sig, z["sep"].astype(np.float32), tissue)
-    else:
-        sepratio = np.zeros_like(sig)
-    lab = ann[tissue]
-    nlab = int(ann.max()) + 1
-    n = np.bincount(lab, minlength=nlab)
-    s_sig = np.bincount(lab, weights=sig[tissue], minlength=nlab)
-    s_rat = np.bincount(lab, weights=ratio[tissue], minlength=nlab)
-    s_sep = np.bincount(lab, weights=sepratio[tissue], minlength=nlab)
-    return n, s_sig, s_rat, s_sep, nlab
-
-
 def group_cells(
-    groups: dict[tuple[str, str], set[int]],
-    n: np.ndarray,
-    s_sig: np.ndarray,
-    s_rat: np.ndarray,
-    s_sep: np.ndarray,
-    nlab: int,
+    groups: dict[tuple[str, str], set[int]], sums: dict[str, np.ndarray]
 ) -> dict[tuple[str, str], tuple | None]:
-    """The voxel-weighted means of each group large enough, None for the others."""
+    """The voxel-weighted means of each group large enough, None for the others.
+
+    `sums` is region_plot.label_sums' table per parcellation index; a ratio's mean
+    is over the voxels that have one, NaN when none has.
+    """
+    nlab = len(sums["n"])
     cells = {}
     for key, ids in groups.items():
         ids = [i for i in ids if i < nlab]
-        c = n[ids].sum()
+        c = sums["n"][ids].sum()
+        c_rat = sums["ratio_n"][ids].sum()
+        c_sep = sums["sepratio_n"][ids].sum()
         if c >= REGION_TABLES["min_vox20"]:
             cells[key] = (
                 int(c),
-                s_sig[ids].sum() / c,
-                s_rat[ids].sum() / c,
-                s_sep[ids].sum() / c,
+                sums["sig"][ids].sum() / c,
+                sums["ratio"][ids].sum() / c_rat if c_rat else np.nan,
+                sums["sepratio"][ids].sum() / c_sep if c_sep else np.nan,
             )
         else:
             cells[key] = None
@@ -299,13 +268,13 @@ def group_means(
         atlas_key = MICE[mouse][1]
         if atlas_key not in anns:
             anns[atlas_key] = annotation_20(atlas_key)
-        ann = anns[atlas_key]
 
         # sums per parcellation index, then the groups, the two references and the
         # structure means
-        n, s_sig, s_rat, s_sep, nlab = label_sums(mouse, ann)
-        per[mouse] = group_cells(groups, n, s_sig, s_rat, s_sep, nlab)
-        refs[mouse] = references(stru, divi, n, s_sig, nlab)
+        sums = label_sums(mouse, anns[atlas_key])
+        n, s_sig = sums["n"], sums["sig"]
+        per[mouse] = group_cells(groups, sums)
+        refs[mouse] = references(stru, divi, n, s_sig, len(n))
         struct_mean[mouse] = structure_sig_means(stru, n, s_sig)
         print(
             f"{mouse:20s} {sum(v is not None for v in per[mouse].values())}"

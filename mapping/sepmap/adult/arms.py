@@ -34,7 +34,8 @@ adult.sep_channel_check before using either.
 
 The arithmetic is the same as young_vs_adult.region_plot's: the same 20 um
 annotation, the same smallest structure, the same mask-normalised smoothing of the
-denominator, structures keyed by name over their layer indices. The module checks
+denominator, the same voxels left out where that is not positive, structures keyed
+by name over their layer indices. The module checks
 itself against that table for the two arms both compute, and prints the
 difference, since a silent divergence would invalidate every comparison
 downstream.
@@ -57,7 +58,7 @@ import numpy as np
 
 from sepmap.config import SETTINGS
 from sepmap.plotting import RED, tidy
-from sepmap.volumes.cohort import NAIVE, RWS, per_unit
+from sepmap.volumes.cohort import NAIVE, RWS, finite_sums, per_unit
 from sepmap.volumes.per_mouse import DATA, MICE, annotation_20, structure_terms
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 
@@ -90,7 +91,8 @@ def mouse_table(
     """The mean of each arm per structure for one adult: {name: (n voxels, {arm: mean})}.
 
     The layer indices of a structure are pooled by name; a structure under
-    region_tables.min_vox20 voxels is left out.
+    region_tables.min_vox20 voxels is left out. An arm's mean is over the voxels
+    where its smoothed denominator is positive, NaN when there is none.
     """
     z = np.load(PER_MOUSE / (mouse + ".npz"))
     if "sep" not in z.files:
@@ -110,28 +112,29 @@ def mouse_table(
         "sepratio": per_unit(sig, sep, tissue),
     }
 
-    # voxel count and sum of each arm per annotation index
+    # voxel count per annotation index, and each arm's sum and count over the voxels
+    # that have a value (an arm is NaN where its smoothed denominator is not positive)
     labels = annotation[tissue]
     n_labels = int(annotation.max()) + 1
     n = np.bincount(labels, minlength=n_labels)
-    sums = {
-        arm: np.bincount(labels, weights=vol[arm][tissue], minlength=n_labels)
-        for arm in ARMS
-    }
+    sums = {arm: finite_sums(labels, vol[arm][tissue], n_labels) for arm in ARMS}
 
-    # pool the indices by structure name (index 0 is outside the brain)
-    acc = defaultdict(lambda: [0] + [0.0] * len(ARMS))
+    # pool the indices by structure name (index 0 is outside the brain): the voxels,
+    # and per arm the sum and the count
+    voxels = defaultdict(int)
+    pooled = defaultdict(lambda: {arm: [0.0, 0] for arm in ARMS})
     for idx in np.nonzero(n)[0]:
         if idx == 0:
             continue
-        a = acc[names.get(int(idx), f"id{idx}")]
-        a[0] += int(n[idx])
-        for j, arm in enumerate(ARMS, 1):
-            a[j] += sums[arm][idx]
+        name = names.get(int(idx), f"id{idx}")
+        voxels[name] += int(n[idx])
+        for arm in ARMS:
+            pooled[name][arm][0] += sums[arm][0][idx]
+            pooled[name][arm][1] += int(sums[arm][1][idx])
     return {
-        k: (v[0], {arm: v[j] / v[0] for j, arm in enumerate(ARMS, 1)})
-        for k, v in acc.items()
-        if v[0] >= REGION_TABLES["min_vox20"]
+        k: (voxels[k], {arm: s / c if c else np.nan for arm, (s, c) in pooled[k].items()})
+        for k in voxels
+        if voxels[k] >= REGION_TABLES["min_vox20"]
     }
 
 
@@ -210,7 +213,7 @@ def panel_jensen_gap(
     gap = []
     for mouse, table in per.items():
         for k, (_, m) in table.items():
-            if min(m.values()) > 0:
+            if all(v > 0 for v in m.values()):
                 gap.append(
                     math.log2(m["sepratio"])
                     - (math.log2(m["ratio"]) - math.log2(m["sepauto"]))
@@ -233,7 +236,7 @@ def panel_channels(
     """Draw the two channels against each other in the first mouse, by structure."""
     mouse = sorted(per)[0]
     t = per[mouse]
-    ks = [k for k in t if min(t[k][1].values()) > 0]
+    ks = [k for k in t if all(v > 0 for v in t[k][1].values())]
     ax.scatter(
         [math.log2(t[k][1]["sepauto"]) for k in ks],
         [math.log2(t[k][1]["ratio"]) for k in ks],

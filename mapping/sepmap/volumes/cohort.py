@@ -230,32 +230,34 @@ def mouse_scalars(mouse: str) -> dict[str, float]:
     return out
 
 
-def per_unit(
-    num: np.ndarray,
-    ref: np.ndarray,
-    tissue: np.ndarray,
-    fill: float = 0.0,
-    tissue_only: bool = False,
-) -> np.ndarray:
+def per_unit(num: np.ndarray, ref: np.ndarray, tissue: np.ndarray) -> np.ndarray:
     """`num` per unit of the reference channel `ref`, voxel by voxel.
 
     The denominator is smoothed first (readings.ref_sigma, one 20 um voxel), so a
     single dark voxel in the reference cannot blow the ratio up; the smoothing is
     normalised by `tissue`, so tissue at the edge is not divided by the black
-    outside it. The ratio is clipped to +-readings.ratio_clip. Where the smoothed
-    reference is not positive it is `fill`, and with `tissue_only` off tissue too:
-    the cohort volumes take NaN there, the region tables (young_vs_adult.region_plot
-    and region_groups, adult.arms) 0.
+    outside it. The ratio is clipped to +-readings.ratio_clip. Off tissue, and where
+    the smoothed reference is not positive, there is no ratio: NaN, which the cohort
+    volumes and the region tables (young_vs_adult.region_plot and region_groups,
+    adult.arms) leave out of their sums and counts.
     """
     sigma = READINGS["ref_sigma"]
     ref_s = gaussian_filter(np.where(tissue, ref, 0), sigma) / np.maximum(
         gaussian_filter(tissue.astype(np.float32), sigma), 1e-3
     )
-    keep = ref_s > 0
-    if tissue_only:
-        keep = tissue & keep
-    r = np.where(keep, num / np.maximum(ref_s, 1e-3), fill)
+    keep = tissue & (ref_s > 0)
+    r = np.where(keep, num / np.maximum(ref_s, 1e-3), np.nan)
     return np.clip(r, -READINGS["ratio_clip"], READINGS["ratio_clip"])
+
+
+def finite_sums(
+    labels: np.ndarray, values: np.ndarray, n_labels: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Sum and count of the finite `values` per label; a NaN enters neither."""
+    ok = np.isfinite(values)
+    sums = np.bincount(labels[ok], weights=values[ok], minlength=n_labels)
+    counts = np.bincount(labels[ok], minlength=n_labels)
+    return sums, counts
 
 
 def mouse_modes(mouse: str) -> tuple[dict[str, np.ndarray], np.ndarray]:
@@ -291,12 +293,10 @@ def mouse_modes(mouse: str) -> tuple[dict[str, np.ndarray], np.ndarray]:
 
     # each reading computed only when MODES asks for it
     out = {
-        "ratio": lambda: per_unit(
-            sig, auto, tissue, fill=np.nan, tissue_only=True
-        ).astype(np.float32),
-        "sepratio": lambda: per_unit(
-            sig, z["sep"].astype(np.float32), tissue, fill=np.nan, tissue_only=True
-        ).astype(np.float32),
+        "ratio": lambda: per_unit(sig, auto, tissue).astype(np.float32),
+        "sepratio": lambda: per_unit(sig, z["sep"].astype(np.float32), tissue).astype(
+            np.float32
+        ),
         "cref": lambda: cref.astype(np.float32),
         "subref": lambda: subref.astype(np.float32),
         "zref": lambda: zref.astype(np.float32),

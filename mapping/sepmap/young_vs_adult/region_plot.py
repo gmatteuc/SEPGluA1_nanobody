@@ -9,7 +9,8 @@ voxelwise map, where the young brains must first be carried into the CCF
 (volumes.to_ccf). Nothing is warped.
 
 Per mouse and structure, the mean of sig, of sig/auto and of sig/SEP over the
-tissue voxels, and from them per mouse:
+tissue voxels (a ratio over those where its smoothed reference is positive, the
+others having no value), and from them per mouse:
 
     ratio      nano per unit autofluorescence, no reference. Not an absolute
                measure: the young cortex is 2.0 log2 below the adult in nano and
@@ -73,6 +74,7 @@ from sepmap.volumes.cohort import (
     YOUNG_P16,
     YOUNG_P20,
     YOUNG_P22,
+    finite_sums,
     per_unit,
 )
 from sepmap.volumes.per_mouse import DATA, MICE, annotation_20, structure_terms
@@ -265,57 +267,85 @@ def welch(a: list[float], b: list[float]) -> float:
     return float(2 * tdist.sf(abs(t), df))
 
 
+def label_sums(mouse: str, ann: np.ndarray) -> dict[str, np.ndarray]:
+    """Sums per parcellation index of one brain's tissue: voxels, sig and the two ratios.
+
+    Returns {n, sig, ratio, ratio_n, sepratio, sepratio_n}. A ratio is NaN where its
+    smoothed reference is not positive (volumes.cohort.per_unit), so it is summed
+    and counted over the voxels that have one: a missing value is left out of the
+    mean instead of entering it as a zero. Stops if the brain has no SEP channel
+    while the sepratio reading is in force.
+    """
+    z = np.load(PER_MOUSE / (mouse + ".npz"))
+    sig = z["sig"].astype(np.float32)
+    auto = z["auto"].astype(np.float32)
+    tissue = z["tissue"]
+    if "sepratio" in MODES and "sep" not in z.files:
+        raise ValueError(
+            f"{mouse}: no SEP channel in its per-mouse file. Run\n"
+            "  run_add_sep_channel.m for this brain, then run_per_mouse.py,\n"
+            "  or drop the reading with V2_READINGS."
+        )
+
+    # the two ratios, the second NaN throughout without a SEP channel
+    ratio = per_unit(sig, auto, tissue)
+    if "sep" in z.files:
+        sepratio = per_unit(sig, z["sep"].astype(np.float32), tissue)
+    else:
+        sepratio = np.full_like(sig, np.nan)
+
+    # sums per parcellation index, each ratio with the count of the voxels it has
+    lab = ann[tissue]
+    nlab = int(ann.max()) + 1
+    sums = {
+        "n": np.bincount(lab, minlength=nlab),
+        "sig": np.bincount(lab, weights=sig[tissue], minlength=nlab),
+    }
+    sums["ratio"], sums["ratio_n"] = finite_sums(lab, ratio[tissue], nlab)
+    sums["sepratio"], sums["sepratio_n"] = finite_sums(lab, sepratio[tissue], nlab)
+    return sums
+
+
 def structure_means(mice: list[str], names: dict[int, str]) -> dict[str, dict]:
     """Per mouse and structure: tissue voxels, and the mean of sig, ratio and sepratio.
 
     Each brain on its own atlas; structures under region_tables.min_vox20 voxels
     are left out. The
     layers of an area are separate parcellation indices with one structure name,
-    and are pooled under that name. Stops if a brain has no SEP channel while the
-    sepratio reading is in force.
+    and are pooled under that name. A ratio's mean is over the voxels that have
+    one, NaN when none has. Stops if a brain has no SEP channel while the sepratio
+    reading is in force.
     """
     anns, per = {}, {}
     for mouse in mice:
         atlas_key = MICE[mouse][1]
         if atlas_key not in anns:
             anns[atlas_key] = annotation_20(atlas_key)
-        ann = anns[atlas_key]
-        z = np.load(PER_MOUSE / (mouse + ".npz"))
-        sig = z["sig"].astype(np.float32)
-        auto = z["auto"].astype(np.float32)
-        tissue = z["tissue"]
-        if "sepratio" in MODES and "sep" not in z.files:
-            raise ValueError(
-                f"{mouse}: no SEP channel in its per-mouse file. Run\n"
-                "  run_add_sep_channel.m for this brain, then run_per_mouse.py,\n"
-                "  or drop the reading with V2_READINGS."
-            )
 
         # sums per parcellation index of the voxels, sig and the two ratios
-        ratio = per_unit(sig, auto, tissue)
-        if "sep" in z.files:
-            sepratio = per_unit(sig, z["sep"].astype(np.float32), tissue)
-        else:
-            sepratio = np.zeros_like(sig)
-        lab = ann[tissue]
-        nlab = int(ann.max()) + 1
-        n = np.bincount(lab, minlength=nlab)
-        s_sig = np.bincount(lab, weights=sig[tissue], minlength=nlab)
-        s_rat = np.bincount(lab, weights=ratio[tissue], minlength=nlab)
-        s_sep = np.bincount(lab, weights=sepratio[tissue], minlength=nlab)
+        sums = label_sums(mouse, anns[atlas_key])
+        n = sums["n"]
 
-        # pooled per structure name, then the means of the structures large enough
-        d = defaultdict(lambda: [0, 0.0, 0.0, 0.0])
+        # pooled per structure name: voxels, sig, then each ratio's sum and count;
+        # the means of the structures large enough
+        d = defaultdict(lambda: [0, 0.0, 0.0, 0, 0.0, 0])
         for idx in np.nonzero(n)[0]:
             if idx == 0:
                 continue
             key = names.get(int(idx), f"id{idx}")
             d[key][0] += int(n[idx])
-            d[key][1] += s_sig[idx]
-            d[key][2] += s_rat[idx]
-            d[key][3] += s_sep[idx]
+            d[key][1] += sums["sig"][idx]
+            d[key][2] += sums["ratio"][idx]
+            d[key][3] += int(sums["ratio_n"][idx])
+            d[key][4] += sums["sepratio"][idx]
+            d[key][5] += int(sums["sepratio_n"][idx])
         per[mouse] = {
-            k: (v[0], v[1] / v[0], v[2] / v[0], v[3] / v[0])
+            k: (
+                v[0],
+                v[1] / v[0],
+                v[2] / v[3] if v[3] else np.nan,
+                v[4] / v[5] if v[5] else np.nan,
+            )
             for k, v in d.items()
             if v[0] >= REGION_TABLES["min_vox20"]
         }
