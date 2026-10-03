@@ -707,6 +707,11 @@ n_exp = size(lr_diff_exp, 4);
 n_vox_ctrl = single(sum(~isnan(lr_diff_ctrl), 4));
 n_vox_exp = single(sum(~isnan(lr_diff_exp), 4));
 
+% the voxels with a t: shown for both groups, with at least two mice with a value
+% in each (elsewhere the t and its surprise are NaN, which a video would draw in
+% its colormap's first colour)
+has_t = brainMask_group_diff & n_vox_ctrl >= 2 & n_vox_exp >= 2;
+
 % the SEMs and the Welch t of the group difference
 [sem_lr_diff_ctrl, sem_lr_sum_ctrl, sem_lr_diff_exp, sem_lr_sum_exp, ...
     t_lr_diff_groupdiff, t_lr_sum_groupdiff] = group_welch_t(lr_diff_ctrl, ...
@@ -717,11 +722,11 @@ n_vox_exp = single(sum(~isnan(lr_diff_exp), 4));
 % the colour limits of the t maps, in both videos below
 t_lim = [-6 6];
 
-% its video, shown where both groups have tissue (not on the whole brain mask,
+% its video, shown on the voxels with a t (not on the whole brain mask,
 % brainMask_cropped)
 if generate_t_scored_videos
     write_lr_video(t_lr_diff_groupdiff, t_lr_sum_groupdiff, half_atlas, ...
-        brainMask_group_diff, comp_out_dir, ...
+        has_t, comp_out_dir, ...
         [['t_lr_diff_sum_' channel '_groupdiff_'] comp_tag '.mp4'], t_lim, ...
         [exp_type ' - ' ctrl_type ' (t-score)'], ...
         ['LR abs diff t-score (' comp_tag ')'], ['LR abs sum t-score (' comp_tag ')']);
@@ -732,17 +737,17 @@ end
     sem_lr_diff_exp, sem_lr_sum_ctrl, sem_lr_sum_exp, t_lr_diff_groupdiff, ...
     t_lr_sum_groupdiff);
 
-% the surprise video, and the t video shown where p < 0.05 (as above, where both
-% groups have tissue)
+% the surprise video, and the t video shown where p < 0.05 (as above, on the
+% voxels with a t)
 if generate_surprise_videos
-    write_lr_video(surp_diff, surp_sum, half_atlas, brainMask_group_diff, ...
+    write_lr_video(surp_diff, surp_sum, half_atlas, has_t, ...
         comp_out_dir, ['surp_lr_diff_sum_' channel '_groupdiff_' comp_tag '.mp4'], ...
         [0 8], ['-log_{10}(p) | ' comp_tag], ...
         ['LR abs diff surprise (' comp_tag ')'], ['LR abs sum surprise (' comp_tag ')']);
     surp_thresh = -log10(0.05);
     write_lr_video_surpmask( ...
         t_lr_diff_groupdiff, t_lr_sum_groupdiff, ...
-        half_atlas, brainMask_group_diff, ...
+        half_atlas, has_t, ...
         comp_out_dir, ...
         [['t_lr_diff_sum_' channel '_groupdiff_'] comp_tag '_surpmask.mp4'], ...
         t_lim, [exp_type ' - ' ctrl_type ' (t-score, p<0.05)'], ...
@@ -760,11 +765,14 @@ function [sem_lr_diff_ctrl, sem_lr_sum_ctrl, sem_lr_diff_exp, sem_lr_sum_exp, ..
 % Each group's SEM of the absolute values over each voxel's mice with a value
 % (zero to NaN), and the Welch t of the group difference.
 
-% each group's SEM of the absolute values, over the mice with a value
-sem_lr_diff_ctrl = nanstd(abs(lr_diff_ctrl), [], 4) ./ sqrt(n_vox_ctrl); %#ok<*NANSTD>
-sem_lr_sum_ctrl = nanstd(abs(lr_sum_ctrl), [], 4) ./ sqrt(n_vox_ctrl);
-sem_lr_diff_exp = nanstd(abs(lr_diff_exp), [], 4) ./ sqrt(n_vox_exp);
-sem_lr_sum_exp = nanstd(abs(lr_sum_exp), [], 4) ./ sqrt(n_vox_exp);
+% each group's SEM of the absolute values, over the mice with a value (the
+% counts in double, as before, so that a voxel every mouse has keeps its old
+% value to the last bit)
+sem_lr_diff_ctrl = nanstd(abs(lr_diff_ctrl), [], 4) ./ ...
+    sqrt(double(n_vox_ctrl)); %#ok<*NANSTD>
+sem_lr_sum_ctrl = nanstd(abs(lr_sum_ctrl), [], 4) ./ sqrt(double(n_vox_ctrl));
+sem_lr_diff_exp = nanstd(abs(lr_diff_exp), [], 4) ./ sqrt(double(n_vox_exp));
+sem_lr_sum_exp = nanstd(abs(lr_sum_exp), [], 4) ./ sqrt(double(n_vox_exp));
 
 % a zero SEM to NaN, so the t is NaN rather than infinite (one mouse gives a zero
 % SEM, so a voxel needs two in each group)
@@ -796,15 +804,16 @@ function [surp_diff, surp_sum] = welch_surprise(n_vox_ctrl, n_vox_exp, ...
 % The Welch-Satterthwaite degrees of freedom from each voxel's numbers of mice
 % with a value, and the surprise -log10 p of the t maps.
 
-% Welch-Satterthwaite degrees of freedom, voxel by voxel
+% Welch-Satterthwaite degrees of freedom, voxel by voxel (the counts in double,
+% as the SEMs')
 var1_diff = sem_lr_diff_ctrl.^2;
 var2_diff = sem_lr_diff_exp.^2;
 var1_sum = sem_lr_sum_ctrl.^2;
 var2_sum = sem_lr_sum_exp.^2;
 df_diff = (var1_diff + var2_diff).^2 ./ ...
-    (var1_diff.^2 ./ (n_vox_ctrl - 1) + var2_diff.^2 ./ (n_vox_exp - 1));
+    (var1_diff.^2 ./ (double(n_vox_ctrl) - 1) + var2_diff.^2 ./ (double(n_vox_exp) - 1));
 df_sum = (var1_sum + var2_sum).^2 ./ ...
-    (var1_sum.^2 ./ (n_vox_ctrl - 1) + var2_sum.^2 ./ (n_vox_exp - 1));
+    (var1_sum.^2 ./ (double(n_vox_ctrl) - 1) + var2_sum.^2 ./ (double(n_vox_exp) - 1));
 
 % NaN where a group has fewer than two mice with a value
 too_few_mice = n_vox_ctrl < 2 | n_vox_exp < 2;
