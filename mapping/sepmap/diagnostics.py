@@ -106,7 +106,7 @@ def sheet_tissue(mouse: str, ann: np.ndarray, z: np.lib.npyio.NpzFile) -> None:
         )
     fig.suptitle(
         f"{mouse}: red = tissue mask (auto channel above background + 4 MAD, "
-        "and a section reached here), "
+        "and nano non-zero over half the voxel), "
         "blue = atlas brain.  Background subtracted: "
         f"nano {float(z['bg_nano']):.0f}, auto {float(z['bg_auto']):.0f} counts",
         fontsize=11,
