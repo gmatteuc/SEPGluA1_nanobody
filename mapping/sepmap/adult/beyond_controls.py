@@ -73,13 +73,14 @@ BEYOND_CONTROLS = SETTINGS["beyond_controls"]
 # ===== Utilities =====
 
 
-def centroids(structures: list[str]) -> dict[str, np.ndarray] | None:
+def centroids(structures: list[str]) -> dict[str, np.ndarray]:
     """Mean (AP, DV, ML) position of each structure, in mm, from the CCF itself.
 
     Needed by control A: if the leftover were an imaging or clearing artefact it
     would vary smoothly with position in the block, so the first thing to ask of
     it is how much a smooth function of position can explain. A structure not in
-    the atlas gets NaN; None comes back when none of them is.
+    the atlas gets NaN; when none of them is, ValueError, since control A and the
+    artefact figure both read every structure's centroid.
     """
     names, _, _ = structure_terms()
     annotation = annotation_20("ccf")
@@ -94,7 +95,10 @@ def centroids(structures: list[str]) -> dict[str, np.ndarray] | None:
     wanted = {s: per_name.get(s, []) for s in structures}
     flat = {i: s for s, ids in wanted.items() for i in ids}
     if not flat:
-        return None
+        raise ValueError(
+            f"none of the {len(structures)} structures is in the CCF annotation, "
+            "so they have no centroids"
+        )
 
     # sum the voxel coordinates and count the voxels of each structure; 20 um voxels
     mask = np.isin(annotation, list(flat))
