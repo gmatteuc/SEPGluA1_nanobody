@@ -142,12 +142,16 @@ end
 
 %% The young cohort is consistent
 
-% the size of Sami's list of good-quality brains, as extended on 12 Aug 2026
-expected_young = 14;
+% the young rows of the cohort table, read here on their own: get_cohort must
+% return each of them, in the table's order (the table grows as brains are added,
+% so the count is not fixed)
+cohort_table = readtable(fullfile(code_dir, 'common', 'cohort.csv'), ...
+    'Delimiter', ',', 'TextType', 'char');
+expected_young = cohort_table.name(strcmp(cohort_table.group, 'young'))';
 young = get_cohort('groups', 'young');
-[n_pass, n_fail] = check(numel(young) == expected_young, ...
-    sprintf('young cohort has %d mice (got %d)', expected_young, numel(young)), ...
-    n_pass, n_fail);
+[n_pass, n_fail] = check(isequal({young.name}, expected_young), ...
+    sprintf('young cohort is the %d young rows of common\\cohort.csv (got %d)', ...
+    numel(expected_young), numel(young)), n_pass, n_fail);
 
 % the age in the registry must match the age in the folder name
 ok_age = true;
