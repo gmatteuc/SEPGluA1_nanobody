@@ -45,10 +45,6 @@ YOUNG_VS_ADULT = SETTINGS["young_vs_adult"]
 
 OUT = DATA / "comparisons_v2" / "young_vs_adult"
 
-# start of the adult registered crop along AP, in 10 um planes; added to the plane
-# number in each slice title
-CROP_START_PLANE = 180
-
 # the pooled young cohort (P16, P20 and P22 brains), and the P20 brains alone as
 # the sensitivity check
 YOUNG = "young"
@@ -108,7 +104,7 @@ def draw_plane(
             interpolation="nearest",
             aspect="equal",
         )
-        ax.set_title(f"{title}   plane {zc * 2 + CROP_START_PLANE} / 10 um", fontsize=9.5)
+        ax.set_title(f"{title}   CCF plane {zc * 2} / 10 um", fontsize=9.5)
         ax.set_xticks([])
         ax.set_yticks([])
         plt.colorbar(
