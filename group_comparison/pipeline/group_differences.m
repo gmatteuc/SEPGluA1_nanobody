@@ -12,14 +12,20 @@ function group_differences(run_settings)
 %   the videos switched on, and the region analyses if switched on.
 %
 %   The volumes are on the adults' CCF crop (planes 180 to 1079 of the 10 um
-%   annotation). The experimental group is put on the control group's scale by
-%   the line between the two groups' mean plane profiles, and both are divided
-%   by one common factor. Each mouse is folded onto the left hemisphere: L - R
-%   and L + R of every voxel and its mirror image. The group maps are the means
-%   of the absolute values over mice, the t maps Welch t of their difference,
+%   annotation). Each mouse's values outside its tissue (the atlas brain,
+%   outside its background mask) are NaN, and its tissue is smoothed, when
+%   apply_smoothing is set, by a normalised convolution: the Gaussian-smoothed
+%   values over the Gaussian-smoothed tissue mask. The experimental group is put
+%   on the control group's scale by the line between the two groups' mean plane
+%   profiles, and both are divided by one common factor. Each mouse is folded
+%   onto the left hemisphere: L - R and L + R of every voxel and its mirror
+%   image, NaN where either side is outside the mouse's tissue. The group maps
+%   are the means of the absolute values over the mice with a value, the t maps
+%   Welch t of their difference,
 %       t = (mean_exp - mean_ctrl) / sqrt(sem_ctrl^2 + sem_exp^2)
 %   and the surprise -log10 of its two-sided p, with Welch-Satterthwaite
-%   degrees of freedom.
+%   degrees of freedom. Every mean, SEM and degree of freedom counts, voxel by
+%   voxel, only the mice with a value there.
 
 % settings of run_group_differences, under the names the code below uses
 paths = run_settings.paths;
@@ -54,13 +60,13 @@ comp_out_dir = run_settings.comp_out_dir;
     med_data_4d_exp, recomputed_bkg_mask_4d_exp, exp_mousenames] = load_groups(channel, ...
     ctrl_type, exp_type, ctrl_dir, exp_dir, behavior_mice, exp_mousenames);
 
-%% Smooth each mouse's tissue
+%% Each mouse's tissue, smoothed if asked
 
-if apply_smoothing
-    [data_4d_new_ctrl, data_4d_new_exp] = smooth_groups(data_4d_new_ctrl, ...
-        data_4d_new_exp, recomputed_bkg_mask_4d_ctrl, recomputed_bkg_mask_4d_exp, ...
-        brainMask, smooth_sigma);
-end
+% NaN outside each mouse's tissue, so that no voxel outside it enters a mean, an
+% SEM or a count of mice below
+[data_4d_new_ctrl, data_4d_new_exp] = tissue_groups(data_4d_new_ctrl, ...
+    data_4d_new_exp, recomputed_bkg_mask_4d_ctrl, recomputed_bkg_mask_4d_exp, ...
+    brainMask, apply_smoothing, smooth_sigma);
 
 %% Align the experimental group onto the control group
 
@@ -77,8 +83,7 @@ plot_alignment_profiles(med_data_4d_ctrl, med_data_4d_exp, norm_ctrl, norm_exp, 
     norm_ctrl_med_fact, norm_exp_med_fact, slope, intercept);
 [mask_bg_ctrl, mask_bg_exp, brainMask_cropped_no_bkg_ctrl, ...
     brainMask_cropped_no_bkg_exp, brainMask_group_diff] = hemisphere_masks(brainMask, ...
-    avg_lr_diff_ctrl, lr_diff_ctrl, recomputed_bkg_mask_4d_ctrl, ...
-    recomputed_bkg_mask_4d_exp);
+    lr_diff_ctrl, lr_diff_exp);
 
 % videos of the group means and of their difference
 if generate_diff_videos
@@ -321,26 +326,25 @@ for iii = 1:size(data_4d, 4)
 end
 end
 
-function [data_4d_new_ctrl, data_4d_new_exp] = smooth_groups(data_4d_new_ctrl, ...
+function [data_4d_new_ctrl, data_4d_new_exp] = tissue_groups(data_4d_new_ctrl, ...
     data_4d_new_exp, recomputed_bkg_mask_4d_ctrl, recomputed_bkg_mask_4d_exp, ...
-    brainMask, smooth_sigma)
-% Each mouse's tissue smoothed in 3D with a NaN-tolerant Gaussian. The volumes
-% come back under the names they came in with, so MATLAB updates them in place.
+    brainMask, apply_smoothing, smooth_sigma)
+% Each mouse's volume NaN outside its tissue, and its tissue smoothed in 3D when
+% apply_smoothing is set. The volumes come back under the names they came in
+% with, so MATLAB updates them in place.
 
-fprintf('Applying NaN-Robust 3D Gaussian Smoothing (Sigma = %.1f)...\n', smooth_sigma);
+fprintf('Setting each mouse''s voxels outside its tissue to NaN...\n');
+if apply_smoothing
+    fprintf('Applying NaN-Robust 3D Gaussian Smoothing (Sigma = %.1f)...\n', smooth_sigma);
+end
 
-% NaN-tolerant Gaussian: the smoothed values over the smoothed weight of the
-% voxels with a value, so a NaN neither spreads nor counts as zero
-nan_smooth_3d = @(v, sig) imgaussfilt3(fillmissing(v, 'constant', 0), sig) ./ ...
-    imgaussfilt3(double(~isnan(v)), sig);
-
-% the control group: the tissue (in the atlas brain, outside the mouse's
-% background) smoothed, every other voxel 0
+% the control group
 fprintf('  Processing Control group...\n');
 for i = 1:size(data_4d_new_ctrl, 4)
     tic
-    data_4d_new_ctrl(:, :, :, i) = smooth_tissue(data_4d_new_ctrl(:, :, :, i), ...
-        recomputed_bkg_mask_4d_ctrl(:, :, :, i), brainMask, nan_smooth_3d, smooth_sigma);
+    data_4d_new_ctrl(:, :, :, i) = tissue_only(data_4d_new_ctrl(:, :, :, i), ...
+        recomputed_bkg_mask_4d_ctrl(:, :, :, i), brainMask, apply_smoothing, ...
+        smooth_sigma);
     toc
 end
 
@@ -348,24 +352,34 @@ end
 fprintf('  Processing Experimental group...\n');
 for i = 1:size(data_4d_new_exp, 4)
     tic
-    data_4d_new_exp(:, :, :, i) = smooth_tissue(data_4d_new_exp(:, :, :, i), ...
-        recomputed_bkg_mask_4d_exp(:, :, :, i), brainMask, nan_smooth_3d, smooth_sigma);
+    data_4d_new_exp(:, :, :, i) = tissue_only(data_4d_new_exp(:, :, :, i), ...
+        recomputed_bkg_mask_4d_exp(:, :, :, i), brainMask, apply_smoothing, ...
+        smooth_sigma);
     toc
 end
 
-fprintf('  Smoothing complete.\n');
+fprintf('  Done.\n');
 end
 
-function vol_smoothed = smooth_tissue(vol, bg_mask, brainMask, nan_smooth_3d, ...
-    smooth_sigma)
-% One mouse's volume with its tissue (in the atlas brain, outside its background)
-% smoothed by nan_smooth_3d, and every other voxel 0.
+function vol = tissue_only(vol, bg_mask, brainMask, apply_smoothing, smooth_sigma)
+% One mouse's volume, NaN outside its tissue (in the atlas brain, outside its
+% background, with a value), the tissue smoothed when apply_smoothing is set.
 
-is_valid_tissue = brainMask & ~bg_mask;
-vol(~is_valid_tissue) = NaN;
-vol_smoothed = nan_smooth_3d(vol, smooth_sigma);
-vol_smoothed(~is_valid_tissue) = 0;
-vol_smoothed(isnan(vol_smoothed)) = 0;
+% the tissue: in the atlas brain, outside the background, reached by a section
+% (run_normalise_groups left NaN where none was)
+is_tissue = brainMask & ~bg_mask & ~isnan(vol);
+vol(~is_tissue) = NaN;
+
+% normalised convolution, both with the same Gaussian: the smoothed values (NaN
+% as 0) over the smoothed tissue mask, so the voxels outside the tissue neither
+% count as zero nor spread into it; outside the tissue it stays NaN, since a 0
+% there would enter the group means and the counts of mice as a measured value
+if apply_smoothing
+    smoothed_values = imgaussfilt3(fillmissing(vol, 'constant', 0), smooth_sigma);
+    smoothed_mask = imgaussfilt3(double(is_tissue), smooth_sigma);
+    vol = smoothed_values ./ smoothed_mask;
+    vol(~is_tissue) = NaN;
+end
 end
 
 function [interest_region, norm_ctrl, norm_exp, slope, intercept, norm_ctrl_med_fact, ...
@@ -468,10 +482,12 @@ end
 for i = 1:size(med_data_4d_exp, 2)
     plot(slices, med_data_4d_exp(:, i), 'Color', cmap_exp(i, :), 'LineWidth', 1.2);
 end
+
+% each group's mean and SEM, over the mice with tissue on the plane
 mean_c = nanmean(med_data_4d_ctrl, 2);
-sem_c = nanstd(med_data_4d_ctrl, [], 2) / sqrt(size(med_data_4d_ctrl, 2));
+sem_c = nanstd(med_data_4d_ctrl, [], 2) ./ sqrt(sum(~isnan(med_data_4d_ctrl), 2));
 mean_e = nanmean(med_data_4d_exp, 2);
-sem_e = nanstd(med_data_4d_exp, [], 2) / sqrt(size(med_data_4d_exp, 2));
+sem_e = nanstd(med_data_4d_exp, [], 2) ./ sqrt(sum(~isnan(med_data_4d_exp), 2));
 fill([slices fliplr(slices)], [mean_c-sem_c; flipud(mean_c+sem_c)], ...
     sep_palette('control'), 'FaceAlpha', 0.3, 'EdgeColor', 'none');
 plot(slices, mean_c, 'Color', sep_palette('control_mean'), 'LineWidth', 3.5);
@@ -498,10 +514,12 @@ end
 for i = 1:size(norm_exp, 2)
     plot(slices, norm_exp(:, i), 'Color', cmap_exp(i, :), 'LineWidth', 1.2);
 end
+
+% each group's mean and SEM, over the mice with tissue on the plane
 mean_nc = nanmean(norm_ctrl, 2);
-sem_nc = nanstd(norm_ctrl, [], 2) / sqrt(size(norm_ctrl, 2));
+sem_nc = nanstd(norm_ctrl, [], 2) ./ sqrt(sum(~isnan(norm_ctrl), 2));
 mean_ne = nanmean(norm_exp, 2);
-sem_ne = nanstd(norm_exp, [], 2) / sqrt(size(norm_exp, 2));
+sem_ne = nanstd(norm_exp, [], 2) ./ sqrt(sum(~isnan(norm_exp), 2));
 fill([slices fliplr(slices)], [mean_nc-sem_nc; flipud(mean_nc+sem_nc)], ...
     sep_palette('control'), 'FaceAlpha', 0.3, 'EdgeColor', 'none');
 plot(slices, mean_nc, 'Color', sep_palette('control_mean'), 'LineWidth', 3.5);
@@ -540,23 +558,17 @@ end
 
 function [mask_bg_ctrl, mask_bg_exp, brainMask_cropped_no_bkg_ctrl, ...
     brainMask_cropped_no_bkg_exp, brainMask_group_diff] = hemisphere_masks(brainMask, ...
-    avg_lr_diff_ctrl, lr_diff_ctrl, recomputed_bkg_mask_4d_ctrl, ...
-    recomputed_bkg_mask_4d_exp)
-% The background masks folded onto one hemisphere: per mouse, per group, and
-% for the group difference.
+    lr_diff_ctrl, lr_diff_exp)
+% The folded voxels without a left-right value: per mouse, and the voxels shown
+% for each group and for the group difference.
 
 % the brain mask over the folded width
-brainMask_cropped = brainMask(:, :, 1:size(avg_lr_diff_ctrl, 3));
+brainMask_cropped = brainMask(:, :, 1:size(lr_diff_ctrl, 3));
 
-% each mouse's background, folded: background where either side is
-n_half = size(lr_diff_ctrl, 3);
-n_full = size(recomputed_bkg_mask_4d_ctrl, 3);
-bg_L_c = recomputed_bkg_mask_4d_ctrl(:, :, 1:n_half, :);
-bg_R_c = recomputed_bkg_mask_4d_ctrl(:, :, (n_full - n_half + 1):end, :);
-mask_bg_ctrl = logical(bg_L_c | flip(bg_R_c, 3));
-bg_L_e = recomputed_bkg_mask_4d_exp(:, :, 1:n_half, :);
-bg_R_e = recomputed_bkg_mask_4d_exp(:, :, (n_full - n_half + 1):end, :);
-mask_bg_exp = logical(bg_L_e | flip(bg_R_e, 3));
+% each mouse's background, folded: the voxels without a value, outside its
+% tissue on either side (so a figure never draws a NaN as a colour)
+mask_bg_ctrl = isnan(lr_diff_ctrl);
+mask_bg_exp = isnan(lr_diff_exp);
 
 % each group's mask: the brain where at least one mouse has tissue; the group
 % difference's: where both groups do
@@ -686,11 +698,21 @@ function [t_lr_diff_groupdiff, t_lr_sum_groupdiff, n_ctrl, n_exp, surp_diff, ...
 % Welch t and surprise (-log10 p) maps of the group difference, and their videos.
 % One function, since the surprise video also draws the t maps, within t_lim.
 
+% the number of mice of each group, for the region analyses
+n_ctrl = size(lr_diff_ctrl, 4);
+n_exp = size(lr_diff_exp, 4);
+
+% each voxel's number of mice with a value in each group (in single, to spare
+% memory); the sum has the same missing voxels as the difference
+n_vox_ctrl = single(sum(~isnan(lr_diff_ctrl), 4));
+n_vox_exp = single(sum(~isnan(lr_diff_exp), 4));
+
 % the SEMs and the Welch t of the group difference
 [sem_lr_diff_ctrl, sem_lr_sum_ctrl, sem_lr_diff_exp, sem_lr_sum_exp, ...
     t_lr_diff_groupdiff, t_lr_sum_groupdiff] = group_welch_t(lr_diff_ctrl, ...
-    lr_sum_ctrl, lr_diff_exp, lr_sum_exp, avg_lr_diff_ctrl, avg_lr_sum_ctrl, ...
-    avg_lr_diff_exp, avg_lr_sum_exp, avg_lr_diff_groupdiff, avg_lr_sum_groupdiff);
+    lr_sum_ctrl, lr_diff_exp, lr_sum_exp, n_vox_ctrl, n_vox_exp, avg_lr_diff_ctrl, ...
+    avg_lr_sum_ctrl, avg_lr_diff_exp, avg_lr_sum_exp, avg_lr_diff_groupdiff, ...
+    avg_lr_sum_groupdiff);
 
 % the colour limits of the t maps, in both videos below
 t_lim = [-6 6];
@@ -706,9 +728,9 @@ if generate_t_scored_videos
 end
 
 % the surprise of the t maps
-[n_ctrl, n_exp, surp_diff, surp_sum] = welch_surprise(lr_diff_ctrl, lr_diff_exp, ...
-    sem_lr_diff_ctrl, sem_lr_diff_exp, sem_lr_sum_ctrl, sem_lr_sum_exp, ...
-    t_lr_diff_groupdiff, t_lr_sum_groupdiff);
+[surp_diff, surp_sum] = welch_surprise(n_vox_ctrl, n_vox_exp, sem_lr_diff_ctrl, ...
+    sem_lr_diff_exp, sem_lr_sum_ctrl, sem_lr_sum_exp, t_lr_diff_groupdiff, ...
+    t_lr_sum_groupdiff);
 
 % the surprise video, and the t video shown where p < 0.05 (as above, where both
 % groups have tissue)
@@ -732,18 +754,20 @@ end
 
 function [sem_lr_diff_ctrl, sem_lr_sum_ctrl, sem_lr_diff_exp, sem_lr_sum_exp, ...
     t_lr_diff_groupdiff, t_lr_sum_groupdiff] = group_welch_t(lr_diff_ctrl, ...
-    lr_sum_ctrl, lr_diff_exp, lr_sum_exp, avg_lr_diff_ctrl, avg_lr_sum_ctrl, ...
-    avg_lr_diff_exp, avg_lr_sum_exp, avg_lr_diff_groupdiff, avg_lr_sum_groupdiff)
-% Each group's SEM of the absolute values (zero to NaN), and the Welch t of the
-% group difference.
+    lr_sum_ctrl, lr_diff_exp, lr_sum_exp, n_vox_ctrl, n_vox_exp, avg_lr_diff_ctrl, ...
+    avg_lr_sum_ctrl, avg_lr_diff_exp, avg_lr_sum_exp, avg_lr_diff_groupdiff, ...
+    avg_lr_sum_groupdiff)
+% Each group's SEM of the absolute values over each voxel's mice with a value
+% (zero to NaN), and the Welch t of the group difference.
 
 % each group's SEM of the absolute values, over the mice with a value
-sem_lr_diff_ctrl = nanstd(abs(lr_diff_ctrl), [], 4) ./ sqrt(sum(~isnan(lr_diff_ctrl), 4)); %#ok<*NANSTD>
-sem_lr_sum_ctrl = nanstd(abs(lr_sum_ctrl), [], 4) ./ sqrt(sum(~isnan(lr_sum_ctrl), 4));
-sem_lr_diff_exp = nanstd(abs(lr_diff_exp), [], 4) ./ sqrt(sum(~isnan(lr_diff_exp), 4));
-sem_lr_sum_exp = nanstd(abs(lr_sum_exp), [], 4) ./ sqrt(sum(~isnan(lr_sum_exp), 4));
+sem_lr_diff_ctrl = nanstd(abs(lr_diff_ctrl), [], 4) ./ sqrt(n_vox_ctrl); %#ok<*NANSTD>
+sem_lr_sum_ctrl = nanstd(abs(lr_sum_ctrl), [], 4) ./ sqrt(n_vox_ctrl);
+sem_lr_diff_exp = nanstd(abs(lr_diff_exp), [], 4) ./ sqrt(n_vox_exp);
+sem_lr_sum_exp = nanstd(abs(lr_sum_exp), [], 4) ./ sqrt(n_vox_exp);
 
-% a zero SEM to NaN, so the t is NaN rather than infinite
+% a zero SEM to NaN, so the t is NaN rather than infinite (one mouse gives a zero
+% SEM, so a voxel needs two in each group)
 sem_lr_diff_ctrl(sem_lr_diff_ctrl==0) = NaN;
 sem_lr_sum_ctrl(sem_lr_sum_ctrl==0) = NaN;
 sem_lr_diff_exp(sem_lr_diff_exp==0) = NaN;
@@ -766,29 +790,26 @@ t_lr_diff_groupdiff = avg_lr_diff_groupdiff ./ sem_diff_lr_diff;
 t_lr_sum_groupdiff = avg_lr_sum_groupdiff ./ sem_diff_lr_sum;
 end
 
-function [n_ctrl, n_exp, surp_diff, surp_sum] = welch_surprise(lr_diff_ctrl, ...
-    lr_diff_exp, sem_lr_diff_ctrl, sem_lr_diff_exp, sem_lr_sum_ctrl, sem_lr_sum_exp, ...
+function [surp_diff, surp_sum] = welch_surprise(n_vox_ctrl, n_vox_exp, ...
+    sem_lr_diff_ctrl, sem_lr_diff_exp, sem_lr_sum_ctrl, sem_lr_sum_exp, ...
     t_lr_diff_groupdiff, t_lr_sum_groupdiff)
-% The number of mice of each group, the Welch-Satterthwaite degrees of freedom,
-% and the surprise -log10 p of the t maps.
+% The Welch-Satterthwaite degrees of freedom from each voxel's numbers of mice
+% with a value, and the surprise -log10 p of the t maps.
 
-% the number of mice of each group: the most any voxel has
-n_ctrl = max(max(max(sum(~isnan(lr_diff_ctrl), 4))));
-n_exp = max(max(max(sum(~isnan(lr_diff_exp), 4))));
-
-% Welch-Satterthwaite degrees of freedom, NaN with fewer than two mice in a group
+% Welch-Satterthwaite degrees of freedom, voxel by voxel
 var1_diff = sem_lr_diff_ctrl.^2;
 var2_diff = sem_lr_diff_exp.^2;
 var1_sum = sem_lr_sum_ctrl.^2;
 var2_sum = sem_lr_sum_exp.^2;
 df_diff = (var1_diff + var2_diff).^2 ./ ...
-    (var1_diff.^2./(n_ctrl-1) + var2_diff.^2./(n_exp-1));
+    (var1_diff.^2 ./ (n_vox_ctrl - 1) + var2_diff.^2 ./ (n_vox_exp - 1));
 df_sum = (var1_sum + var2_sum).^2 ./ ...
-    (var1_sum.^2 ./ (n_ctrl-1) + var2_sum.^2 ./ (n_exp-1));
-if n_ctrl < 2 || n_exp < 2
-    df_diff(:) = NaN;
-    df_sum(:) = NaN;
-end
+    (var1_sum.^2 ./ (n_vox_ctrl - 1) + var2_sum.^2 ./ (n_vox_exp - 1));
+
+% NaN where a group has fewer than two mice with a value
+too_few_mice = n_vox_ctrl < 2 | n_vox_exp < 2;
+df_diff(too_few_mice) = NaN;
+df_sum(too_few_mice) = NaN;
 
 % the two-sided p of the Welch t, and the surprise -log10 p
 p_diff = 2 * tcdf(-abs(t_lr_diff_groupdiff), df_diff);
@@ -856,8 +877,8 @@ for a_idx = 1:length(analysis_types)
         n_ctrl, n_exp, n_metrics, funcs, res_type);
 
     plot_tmap_montages(leaf_stats_ctrl, leaf_stats_exp, atlas_left, valid_mask, ...
-        id_indices, unique_ids, metric_names, n_metrics, n_ctrl, n_exp, res_type, ...
-        comp_tag, comp_out_dir);
+        id_indices, unique_ids, metric_names, n_metrics, res_type, comp_tag, ...
+        comp_out_dir);
 end
 
 % free the large arrays
@@ -912,8 +933,7 @@ end
 end
 
 function plot_tmap_montages(leaf_stats_ctrl, leaf_stats_exp, atlas_left, valid_mask, ...
-    id_indices, unique_ids, metric_names, n_metrics, n_ctrl, n_exp, res_type, ...
-    comp_tag, comp_out_dir)
+    id_indices, unique_ids, metric_names, n_metrics, res_type, comp_tag, comp_out_dir)
 % One montage of group t-scores per statistic, each saved with its volume.
 
 % every 50th plane from 150 to 150 before the end, five per row
@@ -931,7 +951,7 @@ for i_met = 1:n_metrics
 
     % the t-score of each region, and the colour limits
     [t_scores_vec, t_lims] = region_t_scores(leaf_stats_ctrl, i_met, leaf_stats_exp, ...
-        n_ctrl, n_exp, metric_name);
+        metric_name);
 
     % the region t-scores back into a volume
     t_score_vol = zeros(size(atlas_left), 'single');
@@ -955,7 +975,7 @@ end
 end
 
 function [t_scores_vec, t_lims] = region_t_scores(leaf_stats_ctrl, i_met, ...
-    leaf_stats_exp, n_ctrl, n_exp, metric_name)
+    leaf_stats_exp, metric_name)
 % The group t-score of each region for one statistic (NaN or infinite to 0), and
 % symmetric colour limits at the 95th percentile of |t|, at least 0.1.
 
@@ -968,8 +988,8 @@ mu_c = nanmean(data_c, 2);
 mu_e = nanmean(data_e, 2);
 diff_mu = mu_e - mu_c;
 
-sem_c = nanstd(data_c, [], 2) ./ sqrt(n_ctrl);
-sem_e = nanstd(data_e, [], 2) ./ sqrt(n_exp);
+sem_c = sem_over_mice(data_c);
+sem_e = sem_over_mice(data_e);
 pooled_sem = sqrt(sem_c.^2 + sem_e.^2);
 
 t_scores_vec = diff_mu ./ pooled_sem;
@@ -989,6 +1009,15 @@ else
     end
 end
 t_lims = [-max_t, max_t];
+end
+
+function sem = sem_over_mice(data)
+% The SEM of each row over the mice (columns) with a value; NaN with fewer than
+% two, where a spread cannot be measured.
+
+n_mice = sum(~isnan(data), 2);
+sem = nanstd(data, [], 2) ./ sqrt(n_mice);
+sem(n_mice < 2) = NaN;
 end
 
 function fig_h = draw_tmap_montage(res_type, metric_name, comp_tag, slices_to_show, ...
@@ -1328,7 +1357,7 @@ function plot_coarse_bars(roi_stats_ctrl, roi_stats_exp, metric_names, choosen_m
 
 % the t-score of each region, sorted
 [sorted_t, sorted_rois] = coarse_t_scores(metric_names, choosen_metric, ...
-    roi_stats_ctrl, roi_stats_exp, n_ctrl, n_exp, roi_list);
+    roi_stats_ctrl, roi_stats_exp, roi_list);
 
 % the bars: red above zero, blue below
 fig_bars = figure('Visible', 'off', 'Name', ['Region_Analysis_BarChart_' res_type '_' ...
@@ -1375,7 +1404,7 @@ exportgraphics(fig_bars, ...
 end
 
 function [sorted_t, sorted_rois] = coarse_t_scores(metric_names, choosen_metric, ...
-    roi_stats_ctrl, roi_stats_exp, n_ctrl, n_exp, roi_list)
+    roi_stats_ctrl, roi_stats_exp, roi_list)
 % The t-score of each region for the chosen statistic, the regions with one,
 % sorted.
 
@@ -1393,8 +1422,8 @@ mean_ctrl_roi = nanmean(roi_means_ctrl, 2);
 mean_exp_roi = nanmean(roi_means_exp, 2);
 diff_means = mean_exp_roi - mean_ctrl_roi;
 
-sem_c = nanstd(roi_means_ctrl, [], 2) ./ sqrt(n_ctrl);
-sem_e = nanstd(roi_means_exp, [], 2) ./ sqrt(n_exp);
+sem_c = sem_over_mice(roi_means_ctrl);
+sem_e = sem_over_mice(roi_means_exp);
 pooled_sem = sqrt(sem_c.^2 + sem_e.^2);
 t_score_roi = diff_means ./ pooled_sem;
 

@@ -9,12 +9,14 @@
 % Compares the hemispheric asymmetry of the signal between a control group
 % (naive) and an experimental one (rws or behavior), voxel by voxel, from the
 % normalised stacks of run_normalise_groups. Each mouse's mean tissue intensity
-% per plane is taken, and its tissue smoothed in 3D (Gaussian, NaN-tolerant) if
+% per plane is taken; its voxels outside its tissue are then NaN, and its tissue
+% is smoothed in 3D (a Gaussian normalised by the smoothed tissue mask) if
 % apply_smoothing is set. The experimental group is aligned onto the control one
 % by a line fitted between the two groups' mean profiles over planes 200-700,
 % then both are put on one common scale from planes 300-500. The hemispheres are
 % folded: for every mouse |L - R| and L + R, then the group means, their
-% difference, and Welch t and surprise (-log10 p) maps of it. Saves, in
+% difference, and Welch t and surprise (-log10 p) maps of it, each voxel over
+% the mice with tissue on both sides of it. Saves, in
 % data\comparisons\<ctrl>_vs_<exp>_<channel>\, the profile alignment figure, the
 % slab figures around plane 565 (group t-maps masked by surprise, individual
 % mice), the regional surprise bars and the videos switched on below.
