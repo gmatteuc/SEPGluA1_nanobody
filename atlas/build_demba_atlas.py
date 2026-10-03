@@ -198,10 +198,8 @@ def crop_by_region_com(dem_idx, ccf_ann):
     return int(lo), int(hi), float(m), float(resid.std()), int(keep.sum())
 
 
-def main(age):
-    """Fetch DeMBA at `age`, remap its annotation, measure its crop, write the folder."""
-    name = f"demba_allen_seg_dev_mouse_p{age}_20um"
-    out_dir = DATA / f"atlas_demba_p{age}"
+def load_demba(name):
+    """The template and annotation of the DeMBA atlas `name`, checked for 20 um asr."""
     print(f"fetching {name} (downloads on first use) ...", flush=True)
     atlas = BrainGlobeAtlas(name)
     tmpl = np.asarray(atlas.template)
@@ -216,7 +214,15 @@ def main(age):
         f"{len(np.unique(ann))} labels",
         flush=True,
     )
+    return tmpl, ann
 
+
+def remap_annotation(ann):
+    """The annotation in parcellation_index, through the parcellation table.
+
+    Returns it with the ids present, those that do not translate, and the fraction
+    of labelled voxels kept; stops if more than 0.1% of them would be lost.
+    """
     # structure ids to parcellation_index, through the parcellation table
     sid_to_index = {}
     with open(PARCELLATION, newline="", encoding="utf-8") as fh:
@@ -240,8 +246,15 @@ def main(age):
         raise SystemExit(
             f"refusing to write: {1 - kept:.3%} of labelled voxels lost in the id remap"
         )
+    return ann_idx, present, missing, kept
 
-    # the crop, by the two methods
+
+def measure_crop(ann_idx, ann):
+    """The crop by the two methods, printed, with a warning when they disagree.
+
+    Returns (first, last, profile RMS, brain span) by the area profile and
+    (first, last, slope, residual SD, regions) by the region centres of mass.
+    """
     ccf_ann = np.asarray(nib.load(str(CCF_ANN)).dataobj)
     lo_a, hi_a, rms, brain = crop_by_area_profile(ann_idx, ccf_ann)
     print(f"  brain spans AP planes {brain[0]}..{brain[1]} of {ann.shape[0]}", flush=True)
@@ -263,8 +276,11 @@ def main(age):
             "Check before registering anything to this atlas.",
             flush=True,
         )
+    return (lo_a, hi_a, rms, brain), (lo_r, hi_r, slope, sd, n_reg)
 
-    # write the volumes, 20 um isotropic in mm units
+
+def write_volumes(out_dir, tmpl, ann, ann_idx):
+    """Write the template and both annotations, 20 um isotropic in mm units."""
     out_dir.mkdir(parents=True, exist_ok=True)
     affine = np.diag([0.02, 0.02, 0.02, 1.0])
     for arr, fname, dtype in (
@@ -280,6 +296,22 @@ def main(age):
             f"({(out_dir / fname).stat().st_size / 1e6:.1f} MB)",
             flush=True,
         )
+
+
+def main(age):
+    """Fetch DeMBA at `age`, remap its annotation, measure its crop, write the folder."""
+    name = f"demba_allen_seg_dev_mouse_p{age}_20um"
+    out_dir = DATA / f"atlas_demba_p{age}"
+    tmpl, ann = load_demba(name)
+
+    # structure ids to parcellation_index, through the parcellation table
+    ann_idx, present, missing, kept = remap_annotation(ann)
+
+    # the crop, by the two methods
+    (lo_a, hi_a, rms, brain), (lo_r, hi_r, slope, sd, n_reg) = measure_crop(ann_idx, ann)
+
+    # write the volumes, 20 um isotropic in mm units
+    write_volumes(out_dir, tmpl, ann, ann_idx)
 
     # the crop get_atlas reads, and a record of how the folder was built
     (out_dir / "aplims.txt").write_text(f"{lo_a} {hi_a}\n")
