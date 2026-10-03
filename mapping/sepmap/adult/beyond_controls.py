@@ -5,8 +5,8 @@ surface-GluA1 map is not accounted for by receptor abundance or synaptic density
 and that what remains replicates across independent animals. Each control below is
 a specific way the claim could be wrong, with the number that says whether it is:
 
-    A  a smooth spatial gradient?     a clearing or illumination artefact would
-                                      look like one; anatomy would not
+    A  a smooth spatial gradient?     an illumination artefact would look like
+                                      one; anatomy would not
     B  small or poorly covered        noisy means look like signal
        structures?
     C  one or two animals?            a single odd brain can carry a cohort mean
@@ -77,11 +77,11 @@ BEYOND_CONTROLS = SETTINGS["beyond_controls"]
 def centroids(structures: list[str]) -> dict[str, np.ndarray]:
     """Mean (AP, DV, ML) position of each structure, in mm, from the CCF itself.
 
-    Needed by control A: if the leftover were an imaging or clearing artefact it
-    would vary smoothly with position in the block, so the first thing to ask of
-    it is how much a smooth function of position can explain. A structure not in
-    the atlas gets NaN; when none of them is, ValueError, since control A and the
-    artefact figure both read every structure's centroid.
+    Needed by control A: if the leftover were an imaging artefact it would vary
+    smoothly with position in the block, so the first thing to ask of it is how
+    much a smooth function of position can explain. A structure not in the atlas
+    gets NaN; when none of them is, ValueError, since control A and the artefact
+    figure both read every structure's centroid.
     """
     names, _, _ = structure_terms()
     annotation = annotation_20("ccf")
@@ -159,7 +159,7 @@ def control_a_space(
     Returns the verdict row, or None when fewer than beyond_controls.min_centroids
     structures have a centroid.
     """
-    print("\nA  is it a smooth spatial gradient? (a clearing or illumination artefact)")
+    print("\nA  is it a smooth spatial gradient? (an illumination artefact)")
     coords = centroids(structures)
     xyz = np.array([coords[s] for s in structures])
     ok = np.all(np.isfinite(xyz), axis=1)

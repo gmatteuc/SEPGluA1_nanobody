@@ -19,11 +19,11 @@ the per-mouse files, with no denominator anywhere. Three things decide it.
                     under the autofluorescence, an unmixed SEP could still serve
                     as the total-receptor arm, and this says how much is there.
 
-The answer is a property of this tissue, fixed and mounted, not of SEP-GluA1
-mice. Superecliptic pHluorin is quenched in acidic compartments in a living cell,
-which makes it a surface reporter in vivo; after fixation the pH gradients are
-gone, and whatever green emission survives the protocol is what these volumes
-contain.
+The answer is a property of this tissue, fixed and mounted, neither cleared nor
+permeabilised, not of SEP-GluA1 mice. Superecliptic pHluorin is quenched in acidic
+compartments in a living cell, which makes it a surface reporter in vivo; after
+fixation the pH gradients are gone, and whatever green emission survives the
+protocol is what these volumes contain.
 
 Writes, in adult_v2/arms/ under the data root:
 
