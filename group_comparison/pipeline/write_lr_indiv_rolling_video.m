@@ -48,60 +48,9 @@ for j = 1:n_slices
     boundaries = (abs(gx) + abs(gy)) > 0 & (atlas_slice > 0);
     [b_row, b_col] = find(boundaries);
 
-    for k = 1:n_mice
-        mouse_name = strrep(mouse_names{k}, '_', ' ');
-
-        % the mouse's slab
-        raw_slab_d = diff_4d(z_indices, :, :, k);
-        raw_slab_s = sum_4d(z_indices, :, :, k);
-        mask_slab = bg_mask_4d(z_indices, :, :, k);
-
-        % background to NaN
-        raw_slab_d(logical(mask_slab)) = NaN;
-        raw_slab_s(logical(mask_slab)) = NaN;
-
-        % median over the slab
-        slab_diff = squeeze(nanmedian(raw_slab_d, 1)); %#ok<NANMEDIAN>
-        slab_sum = squeeze(nanmedian(raw_slab_s, 1));
-
-        % shown inside the atlas where any plane of the slab is tissue
-        slab_bg = squeeze(min(mask_slab, [], 1));
-        valid_pixels = (atlas_slice > 0) & (~slab_bg);
-        alpha_data = double(valid_pixels);
-
-        % top row: the difference
-        subplot(2, n_mice, k);
-        imagesc(slab_diff);
-        set(findobj(gca, 'Type', 'image'), 'AlphaData', alpha_data);
-        clim(clim_diff);
-        colormap(gca, sep_palette('intensity'));
-        axis image;
-        axis off;
-        set(gca, 'Color', 'k');
-        hold on;
-        plot(b_col, b_row, '.', 'Color', [0.5 0.5 0.5], 'MarkerSize', 0.1);
-        title(mouse_name, 'Color', 'w', 'FontSize', 10, 'Interpreter', 'none');
-        ylabel('LR Diff (Slab)', 'Color', 'w', 'FontSize', 12, 'FontWeight', 'bold');
-        cb = colorbar('Location', 'westoutside');
-        cb.Label.String = '|L - R|';
-        cb.Color = 'w';
-
-        % bottom row: the sum
-        subplot(2, n_mice, k + n_mice);
-        imagesc(slab_sum);
-        set(findobj(gca, 'Type', 'image'), 'AlphaData', alpha_data);
-        clim(clim_sum);
-        colormap(gca, sep_palette('intensity'));
-        axis image;
-        axis off;
-        set(gca, 'Color', 'k');
-        hold on;
-        plot(b_col, b_row, '.', 'Color', [0.5 0.5 0.5], 'MarkerSize', 0.1);
-        ylabel('LR Sum (Slab)', 'Color', 'w', 'FontSize', 12, 'FontWeight', 'bold');
-        cb = colorbar('Location', 'westoutside');
-        cb.Label.String = 'L + R';
-        cb.Color = 'w';
-    end
+    % every mouse: the difference above, the sum below
+    draw_mouse_slabs(n_mice, mouse_names, diff_4d, z_indices, sum_4d, bg_mask_4d, ...
+        atlas_slice, clim_diff, b_col, b_row, clim_sum);
 
     sgtitle(['Slice ' num2str(j) ' (Slab \pm' num2str(slab_range) ') - ' group_name], ...
         'Color', 'w', 'FontSize', 14);
@@ -119,4 +68,67 @@ end
 close(vidObj);
 close(fh);
 fprintf('Video saved: %s\n', full_video_path);
+end
+
+% ===== Local functions =====
+
+function draw_mouse_slabs(n_mice, mouse_names, diff_4d, z_indices, sum_4d, bg_mask_4d, ...
+    atlas_slice, clim_diff, b_col, b_row, clim_sum)
+% Every mouse's slab median: the difference in the top row, the sum in the
+% bottom row, over the central plane's atlas boundaries.
+
+for k = 1:n_mice
+    mouse_name = strrep(mouse_names{k}, '_', ' ');
+
+    % the mouse's slab
+    raw_slab_d = diff_4d(z_indices, :, :, k);
+    raw_slab_s = sum_4d(z_indices, :, :, k);
+    mask_slab = bg_mask_4d(z_indices, :, :, k);
+
+    % background to NaN
+    raw_slab_d(logical(mask_slab)) = NaN;
+    raw_slab_s(logical(mask_slab)) = NaN;
+
+    % median over the slab
+    slab_diff = squeeze(nanmedian(raw_slab_d, 1)); %#ok<NANMEDIAN>
+    slab_sum = squeeze(nanmedian(raw_slab_s, 1));
+
+    % shown inside the atlas where any plane of the slab is tissue
+    slab_bg = squeeze(min(mask_slab, [], 1));
+    valid_pixels = (atlas_slice > 0) & (~slab_bg);
+    alpha_data = double(valid_pixels);
+
+    % top row: the difference
+    subplot(2, n_mice, k);
+    imagesc(slab_diff);
+    set(findobj(gca, 'Type', 'image'), 'AlphaData', alpha_data);
+    clim(clim_diff);
+    colormap(gca, sep_palette('intensity'));
+    axis image;
+    axis off;
+    set(gca, 'Color', 'k');
+    hold on;
+    plot(b_col, b_row, '.', 'Color', [0.5 0.5 0.5], 'MarkerSize', 0.1);
+    title(mouse_name, 'Color', 'w', 'FontSize', 10, 'Interpreter', 'none');
+    ylabel('LR Diff (Slab)', 'Color', 'w', 'FontSize', 12, 'FontWeight', 'bold');
+    cb = colorbar('Location', 'westoutside');
+    cb.Label.String = '|L - R|';
+    cb.Color = 'w';
+
+    % bottom row: the sum
+    subplot(2, n_mice, k + n_mice);
+    imagesc(slab_sum);
+    set(findobj(gca, 'Type', 'image'), 'AlphaData', alpha_data);
+    clim(clim_sum);
+    colormap(gca, sep_palette('intensity'));
+    axis image;
+    axis off;
+    set(gca, 'Color', 'k');
+    hold on;
+    plot(b_col, b_row, '.', 'Color', [0.5 0.5 0.5], 'MarkerSize', 0.1);
+    ylabel('LR Sum (Slab)', 'Color', 'w', 'FontSize', 12, 'FontWeight', 'bold');
+    cb = colorbar('Location', 'westoutside');
+    cb.Label.String = 'L + R';
+    cb.Color = 'w';
+end
 end

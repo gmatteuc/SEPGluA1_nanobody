@@ -48,66 +48,9 @@ for j = 1:n_slices
     boundaries = (abs(gx) + abs(gy)) > 0 & (atlas_slice > 0);
     [b_row, b_col] = find(boundaries); %#ok<ASGLU>
 
-    for k = 1:n_mice
-        if k > length(mouse_names)
-            m_name = sprintf('Mouse %d', k);
-        else
-            m_name = strrep(mouse_names{k}, '_', ' ');
-        end
-
-        % the mouse's plane
-        data_diff = squeeze(lr_diff_4d(j, :, :, k));
-        data_sum = squeeze(lr_sum_4d(j, :, :, k));
-        mask_bg = squeeze(mask_bg_4d(j, :, :, k));
-
-        % shown inside the atlas, outside the mouse's background
-        valid_pixels = (atlas_slice > 0) & (~mask_bg);
-        alpha_data = double(valid_pixels);
-
-        % top row: the signed left-right difference
-        subplot(2, n_mice, k);
-        imagesc(data_diff);
-        clim(clim_diff);
-        colormap(gca, crwb);
-
-        set(findobj(gca, 'Type', 'image'), 'AlphaData', alpha_data);
-        axis image;
-        axis off;
-        set(gca, 'Color', 'k');
-        hold on;
-
-        % atlas overlay, off (reason not recorded)
-        % plot(b_col, b_row, '.', 'Color', [0.5 0.5 0.5], 'MarkerSize', 0.1);
-
-        title(m_name, 'Color', 'w', 'FontSize', 10, 'Interpreter', 'none');
-
-        ylabel('L - R (Signed)', 'Color', 'w', 'FontSize', 12, 'FontWeight', 'bold');
-        cb = colorbar('Location', 'eastoutside');
-        cb.Label.String = 'R > L  |  L > R';
-        cb.Color = 'w';
-        cb.Label.Color = 'w';
-
-        % bottom row: the left-right sum, an intensity, in hot
-        subplot(2, n_mice, k + n_mice);
-        imagesc(data_sum);
-        clim(clim_sum);
-        colormap(gca, sep_palette('intensity'));
-
-        set(findobj(gca, 'Type', 'image'), 'AlphaData', alpha_data);
-        axis image;
-        axis off;
-        set(gca, 'Color', 'k');
-        hold on;
-
-        % atlas overlay, off (reason not recorded)
-        % plot(b_col, b_row, '.', 'Color', [0.5 0.5 0.5], 'MarkerSize', 0.1);
-
-        ylabel('L + R (Sum)', 'Color', 'w', 'FontSize', 12, 'FontWeight', 'bold');
-        cb = colorbar('Location', 'eastoutside');
-        cb.Label.String = 'Intensity';
-        cb.Color = 'w';
-        cb.Label.Color = 'w';
-    end
+    % every mouse: the signed difference above, the sum below
+    draw_signed_panels(n_mice, mouse_names, lr_diff_4d, j, lr_sum_4d, mask_bg_4d, ...
+        atlas_slice, clim_diff, crwb, clim_sum);
 
     sgtitle(['Slice # ' num2str(j) ' - Directional Asymmetry (' group_name, ')'], ...
         'Color', 'w', 'FontSize', 14);
@@ -125,4 +68,73 @@ end
 close(vidObj);
 close(fh);
 fprintf('Video saved: %s\n', full_video_path);
+end
+
+% ===== Local functions =====
+
+function draw_signed_panels(n_mice, mouse_names, lr_diff_4d, j, lr_sum_4d, mask_bg_4d, ...
+    atlas_slice, clim_diff, crwb, clim_sum)
+% Every mouse's plane j: its signed difference in the top row (red to blue), its
+% sum in the bottom row.
+
+for k = 1:n_mice
+    if k > length(mouse_names)
+        m_name = sprintf('Mouse %d', k);
+    else
+        m_name = strrep(mouse_names{k}, '_', ' ');
+    end
+
+    % the mouse's plane
+    data_diff = squeeze(lr_diff_4d(j, :, :, k));
+    data_sum = squeeze(lr_sum_4d(j, :, :, k));
+    mask_bg = squeeze(mask_bg_4d(j, :, :, k));
+
+    % shown inside the atlas, outside the mouse's background
+    valid_pixels = (atlas_slice > 0) & (~mask_bg);
+    alpha_data = double(valid_pixels);
+
+    % top row: the signed left-right difference
+    subplot(2, n_mice, k);
+    imagesc(data_diff);
+    clim(clim_diff);
+    colormap(gca, crwb);
+
+    set(findobj(gca, 'Type', 'image'), 'AlphaData', alpha_data);
+    axis image;
+    axis off;
+    set(gca, 'Color', 'k');
+    hold on;
+
+    % atlas overlay, off (reason not recorded)
+    % plot(b_col, b_row, '.', 'Color', [0.5 0.5 0.5], 'MarkerSize', 0.1);
+
+    title(m_name, 'Color', 'w', 'FontSize', 10, 'Interpreter', 'none');
+
+    ylabel('L - R (Signed)', 'Color', 'w', 'FontSize', 12, 'FontWeight', 'bold');
+    cb = colorbar('Location', 'eastoutside');
+    cb.Label.String = 'R > L  |  L > R';
+    cb.Color = 'w';
+    cb.Label.Color = 'w';
+
+    % bottom row: the left-right sum, an intensity, in hot
+    subplot(2, n_mice, k + n_mice);
+    imagesc(data_sum);
+    clim(clim_sum);
+    colormap(gca, sep_palette('intensity'));
+
+    set(findobj(gca, 'Type', 'image'), 'AlphaData', alpha_data);
+    axis image;
+    axis off;
+    set(gca, 'Color', 'k');
+    hold on;
+
+    % atlas overlay, off (reason not recorded)
+    % plot(b_col, b_row, '.', 'Color', [0.5 0.5 0.5], 'MarkerSize', 0.1);
+
+    ylabel('L + R (Sum)', 'Color', 'w', 'FontSize', 12, 'FontWeight', 'bold');
+    cb = colorbar('Location', 'eastoutside');
+    cb.Label.String = 'Intensity';
+    cb.Color = 'w';
+    cb.Label.Color = 'w';
+end
 end

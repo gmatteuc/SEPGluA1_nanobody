@@ -96,45 +96,8 @@ switch lower(atlas_key)
 
     otherwise
 
-        % any DeMBA age ('demba_p16', 'demba_p20', ...): one entry for all, since
-        % the folders differ only in the age and its crop (see the help)
-        tok = regexp(lower(atlas_key), '^demba_p(\d+)$', 'tokens', 'once');
-        if isempty(tok)
-            error(['get_atlas: unknown atlas key "%s". Known keys: ''ccf'' and ' ...
-                   '''demba_pN'' for any age N built by build_demba_atlas.py.'], atlas_key);
-        end
-        age = str2double(tok{1});
-        atlas.key             = sprintf('demba_p%d', age);
-        atlas.dir             = fullfile(paths.data, sprintf('atlas_demba_p%d', age));
-        atlas.template_file   = 'average_template_10.nii.gz';
-        atlas.annotation_file = 'annotation_10.nii.gz';
-        atlas.boundary_file   = '';
-        atlas.res_um          = 20;
-        atlas.age_days        = age;
-        atlas.description     = sprintf(['DeMBA P%d (Carey 2025), Allen CCFv3 labels, ' ...
-                                         '20 um isotropic'], age);
-
-        % an age whose folder has not been built is an error, not a fall-back
-        % onto a neighbouring age
-        if ~exist(atlas.dir, 'dir')
-            error(['get_atlas: no atlas built for P%d.\n  %s does not exist.\n' ...
-                   'Build it first:  tools\\venv_atlas\\Scripts\\python.exe atlas\\build_demba_atlas.py %d'], ...
-                   age, atlas.dir, age);
-        end
-
-        % the AP crop, measured when the folder was built and stored beside the
-        % volumes (the two methods are in build_demba_atlas.py)
-        aplims_file = fullfile(atlas.dir, 'aplims.txt');
-        if ~exist(aplims_file, 'file')
-            error(['get_atlas: %s is missing. Re-run atlas\\build_demba_atlas.py %d, or write the ' ...
-                   'two AP crop planes into that file.'], aplims_file, age);
-        end
-        lims = sscanf(fileread(aplims_file), '%d')';
-        if numel(lims) ~= 2 || lims(2) <= lims(1)
-            error('get_atlas: %s should hold two increasing plane numbers, found "%s".', ...
-                aplims_file, strtrim(fileread(aplims_file)));
-        end
-        atlas.default_aplims  = lims;
+        % a DeMBA age, built by build_demba_atlas.py
+        atlas = demba_atlas(atlas_key, paths);
 
 end
 
@@ -152,6 +115,62 @@ for k = 1:numel(required)
 end
 
 %% Put this atlas alone on the path
+
+% this atlas on the path, the others off it
+put_alone_on_path(paths, atlas);
+
+end
+
+% ===== Local functions =====
+
+function atlas = demba_atlas(atlas_key, paths)
+% The entry of a DeMBA age, its AP crop read from aplims.txt; stops if the age
+% is not built.
+
+% any DeMBA age ('demba_p16', 'demba_p20', ...): one entry for all, since
+% the folders differ only in the age and its crop (see the help)
+tok = regexp(lower(atlas_key), '^demba_p(\d+)$', 'tokens', 'once');
+if isempty(tok)
+    error(['get_atlas: unknown atlas key "%s". Known keys: ''ccf'' and ' ...
+           '''demba_pN'' for any age N built by build_demba_atlas.py.'], atlas_key);
+end
+age = str2double(tok{1});
+atlas.key             = sprintf('demba_p%d', age);
+atlas.dir             = fullfile(paths.data, sprintf('atlas_demba_p%d', age));
+atlas.template_file   = 'average_template_10.nii.gz';
+atlas.annotation_file = 'annotation_10.nii.gz';
+atlas.boundary_file   = '';
+atlas.res_um          = 20;
+atlas.age_days        = age;
+atlas.description     = sprintf(['DeMBA P%d (Carey 2025), Allen CCFv3 labels, ' ...
+                                 '20 um isotropic'], age);
+
+% an age whose folder has not been built is an error, not a fall-back
+% onto a neighbouring age
+if ~exist(atlas.dir, 'dir')
+    error(['get_atlas: no atlas built for P%d.\n  %s does not exist.\n' ...
+           'Build it first:  tools\\venv_atlas\\Scripts\\python.exe atlas\\build_demba_atlas.py %d'], ...
+           age, atlas.dir, age);
+end
+
+% the AP crop, measured when the folder was built and stored beside the
+% volumes (the two methods are in build_demba_atlas.py)
+aplims_file = fullfile(atlas.dir, 'aplims.txt');
+if ~exist(aplims_file, 'file')
+    error(['get_atlas: %s is missing. Re-run atlas\\build_demba_atlas.py %d, or write the ' ...
+           'two AP crop planes into that file.'], aplims_file, age);
+end
+lims = sscanf(fileread(aplims_file), '%d')';
+if numel(lims) ~= 2 || lims(2) <= lims(1)
+    error('get_atlas: %s should hold two increasing plane numbers, found "%s".', ...
+        aplims_file, strtrim(fileread(aplims_file)));
+end
+atlas.default_aplims  = lims;
+
+end
+
+function put_alone_on_path(paths, atlas)
+% The atlas folder on the path and every other one off it, checked by which.
 
 % every atlas folder: the CCF one and every DeMBA age built
 all_atlas_dirs = {paths.atlas};

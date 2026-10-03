@@ -64,33 +64,44 @@ for mouse_idx = 1:numel(cohort)
 
         case 'apply'
 
-            % the decisions file and sliceinfo.mat, both needed
-            if ~exist(decisions, 'file')
-                error(['No decisions file found:\n  %s\n' ...
-                       'Run this script with run_mode = ''edit'' first.'], decisions);
-            end
-            sliceinfo_name = fullfile(procpath, 'sliceinfo.mat');
-            if ~exist(sliceinfo_name, 'file')
-                error('sliceinfo.mat not found:\n  %s\nRun run_extract_and_center for this mouse first.', ...
-                    sliceinfo_name);
-            end
-            S = load(sliceinfo_name);
-            sliceinfo = S.sliceinfo;
-
-            % report the decisions (slices flipped, slices not in their place)
-            T = readtable(decisions);
-            fprintf('  decisions: %d slices, %d flipped, %d reordered\n', ...
-                height(T), sum(T.FlipState == 1), ...
-                sum(T.NewOrderOriginalIndex(:)' ~= 1:height(T)));
-
-            % rebuild volume_ordered.tiff, in the folder sliceinfo.mat names (see above)
-            generateReordedVolume(sliceinfo);
-            fprintf('  rebuilt: %s\n', fullfile(procpath, 'volume_ordered.tiff'));
+            % rebuild volume_ordered.tiff from the decisions file
+            apply_decisions(decisions, procpath);
 
         otherwise
             error('Unknown run_mode: %s (use ''edit'' or ''apply'').', run_mode);
     end
 
 end
+
+end
+
+% ===== Local functions =====
+
+function apply_decisions(decisions, procpath)
+% Mode 'apply': volume_ordered.tiff rebuilt from the decisions file, in the
+% folder sliceinfo.mat names.
+
+% the decisions file and sliceinfo.mat, both needed
+if ~exist(decisions, 'file')
+    error(['No decisions file found:\n  %s\n' ...
+           'Run this script with run_mode = ''edit'' first.'], decisions);
+end
+sliceinfo_name = fullfile(procpath, 'sliceinfo.mat');
+if ~exist(sliceinfo_name, 'file')
+    error('sliceinfo.mat not found:\n  %s\nRun run_extract_and_center for this mouse first.', ...
+        sliceinfo_name);
+end
+S = load(sliceinfo_name);
+sliceinfo = S.sliceinfo;
+
+% report the decisions (slices flipped, slices not in their place)
+T = readtable(decisions);
+fprintf('  decisions: %d slices, %d flipped, %d reordered\n', ...
+    height(T), sum(T.FlipState == 1), ...
+    sum(T.NewOrderOriginalIndex(:)' ~= 1:height(T)));
+
+% rebuild volume_ordered.tiff, in the folder sliceinfo.mat names (see above)
+generateReordedVolume(sliceinfo);
+fprintf('  rebuilt: %s\n', fullfile(procpath, 'volume_ordered.tiff'));
 
 end

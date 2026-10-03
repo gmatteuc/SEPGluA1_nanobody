@@ -46,40 +46,8 @@ for mouse_idx = 1:numel(cohort)
 
     try
 
-        if ~exist(mouse_dir, 'dir')
-            error('Mouse dir not found: %s\nCopy the raw .czi from the lab share first.', ...
-                mouse_dir);
-        end
-
-        % read the extraction settings: from the mouse folder, else from its
-        % lightsuite folder, else LightSuite's defaults, which the adults ran on
-        settings_path = resolve_settings_path(mouse_dir);
-        sliceinfo = parseSettingsFile(settings_path);
-        fprintf('  settings: %s\n', settings_path);
-        fprintf('  slicethickness=%g px_process=%g px_register=%g px_atlas=%g regchan=%s\n', ...
-            sliceinfo.slicethickness, sliceinfo.px_process, sliceinfo.px_register, ...
-            sliceinfo.px_atlas, sliceinfo.regchan);
-
-        % list the .czi files and find the sections in them (LightSuite)
-        sliceinfo.mousename = mousename;
-        filelistcheck = dir(fullfile(mouse_dir, '*.czi'));
-        if isempty(filelistcheck)
-            error('No .czi found in %s\nCopy the raw files from the lab share first.', ...
-                mouse_dir);
-        end
-        filepaths = fullfile({filelistcheck(:).folder}', {filelistcheck(:).name}');
-        sliceinfo.filepaths = filepaths;
-        fprintf('  %d .czi file(s)\n', numel(filepaths));
-        sliceinfo = getSliceInfo(sliceinfo);
-
-        % write every channel, centred, with the ordering composite and sliceinfo.mat
-        slicevol = generateSliceVolume(sliceinfo, sliceinfo.regchan); %#ok<NASGU>
-
-        % write volume_ordered.tiff from the decisions file of run_order_slices
-        % when there is one, otherwise in the extracted order
-        generateReordedVolume(sliceinfo);
-
-        fprintf('  done: %s\n', mousename);
+        % extract and centre its sections
+        extract_mouse(mouse_dir, mousename);
 
     catch err
         fprintf('  FAILED (%s): %s\n', mousename, err.message);
@@ -101,6 +69,47 @@ end
 end
 
 % ===== Local functions =====
+
+function extract_mouse(mouse_dir, mousename)
+% One mouse's sections found in its .czi files, written centred with the
+% ordering composite and sliceinfo.mat, then reordered.
+
+if ~exist(mouse_dir, 'dir')
+    error('Mouse dir not found: %s\nCopy the raw .czi from the lab share first.', ...
+        mouse_dir);
+end
+
+% read the extraction settings: from the mouse folder, else from its
+% lightsuite folder, else LightSuite's defaults, which the adults ran on
+settings_path = resolve_settings_path(mouse_dir);
+sliceinfo = parseSettingsFile(settings_path);
+fprintf('  settings: %s\n', settings_path);
+fprintf('  slicethickness=%g px_process=%g px_register=%g px_atlas=%g regchan=%s\n', ...
+    sliceinfo.slicethickness, sliceinfo.px_process, sliceinfo.px_register, ...
+    sliceinfo.px_atlas, sliceinfo.regchan);
+
+% list the .czi files and find the sections in them (LightSuite)
+sliceinfo.mousename = mousename;
+filelistcheck = dir(fullfile(mouse_dir, '*.czi'));
+if isempty(filelistcheck)
+    error('No .czi found in %s\nCopy the raw files from the lab share first.', ...
+        mouse_dir);
+end
+filepaths = fullfile({filelistcheck(:).folder}', {filelistcheck(:).name}');
+sliceinfo.filepaths = filepaths;
+fprintf('  %d .czi file(s)\n', numel(filepaths));
+sliceinfo = getSliceInfo(sliceinfo);
+
+% write every channel, centred, with the ordering composite and sliceinfo.mat
+slicevol = generateSliceVolume(sliceinfo, sliceinfo.regchan); %#ok<NASGU>
+
+% write volume_ordered.tiff from the decisions file of run_order_slices
+% when there is one, otherwise in the extracted order
+generateReordedVolume(sliceinfo);
+
+fprintf('  done: %s\n', mousename);
+
+end
 
 function settings_path = resolve_settings_path(mouse_dir)
 % The first local_settings.txt found, in the mouse folder, then in its lightsuite

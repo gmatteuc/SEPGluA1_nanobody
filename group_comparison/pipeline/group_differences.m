@@ -391,6 +391,37 @@ cmap_ctrl = [linspace(0.6, 0, 5)', linspace(0.7, 0.2, 5)', linspace(1, 0.4, 5)']
 cmap_exp = [linspace(1, 0.5, 5)', linspace(0.6, 0.1, 5)', linspace(0.6, 0.1, 5)'];
 slices = 1:size(med_data_4d_ctrl, 1);
 
+% left: the raw profiles
+draw_raw_profiles(med_data_4d_ctrl, slices, cmap_ctrl, med_data_4d_exp, cmap_exp);
+
+% the fit planes
+xline(interest_region(1), 'k--');
+xline(interest_region(end), 'k--');
+set(gca, 'FontSize', 12);
+
+% right: the aligned profiles
+draw_aligned_profiles(norm_ctrl, slices, cmap_ctrl, norm_exp, cmap_exp, slope, ...
+    intercept);
+xline(interest_region(1), 'k--');
+xline(interest_region(end), 'k--');
+set(gca, 'FontSize', 12);
+sgtitle(['Profile Alignment: ' ctrl_type ' (Ref) vs ' exp_type ' (Aligned)'], ...
+    'FontSize', 14, 'Color', 'k', 'Interpreter', 'none');
+
+% save it
+set(fig_norm, 'InvertHardcopy', 'off');
+saveas(fig_norm, ...
+    fullfile(comp_out_dir, ['Normalization_Profiles_LR_' comp_tag '.fig']));
+exportgraphics(fig_norm, ...
+    fullfile(comp_out_dir, ['Normalization_Profiles_LR_' comp_tag '.png']), ...
+    'Resolution', 300);
+fprintf('Saved LR Normalization Profile plot to: %s\n', comp_out_dir);
+end
+
+function draw_raw_profiles(med_data_4d_ctrl, slices, cmap_ctrl, med_data_4d_exp, ...
+    cmap_exp)
+% Every mouse's raw plane profile, and each group's mean and SEM.
+
 % left: the raw profiles of every mouse, and each group's mean and SEM
 subplot(1, 2, 1);
 hold on;
@@ -415,11 +446,11 @@ plot(slices, mean_e, 'Color', sep_palette('experimental_mean'), 'LineWidth', 3.5
 title('Raw Nanobody intensity', 'FontSize', 12);
 xlabel('Coronal index', 'FontSize', 12);
 ylabel('Intensity', 'FontSize', 12);
+end
 
-% the fit planes
-xline(interest_region(1), 'k--');
-xline(interest_region(end), 'k--');
-set(gca, 'FontSize', 12);
+function draw_aligned_profiles(norm_ctrl, slices, cmap_ctrl, norm_exp, cmap_exp, ...
+    slope, intercept)
+% The same after the alignment, titled with the line.
 
 % right: the same after the alignment
 subplot(1, 2, 2);
@@ -446,20 +477,6 @@ title(sprintf('Linearly Aligned (Slope=%.2f, Int=%.0f)', slope, intercept), ...
     'FontSize', 12);
 xlabel('Coronal index', 'FontSize', 12);
 ylabel('Aligned Intensity', 'FontSize', 12);
-xline(interest_region(1), 'k--');
-xline(interest_region(end), 'k--');
-set(gca, 'FontSize', 12);
-sgtitle(['Profile Alignment: ' ctrl_type ' (Ref) vs ' exp_type ' (Aligned)'], ...
-    'FontSize', 14, 'Color', 'k', 'Interpreter', 'none');
-
-% save it
-set(fig_norm, 'InvertHardcopy', 'off');
-saveas(fig_norm, ...
-    fullfile(comp_out_dir, ['Normalization_Profiles_LR_' comp_tag '.fig']));
-exportgraphics(fig_norm, ...
-    fullfile(comp_out_dir, ['Normalization_Profiles_LR_' comp_tag '.png']), ...
-    'Resolution', 300);
-fprintf('Saved LR Normalization Profile plot to: %s\n', comp_out_dir);
 end
 
 % ===== Local functions: left-right maps and videos =====
@@ -634,6 +651,55 @@ function [t_lr_diff_groupdiff, t_lr_sum_groupdiff, n_ctrl, n_exp, surp_diff, ...
 % Welch t and surprise (-log10 p) maps of the group difference, and their videos.
 % One function, since the surprise video uses the limits the t-score video sets.
 
+% the SEMs and the Welch t of the group difference
+[sem_lr_diff_ctrl, sem_lr_sum_ctrl, sem_lr_diff_exp, sem_lr_sum_exp, ...
+    t_lr_diff_groupdiff, t_lr_sum_groupdiff] = group_welch_t(lr_diff_ctrl, ...
+    lr_sum_ctrl, lr_diff_exp, lr_sum_exp, avg_lr_diff_ctrl, avg_lr_sum_ctrl, ...
+    avg_lr_diff_exp, avg_lr_sum_exp, avg_lr_diff_groupdiff, avg_lr_sum_groupdiff);
+
+% its video, shown where both groups have tissue (not on the whole brain mask,
+% brainMask_cropped)
+if generate_t_scored_videos
+    t_lim = [-6 6];
+    write_lr_video(t_lr_diff_groupdiff, t_lr_sum_groupdiff, half_atlas, ...
+        brainMask_group_diff, comp_out_dir, ...
+        [['t_lr_diff_sum_' channel '_groupdiff_'] comp_tag '.mp4'], t_lim, ...
+        [exp_type ' - ' ctrl_type ' (t-score)'], ...
+        ['LR abs diff t-score (' comp_tag ')'], ['LR abs sum t-score (' comp_tag ')']);
+end
+
+% the surprise of the t maps
+[n_ctrl, n_exp, surp_diff, surp_sum] = welch_surprise(lr_diff_ctrl, lr_diff_exp, ...
+    sem_lr_diff_ctrl, sem_lr_diff_exp, sem_lr_sum_ctrl, sem_lr_sum_exp, ...
+    t_lr_diff_groupdiff, t_lr_sum_groupdiff);
+
+% the surprise video, and the t video shown where p < 0.05 (as above, where both
+% groups have tissue)
+if generate_surprise_videos
+    write_lr_video(surp_diff, surp_sum, half_atlas, brainMask_group_diff, ...
+        comp_out_dir, ['surp_lr_diff_sum_' channel '_groupdiff_' comp_tag '.mp4'], ...
+        [0 8], ['-log_{10}(p) | ' comp_tag], ...
+        ['LR abs diff surprise (' comp_tag ')'], ['LR abs sum surprise (' comp_tag ')']);
+    surp_thresh = -log10(0.05);
+    write_lr_video_surpmask( ...
+        t_lr_diff_groupdiff, t_lr_sum_groupdiff, ...
+        half_atlas, brainMask_group_diff, ...
+        comp_out_dir, ...
+        [['t_lr_diff_sum_' channel '_groupdiff_'] comp_tag '_surpmask.mp4'], ...
+        t_lim, [exp_type ' - ' ctrl_type ' (t-score, p<0.05)'], ...
+        ['LR abs diff t-score masked (' comp_tag ')'], ...
+        ['LR abs sum t-score masked (' comp_tag ')'], ...
+        surp_diff, surp_thresh);
+end
+end
+
+function [sem_lr_diff_ctrl, sem_lr_sum_ctrl, sem_lr_diff_exp, sem_lr_sum_exp, ...
+    t_lr_diff_groupdiff, t_lr_sum_groupdiff] = group_welch_t(lr_diff_ctrl, ...
+    lr_sum_ctrl, lr_diff_exp, lr_sum_exp, avg_lr_diff_ctrl, avg_lr_sum_ctrl, ...
+    avg_lr_diff_exp, avg_lr_sum_exp, avg_lr_diff_groupdiff, avg_lr_sum_groupdiff)
+% Each group's SEM of the absolute values (zero to NaN), and the Welch t of the
+% group difference.
+
 % each group's SEM of the absolute values, over the mice with a value
 sem_lr_diff_ctrl = nanstd(abs(lr_diff_ctrl), [], 4) ./ sqrt(sum(~isnan(lr_diff_ctrl), 4)); %#ok<*NANSTD>
 sem_lr_sum_ctrl = nanstd(abs(lr_sum_ctrl), [], 4) ./ sqrt(sum(~isnan(lr_sum_ctrl), 4));
@@ -661,17 +727,13 @@ sem_diff_lr_sum(isnan(sem_diff_lr_sum) | sem_diff_lr_sum==0) = NaN;
 % the Welch t of the group difference
 t_lr_diff_groupdiff = avg_lr_diff_groupdiff ./ sem_diff_lr_diff;
 t_lr_sum_groupdiff = avg_lr_sum_groupdiff ./ sem_diff_lr_sum;
-
-% its video, shown where both groups have tissue (not on the whole brain mask,
-% brainMask_cropped)
-if generate_t_scored_videos
-    t_lim = [-6 6];
-    write_lr_video(t_lr_diff_groupdiff, t_lr_sum_groupdiff, half_atlas, ...
-        brainMask_group_diff, comp_out_dir, ...
-        [['t_lr_diff_sum_' channel '_groupdiff_'] comp_tag '.mp4'], t_lim, ...
-        [exp_type ' - ' ctrl_type ' (t-score)'], ...
-        ['LR abs diff t-score (' comp_tag ')'], ['LR abs sum t-score (' comp_tag ')']);
 end
+
+function [n_ctrl, n_exp, surp_diff, surp_sum] = welch_surprise(lr_diff_ctrl, ...
+    lr_diff_exp, sem_lr_diff_ctrl, sem_lr_diff_exp, sem_lr_sum_ctrl, sem_lr_sum_exp, ...
+    t_lr_diff_groupdiff, t_lr_sum_groupdiff)
+% The number of mice of each group, the Welch-Satterthwaite degrees of freedom,
+% and the surprise -log10 p of the t maps.
 
 % the number of mice of each group: the most any voxel has
 n_ctrl = max(max(max(sum(~isnan(lr_diff_ctrl), 4))));
@@ -694,25 +756,6 @@ p_diff = 2 * tcdf(-abs(t_lr_diff_groupdiff), df_diff);
 p_sum = 2 * tcdf(-abs(t_lr_sum_groupdiff), df_sum);
 surp_diff = -log10(p_diff);
 surp_sum = -log10(p_sum);
-
-% the surprise video, and the t video shown where p < 0.05 (as above, where both
-% groups have tissue)
-if generate_surprise_videos
-    write_lr_video(surp_diff, surp_sum, half_atlas, brainMask_group_diff, ...
-        comp_out_dir, ['surp_lr_diff_sum_' channel '_groupdiff_' comp_tag '.mp4'], ...
-        [0 8], ['-log_{10}(p) | ' comp_tag], ...
-        ['LR abs diff surprise (' comp_tag ')'], ['LR abs sum surprise (' comp_tag ')']);
-    surp_thresh = -log10(0.05);
-    write_lr_video_surpmask( ...
-        t_lr_diff_groupdiff, t_lr_sum_groupdiff, ...
-        half_atlas, brainMask_group_diff, ...
-        comp_out_dir, ...
-        [['t_lr_diff_sum_' channel '_groupdiff_'] comp_tag '_surpmask.mp4'], ...
-        t_lim, [exp_type ' - ' ctrl_type ' (t-score, p<0.05)'], ...
-        ['LR abs diff t-score masked (' comp_tag ')'], ...
-        ['LR abs sum t-score masked (' comp_tag ')'], ...
-        surp_diff, surp_thresh);
-end
 end
 
 % ===== Local functions: region analyses (off in production) =====
@@ -847,36 +890,9 @@ fprintf('  Generating T-Maps for %s metrics...\n', res_type);
 for i_met = 1:n_metrics
     metric_name = metric_names{i_met};
 
-    % the statistic of every mouse
-    data_c = squeeze(leaf_stats_ctrl(:, :, i_met));
-    data_e = squeeze(leaf_stats_exp(:, :, i_met));
-
-    % t = (mean_exp - mean_ctrl) / pooled SEM, per region
-    mu_c = nanmean(data_c, 2);
-    mu_e = nanmean(data_e, 2);
-    diff_mu = mu_e - mu_c;
-
-    sem_c = nanstd(data_c, [], 2) ./ sqrt(n_ctrl);
-    sem_e = nanstd(data_e, [], 2) ./ sqrt(n_exp);
-    pooled_sem = sqrt(sem_c.^2 + sem_e.^2);
-
-    t_scores_vec = diff_mu ./ pooled_sem;
-
-    % a NaN or infinite t to 0
-    t_scores_vec(isnan(t_scores_vec) | isinf(t_scores_vec)) = 0;
-
-    % colour limits: the 95th percentile of |t|, at least 0.1
-    t_vals = t_scores_vec(t_scores_vec ~= 0);
-    if isempty(t_vals)
-        max_t = 1;
-        fprintf('    [Warning] Metric %s yielded all zero T-scores.\n', metric_name);
-    else
-        max_t = quantile(abs(t_vals), 0.95);
-        if max_t < 0.1
-            max_t = 0.1;
-        end
-    end
-    t_lims = [-max_t, max_t];
+    % the t-score of each region, and the colour limits
+    [t_scores_vec, t_lims] = region_t_scores(leaf_stats_ctrl, i_met, leaf_stats_exp, ...
+        n_ctrl, n_exp, metric_name);
 
     % the region t-scores back into a volume
     t_score_vol = zeros(size(atlas_left), 'single');
@@ -884,34 +900,8 @@ for i_met = 1:n_metrics
     t_score_vol(valid_mask) = t_score_valid_pixels;
 
     % the montage
-    fig_h = figure('Visible', 'off', 'Name', ...
-        ['WholeBrain_TMap_' res_type '_' metric_name '_' comp_tag], 'Color', 'k', ...
-        'Position', [50 50 1200 900]);
-
-    for k = 1:length(slices_to_show)
-        s_idx = slices_to_show(k);
-        subplot(n_rows, n_cols, k);
-        im_slice = squeeze(t_score_vol(s_idx, :, :));
-        mask_slice = squeeze(atlas_left(s_idx, :, :));
-        alpha_data = double(mask_slice > 0);
-        imagesc(im_slice);
-        axis image;
-        axis off;
-        set(gca, 'Color', 'k');
-        set(findobj(gca, 'Type', 'image'), 'AlphaData', alpha_data);
-        colormap(gca, custom_cmap);
-        clim(t_lims);
-        title(['Slice ' num2str(s_idx)], 'Color', 'w', 'FontSize', 8);
-    end
-    c = colorbar;
-    c.Position = [0.92 0.1 0.02 0.8];
-    c.Color = 'w';
-    c.Label.String = sprintf('T-score (%s %s)', res_type, metric_name);
-    colormap(c, custom_cmap);
-    clim(t_lims);
-
-    sgtitle(['Whole-Brain T-Scores (' res_type '): ' metric_name], 'Color', 'w', ...
-        'FontSize', 14);
+    fig_h = draw_tmap_montage(res_type, metric_name, comp_tag, slices_to_show, n_rows, ...
+        n_cols, t_score_vol, atlas_left, custom_cmap, t_lims);
 
     % save the figure, and the volume
     set(fig_h, 'InvertHardcopy', 'off');
@@ -923,6 +913,78 @@ for i_met = 1:n_metrics
     save([save_base '.mat'], 't_score_vol', 't_scores_vec', 'unique_ids', ...
         'metric_name', 'res_type');
 end
+end
+
+function [t_scores_vec, t_lims] = region_t_scores(leaf_stats_ctrl, i_met, ...
+    leaf_stats_exp, n_ctrl, n_exp, metric_name)
+% The group t-score of each region for one statistic (NaN or infinite to 0), and
+% symmetric colour limits at the 95th percentile of |t|, at least 0.1.
+
+% the statistic of every mouse
+data_c = squeeze(leaf_stats_ctrl(:, :, i_met));
+data_e = squeeze(leaf_stats_exp(:, :, i_met));
+
+% t = (mean_exp - mean_ctrl) / pooled SEM, per region
+mu_c = nanmean(data_c, 2);
+mu_e = nanmean(data_e, 2);
+diff_mu = mu_e - mu_c;
+
+sem_c = nanstd(data_c, [], 2) ./ sqrt(n_ctrl);
+sem_e = nanstd(data_e, [], 2) ./ sqrt(n_exp);
+pooled_sem = sqrt(sem_c.^2 + sem_e.^2);
+
+t_scores_vec = diff_mu ./ pooled_sem;
+
+% a NaN or infinite t to 0
+t_scores_vec(isnan(t_scores_vec) | isinf(t_scores_vec)) = 0;
+
+% colour limits: the 95th percentile of |t|, at least 0.1
+t_vals = t_scores_vec(t_scores_vec ~= 0);
+if isempty(t_vals)
+    max_t = 1;
+    fprintf('    [Warning] Metric %s yielded all zero T-scores.\n', metric_name);
+else
+    max_t = quantile(abs(t_vals), 0.95);
+    if max_t < 0.1
+        max_t = 0.1;
+    end
+end
+t_lims = [-max_t, max_t];
+end
+
+function fig_h = draw_tmap_montage(res_type, metric_name, comp_tag, slices_to_show, ...
+    n_rows, n_cols, t_score_vol, atlas_left, custom_cmap, t_lims)
+% The montage of one statistic's t-score volume, every 50th plane.
+
+% the montage
+fig_h = figure('Visible', 'off', 'Name', ...
+    ['WholeBrain_TMap_' res_type '_' metric_name '_' comp_tag], 'Color', 'k', ...
+    'Position', [50 50 1200 900]);
+
+for k = 1:length(slices_to_show)
+    s_idx = slices_to_show(k);
+    subplot(n_rows, n_cols, k);
+    im_slice = squeeze(t_score_vol(s_idx, :, :));
+    mask_slice = squeeze(atlas_left(s_idx, :, :));
+    alpha_data = double(mask_slice > 0);
+    imagesc(im_slice);
+    axis image;
+    axis off;
+    set(gca, 'Color', 'k');
+    set(findobj(gca, 'Type', 'image'), 'AlphaData', alpha_data);
+    colormap(gca, custom_cmap);
+    clim(t_lims);
+    title(['Slice ' num2str(s_idx)], 'Color', 'w', 'FontSize', 8);
+end
+c = colorbar;
+c.Position = [0.92 0.1 0.02 0.8];
+c.Color = 'w';
+c.Label.String = sprintf('T-score (%s %s)', res_type, metric_name);
+colormap(c, custom_cmap);
+clim(t_lims);
+
+sgtitle(['Whole-Brain T-Scores (' res_type '): ' metric_name], 'Color', 'w', ...
+    'FontSize', 14);
 end
 
 function coarse_region_tstats(AllenCrop, allenDir, brainMask, half_width, ...
@@ -983,13 +1045,8 @@ for a_idx = 1:length(analysis_types)
     end
 
     % one inspection figure per region to inspect
-    inspect_figs = gobjects(length(inspect_indices), 1);
-    for k = 1:length(inspect_indices)
-        r_idx = inspect_indices(k);
-        inspect_figs(k) = figure('Visible', 'off', 'Name', ...
-            ['Dist_' roi_list{r_idx} '_' res_type], 'Color', 'w', 'Visible', 'off', ...
-            'Position', [100 100 300*max(n_ctrl, n_exp) 600]);
-    end
+    inspect_figs = inspection_figures(inspect_indices, roi_list, res_type, n_ctrl, ...
+        n_exp);
 
     % the control group, in the top row of the inspection figures
     roi_stats_ctrl = coarse_group_stats(roi_stats_ctrl, input_vol_ctrl, bg_mask_ctrl, ...
@@ -1004,25 +1061,48 @@ for a_idx = 1:length(analysis_types)
         max(n_ctrl, n_exp), sep_palette('experimental'), 'Exp');
 
     % save the inspection figures
-    for k = 1:length(inspect_figs)
-        if isvalid(inspect_figs(k))
-            r_idx = inspect_indices(k);
-            r_name = roi_list{r_idx};
-            clean_name = regexprep(r_name, '[^a-zA-Z0-9]', '_');
-            sgtitle(inspect_figs(k), ['Distribution: ' r_name ' (' res_type ...
-                ') | Solid=Mean, Dash=Med, Purple=P99'], 'Interpreter', 'none');
-
-            saveas(inspect_figs(k), ...
-                fullfile(dist_out_dir, ['Dist_' res_type '_' clean_name '.fig']));
-            exportgraphics(inspect_figs(k), ...
-                fullfile(dist_out_dir, ['Dist_' res_type '_' clean_name '.png']));
-            close(inspect_figs(k));
-        end
-    end
+    save_inspection_figures(inspect_figs, inspect_indices, roi_list, res_type, ...
+        dist_out_dir);
 
     % the bar chart
     plot_coarse_bars(roi_stats_ctrl, roi_stats_exp, metric_names, choosen_metric, ...
         roi_list, n_ctrl, n_exp, res_type, exp_type, ctrl_type, comp_tag, comp_out_dir);
+end
+end
+
+function inspect_figs = inspection_figures(inspect_indices, roi_list, res_type, ...
+    n_ctrl, n_exp)
+% One hidden figure per region to inspect.
+
+% one inspection figure per region to inspect
+inspect_figs = gobjects(length(inspect_indices), 1);
+for k = 1:length(inspect_indices)
+    r_idx = inspect_indices(k);
+    inspect_figs(k) = figure('Visible', 'off', 'Name', ...
+        ['Dist_' roi_list{r_idx} '_' res_type], 'Color', 'w', 'Visible', 'off', ...
+        'Position', [100 100 300*max(n_ctrl, n_exp) 600]);
+end
+end
+
+function save_inspection_figures(inspect_figs, inspect_indices, roi_list, res_type, ...
+    dist_out_dir)
+% Title, save and close the inspection figures, in dist_out_dir.
+
+% save the inspection figures
+for k = 1:length(inspect_figs)
+    if isvalid(inspect_figs(k))
+        r_idx = inspect_indices(k);
+        r_name = roi_list{r_idx};
+        clean_name = regexprep(r_name, '[^a-zA-Z0-9]', '_');
+        sgtitle(inspect_figs(k), ['Distribution: ' r_name ' (' res_type ...
+            ') | Solid=Mean, Dash=Med, Purple=P99'], 'Interpreter', 'none');
+
+        saveas(inspect_figs(k), ...
+            fullfile(dist_out_dir, ['Dist_' res_type '_' clean_name '.fig']));
+        exportgraphics(inspect_figs(k), ...
+            fullfile(dist_out_dir, ['Dist_' res_type '_' clean_name '.png']));
+        close(inspect_figs(k));
+    end
 end
 end
 
@@ -1206,6 +1286,59 @@ function plot_coarse_bars(roi_stats_ctrl, roi_stats_exp, metric_names, choosen_m
 % The bar chart of region t-scores for the chosen statistic, with Bonferroni
 % thresholds.
 
+% the t-score of each region, sorted
+[sorted_t, sorted_rois] = coarse_t_scores(metric_names, choosen_metric, ...
+    roi_stats_ctrl, roi_stats_exp, n_ctrl, n_exp, roi_list);
+
+% the bars: red above zero, blue below
+fig_bars = figure('Visible', 'off', 'Name', ['Region_Analysis_BarChart_' res_type '_' ...
+    comp_tag], 'Color', 'w', 'Units', 'Normalized', 'Position', [0 0 0.9 0.9]);
+
+b = barh(sorted_t);
+b.FaceColor = 'flat';
+for k = 1:length(sorted_t)
+    if sorted_t(k) > 0
+        b.CData(k, :) = sep_palette('experimental');
+    else
+        b.CData(k, :) = sep_palette('control');
+    end
+end
+
+yticks(1:length(sorted_rois));
+yticklabels(sorted_rois);
+xlabel(['t-score (' exp_type ' - ' ctrl_type ')']);
+title(['Regional LR - ' res_type ' differences - ', strrep(comp_tag, '_', ' '), ' - ', ...
+    choosen_metric]);
+grid on;
+set(gca, 'FontSize', 10);
+ylim([0 length(sorted_rois)+1]);
+
+% the regions expected to change, labelled in bold magenta
+highlight_coarse_regions(exp_type);
+
+% the Bonferroni thresholds over the regions tested, p < 0.05 two-sided
+n_regions_tested = length(sorted_t);
+df = n_ctrl + n_exp - 2;
+t_crit_bonf = tinv(1 - 0.05/(2*n_regions_tested), df);
+hold on;
+xline(t_crit_bonf, 'k:', 'LineWidth', 2);
+xline(-t_crit_bonf, 'k:', 'LineWidth', 2);
+hold off;
+
+% save it
+set(fig_bars, 'InvertHardcopy', 'off');
+saveas(fig_bars, ...
+    fullfile(comp_out_dir, ['Region_Stats_Bar_' res_type '_' comp_tag '.fig']));
+exportgraphics(fig_bars, ...
+    fullfile(comp_out_dir, ['Region_Stats_Bar_' res_type '_' comp_tag '.png']), ...
+    'Resolution', 300);
+end
+
+function [sorted_t, sorted_rois] = coarse_t_scores(metric_names, choosen_metric, ...
+    roi_stats_ctrl, roi_stats_exp, n_ctrl, n_exp, roi_list)
+% The t-score of each region for the chosen statistic, the regions with one,
+% sorted.
+
 % the chosen statistic (the mean if it is not in the list)
 target_metric_idx = find(strcmp(metric_names, choosen_metric));
 if isempty(target_metric_idx)
@@ -1232,29 +1365,10 @@ current_rois = roi_list(valid_rows);
 
 [sorted_t, sort_idx] = sort(t_score_roi, 'ascend');
 sorted_rois = current_rois(sort_idx);
-
-% the bars: red above zero, blue below
-fig_bars = figure('Visible', 'off', 'Name', ['Region_Analysis_BarChart_' res_type '_' ...
-    comp_tag], 'Color', 'w', 'Units', 'Normalized', 'Position', [0 0 0.9 0.9]);
-
-b = barh(sorted_t);
-b.FaceColor = 'flat';
-for k = 1:length(sorted_t)
-    if sorted_t(k) > 0
-        b.CData(k, :) = sep_palette('experimental');
-    else
-        b.CData(k, :) = sep_palette('control');
-    end
 end
 
-yticks(1:length(sorted_rois));
-yticklabels(sorted_rois);
-xlabel(['t-score (' exp_type ' - ' ctrl_type ')']);
-title(['Regional LR - ' res_type ' differences - ', strrep(comp_tag, '_', ' '), ' - ', ...
-    choosen_metric]);
-grid on;
-set(gca, 'FontSize', 10);
-ylim([0 length(sorted_rois)+1]);
+function highlight_coarse_regions(exp_type)
+% The tick labels of the regions expected to change, in bold magenta.
 
 % the regions expected to change, labelled in bold magenta
 switch exp_type
@@ -1279,23 +1393,6 @@ for i = 1:length(ytl)
 end
 ax = gca;
 ax.YTickLabel = colored_labels;
-
-% the Bonferroni thresholds over the regions tested, p < 0.05 two-sided
-n_regions_tested = length(sorted_t);
-df = n_ctrl + n_exp - 2;
-t_crit_bonf = tinv(1 - 0.05/(2*n_regions_tested), df);
-hold on;
-xline(t_crit_bonf, 'k:', 'LineWidth', 2);
-xline(-t_crit_bonf, 'k:', 'LineWidth', 2);
-hold off;
-
-% save it
-set(fig_bars, 'InvertHardcopy', 'off');
-saveas(fig_bars, ...
-    fullfile(comp_out_dir, ['Region_Stats_Bar_' res_type '_' comp_tag '.fig']));
-exportgraphics(fig_bars, ...
-    fullfile(comp_out_dir, ['Region_Stats_Bar_' res_type '_' comp_tag '.png']), ...
-    'Resolution', 300);
 end
 
 function write_annotated_tmap_video(AllenCrop, allenDir, comp_out_dir, comp_tag)
@@ -1347,25 +1444,9 @@ if exist(file_diff, 'file') && exist(file_sum, 'file')
 
     fprintf('Writing annotated video: %s\n', video_filename);
 
-    for j = 1:n_slices
-
-        % skip the planes with no atlas voxel
-        mask_slice_hires = squeeze(atlas_left_hires(j, :, :));
-        if sum(mask_slice_hires(:) > 0) == 0 %#ok<LOGSUM>
-            continue;
-        end
-
-        draw_annotated_frame(mask_slice_hires, id2acronym, vol_diff, vol_sum, j, ...
-            custom_cmap, metric_to_plot);
-
-        frame = getframe(fh);
-        writeVideo(vidObj, frame);
-
-        if mod(j, 50) == 0
-            fprintf('  Frame %d written...\n', j);
-        end
-        clf(fh);
-    end
+    % every plane with atlas voxels, labelled
+    write_annotated_frames(n_slices, atlas_left_hires, id2acronym, vol_diff, vol_sum, ...
+        custom_cmap, metric_to_plot, fh, vidObj);
 
     close(vidObj);
     close(fh);
@@ -1375,6 +1456,31 @@ else
     warning('T-Map .mat files not found. Run the Whole-Brain Analysis section first.');
 end
 clear atlas_hi_res atlas_left_hires
+end
+
+function write_annotated_frames(n_slices, atlas_left_hires, id2acronym, vol_diff, ...
+    vol_sum, custom_cmap, metric_to_plot, fh, vidObj)
+% One labelled frame per plane with atlas voxels, written to vidObj.
+
+for j = 1:n_slices
+
+    % skip the planes with no atlas voxel
+    mask_slice_hires = squeeze(atlas_left_hires(j, :, :));
+    if sum(mask_slice_hires(:) > 0) == 0 %#ok<LOGSUM>
+        continue;
+    end
+
+    draw_annotated_frame(mask_slice_hires, id2acronym, vol_diff, vol_sum, j, ...
+        custom_cmap, metric_to_plot);
+
+    frame = getframe(fh);
+    writeVideo(vidObj, frame);
+
+    if mod(j, 50) == 0
+        fprintf('  Frame %d written...\n', j);
+    end
+    clf(fh);
+end
 end
 
 function id2acronym = load_acronym_map(allenDir)
@@ -1441,30 +1547,8 @@ function draw_annotated_frame(mask_slice_hires, id2acronym, vol_diff, vol_sum, j
 
 alpha_data = double(mask_slice_hires > 0);
 
-% a label at the centre of each region of at least 80 voxels with a known acronym
-regions_in_slice = unique(mask_slice_hires(mask_slice_hires > 0));
-
-lbl_data = struct('x', {}, 'y', {}, 'str', {});
-idx_lbl = 1;
-
-if ~isempty(id2acronym)
-    for k = 1:length(regions_in_slice)
-        r_id = regions_in_slice(k);
-
-        bin_mask = (mask_slice_hires == r_id);
-        if sum(bin_mask(:)) < 80
-            continue;
-        end
-
-        if isKey(id2acronym, r_id)
-            [py, px] = find(bin_mask);
-            lbl_data(idx_lbl).x = mean(px);
-            lbl_data(idx_lbl).y = mean(py);
-            lbl_data(idx_lbl).str = id2acronym(r_id);
-            idx_lbl = idx_lbl + 1;
-        end
-    end
-end
+% a label at the centre of each region of at least 80 voxels
+lbl_data = region_labels(mask_slice_hires, id2acronym);
 
 % left: the difference
 subplot(1, 2, 1);
@@ -1511,6 +1595,35 @@ end
 sgtitle(['Slice # ' num2str(j)], 'Color', 'w', 'FontSize', 14);
 end
 
+function lbl_data = region_labels(mask_slice_hires, id2acronym)
+% The acronym and centre of each region of at least 80 voxels on the plane.
+
+% a label at the centre of each region of at least 80 voxels with a known acronym
+regions_in_slice = unique(mask_slice_hires(mask_slice_hires > 0));
+
+lbl_data = struct('x', {}, 'y', {}, 'str', {});
+idx_lbl = 1;
+
+if ~isempty(id2acronym)
+    for k = 1:length(regions_in_slice)
+        r_id = regions_in_slice(k);
+
+        bin_mask = (mask_slice_hires == r_id);
+        if sum(bin_mask(:)) < 80
+            continue;
+        end
+
+        if isKey(id2acronym, r_id)
+            [py, px] = find(bin_mask);
+            lbl_data(idx_lbl).x = mean(px);
+            lbl_data(idx_lbl).y = mean(py);
+            lbl_data(idx_lbl).str = id2acronym(r_id);
+            idx_lbl = idx_lbl + 1;
+        end
+    end
+end
+end
+
 % ===== Local functions: slab figures, rolling videos, regional surprise =====
 
 function plot_group_slab(t_lr_diff_groupdiff, t_lr_sum_groupdiff, surp_diff, surp_sum, ...
@@ -1529,6 +1642,40 @@ z_indices = z_start:z_end;
 
 fprintf('Averaging signal across slices %d to %d (Target: %d)...\n', z_start, z_end, ...
     target_slice);
+
+% the medians over the slab, and the opacities
+[slab_diff, slab_sum, p_thresh, alpha_mask_diff, alpha_mask_sum] = group_slab_medians( ...
+    brainMask_group_diff, z_indices, t_lr_diff_groupdiff, t_lr_sum_groupdiff, ...
+    surp_diff, surp_sum);
+
+% the atlas boundaries of the central plane
+atlas_slice = squeeze(half_atlas(target_slice, :, 1:size(slab_diff, 2)));
+[gy, gx] = gradient(single(atlas_slice));
+boundaries = (abs(gx) + abs(gy)) > 0 & (atlas_slice > 0);
+[b_row, b_col] = find(boundaries);
+
+% the figure
+fig_slab = draw_group_slab(target_slice, slab_diff, alpha_mask_diff, b_col, b_row, ...
+    slab_range, slab_sum, alpha_mask_sum, exp_type, ctrl_type, p_thresh);
+
+% save it
+if save_fig
+    if ~exist(comp_out_dir, 'dir')
+        mkdir(comp_out_dir);
+    end
+    filename = sprintf('Slab_Avg_%d_%s_surpmask', target_slice, comp_tag);
+    saveas(fig_slab, fullfile(comp_out_dir, [filename '.fig']));
+    exportgraphics(fig_slab, fullfile(comp_out_dir, [filename '.png']), ...
+        'Resolution', 300, 'BackgroundColor', 'current');
+    fprintf('Saved slab average figure to: %s\n', fullfile(comp_out_dir, filename));
+end
+end
+
+function [slab_diff, slab_sum, p_thresh, alpha_mask_diff, alpha_mask_sum] = ...
+    group_slab_medians(brainMask_group_diff, z_indices, t_lr_diff_groupdiff, ...
+    t_lr_sum_groupdiff, surp_diff, surp_sum)
+% The medians over the slab of the t maps and their surprise, and each panel's
+% opacity: the surprise over -log10(0.01), clipped, where the slab has voxels.
 
 % the medians over the slab, inside the voxels both groups have: the t of the
 % difference and of the sum, and their surprise
@@ -1563,12 +1710,11 @@ alpha_sum(isnan(alpha_sum)) = 0;
 slab_mask_2d = squeeze(max(mask_slab_3d, [], 1));
 alpha_mask_diff = alpha_diff .* double(slab_mask_2d);
 alpha_mask_sum = alpha_sum .* double(slab_mask_2d);
+end
 
-% the atlas boundaries of the central plane
-atlas_slice = squeeze(half_atlas(target_slice, :, 1:size(slab_diff, 2)));
-[gy, gx] = gradient(single(atlas_slice));
-boundaries = (abs(gx) + abs(gy)) > 0 & (atlas_slice > 0);
-[b_row, b_col] = find(boundaries);
+function fig_slab = draw_group_slab(target_slice, slab_diff, alpha_mask_diff, b_col, ...
+    b_row, slab_range, slab_sum, alpha_mask_sum, exp_type, ctrl_type, p_thresh)
+% The slab figure: the t of the difference and of the sum, at their opacities.
 
 fig_slab = figure('Visible', 'off', 'Name', sprintf('Slab_Avg_%d', target_slice), ...
     'Color', 'k', 'Position', [100 100 1200 600]);
@@ -1612,18 +1758,6 @@ title(['LR Sum (T-Score) - Slab Avg ' num2str(target_slice) '\pm' ...
 
 sgtitle(['Slab average - ', exp_type ' vs ' ctrl_type ' - surprise masked (p<', ...
     num2str(p_thresh), ')'], 'Color', 'w', 'FontSize', 14);
-
-% save it
-if save_fig
-    if ~exist(comp_out_dir, 'dir')
-        mkdir(comp_out_dir);
-    end
-    filename = sprintf('Slab_Avg_%d_%s_surpmask', target_slice, comp_tag);
-    saveas(fig_slab, fullfile(comp_out_dir, [filename '.fig']));
-    exportgraphics(fig_slab, fullfile(comp_out_dir, [filename '.png']), ...
-        'Resolution', 300, 'BackgroundColor', 'current');
-    fprintf('Saved slab average figure to: %s\n', fullfile(comp_out_dir, filename));
-end
 end
 
 function plot_individual_slabs(lr_diff_ctrl, lr_diff_exp, lr_sum_ctrl, lr_sum_exp, ...
@@ -1672,65 +1806,10 @@ for g_idx = 1:2
         'Color', 'k', 'Units', 'normalized', 'Position', [-0.05 -0.05 0.9 0.9]);
     set(fig_indiv, 'InvertHardcopy', 'off');
 
-    for k = 1:n_mice
-        mouse_name = strrep(curr_mice{k}, '_', ' ');
-
-        % the mouse's slab, NaN on its background
-        raw_slab_d = curr_diff(z_indices, :, :, k);
-        raw_slab_s = curr_sum(z_indices, :, :, k);
-        mask_slab = curr_mask(z_indices, :, :, k);
-        mask_slab_logical = logical(mask_slab);
-        raw_slab_d(mask_slab_logical) = NaN;
-        raw_slab_s(mask_slab_logical) = NaN;
-
-        % the median over the slab
-        slab_diff_m = squeeze(nanmedian(raw_slab_d, 1)); %#ok<*NANMEDIAN>
-        slab_sum_m = squeeze(nanmedian(raw_slab_s, 1));
-
-        % shown inside the atlas where any plane of the slab is tissue
-        slab_bg_m = squeeze(min(mask_slab, [], 1));
-        valid_pixels = (atlas_slice > 0) & (~slab_bg_m);
-        alpha_data = double(valid_pixels);
-
-        % top row: the difference
-        subplot(2, n_mice, k);
-        imagesc(slab_diff_m);
-        set(findobj(gca, 'Type', 'image'), 'AlphaData', alpha_data);
-        clim(clim_diff_indiv);
-        colormap(gca, sep_palette('intensity'));
-        axis image;
-        axis off;
-        set(gca, 'Color', 'k');
-        hold on;
-        if bool_overlay_atlas
-            plot(b_col, b_row, '.', 'Color', [0.5 0.5 0.5], 'MarkerSize', 0.1);
-        end
-
-        title(mouse_name, 'Color', 'w', 'FontSize', 10, 'Interpreter', 'none');
-        cb = colorbar;
-        cb.Label.String = '|L - R|';
-        cb.Color = 'w';
-        cb.Label.Color = 'w';
-
-        % bottom row: the sum
-        subplot(2, n_mice, k + n_mice);
-        imagesc(slab_sum_m);
-        set(findobj(gca, 'Type', 'image'), 'AlphaData', alpha_data);
-        clim(clim_sum_indiv);
-        colormap(gca, sep_palette('intensity'));
-        axis image;
-        axis off;
-        set(gca, 'Color', 'k');
-        hold on;
-        if bool_overlay_atlas
-            plot(b_col, b_row, '.', 'Color', [0.5 0.5 0.5], 'MarkerSize', 0.1);
-        end
-        cb = colorbar;
-        cb.Label.String = 'L + R';
-        cb.Color = 'w';
-        cb.Label.Color = 'w';
-
-    end
+    % every mouse: the difference above, the sum below
+    draw_mouse_slab_medians(n_mice, curr_mice, curr_diff, z_indices, curr_sum, ...
+        curr_mask, atlas_slice, clim_diff_indiv, bool_overlay_atlas, b_col, b_row, ...
+        clim_sum_indiv);
     sgtitle(['Individual Slab Median (' curr_grp ') - Slice ' num2str(target_slice) ...
         '\pm' num2str(slab_range)], 'Color', 'w', 'FontSize', 16);
 
@@ -1747,6 +1826,72 @@ end
 
 clear group_names group_data_diff group_data_sum group_masks group_mice_list curr_grp ...
     curr_diff curr_sum curr_mask curr_mice
+end
+
+function draw_mouse_slab_medians(n_mice, curr_mice, curr_diff, z_indices, curr_sum, ...
+    curr_mask, atlas_slice, clim_diff_indiv, bool_overlay_atlas, b_col, b_row, ...
+    clim_sum_indiv)
+% Every mouse's slab median: the difference in the top row, the sum below.
+
+for k = 1:n_mice
+    mouse_name = strrep(curr_mice{k}, '_', ' ');
+
+    % the mouse's slab, NaN on its background
+    raw_slab_d = curr_diff(z_indices, :, :, k);
+    raw_slab_s = curr_sum(z_indices, :, :, k);
+    mask_slab = curr_mask(z_indices, :, :, k);
+    mask_slab_logical = logical(mask_slab);
+    raw_slab_d(mask_slab_logical) = NaN;
+    raw_slab_s(mask_slab_logical) = NaN;
+
+    % the median over the slab
+    slab_diff_m = squeeze(nanmedian(raw_slab_d, 1)); %#ok<*NANMEDIAN>
+    slab_sum_m = squeeze(nanmedian(raw_slab_s, 1));
+
+    % shown inside the atlas where any plane of the slab is tissue
+    slab_bg_m = squeeze(min(mask_slab, [], 1));
+    valid_pixels = (atlas_slice > 0) & (~slab_bg_m);
+    alpha_data = double(valid_pixels);
+
+    % top row: the difference
+    subplot(2, n_mice, k);
+    imagesc(slab_diff_m);
+    set(findobj(gca, 'Type', 'image'), 'AlphaData', alpha_data);
+    clim(clim_diff_indiv);
+    colormap(gca, sep_palette('intensity'));
+    axis image;
+    axis off;
+    set(gca, 'Color', 'k');
+    hold on;
+    if bool_overlay_atlas
+        plot(b_col, b_row, '.', 'Color', [0.5 0.5 0.5], 'MarkerSize', 0.1);
+    end
+
+    title(mouse_name, 'Color', 'w', 'FontSize', 10, 'Interpreter', 'none');
+    cb = colorbar;
+    cb.Label.String = '|L - R|';
+    cb.Color = 'w';
+    cb.Label.Color = 'w';
+
+    % bottom row: the sum
+    subplot(2, n_mice, k + n_mice);
+    imagesc(slab_sum_m);
+    set(findobj(gca, 'Type', 'image'), 'AlphaData', alpha_data);
+    clim(clim_sum_indiv);
+    colormap(gca, sep_palette('intensity'));
+    axis image;
+    axis off;
+    set(gca, 'Color', 'k');
+    hold on;
+    if bool_overlay_atlas
+        plot(b_col, b_row, '.', 'Color', [0.5 0.5 0.5], 'MarkerSize', 0.1);
+    end
+    cb = colorbar;
+    cb.Label.String = 'L + R';
+    cb.Color = 'w';
+    cb.Label.Color = 'w';
+
+end
 end
 
 function write_rolling_tscore_video(t_lr_diff_groupdiff, t_lr_sum_groupdiff, ...
@@ -1913,19 +2058,9 @@ for m_idx = 1:2
     vol_surp = rolling_surprise_median(raw_surp_vol, slab_range, brainMask_group_diff, ...
         mode_name);
 
-    % each region's sum of the surprise above the threshold (NaN counts as 0)
-    surp_vec = vol_surp(valid_pixels);
-    surp_vec(isnan(surp_vec)) = 0;
-    roi_surp_agg = nan(n_rois_surp, 1);
-    for r = 1:n_rois_surp
-        if roi_pixel_counts_surp(r) == 0
-            continue;
-        end
-        vals = surp_vec(roi_masks_surp(:, r));
-        if ~isempty(vals)
-            roi_surp_agg(r) = sum(vals(vals > surp_thresh_val));
-        end
-    end
+    % each region's sum of the surprise above the threshold
+    roi_surp_agg = summed_surprise(vol_surp, valid_pixels, n_rois_surp, ...
+        roi_pixel_counts_surp, roi_masks_surp, surp_thresh_val);
 
     % sorted, and only the regions with a sum above zero
     sort_metric = roi_surp_agg;
@@ -1938,51 +2073,11 @@ for m_idx = 1:2
 
     subplot(1, 2, m_idx);
 
-    b = barh(sorted_surp);
-    b.FaceColor = 'flat';
-
-    % bar colour by its sum relative to the largest: light grey (0.78) to black
-    c_map_surp = sep_palette('bars');
-    if ~isempty(sorted_surp)
-        c_vals = round((sorted_surp / max(sorted_surp)) * size(c_map_surp, 1));
-        c_vals(c_vals < 1) = 1;
-        c_vals(isnan(c_vals)) = 1;
-        for k = 1:length(sorted_surp)
-            b.CData(k, :) = c_map_surp(c_vals(k), :);
-        end
-    end
-
-    yticks(1:length(sorted_rois_surp));
-    yticklabels(sorted_rois_surp);
-    xlabel(['Aggregated surprise ( > ' num2str(surp_thresh_val, '%.1f') ')']);
-    title(['Regional ' lower(mode_name) ' significance']);
-    grid on;
-    set(gca, 'FontSize', 10);
-    ylim([0 length(sorted_rois_surp)+1]);
+    % the bars
+    draw_surprise_bars(sorted_surp, sorted_rois_surp, surp_thresh_val, mode_name);
 
     % the regions expected to change, labelled in bold magenta
-    switch exp_type
-        case {'rws', 'behavior'}
-            highlighted_areas = {'Primary somatosensory area, barrel field', ...
-                'Ventral posteromedial nucleus of the thalamus', ...
-                'Posterior complex of the thalamus', ...
-                'Supplemental somatosensory area', 'Zona incerta', ...
-                'Rostrolateral visual area'};
-        otherwise
-            highlighted_areas = {};
-    end
-
-    ax = gca;
-    ytl = ax.YTickLabel;
-    colored_labels = repmat({''}, size(ytl));
-    for i = 1:length(ytl)
-        if ismember(ytl{i}, highlighted_areas)
-            colored_labels{i} = ['\color{magenta} \bf ' strrep(ytl{i}, '_', ' ')];
-        else
-            colored_labels{i} = ['\color{black} ' strrep(ytl{i}, '_', ' ')];
-        end
-    end
-    ax.YTickLabel = colored_labels;
+    highlight_surprise_regions(exp_type);
 end
 
 sgtitle(['Regional integrated significance (rolling median) - ' ...
@@ -2000,6 +2095,80 @@ fprintf('Regional surprise analysis (Diff & Sum) saved to: %s\n', comp_out_dir);
 
 % clearing these is not needed, since the workspace goes when the function returns
 % clear roi_masks_surp surp_vec valid_pixels pixel_ids vol_surp
+end
+
+function roi_surp_agg = summed_surprise(vol_surp, valid_pixels, n_rois_surp, ...
+    roi_pixel_counts_surp, roi_masks_surp, surp_thresh_val)
+% Each region's sum of the surprise above surp_thresh_val (NaN counts as 0); NaN
+% for a region with no voxel.
+
+% each region's sum of the surprise above the threshold (NaN counts as 0)
+surp_vec = vol_surp(valid_pixels);
+surp_vec(isnan(surp_vec)) = 0;
+roi_surp_agg = nan(n_rois_surp, 1);
+for r = 1:n_rois_surp
+    if roi_pixel_counts_surp(r) == 0
+        continue;
+    end
+    vals = surp_vec(roi_masks_surp(:, r));
+    if ~isempty(vals)
+        roi_surp_agg(r) = sum(vals(vals > surp_thresh_val));
+    end
+end
+end
+
+function draw_surprise_bars(sorted_surp, sorted_rois_surp, surp_thresh_val, mode_name)
+% The bars of one panel, grey by their sum relative to the largest.
+
+b = barh(sorted_surp);
+b.FaceColor = 'flat';
+
+% bar colour by its sum relative to the largest: light grey (0.78) to black
+c_map_surp = sep_palette('bars');
+if ~isempty(sorted_surp)
+    c_vals = round((sorted_surp / max(sorted_surp)) * size(c_map_surp, 1));
+    c_vals(c_vals < 1) = 1;
+    c_vals(isnan(c_vals)) = 1;
+    for k = 1:length(sorted_surp)
+        b.CData(k, :) = c_map_surp(c_vals(k), :);
+    end
+end
+
+yticks(1:length(sorted_rois_surp));
+yticklabels(sorted_rois_surp);
+xlabel(['Aggregated surprise ( > ' num2str(surp_thresh_val, '%.1f') ')']);
+title(['Regional ' lower(mode_name) ' significance']);
+grid on;
+set(gca, 'FontSize', 10);
+ylim([0 length(sorted_rois_surp)+1]);
+end
+
+function highlight_surprise_regions(exp_type)
+% The tick labels of the regions expected to change, in bold magenta.
+
+% the regions expected to change, labelled in bold magenta
+switch exp_type
+    case {'rws', 'behavior'}
+        highlighted_areas = {'Primary somatosensory area, barrel field', ...
+            'Ventral posteromedial nucleus of the thalamus', ...
+            'Posterior complex of the thalamus', ...
+            'Supplemental somatosensory area', 'Zona incerta', ...
+            'Rostrolateral visual area'};
+    otherwise
+        highlighted_areas = {};
+end
+
+ax = gca;
+ytl = ax.YTickLabel;
+colored_labels = repmat({''}, size(ytl));
+for i = 1:length(ytl)
+    if ismember(ytl{i}, highlighted_areas)
+        colored_labels{i} = ['\color{magenta} \bf ' strrep(ytl{i}, '_', ' ')];
+    else
+        colored_labels{i} = ['\color{black} ' strrep(ytl{i}, '_', ' ')];
+    end
+end
+ax.YTickLabel = colored_labels;
 end
 
 function vol_surp = rolling_surprise_median(raw_surp_vol, slab_range, ...

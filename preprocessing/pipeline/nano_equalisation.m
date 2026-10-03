@@ -408,24 +408,9 @@ for i = 1:num_mice
             continue;
         end
 
-        % background mask, as for the statistics
-        [pmax_val, pmin_val] = background_window(z);
-        img_single(isnan(img_single)) = mode(img_single(:));
-        bg_mask = select_background_pixels(img_single, pmin_val, pmax_val);
-
-        % draw the slice in grey, the background transparent on black
-        clf(h_fig);
-        h_im = imagesc(img_crop);
-        colormap(sep_palette('anatomy'));
-        clim([0 5000]);
-        set(h_im, 'AlphaData', ~bg_mask);
-        axis image;
-        axis off;
-        set(gca, 'Color', 'k');
-
-        title([sprintf('%s - Slice %d', strrep(mouse_name, '_', ' '), z), ...
-            ' - median = ', num2str(round(intensity_medians(z, i), 2))], ...
-            'Color', 'w', 'FontSize', 14, 'FontWeight', 'bold');
+        % the frame: the slice, its background masked
+        draw_raw_frame(z, img_single, h_fig, img_crop, mouse_name, intensity_medians, ...
+            i);
 
         % add the frame
         frame = getframe(h_fig);
@@ -442,6 +427,31 @@ end
 
 close(h_fig);
 fprintf('Script finished.\n');
+
+end
+
+function draw_raw_frame(z, img_single, h_fig, img_crop, mouse_name, intensity_medians, ...
+    i)
+% One frame: the slice in grey, its background transparent on black, and its median.
+
+% background mask, as for the statistics
+[pmax_val, pmin_val] = background_window(z);
+img_single(isnan(img_single)) = mode(img_single(:));
+bg_mask = select_background_pixels(img_single, pmin_val, pmax_val);
+
+% draw the slice in grey, the background transparent on black
+clf(h_fig);
+h_im = imagesc(img_crop);
+colormap(sep_palette('anatomy'));
+clim([0 5000]);
+set(h_im, 'AlphaData', ~bg_mask);
+axis image;
+axis off;
+set(gca, 'Color', 'k');
+
+title([sprintf('%s - Slice %d', strrep(mouse_name, '_', ' '), z), ...
+    ' - median = ', num2str(round(intensity_medians(z, i), 2))], ...
+    'Color', 'w', 'FontSize', 14, 'FontWeight', 'bold');
 
 end
 
@@ -675,24 +685,9 @@ for i = 1:num_mice
             continue;
         end
 
-        % background mask, on the equalised slice
-        [pmax_val, pmin_val] = background_window(z);
-        img_single(isnan(img_single)) = mode(img_single(:));
-        bg_mask = select_background_pixels(img_single, pmin_val, pmax_val);
-
-        % draw the slice in grey, the background transparent on black
-        clf(h_fig);
-        h_im = imagesc(img_crop);
-        colormap(sep_palette('anatomy'));
-        clim([0 5000]);
-        set(h_im, 'AlphaData', ~bg_mask);
-        axis image;
-        axis off;
-        set(gca, 'Color', 'k');
-
-        title([sprintf('%s (Eq) - Slice %d', strrep(mouse_name, '_', ' '), z), ...
-            ' - med = ', num2str(round(intensity_medians_eq(z, i), 2))], ...
-            'Color', 'w', 'FontSize', 14, 'FontWeight', 'bold');
+        % the frame: the slice, its background masked
+        draw_equalised_frame(z, img_single, h_fig, img_crop, mouse_name, ...
+            intensity_medians_eq, i);
 
         % add the frame
         frame = getframe(h_fig);
@@ -707,6 +702,31 @@ end
 
 close(h_fig);
 fprintf('Full pipeline finished.\n');
+
+end
+
+function draw_equalised_frame(z, img_single, h_fig, img_crop, mouse_name, ...
+    intensity_medians_eq, i)
+% One frame: the equalised slice in grey, its background transparent on black.
+
+% background mask, on the equalised slice
+[pmax_val, pmin_val] = background_window(z);
+img_single(isnan(img_single)) = mode(img_single(:));
+bg_mask = select_background_pixels(img_single, pmin_val, pmax_val);
+
+% draw the slice in grey, the background transparent on black
+clf(h_fig);
+h_im = imagesc(img_crop);
+colormap(sep_palette('anatomy'));
+clim([0 5000]);
+set(h_im, 'AlphaData', ~bg_mask);
+axis image;
+axis off;
+set(gca, 'Color', 'k');
+
+title([sprintf('%s (Eq) - Slice %d', strrep(mouse_name, '_', ' '), z), ...
+    ' - med = ', num2str(round(intensity_medians_eq(z, i), 2))], ...
+    'Color', 'w', 'FontSize', 14, 'FontWeight', 'bold');
 
 end
 

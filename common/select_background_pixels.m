@@ -68,6 +68,36 @@ if or(bool_empty, bool_out)
     return;
 end
 
+% the percentile curve and its knee
+[vals, d2, d1, idx_max_bis] = find_knee(pix_vals, p, p_min, p_max);
+
+% no knee at any prominence (it happens on faint channels such as the
+% autofluorescence): the percentile p_max is the threshold
+if isempty(idx_max_bis)
+    idx_max_bis = min(p_max, length(vals));
+    warning('select_background_pixels:noKnee', ...
+        'No knee detected in percentile curve; falling back to p_max=%d as threshold.', ...
+        idx_max_bis);
+end
+
+% the threshold at the knee, and the background mask (not dilated)
+val_max_bis = vals(idx_max_bis);
+bg_mask = I_single < val_max_bis;
+
+% diagnostic figure: the slice, the mask, and the percentile curve with its knee
+if plot_flag
+    plot_background_diagnostics(I_single, val_max_bis, bg_mask, p, vals, idx_max_bis, ...
+        d1, d2);
+end
+
+end
+
+% ===== Local functions =====
+
+function [vals, d2, d1, idx_max_bis] = find_knee(pix_vals, p, p_min, p_max)
+% The percentile curve, smoothed, its derivatives, and the knee of its second
+% derivative in the window (empty if there is none at any prominence).
+
 vals = prctile(pix_vals, p);
 
 % smooth the percentile curve (5-point Gaussian), then its second derivative
@@ -113,76 +143,64 @@ else
     idx_max_bis = knee_and_trough(d1, locs_max, locs_min, 1, length(d1));
 end
 
-% no knee at any prominence (it happens on faint channels such as the
-% autofluorescence): the percentile p_max is the threshold
-if isempty(idx_max_bis)
-    idx_max_bis = min(p_max, length(vals));
-    warning('select_background_pixels:noKnee', ...
-        'No knee detected in percentile curve; falling back to p_max=%d as threshold.', ...
-        idx_max_bis);
 end
 
-% the threshold at the knee, and the background mask (not dilated)
-val_max_bis = vals(idx_max_bis);
-bg_mask = I_single < val_max_bis;
+function plot_background_diagnostics(I_single, val_max_bis, bg_mask, p, vals, ...
+    idx_max_bis, d1, d2)
+% The diagnostic figure: the slice, the mask, and the percentile curve with its knee.
 
-% diagnostic figure: the slice, the mask, and the percentile curve with its knee
-if plot_flag
-    val_max = max(I_single(:));
-    h_diag = figure('name', 'Background mask diagnostics', ...
-        'units', 'normalized', 'outerposition', [-0.05 -0.05 0.9 0.9], ...
-        'Color', 'w'); %#ok<NASGU>
-    t = tiledlayout(1, 3, 'Padding', 'compact', 'TileSpacing', 'compact');
-    nexttile;
-    imagesc(I_single);
-    axis image off;
-    colormap(gca, sep_palette('anatomy'));
-    title('Input slice with ref pixels', 'FontSize', 12);
-    used_clim = [val_max_bis, val_max];
-    if used_clim(2) > used_clim(1)
-        clim(used_clim);
-    end
-    nexttile;
-    imagesc(bg_mask);
-    axis image off;
-    colormap(gca, sep_palette('anatomy'));
-    title('Background mask', 'FontSize', 12);
-    nexttile;
-    yyaxis left
-
-    % the percentile curve in blue
-    h_int = plot(p, vals, '-', 'LineWidth', 2, 'Color', [0 0 0.8]);
-    hold on;
-    h_knee = plot(idx_max_bis, val_max_bis, 'o', 'MarkerSize', 8, ...
-        'MarkerFaceColor', [0 0 0.8], 'MarkerEdgeColor', 'w');
-    ylabel('Intensity', 'FontSize', 11);
-    set(gca, 'YColor', [0 0 0.8]);
-    ylim([min(vals(:)), max(vals(:))*1.05]);
-    grid on;
-    yyaxis right
-
-    % its first and second derivatives in purple
-    h_d1 = plot(p, d1, '-', 'LineWidth', 1.5, 'Color', [0.8 0 0.8]);
-    hold on;
-    h_d2 = plot(p, d2, '--', 'LineWidth', 1.5, 'Color', [0.8 0 0.8]);
-    ylabel('Derivatives (1st & 2nd)', 'FontSize', 11);
-    set(gca, 'YColor', [0.8 0 0.8]);
-    xlabel('Percentile', 'FontSize', 11);
-    xlim([0 100]);
-    axis square;
-    title(sprintf('Knee Detection (p=%d, thr=%.3g)', idx_max_bis, val_max_bis), ...
-        'FontSize', 11, 'FontWeight', 'normal');
-    legend([h_int, h_d1, h_d2, h_knee], ...
-        {'Intensity', '1st Deriv', '2nd Deriv', 'Knee Point'}, ...
-        'Location', 'best', 'FontSize', 9);
-    hold off;
-    title(t, 'Reference Pixels Estimation Diagnostics', 'FontSize', 14, ...
-        'FontWeight', 'bold');
+val_max = max(I_single(:));
+h_diag = figure('name', 'Background mask diagnostics', ...
+    'units', 'normalized', 'outerposition', [-0.05 -0.05 0.9 0.9], ...
+    'Color', 'w'); %#ok<NASGU>
+t = tiledlayout(1, 3, 'Padding', 'compact', 'TileSpacing', 'compact');
+nexttile;
+imagesc(I_single);
+axis image off;
+colormap(gca, sep_palette('anatomy'));
+title('Input slice with ref pixels', 'FontSize', 12);
+used_clim = [val_max_bis, val_max];
+if used_clim(2) > used_clim(1)
+    clim(used_clim);
 end
+nexttile;
+imagesc(bg_mask);
+axis image off;
+colormap(gca, sep_palette('anatomy'));
+title('Background mask', 'FontSize', 12);
+nexttile;
+yyaxis left
+
+% the percentile curve in blue
+h_int = plot(p, vals, '-', 'LineWidth', 2, 'Color', [0 0 0.8]);
+hold on;
+h_knee = plot(idx_max_bis, val_max_bis, 'o', 'MarkerSize', 8, ...
+    'MarkerFaceColor', [0 0 0.8], 'MarkerEdgeColor', 'w');
+ylabel('Intensity', 'FontSize', 11);
+set(gca, 'YColor', [0 0 0.8]);
+ylim([min(vals(:)), max(vals(:))*1.05]);
+grid on;
+yyaxis right
+
+% its first and second derivatives in purple
+h_d1 = plot(p, d1, '-', 'LineWidth', 1.5, 'Color', [0.8 0 0.8]);
+hold on;
+h_d2 = plot(p, d2, '--', 'LineWidth', 1.5, 'Color', [0.8 0 0.8]);
+ylabel('Derivatives (1st & 2nd)', 'FontSize', 11);
+set(gca, 'YColor', [0.8 0 0.8]);
+xlabel('Percentile', 'FontSize', 11);
+xlim([0 100]);
+axis square;
+title(sprintf('Knee Detection (p=%d, thr=%.3g)', idx_max_bis, val_max_bis), ...
+    'FontSize', 11, 'FontWeight', 'normal');
+legend([h_int, h_d1, h_d2, h_knee], ...
+    {'Intensity', '1st Deriv', '2nd Deriv', 'Knee Point'}, ...
+    'Location', 'best', 'FontSize', 9);
+hold off;
+title(t, 'Reference Pixels Estimation Diagnostics', 'FontSize', 14, ...
+    'FontWeight', 'bold');
 
 end
-
-% ===== Local functions =====
 
 function [idx_max_bis, idx_min] = knee_and_trough(d1, locs_max, locs_min, idx_low, ...
     idx_high)

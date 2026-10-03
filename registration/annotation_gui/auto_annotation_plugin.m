@@ -117,6 +117,25 @@ gui_data.proposal_low = {};
 % "plane changed" means scrolled since the last proposal, not since the first
 gui_data.proposed_plane = nan(gui_data.Nslices, 1);
 proposal_fn = fullfile(gui_data.save_path, 'auto_proposal_controlpoints.mat');
+% the proposal, onto the slices still empty
+gui_data = load_proposal(proposal_fn, gui_data);
+
+guidata(gui_fig, gui_data);
+
+% the GUI draws slice 1's overlay only at the first key press, so a proposal's
+% first slice would look accepted: with anchors or a proposal in play draw it now;
+% on a brain with no points the title bar says how to start; others open as usual
+if any(~isnan(gui_data.plane_anchors)) || any(gui_data.provisional)
+    gui.update_slice(gui_fig);
+elseif all(cellfun(@isempty, gui_data.histology_control_points))
+    gui.update_window_title(gui_fig);
+end
+end
+
+function gui_data = load_proposal(proposal_fn, gui_data)
+% The proposal loaded onto every slice still empty, provisional, with its ? flags;
+% an accepted slice keeps the flags of its unchanged points.
+
 if exist(proposal_fn, 'file')
     P = load(proposal_fn);
     info_fn = fullfile(gui_data.save_path, 'auto_proposal_info.mat');
@@ -181,17 +200,6 @@ if exist(proposal_fn, 'file')
     fprintf(['Loaded the automatic proposal onto %d slice(s), provisional (orange).\n' ...
              '  k accepts a slice as it is, u re-proposes it at the plane on screen,\n' ...
              '  and only accepted or touched slices are saved.\n'], n_filled);
-end
-
-guidata(gui_fig, gui_data);
-
-% the GUI draws slice 1's overlay only at the first key press, so a proposal's
-% first slice would look accepted: with anchors or a proposal in play draw it now;
-% on a brain with no points the title bar says how to start; others open as usual
-if any(~isnan(gui_data.plane_anchors)) || any(gui_data.provisional)
-    gui.update_slice(gui_fig);
-elseif all(cellfun(@isempty, gui_data.histology_control_points))
-    gui.update_window_title(gui_fig);
 end
 end
 
@@ -268,143 +276,181 @@ switch eventdata.Key
 
     % k: keep this slice's proposed points as they are, then move on
     case 'k'
-        sl = gui_data.curr_slice;
-        if any(strcmp(eventdata.Modifier, 'shift'))
-            % K: accept every orange slice as it stands, after a confirmation, for
-            % a proposal already checked by eye or trusted as it is
-            prov = find(gui_data.provisional(:)' & ...
-                        ~cellfun(@isempty, gui_data.histology_control_points(:)'));
-            if isempty(prov)
-                disp('No orange slice left to accept.');
-                return
-            end
-            answer = questdlg(sprintf('Accept all %d orange slice(s) as proposed?', ...
-                numel(prov)), 'Accept all', 'Accept all', 'Cancel', 'Cancel');
-            if strcmp(answer, 'Accept all')
-                gui_data.provisional(prov) = false;
-                fprintf('Accepted %d slice(s) as proposed: %s. Save with s.\n', ...
-                    numel(prov), mat2str(prov));
-                guidata(gui_fig, gui_data);
-                update_slice(gui_fig);
-            end
-            return
-        end
-        if gui_data.provisional(sl) && ~isempty(gui_data.histology_control_points{sl})
-            gui_data.provisional(sl) = false;
-            fprintf('Slice %d accepted (%d point(s)); %d provisional slice(s) left.\n', ...
-                sl, size(gui_data.histology_control_points{sl}, 1), ...
-                nnz(gui_data.provisional));
-            gui_data = step_slice(gui_data, +1);
-            guidata(gui_fig, gui_data);
-            update_window_title(gui_fig);
-            update_slice(gui_fig);
-        else
-            disp('Nothing provisional to accept on this slice.');
-        end
+        accept_on_key(gui_data, eventdata, gui_fig, update_slice, step_slice, ...
+            update_window_title);
 
     % u: ask the automatic annotation for this slice at the plane on screen, after
     % scrolling a proposed slice to a better plane or on an empty one; never
     % overwrites points placed or accepted by hand
     case 'u'
-        sl = gui_data.curr_slice;
-        if any(strcmp(eventdata.Modifier, 'shift'))
-            % U: re-propose every orange slice, each at the plane the anchors and
-            % the accepted slices give it, so a corrected anchor takes effect without
-            % leaving the GUI; accepted slices are never touched, so an orange slice
-            % worth keeping is accepted (k) first
-            prov = find(gui_data.provisional(:))';
-            if isempty(prov)
-                disp('No orange slice left to re-propose.');
-                return
-            end
+        propose_on_key(gui_data, eventdata, gui_fig, update_slice);
 
-            % the known planes: the accepted slices', else the anchors'
-            known = nan(gui_data.Nslices, 1);
-            for k = 1:gui_data.Nslices
-                if ~gui_data.provisional(k) && ~isempty(gui_data.atlas_control_points{k})
-                    known(k) = gui_data.atlas_control_points{k}(1, 1);
-                end
-            end
-            use_anchor = isnan(known) & ~isnan(gui_data.plane_anchors);
-            known(use_anchor) = gui_data.plane_anchors(use_anchor);
-            if nnz(~isnan(known)) < 2
-                disp('Need at least two anchors or accepted slices to place the planes.');
-                return
-            end
-            planes = predict_planes(gui_data, known);
-            fprintf('Re-proposing %d orange slice(s) from %d anchor(s) / accepted slice(s)...\n', ...
-                numel(prov), nnz(~isnan(known)));
+end
+end
 
-            % the engine reads the atlas from auto_atlas_planes.mat
-            if ~exist(fullfile(gui_data.save_path, 'auto_atlas_planes.mat'), 'file')
-                write_atlas_planes(gui_data);
-            end
-            try
-                out = auto_annotate('sections', gui_data.save_path, prov, planes(prov));
-            catch err
-                out = struct('ok', false, 'message', err.message);
-            end
-            if ~out.ok
-                fprintf('Proposal failed: %s\n', out.message);
-                return
-            end
+function accept_on_key(gui_data, eventdata, gui_fig, update_slice, step_slice, ...
+    update_window_title)
+% Keys k and K: accept this orange slice and move on, or every orange slice
+% after a confirmation.
 
-            % the new points, still orange, as each slice's proposal
-            for j = 1:numel(prov)
-                k = prov(j);
-                n = size(out.atlas{j}, 1);
-                gui_data.histology_control_points{k} = [repmat(k, n, 1), out.hist{j}, ...
-                    zeros(n, 1)];
-                gui_data.atlas_control_points{k} = [repmat(planes(k), n, 1), out.atlas{j}, ...
-                    zeros(n, 1)];
-                gui_data.uncertain{k} = logical(out.low{j}(:));
-                gui_data.proposed_plane(k) = planes(k);
-                gui_data = remember_proposal(gui_data, k);
-            end
-            gui_data.sel_side = '';
-            gui_data.sel_idx  = 0;
-            fprintf('Done: %d slice(s) re-proposed, still orange.\n', numel(prov));
-            guidata(gui_fig, gui_data);
-            update_slice(gui_fig);
-            return
-        end
-        if ~isempty(gui_data.histology_control_points{sl}) && ~gui_data.provisional(sl)
-            disp('This slice has hand-placed or accepted points. Press c to clear them first.');
-        else
-            plane = round(gui_data.atlas_slice);
-            fprintf('Proposing slice %d at atlas plane %d...\n', sl, plane);
+sl = gui_data.curr_slice;
+if any(strcmp(eventdata.Modifier, 'shift'))
+    % K: accept every orange slice as it stands, after a confirmation, for
+    % a proposal already checked by eye or trusted as it is
+    prov = find(gui_data.provisional(:)' & ...
+                ~cellfun(@isempty, gui_data.histology_control_points(:)'));
+    if isempty(prov)
+        disp('No orange slice left to accept.');
+        return
+    end
+    answer = questdlg(sprintf('Accept all %d orange slice(s) as proposed?', ...
+        numel(prov)), 'Accept all', 'Accept all', 'Cancel', 'Cancel');
+    if strcmp(answer, 'Accept all')
+        gui_data.provisional(prov) = false;
+        fprintf('Accepted %d slice(s) as proposed: %s. Save with s.\n', ...
+            numel(prov), mat2str(prov));
+        guidata(gui_fig, gui_data);
+        update_slice(gui_fig);
+    end
+    return
+end
+if gui_data.provisional(sl) && ~isempty(gui_data.histology_control_points{sl})
+    gui_data.provisional(sl) = false;
+    fprintf('Slice %d accepted (%d point(s)); %d provisional slice(s) left.\n', ...
+        sl, size(gui_data.histology_control_points{sl}, 1), ...
+        nnz(gui_data.provisional));
+    gui_data = step_slice(gui_data, +1);
+    guidata(gui_fig, gui_data);
+    update_window_title(gui_fig);
+    update_slice(gui_fig);
+else
+    disp('Nothing provisional to accept on this slice.');
+end
+end
 
-            % the engine reads the atlas from auto_atlas_planes.mat
-            if ~exist(fullfile(gui_data.save_path, 'auto_atlas_planes.mat'), 'file')
-                write_atlas_planes(gui_data);
-            end
-            try
-                out = auto_annotate('section', gui_data.save_path, sl, plane);
-            catch err
-                out = struct('ok', false, 'message', err.message);
-            end
-            if out.ok && ~isempty(out.atlas)
-                n = size(out.atlas, 1);
-                gui_data.histology_control_points{sl} = [repmat(sl, n, 1), out.hist, ...
-                    zeros(n, 1)];
-                gui_data.atlas_control_points{sl} = [repmat(plane, n, 1), out.atlas, ...
-                    zeros(n, 1)];
-                gui_data.provisional(sl) = true;
-                gui_data.uncertain{sl}   = out.low(:);
-                gui_data.proposed_plane(sl) = plane;
-                gui_data = remember_proposal(gui_data, sl);
-                gui_data.sel_side = '';
-                gui_data.sel_idx  = 0;
-                fprintf('Proposed %d point(s), %d marked ?. k to accept.\n', n, nnz(out.low));
-                guidata(gui_fig, gui_data);
-                update_slice(gui_fig);
-            elseif out.ok
-                disp('No landmarks found on this plane.');
-            else
-                fprintf('Proposal failed: %s\n', out.message);
-            end
-        end
+function propose_on_key(gui_data, eventdata, gui_fig, update_slice)
+% Keys u and U: re-propose this slice at the plane on screen, or every orange
+% slice at the plane the anchors and the accepted slices give it.
 
+sl = gui_data.curr_slice;
+if any(strcmp(eventdata.Modifier, 'shift'))
+    % U: re-propose every orange slice, each at the plane the anchors and
+    % the accepted slices give it, so a corrected anchor takes effect without
+    % leaving the GUI; accepted slices are never touched, so an orange slice
+    % worth keeping is accepted (k) first
+    prov = find(gui_data.provisional(:))';
+    if isempty(prov)
+        disp('No orange slice left to re-propose.');
+        return
+    end
+
+    % the known planes: the accepted slices', else the anchors'
+    known = known_planes(gui_data);
+    if nnz(~isnan(known)) < 2
+        disp('Need at least two anchors or accepted slices to place the planes.');
+        return
+    end
+    planes = predict_planes(gui_data, known);
+    fprintf('Re-proposing %d orange slice(s) from %d anchor(s) / accepted slice(s)...\n', ...
+        numel(prov), nnz(~isnan(known)));
+
+    % the engine reads the atlas from auto_atlas_planes.mat
+    if ~exist(fullfile(gui_data.save_path, 'auto_atlas_planes.mat'), 'file')
+        write_atlas_planes(gui_data);
+    end
+    try
+        out = auto_annotate('sections', gui_data.save_path, prov, planes(prov));
+    catch err
+        out = struct('ok', false, 'message', err.message);
+    end
+    if ~out.ok
+        fprintf('Proposal failed: %s\n', out.message);
+        return
+    end
+
+    % the new points, still orange, as each slice's proposal
+    gui_data = store_proposals(prov, out, gui_data, planes);
+    gui_data.sel_side = '';
+    gui_data.sel_idx  = 0;
+    fprintf('Done: %d slice(s) re-proposed, still orange.\n', numel(prov));
+    guidata(gui_fig, gui_data);
+    update_slice(gui_fig);
+    return
+end
+% u: this slice, at the plane on screen
+propose_slice(gui_data, sl, gui_fig, update_slice);
+end
+
+function known = known_planes(gui_data)
+% The planes known per slice: an accepted slice's, else its anchor's, else NaN.
+
+% the known planes: the accepted slices', else the anchors'
+known = nan(gui_data.Nslices, 1);
+for k = 1:gui_data.Nslices
+    if ~gui_data.provisional(k) && ~isempty(gui_data.atlas_control_points{k})
+        known(k) = gui_data.atlas_control_points{k}(1, 1);
+    end
+end
+use_anchor = isnan(known) & ~isnan(gui_data.plane_anchors);
+known(use_anchor) = gui_data.plane_anchors(use_anchor);
+end
+
+function gui_data = store_proposals(prov, out, gui_data, planes)
+% The new points of every re-proposed slice, still orange, as its proposal.
+
+% the new points, still orange, as each slice's proposal
+for j = 1:numel(prov)
+    k = prov(j);
+    n = size(out.atlas{j}, 1);
+    gui_data.histology_control_points{k} = [repmat(k, n, 1), out.hist{j}, ...
+        zeros(n, 1)];
+    gui_data.atlas_control_points{k} = [repmat(planes(k), n, 1), out.atlas{j}, ...
+        zeros(n, 1)];
+    gui_data.uncertain{k} = logical(out.low{j}(:));
+    gui_data.proposed_plane(k) = planes(k);
+    gui_data = remember_proposal(gui_data, k);
+end
+end
+
+function propose_slice(gui_data, sl, gui_fig, update_slice)
+% Key u: this slice proposed at the plane on screen, unless it has points placed
+% or accepted by hand.
+
+if ~isempty(gui_data.histology_control_points{sl}) && ~gui_data.provisional(sl)
+    disp('This slice has hand-placed or accepted points. Press c to clear them first.');
+else
+    plane = round(gui_data.atlas_slice);
+    fprintf('Proposing slice %d at atlas plane %d...\n', sl, plane);
+
+    % the engine reads the atlas from auto_atlas_planes.mat
+    if ~exist(fullfile(gui_data.save_path, 'auto_atlas_planes.mat'), 'file')
+        write_atlas_planes(gui_data);
+    end
+    try
+        out = auto_annotate('section', gui_data.save_path, sl, plane);
+    catch err
+        out = struct('ok', false, 'message', err.message);
+    end
+    if out.ok && ~isempty(out.atlas)
+        n = size(out.atlas, 1);
+        gui_data.histology_control_points{sl} = [repmat(sl, n, 1), out.hist, ...
+            zeros(n, 1)];
+        gui_data.atlas_control_points{sl} = [repmat(plane, n, 1), out.atlas, ...
+            zeros(n, 1)];
+        gui_data.provisional(sl) = true;
+        gui_data.uncertain{sl}   = out.low(:);
+        gui_data.proposed_plane(sl) = plane;
+        gui_data = remember_proposal(gui_data, sl);
+        gui_data.sel_side = '';
+        gui_data.sel_idx  = 0;
+        fprintf('Proposed %d point(s), %d marked ?. k to accept.\n', n, nnz(out.low));
+        guidata(gui_fig, gui_data);
+        update_slice(gui_fig);
+    elseif out.ok
+        disp('No landmarks found on this plane.');
+    else
+        fprintf('Proposal failed: %s\n', out.message);
+    end
 end
 end
 

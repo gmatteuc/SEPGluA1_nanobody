@@ -72,6 +72,39 @@ end
 
 %% Walk the points across
 
+% every slice's points in the new order
+[hist_new_pts, atlas_new_pts] = walk_points(seqnew, seqold, hist_old_pts, flipnew, ...
+    flipold, atlas_old_pts);
+
+%% Write, or say what would have been written
+
+if ~do_apply
+    fprintf('\nDRY RUN. Nothing written. Re-run with do_apply = true to commit.\n');
+    return
+end
+
+backup = fullfile(procpath, sprintf('atlas2histology_tform_prereorder_%s.mat', ...
+    datestr(now, 'yyyymmdd_HHMMSS'))); %#ok<TNOW1,DATST>
+copyfile(tformfile, backup);
+
+% the loaded struct goes back whole, not the two arrays alone: some GUI saves put
+% an atlas2histology_tform in the file too, which a save of two variables would drop
+S.histology_control_points = hist_new_pts;
+S.atlas_control_points     = atlas_new_pts;
+save(tformfile, '-struct', 'S');
+
+fprintf('\nWritten: %s\n', tformfile);
+fprintf('Previous version kept at: %s\n', backup);
+
+end
+
+% ===== Local functions =====
+
+function [hist_new_pts, atlas_new_pts] = walk_points(seqnew, seqold, hist_old_pts, ...
+    flipnew, flipold, atlas_old_pts)
+% The saved points in the new order, slice by slice, with what happens to each
+% printed: kept, moved, dropped for a changed flip, or lost with its slice.
+
 hist_new_pts = repmat({zeros(0,4)}, numel(seqnew), 1);
 atlas_new_pts = repmat({zeros(0,4)}, numel(seqnew), 1);
 
@@ -135,29 +168,7 @@ fprintf('%s\n', repmat('-', 1, 72));
 fprintf('%d annotated slices stay put, %d move, %d lose their points to a flip, %d to a removal\n', ...
     nsame, nmoved, ndropped, nlost);
 
-%% Write, or say what would have been written
-
-if ~do_apply
-    fprintf('\nDRY RUN. Nothing written. Re-run with do_apply = true to commit.\n');
-    return
 end
-
-backup = fullfile(procpath, sprintf('atlas2histology_tform_prereorder_%s.mat', ...
-    datestr(now, 'yyyymmdd_HHMMSS'))); %#ok<TNOW1,DATST>
-copyfile(tformfile, backup);
-
-% the loaded struct goes back whole, not the two arrays alone: some GUI saves put
-% an atlas2histology_tform in the file too, which a save of two variables would drop
-S.histology_control_points = hist_new_pts;
-S.atlas_control_points     = atlas_new_pts;
-save(tformfile, '-struct', 'S');
-
-fprintf('\nWritten: %s\n', tformfile);
-fprintf('Previous version kept at: %s\n', backup);
-
-end
-
-% ===== Local functions =====
 
 function [seq, flipstate] = ordered_sequence(T)
 % The original indices of the slices that stay in the volume, in their order

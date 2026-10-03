@@ -40,80 +40,91 @@ addpath(allenDir)
 %% Normalise each cohort
 
 for ci = 1:numel(cohort_specs)
-    tic
-
-    % the cohort's mice, and its atlas on the grid of its registered volumes
-    % (get_atlas_crop: the CCF for the adults, DeMBA for the P20 brains)
-    [S, current_mouse_type, current_mice, subset_indices, A, AllenCrop, brainMask, ...
-        allenDir] = select_cohort_mice(cohort_specs, ci, mousetypes_list, mousetypes, ...
-        mice, selected_mice_idx_list);
-
-    % the cohort's stack of the channel, selected mice only
-    [base_dir, global_diagnostics_dir, data_4d] = load_cohort_stack(paths, ...
-        current_mouse_type, channel, S, subset_indices);
-
-    % planes pooled for the fit (every fifth), written in adult AP planes (900 in
-    % the CCF crop) and scaled to the cohort's AP length: unchanged for the
-    % adults, 994 planes for P20
-    slices_range_for_norm = unique(round((1:5:900) * A.ap_scale));
-
-    % planes drawn in the diagnostic figures
-    slices_to_visualize_list = round([450, 500, 550] * A.ap_scale);
-
-    % colour limit and histogram bins of the diagnostic figures
-    plot_limit = 5000;
-    hist_num_bins = 150;
-
-    % the cortical voxels the fit uses
-    cortex_mask_3d_all = cortex_reference_mask(allenDir, AllenCrop, brainMask);
-
-    % a background mask for every plane of every mouse, and its trace
-    [recomputed_bkg_mask_4d, median_vecs, area_vecs] = ...
-        recompute_background_masks(data_4d, A);
-    plot_background_trace(median_vecs, area_vecs, current_mouse_type, S, channel, ...
-        base_dir);
-
-    % pool the cortical tissue of the fit planes, and fit each mouse onto the
-    % median mouse
-    [cortex_samples_pooled, num_mice_subset] = pool_cortex_samples( ...
-        slices_range_for_norm, cortex_mask_3d_all, subset_indices, data_4d, ...
-        recomputed_bkg_mask_4d);
-    [consensus_pixels_pooled, norm_params] = fit_to_consensus(cortex_samples_pooled, ...
-        num_mice_subset);
-
-    % the fit on all the pooled planes
-    plot_global_diagnostic(cortex_samples_pooled, consensus_pixels_pooled, ...
-        norm_params, num_mice_subset, current_mice, plot_limit, slices_range_for_norm, ...
-        global_diagnostics_dir, channel);
-
-    % six figures for each plane drawn
-    plot_slice_diagnostics(slices_to_visualize_list, cortex_mask_3d_all, ...
-        num_mice_subset, current_mice, recomputed_bkg_mask_4d, data_4d, plot_limit, ...
-        hist_num_bins, norm_params, global_diagnostics_dir, channel);
-
-    % a video of every plane, normalised against raw
-    if plot_verification_video
-
-        write_verification_video(current_mouse_type, channel, global_diagnostics_dir, ...
-            data_4d, cortex_mask_3d_all, num_mice_subset, current_mice, ...
-            recomputed_bkg_mask_4d, norm_params, plot_limit);
-
-    end
-
-    % normalise the whole volume and save it
-    apply_and_save_normalisation(data_4d, norm_params, num_mice_subset, channel, ...
-        base_dir, S, current_mice, selected_mice_idx_list, recomputed_bkg_mask_4d);
-
-    % free memory before the next cohort
-    clear data_4d_normalized recomputed_bkg_mask_4d save_struct
-
-    toc
+    % normalise the cohort, with its diagnostics
+    normalise_cohort(cohort_specs, ci, mousetypes_list, mousetypes, mice, ...
+        selected_mice_idx_list, paths, channel, plot_verification_video);
 
 end
 
 end
 
 % ===== Local functions: cohort and masks =====
+
+function normalise_cohort(cohort_specs, ci, mousetypes_list, mousetypes, mice, ...
+    selected_mice_idx_list, paths, channel, plot_verification_video)
+% One cohort normalised: its mice's stack fitted onto its median mouse on the
+% cortex, with the diagnostic figures and video, and saved.
+
+tic
+
+% the cohort's mice, and its atlas on the grid of its registered volumes
+% (get_atlas_crop: the CCF for the adults, DeMBA for the P20 brains)
+[S, current_mouse_type, current_mice, subset_indices, A, AllenCrop, brainMask, ...
+    allenDir] = select_cohort_mice(cohort_specs, ci, mousetypes_list, mousetypes, ...
+    mice, selected_mice_idx_list);
+
+% the cohort's stack of the channel, selected mice only
+[base_dir, global_diagnostics_dir, data_4d] = load_cohort_stack(paths, ...
+    current_mouse_type, channel, S, subset_indices);
+
+% planes pooled for the fit (every fifth), written in adult AP planes (900 in
+% the CCF crop) and scaled to the cohort's AP length: unchanged for the
+% adults, 994 planes for P20
+slices_range_for_norm = unique(round((1:5:900) * A.ap_scale));
+
+% planes drawn in the diagnostic figures
+slices_to_visualize_list = round([450, 500, 550] * A.ap_scale);
+
+% colour limit and histogram bins of the diagnostic figures
+plot_limit = 5000;
+hist_num_bins = 150;
+
+% the cortical voxels the fit uses
+cortex_mask_3d_all = cortex_reference_mask(allenDir, AllenCrop, brainMask);
+
+% a background mask for every plane of every mouse, and its trace
+[recomputed_bkg_mask_4d, median_vecs, area_vecs] = ...
+    recompute_background_masks(data_4d, A);
+plot_background_trace(median_vecs, area_vecs, current_mouse_type, S, channel, ...
+    base_dir);
+
+% pool the cortical tissue of the fit planes, and fit each mouse onto the
+% median mouse
+[cortex_samples_pooled, num_mice_subset] = pool_cortex_samples( ...
+    slices_range_for_norm, cortex_mask_3d_all, subset_indices, data_4d, ...
+    recomputed_bkg_mask_4d);
+[consensus_pixels_pooled, norm_params] = fit_to_consensus(cortex_samples_pooled, ...
+    num_mice_subset);
+
+% the fit on all the pooled planes
+plot_global_diagnostic(cortex_samples_pooled, consensus_pixels_pooled, ...
+    norm_params, num_mice_subset, current_mice, plot_limit, slices_range_for_norm, ...
+    global_diagnostics_dir, channel);
+
+% six figures for each plane drawn
+plot_slice_diagnostics(slices_to_visualize_list, cortex_mask_3d_all, ...
+    num_mice_subset, current_mice, recomputed_bkg_mask_4d, data_4d, plot_limit, ...
+    hist_num_bins, norm_params, global_diagnostics_dir, channel);
+
+% a video of every plane, normalised against raw
+if plot_verification_video
+
+    write_verification_video(current_mouse_type, channel, global_diagnostics_dir, ...
+        data_4d, cortex_mask_3d_all, num_mice_subset, current_mice, ...
+        recomputed_bkg_mask_4d, norm_params, plot_limit);
+
+end
+
+% normalise the whole volume and save it
+apply_and_save_normalisation(data_4d, norm_params, num_mice_subset, channel, ...
+    base_dir, S, current_mice, selected_mice_idx_list, recomputed_bkg_mask_4d);
+
+% free memory before the next cohort
+clear data_4d_normalized recomputed_bkg_mask_4d save_struct
+
+toc
+
+end
 
 function [S, current_mouse_type, current_mice, subset_indices, A, AllenCrop, ...
     brainMask, allenDir] = select_cohort_mice(cohort_specs, ci, mousetypes_list, ...
@@ -264,6 +275,24 @@ colors = [linspace(c_bright(1), c_dark(1), nMice)', ...
     linspace(c_bright(2), c_dark(2), nMice)', ...
     linspace(c_bright(3), c_dark(3), nMice)'];
 
+% the background median and area of every mouse, side by side
+plot_trace_panels(nMice, median_vecs, x_vals, colors, nSlices, area_vecs, ...
+    current_mouse_type, channel);
+
+% save it, keeping the figure's background colour
+set(h_fig, 'InvertHardcopy', 'off');
+clean_fig_name = regexprep(h_fig.Name, '[^a-zA-Z0-9]', '_');
+save_path_base = fullfile(base_dir, clean_fig_name);
+fprintf('Saving diagnostic plot to: %s\n', save_path_base);
+saveas(h_fig, [save_path_base '.fig']);
+exportgraphics(h_fig, [save_path_base '.png'], 'Resolution', 300, ...
+    'BackgroundColor', 'current');
+end
+
+function plot_trace_panels(nMice, median_vecs, x_vals, colors, nSlices, area_vecs, ...
+    current_mouse_type, channel)
+% The two panels of the background trace, and the figure's title.
+
 % left: the background median of every mouse, labelled M1, M2, ...
 subplot(1, 2, 1);
 hold on;
@@ -313,15 +342,6 @@ xlim([1 nSlices*1.1]);
 ylim([0 max(y_data)*1.1]);
 sgtitle(strrep(['Background_mask_diagnostics_trace:_', current_mouse_type, '_(', ...
     channel, ')'], '_', ' '))
-
-% save it, keeping the figure's background colour
-set(h_fig, 'InvertHardcopy', 'off');
-clean_fig_name = regexprep(h_fig.Name, '[^a-zA-Z0-9]', '_');
-save_path_base = fullfile(base_dir, clean_fig_name);
-fprintf('Saving diagnostic plot to: %s\n', save_path_base);
-saveas(h_fig, [save_path_base '.fig']);
-exportgraphics(h_fig, [save_path_base '.png'], 'Resolution', 300, ...
-    'BackgroundColor', 'current');
 end
 
 % ===== Local functions: normalisation =====
@@ -486,6 +506,23 @@ end
 figure('Visible', 'off', 'Name', 'Global Normalization Diagnostic (Pooled)', ...
     'Color', 'w', 'Units', 'normalized', 'Position', [-0.05 -0.05 0.95 0.95]);
 
+% every mouse: raw above, normalised below
+draw_global_panels(num_mice_subset, current_mice, cortex_samples_pooled, idx_sub, ...
+    consensus_pixels_pooled, norm_params, plot_limit);
+
+sgtitle(['Global Normalization Diagnostic (Pooled Slices: ' ...
+    num2str(min(slices_range_for_norm)) '-' num2str(max(slices_range_for_norm)) ')'], ...
+    'FontSize', 14);
+
+% save it in normalization_checks_<channel>\, named after the figure (no plane
+% number: it pools them all)
+save_check_figure(global_diagnostics_dir, channel, []);
+end
+
+function draw_global_panels(num_mice_subset, current_mice, cortex_samples_pooled, ...
+    idx_sub, consensus_pixels_pooled, norm_params, plot_limit)
+% Every mouse's points against the median mouse, raw (top) and normalised (bottom).
+
 for i = 1:num_mice_subset
     mouse_name = strrep(current_mice{i}, '_', ' ');
 
@@ -557,14 +594,6 @@ for i = 1:num_mice_subset
         set(gca, 'YTickLabel', []);
     end
 end
-
-sgtitle(['Global Normalization Diagnostic (Pooled Slices: ' ...
-    num2str(min(slices_range_for_norm)) '-' num2str(max(slices_range_for_norm)) ')'], ...
-    'FontSize', 14);
-
-% save it in normalization_checks_<channel>\, named after the figure (no plane
-% number: it pools them all)
-save_check_figure(global_diagnostics_dir, channel, []);
 end
 
 function plot_slice_diagnostics(slices_to_visualize_list, cortex_mask_3d_all, ...
@@ -821,6 +850,21 @@ cortex_samples_norm = zeros(size(cortex_samples));
 figure('Visible', 'off', 'Name', 'Normalization Diagnostic and Verification', ...
     'Color', 'w', 'Units', 'normalized', 'Position', [-0.05 -0.05 0.95 0.95]);
 
+% every mouse: raw above, normalised below
+draw_slice_norm_panels(num_mice_subset, current_mice, cortex_samples, ...
+    consensus_pixels, norm_params, cortex_samples_norm, plot_limit);
+sgtitle(['Normalization diagnostic (Slice ' num2str(slice_to_plot) ')'], 'FontSize', 14);
+
+% save it in normalization_checks_<channel>\, named after the figure and plane
+save_check_figure(global_diagnostics_dir, channel, slice_to_plot);
+close all
+end
+
+function draw_slice_norm_panels(num_mice_subset, current_mice, cortex_samples, ...
+    consensus_pixels, norm_params, cortex_samples_norm, plot_limit)
+% Every mouse on the plane against its median mouse, raw with the global line
+% (top) and normalised (bottom).
+
 for i = 1:num_mice_subset
     mouse_name = strrep(current_mice{i}, '_', ' ');
     y_raw = cortex_samples(:, i);
@@ -888,11 +932,6 @@ for i = 1:num_mice_subset
         set(gca, 'YTickLabel', []);
     end
 end
-sgtitle(['Normalization diagnostic (Slice ' num2str(slice_to_plot) ')'], 'FontSize', 14);
-
-% save it in normalization_checks_<channel>\, named after the figure and plane
-save_check_figure(global_diagnostics_dir, channel, slice_to_plot);
-close all
 end
 
 function plot_norm_vs_raw(data_4d, recomputed_bkg_mask_4d, mask_2d_slice, norm_params, ...
@@ -902,6 +941,21 @@ function plot_norm_vs_raw(data_4d, recomputed_bkg_mask_4d, mask_2d_slice, norm_p
 
 figure('Visible', 'off', 'Name', 'Visual Verification Normalized vs Raw', ...
     'Color', 'k', 'Units', 'normalized', 'Position', [0.1 0.05 0.8 0.8]);
+
+% every mouse: normalised above, raw below
+draw_norm_and_raw_panels(num_mice_subset, current_mice, data_4d, slice_to_plot, ...
+    recomputed_bkg_mask_4d, mask_2d_slice, norm_params, plot_limit);
+sgtitle(['Comparison: normalized (top) vs. raw (bottom) - Fixed scale [0, ' ...
+    num2str(plot_limit) ']'], 'Color', 'w', 'FontSize', 14, 'FontWeight', 'bold');
+
+% save it in normalization_checks_<channel>\, named after the figure and plane
+save_check_figure(global_diagnostics_dir, channel, slice_to_plot);
+close all
+end
+
+function draw_norm_and_raw_panels(num_mice_subset, current_mice, data_4d, ...
+    slice_to_plot, recomputed_bkg_mask_4d, mask_2d_slice, norm_params, plot_limit)
+% Every mouse's plane, normalised (top) and raw (bottom), dimmed outside its tissue.
 
 for i = 1:num_mice_subset
     mouse_name = strrep(current_mice{i}, '_', ' ');
@@ -963,12 +1017,6 @@ for i = 1:num_mice_subset
     end
     hold off;
 end
-sgtitle(['Comparison: normalized (top) vs. raw (bottom) - Fixed scale [0, ' ...
-    num2str(plot_limit) ']'], 'Color', 'w', 'FontSize', 14, 'FontWeight', 'bold');
-
-% save it in normalization_checks_<channel>\, named after the figure and plane
-save_check_figure(global_diagnostics_dir, channel, slice_to_plot);
-close all
 end
 
 function write_verification_video(current_mouse_type, channel, ...
@@ -1011,73 +1059,9 @@ for s_idx = slices_to_video
         'Color', 'k');
     set(fh, 'InvertHardcopy', 'off');
 
-    for i = 1:num_mice_subset
-        mouse_name = strrep(current_mice{i}, '_', ' ');
-
-        % the mouse's plane and background
-        img_raw = squeeze(data_4d(s_idx, :, :, i));
-        current_bg_mask = squeeze(recomputed_bkg_mask_4d(s_idx, :, :, i));
-
-        % dimmed unless in the cortex and in the mouse's tissue
-        is_valid_tissue = (mask_2d_slice == 1) & (current_bg_mask == 0);
-        overlay_alpha = zeros(size(img_raw));
-        overlay_alpha(~is_valid_tissue) = 0.5;
-
-        % the plane normalised
-        slope = norm_params(i, 1);
-        intercept = norm_params(i, 2);
-        img_norm = (img_raw - intercept) / slope;
-
-        % top row: normalised
-        subplot(2, num_mice_subset, i);
-        imagesc(img_norm);
-        colormap(sep_palette('intensity'));
-        clim([0, plot_limit]);
-        axis image;
-        axis off;
-        set(gca, 'Color', 'k');
-        hold on;
-
-        h_ov1 = imagesc(zeros(size(img_norm)));
-        set(h_ov1, 'AlphaData', overlay_alpha);
-
-        t = title(['Norm: ' mouse_name]);
-        set(t, 'Color', 'w', 'FontSize', 10, 'FontWeight', 'bold');
-
-        if i == num_mice_subset
-            cb = colorbar;
-            cb.Label.String = 'Norm Int';
-            cb.Color = 'w';
-            cb.Label.Color = 'w';
-            cb.Position = [0.92 0.55 0.01 0.35];
-        end
-        hold off;
-
-        % bottom row: raw
-        subplot(2, num_mice_subset, i + num_mice_subset);
-        imagesc(img_raw);
-        colormap(sep_palette('intensity'));
-        clim([0, plot_limit]);
-        axis image;
-        axis off;
-        set(gca, 'Color', 'k');
-        hold on;
-
-        h_ov2 = imagesc(zeros(size(img_raw)));
-        set(h_ov2, 'AlphaData', overlay_alpha);
-
-        t = title(['Raw: ' mouse_name]);
-        set(t, 'Color', 'w', 'FontSize', 10, 'FontWeight', 'normal');
-
-        if i == num_mice_subset
-            cb = colorbar;
-            cb.Label.String = 'Raw Int';
-            cb.Color = 'w';
-            cb.Label.Color = 'w';
-            cb.Position = [0.92 0.1 0.01 0.35];
-        end
-        hold off;
-    end
+    % every mouse: normalised above, raw below
+    draw_video_panels(num_mice_subset, current_mice, data_4d, s_idx, ...
+        recomputed_bkg_mask_4d, mask_2d_slice, norm_params, plot_limit);
 
     sgtitle(['Slice ' num2str(s_idx) ' - Norm vs Raw - Scale [0 ' num2str(plot_limit) ...
         ']'], 'Color', 'w', 'FontSize', 14, 'FontWeight', 'bold');
@@ -1094,6 +1078,79 @@ end
 
 close(vidObj);
 fprintf('Video saved successfully: %s\n', full_video_path);
+end
+
+function draw_video_panels(num_mice_subset, current_mice, data_4d, s_idx, ...
+    recomputed_bkg_mask_4d, mask_2d_slice, norm_params, plot_limit)
+% Every mouse's plane s_idx, normalised (top) and raw (bottom), for one frame.
+
+for i = 1:num_mice_subset
+    mouse_name = strrep(current_mice{i}, '_', ' ');
+
+    % the mouse's plane and background
+    img_raw = squeeze(data_4d(s_idx, :, :, i));
+    current_bg_mask = squeeze(recomputed_bkg_mask_4d(s_idx, :, :, i));
+
+    % dimmed unless in the cortex and in the mouse's tissue
+    is_valid_tissue = (mask_2d_slice == 1) & (current_bg_mask == 0);
+    overlay_alpha = zeros(size(img_raw));
+    overlay_alpha(~is_valid_tissue) = 0.5;
+
+    % the plane normalised
+    slope = norm_params(i, 1);
+    intercept = norm_params(i, 2);
+    img_norm = (img_raw - intercept) / slope;
+
+    % top row: normalised
+    subplot(2, num_mice_subset, i);
+    imagesc(img_norm);
+    colormap(sep_palette('intensity'));
+    clim([0, plot_limit]);
+    axis image;
+    axis off;
+    set(gca, 'Color', 'k');
+    hold on;
+
+    h_ov1 = imagesc(zeros(size(img_norm)));
+    set(h_ov1, 'AlphaData', overlay_alpha);
+
+    t = title(['Norm: ' mouse_name]);
+    set(t, 'Color', 'w', 'FontSize', 10, 'FontWeight', 'bold');
+
+    if i == num_mice_subset
+        cb = colorbar;
+        cb.Label.String = 'Norm Int';
+        cb.Color = 'w';
+        cb.Label.Color = 'w';
+        cb.Position = [0.92 0.55 0.01 0.35];
+    end
+    hold off;
+
+    % bottom row: raw
+    subplot(2, num_mice_subset, i + num_mice_subset);
+    imagesc(img_raw);
+    colormap(sep_palette('intensity'));
+    clim([0, plot_limit]);
+    axis image;
+    axis off;
+    set(gca, 'Color', 'k');
+    hold on;
+
+    h_ov2 = imagesc(zeros(size(img_raw)));
+    set(h_ov2, 'AlphaData', overlay_alpha);
+
+    t = title(['Raw: ' mouse_name]);
+    set(t, 'Color', 'w', 'FontSize', 10, 'FontWeight', 'normal');
+
+    if i == num_mice_subset
+        cb = colorbar;
+        cb.Label.String = 'Raw Int';
+        cb.Color = 'w';
+        cb.Label.Color = 'w';
+        cb.Position = [0.92 0.1 0.01 0.35];
+    end
+    hold off;
+end
 end
 
 function save_check_figure(global_diagnostics_dir, channel, slice_to_plot)

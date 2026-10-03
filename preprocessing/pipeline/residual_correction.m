@@ -45,88 +45,97 @@ fprintf('run_residual_correction: %d mouse/mice selected.\n', numel(cohort));
 
 for mouse_idx = 1:numel(cohort)
 
-    % the mouse's name and group
-    mouse_name = cohort(mouse_idx).name;
-    mouse_type = cohort(mouse_idx).group;
-
-    % its output folders, and its centred autofluorescence and nano volumes
-    base_dir = fullfile(paths.data, mouse_type);
-    output_dir = fullfile(base_dir, mouse_name, 'lightsuite', 'correction_output');
-    if ~exist(output_dir, 'dir')
-        mkdir(output_dir);
-    end
-    plotDir = fullfile(output_dir, 'diagnostic_plots');
-    if ~exist(plotDir, 'dir')
-        mkdir(plotDir);
-    end
-    autoPath_centered = fullfile(base_dir, mouse_name, 'lightsuite', 'volume_centered', ...
-        'chan03_Cy3.tiff');
-    nanoPath_centered = fullfile(base_dir, mouse_name, 'lightsuite', 'volume_centered', ...
-        'chan02_Cy5.tiff');
-
-    %% Load the centred volumes
-
-    % autofluorescence, then nano, timed
-    tic
-    autoVol_centered = loadVolume({autoPath_centered}, 1);
-    nanoVol_centered = loadVolume({nanoPath_centered}, 1);
-    toc
-
-    %% Fit nano on autofluorescence, slice by slice
-
-    % the autofluorescence is the base (I), the nano the signal (J)
-    selectedVol = autoVol_centered;
-    selectedVolSig = nanoVol_centered;
-
-    % each slice's fit on its reference pixels, and the background of every slice
-    [H, W, Z] = size(selectedVol);
-    [slice_data, bg_mask_vol] = fit_reference_pixels(selectedVol, selectedVolSig, ...
-        H, W, Z, mouse_name, plotDir, doPlotBkg, savePlotBkg);
-
-    %% Summary figure of the fits
-
-    % ratio, slope and intercept over the slices; the mean fit for the global way
-    [average_slope, average_intercept] = plot_regression_summary(slice_data, Z, plotDir);
-
-    %% Correct both ways
-
-    % 'slicewise' with each slice's fit, 'global' with the mean fit
-    correction_types = {'slicewise', 'global'};
-    for ct = 1:numel(correction_types)
-
-        correction_type = correction_types{ct};
-        use_per_slice = strcmp(correction_type, 'slicewise');
-
-        correct_and_save(selectedVol, selectedVolSig, slice_data, bg_mask_vol, ...
-            average_slope, average_intercept, correction_type, use_per_slice, ...
-            mouse_name, output_dir, H, W, Z);
-
-        write_difference_video(selectedVol, selectedVolSig, slice_data, bg_mask_vol, ...
-            average_slope, average_intercept, correction_type, use_per_slice, ...
-            output_dir, Z);
-
-    end
-
-    %% Ratio video
-
-    % nano / autofluorescence (J / I), slice by slice
-    if saveRatioMap
-
-        write_ratio_video(selectedVol, selectedVolSig, bg_mask_vol, Z, output_dir);
-
-    end
-
-    % free the mouse's volumes and close its figures
-    clear autoVol_centered dapiVol_centered nanoVol_centered autoVol_registered ...
-        dapiVol_registered nanoVol_registered selectedVol selectedVolSig slice_data ...
-        bg_mask_vol correctedVol scaledautoVol
-    close all
+    % correct the mouse, with its figures and videos
+    correct_mouse(cohort, mouse_idx, paths, doPlotBkg, savePlotBkg, saveRatioMap);
 
 end
 
 end
 
 % ===== Local functions: per-slice fit =====
+
+function correct_mouse(cohort, mouse_idx, paths, doPlotBkg, savePlotBkg, saveRatioMap)
+% One mouse: the nano fitted on the autofluorescence slice by slice, both
+% corrections saved, with their figures and videos.
+
+% the mouse's name and group
+mouse_name = cohort(mouse_idx).name;
+mouse_type = cohort(mouse_idx).group;
+
+% its output folders, and its centred autofluorescence and nano volumes
+base_dir = fullfile(paths.data, mouse_type);
+output_dir = fullfile(base_dir, mouse_name, 'lightsuite', 'correction_output');
+if ~exist(output_dir, 'dir')
+    mkdir(output_dir);
+end
+plotDir = fullfile(output_dir, 'diagnostic_plots');
+if ~exist(plotDir, 'dir')
+    mkdir(plotDir);
+end
+autoPath_centered = fullfile(base_dir, mouse_name, 'lightsuite', 'volume_centered', ...
+    'chan03_Cy3.tiff');
+nanoPath_centered = fullfile(base_dir, mouse_name, 'lightsuite', 'volume_centered', ...
+    'chan02_Cy5.tiff');
+
+%% Load the centred volumes
+
+% autofluorescence, then nano, timed
+tic
+autoVol_centered = loadVolume({autoPath_centered}, 1);
+nanoVol_centered = loadVolume({nanoPath_centered}, 1);
+toc
+
+%% Fit nano on autofluorescence, slice by slice
+
+% the autofluorescence is the base (I), the nano the signal (J)
+selectedVol = autoVol_centered;
+selectedVolSig = nanoVol_centered;
+
+% each slice's fit on its reference pixels, and the background of every slice
+[H, W, Z] = size(selectedVol);
+[slice_data, bg_mask_vol] = fit_reference_pixels(selectedVol, selectedVolSig, ...
+    H, W, Z, mouse_name, plotDir, doPlotBkg, savePlotBkg);
+
+%% Summary figure of the fits
+
+% ratio, slope and intercept over the slices; the mean fit for the global way
+[average_slope, average_intercept] = plot_regression_summary(slice_data, Z, plotDir);
+
+%% Correct both ways
+
+% 'slicewise' with each slice's fit, 'global' with the mean fit
+correction_types = {'slicewise', 'global'};
+for ct = 1:numel(correction_types)
+
+    correction_type = correction_types{ct};
+    use_per_slice = strcmp(correction_type, 'slicewise');
+
+    correct_and_save(selectedVol, selectedVolSig, slice_data, bg_mask_vol, ...
+        average_slope, average_intercept, correction_type, use_per_slice, ...
+        mouse_name, output_dir, H, W, Z);
+
+    write_difference_video(selectedVol, selectedVolSig, slice_data, bg_mask_vol, ...
+        average_slope, average_intercept, correction_type, use_per_slice, ...
+        output_dir, Z);
+
+end
+
+%% Ratio video
+
+% nano / autofluorescence (J / I), slice by slice
+if saveRatioMap
+
+    write_ratio_video(selectedVol, selectedVolSig, bg_mask_vol, Z, output_dir);
+
+end
+
+% free the mouse's volumes and close its figures
+clear autoVol_centered dapiVol_centered nanoVol_centered autoVol_registered ...
+    dapiVol_registered nanoVol_registered selectedVol selectedVolSig slice_data ...
+    bg_mask_vol correctedVol scaledautoVol
+close all
+
+end
 
 function [slice_data, bg_mask_vol] = fit_reference_pixels(selectedVol, selectedVolSig, ...
     H, W, Z, mouse_name, plotDir, doPlotBkg, savePlotBkg)

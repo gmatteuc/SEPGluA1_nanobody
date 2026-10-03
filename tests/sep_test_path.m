@@ -42,6 +42,39 @@ end
 
 %% List the functions
 
+% every function name on the project's folders, and the imaging repository's
+[names, files, is_ours, other_names, other_files] = list_functions(code_dir, ...
+    dendrites_dir);
+
+n_fail = 0;
+
+%% Names defined twice
+
+% names defined twice, here or in both projects
+n_fail = check_duplicates(names, files, n_fail, other_names, other_files, ...
+    dendrites_dir);
+
+%% Shadowed names
+
+% names that shadow, or are shadowed
+n_fail = check_shadowing(names, files, is_ours, n_fail);
+
+%% Result
+
+fprintf('sep_test_path: %d failures\n', n_fail);
+if n_fail > 0
+    error('sep_test_path: %d name clashes on the project path (listed above).', n_fail);
+end
+
+end
+
+% ===== Local functions =====
+
+function [names, files, is_ours, other_names, other_files] = list_functions(code_dir, ...
+    dendrites_dir)
+% The function names on the project's folders of the path, ours marked, and the
+% imaging repository's names when its checkout is here.
+
 % the project's folders on the path
 entries = strsplit(path, pathsep);
 inside = strcmpi(entries, code_dir) | ...
@@ -82,9 +115,12 @@ else
     fprintf('  %s not found: its names are not checked\n', dendrites_dir);
 end
 
-n_fail = 0;
+end
 
-%% Names defined twice
+function n_fail = check_duplicates(names, files, n_fail, other_names, other_files, ...
+    dendrites_dir)
+% Names defined twice in the project, and names the imaging repository defines
+% too; n_fail counts the failures.
 
 % the same name in two folders of the project, without case
 [~, ~, group] = unique(lower(names));
@@ -125,7 +161,11 @@ if isfolder(dendrites_dir) && n_shared == 0
     fprintf('  PASS  no name is shared with %s\n', dendrites_dir);
 end
 
-%% Shadowed names
+end
+
+function n_fail = check_shadowing(names, files, is_ours, n_fail)
+% Names that shadow or are shadowed by another function on the path; n_fail
+% counts the failures.
 
 % which -all on each name: ours must neither shadow nor be shadowed; the
 % vendored ones that shadow MATLAB's are listed
@@ -157,16 +197,7 @@ if n_shadowing_vendored > 0
              'drivers added them\n'], n_shadowing_vendored);
 end
 
-%% Result
-
-fprintf('sep_test_path: %d failures\n', n_fail);
-if n_fail > 0
-    error('sep_test_path: %d name clashes on the project path (listed above).', n_fail);
 end
-
-end
-
-% ===== Local functions =====
 
 function known = is_known_duplicate(name, clash)
 % Duplicates inside a vendored package that nothing calls, left as they came:

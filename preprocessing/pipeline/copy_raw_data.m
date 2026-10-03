@@ -63,14 +63,8 @@ for mouse_idx = 1:numel(cohort)
         mkdir(dst_dir);
     end
 
-    % /Z restartable, /R:3 three retries, /W:10 ten seconds between them, /NP no
-    % progress, /NDL no folder list, /NJH no job header; never /MIR or /MOV
-    cmd = sprintf('robocopy "%s" "%s" *.czi /Z /R:3 /W:10 /NP /NDL /NJH', ...
-        src_dir, dst_dir);
-    t0 = tic;
-    [status, out] = system(cmd);
-    fprintf('%s', out);
-    fprintf('  robocopy exit %d, %.1f min\n', status, toc(t0)/60);
+    % copy the .czi files
+    status = robocopy_czi(src_dir, dst_dir);
 
     % robocopy exits with 0 to 7 on success, 8 or more on failure
     if status >= 8
@@ -80,21 +74,7 @@ for mouse_idx = 1:numel(cohort)
     end
 
     % check that every file on the share arrived with the same size
-    ok = true;
-    for k = 1:numel(src_files)
-        dst_file = fullfile(dst_dir, src_files(k).name);
-        if ~exist(dst_file, 'file')
-            fprintf('  MISSING  %s\n', src_files(k).name);
-            ok = false;
-        else
-            dinfo = dir(dst_file);
-            if dinfo.bytes ~= src_files(k).bytes
-                fprintf('  SIZE MISMATCH  %s: src %d vs dst %d\n', ...
-                    src_files(k).name, src_files(k).bytes, dinfo.bytes);
-                ok = false;
-            end
-        end
-    end
+    ok = verify_copy(src_files, dst_dir);
 
     if ok
         fprintf('  VERIFIED: %d/%d files, %.2f GB\n', numel(src_files), ...
@@ -116,6 +96,42 @@ fprintf('%s\n', repmat('=', [1 60]));
 end
 
 % ===== Local functions =====
+
+function status = robocopy_czi(src_dir, dst_dir)
+% The .czi files copied from src_dir into dst_dir by robocopy; its exit status.
+
+% /Z restartable, /R:3 three retries, /W:10 ten seconds between them, /NP no
+% progress, /NDL no folder list, /NJH no job header; never /MIR or /MOV
+cmd = sprintf('robocopy "%s" "%s" *.czi /Z /R:3 /W:10 /NP /NDL /NJH', ...
+    src_dir, dst_dir);
+t0 = tic;
+[status, out] = system(cmd);
+fprintf('%s', out);
+fprintf('  robocopy exit %d, %.1f min\n', status, toc(t0)/60);
+
+end
+
+function ok = verify_copy(src_files, dst_dir)
+% Whether every file on the share arrived in dst_dir with its size; prints the others.
+
+% check that every file on the share arrived with the same size
+ok = true;
+for k = 1:numel(src_files)
+    dst_file = fullfile(dst_dir, src_files(k).name);
+    if ~exist(dst_file, 'file')
+        fprintf('  MISSING  %s\n', src_files(k).name);
+        ok = false;
+    else
+        dinfo = dir(dst_file);
+        if dinfo.bytes ~= src_files(k).bytes
+            fprintf('  SIZE MISMATCH  %s: src %d vs dst %d\n', ...
+                src_files(k).name, src_files(k).bytes, dinfo.bytes);
+            ok = false;
+        end
+    end
+end
+
+end
 
 function assert_local_destination(dst_dir, share_root)
 % Stop if the destination is on the drive of the raw-data share, which is read

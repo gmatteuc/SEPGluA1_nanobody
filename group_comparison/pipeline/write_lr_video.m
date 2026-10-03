@@ -31,71 +31,9 @@ for j = 1:n_slices
         continue;
     end
 
-    % atlas boundaries: where the annotation changes along ML
-    [row, col] = lr_atlas_boundaries(atlas_vol, j);
-
-    fh = figure('visible', 'off', 'units', 'normalized', 'outerposition', [0 0 1 1], ...
-        'Color', 'k');
-
-    set(fh, 'InvertHardcopy', 'off');
-
-    % left: the difference
-    subplot(1, 2, 1);
-    h1 = imagesc(squeeze(lr_diff_vol(j, :, :)));
-    clim(clim_values);
-
-    set(h1, 'AlphaData', squeeze(brain_mask(j, :, 1:size(lr_diff_vol, 3))));
-
-    % blue-red for symmetric limits (jet if the colormap function is missing)
-    set_lr_colormap(clim_values);
-
-    ax1 = gca;
-    ax1.Color = 'k';
-    axis equal;
-    axis off;
-    hold on;
-
-    line(col, row, 'Marker', '.', 'LineStyle', 'none', 'Color', [0.66 0.66 0.66], ...
-        'MarkerSize', 0.5);
-
-    xlim([0, size(lr_diff_vol, 3)]);
-
-    title([group_name ' - ' label_string_diff], 'Color', 'w', 'FontSize', 12);
-
-    cb1 = colorbar;
-    cb1.Label.String = label_string_diff;
-    cb1.Label.FontSize = 10;
-    cb1.Color = 'w';
-    cb1.Label.Color = 'w';
-
-    % right: the sum, on twice the limits
-    subplot(1, 2, 2);
-    h2 = imagesc(squeeze(lr_sum_vol(j, :, :)));
-    clim(2*clim_values);
-
-    set(h2, 'AlphaData', squeeze(brain_mask(j, :, 1:size(lr_sum_vol, 3))));
-
-    set_lr_colormap(clim_values);
-
-    ax2 = gca;
-    ax2.Color = 'k';
-    axis equal;
-    axis off;
-    hold on;
-
-    line(col, row, 'Marker', '.', 'LineStyle', 'none', 'Color', [0.66 0.66 0.66], ...
-        'MarkerSize', 0.5);
-
-    xlim([0, size(lr_diff_vol, 3)]);
-    title([group_name ' - ' label_string_sum], 'Color', 'w', 'FontSize', 12);
-
-    cb2 = colorbar;
-    cb2.Label.String = label_string_sum;
-    cb2.Label.FontSize = 10;
-    cb2.Color = 'w';
-    cb2.Label.Color = 'w';
-
-    sgtitle(['Slice # ' num2str(j)], 'Color', 'w', 'FontSize', 14);
+    % the frame: the difference and the sum
+    fh = draw_lr_frame(atlas_vol, j, lr_diff_vol, clim_values, brain_mask, group_name, ...
+        label_string_diff, lr_sum_vol, label_string_sum);
 
     % write the frame
     frame = getframe(fh);
@@ -109,5 +47,80 @@ end
 
 close(vidObj);
 fprintf('Video saved: %s\n', full_video_path);
+
+end
+
+% ===== Local functions =====
+
+function fh = draw_lr_frame(atlas_vol, j, lr_diff_vol, clim_values, brain_mask, ...
+    group_name, label_string_diff, lr_sum_vol, label_string_sum)
+% One frame on a new hidden figure: plane j's difference on the left, its sum on
+% the right on twice the limits, both over the atlas boundaries.
+
+% atlas boundaries: where the annotation changes along ML
+[row, col] = lr_atlas_boundaries(atlas_vol, j);
+
+fh = figure('visible', 'off', 'units', 'normalized', 'outerposition', [0 0 1 1], ...
+    'Color', 'k');
+
+set(fh, 'InvertHardcopy', 'off');
+
+% left: the difference
+subplot(1, 2, 1);
+h1 = imagesc(squeeze(lr_diff_vol(j, :, :)));
+clim(clim_values);
+
+set(h1, 'AlphaData', squeeze(brain_mask(j, :, 1:size(lr_diff_vol, 3))));
+
+% blue-red for symmetric limits (jet if the colormap function is missing)
+set_lr_colormap(clim_values);
+
+ax1 = gca;
+ax1.Color = 'k';
+axis equal;
+axis off;
+hold on;
+
+line(col, row, 'Marker', '.', 'LineStyle', 'none', 'Color', [0.66 0.66 0.66], ...
+    'MarkerSize', 0.5);
+
+xlim([0, size(lr_diff_vol, 3)]);
+
+title([group_name ' - ' label_string_diff], 'Color', 'w', 'FontSize', 12);
+
+cb1 = colorbar;
+cb1.Label.String = label_string_diff;
+cb1.Label.FontSize = 10;
+cb1.Color = 'w';
+cb1.Label.Color = 'w';
+
+% right: the sum, on twice the limits
+subplot(1, 2, 2);
+h2 = imagesc(squeeze(lr_sum_vol(j, :, :)));
+clim(2*clim_values);
+
+set(h2, 'AlphaData', squeeze(brain_mask(j, :, 1:size(lr_sum_vol, 3))));
+
+set_lr_colormap(clim_values);
+
+ax2 = gca;
+ax2.Color = 'k';
+axis equal;
+axis off;
+hold on;
+
+line(col, row, 'Marker', '.', 'LineStyle', 'none', 'Color', [0.66 0.66 0.66], ...
+    'MarkerSize', 0.5);
+
+xlim([0, size(lr_diff_vol, 3)]);
+title([group_name ' - ' label_string_sum], 'Color', 'w', 'FontSize', 12);
+
+cb2 = colorbar;
+cb2.Label.String = label_string_sum;
+cb2.Label.FontSize = 10;
+cb2.Color = 'w';
+cb2.Label.Color = 'w';
+
+sgtitle(['Slice # ' num2str(j)], 'Color', 'w', 'FontSize', 14);
 
 end

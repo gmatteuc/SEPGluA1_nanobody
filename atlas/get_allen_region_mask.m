@@ -56,6 +56,44 @@ mapping = readtable(map_file);
 
 %% Find the root regions
 
+root_ids = find_root_ids(target_roots, terms);
+
+%% Add all their descendants
+
+candidate_names = region_and_descendants(root_ids, terms);
+
+%% Apply the name filter
+
+target_names = apply_name_filter(name_filter, candidate_names);
+
+%% Map the names to atlas values
+
+% the rows of the membership table with these names
+if ismember('parcellation_term_name', mapping.Properties.VariableNames)
+    valid_map_rows = ismember(mapping.parcellation_term_name, target_names);
+else
+    error('Mapping file does not contain "parcellation_term_name" column.');
+end
+
+% their atlas values (parcellation_index)
+target_pixel_vals = mapping.parcellation_index(valid_map_rows);
+
+%% Make the mask
+
+mask_3d = ismember(atlas_vol, target_pixel_vals) & brain_mask;
+
+if sum(mask_3d(:)) == 0
+    warning('Mask Gen: Resulting mask is empty. Check region names or atlas alignment.');
+end
+
+end
+
+% ===== Local functions =====
+
+function root_ids = find_root_ids(target_roots, terms)
+% The ontology identifiers of the named roots: an exact name first, else the
+% first name containing it; stops if none is found.
+
 root_ids = {};
 for i = 1:numel(target_roots)
 
@@ -77,7 +115,10 @@ if isempty(root_ids)
     error('No valid root regions found. Mask cannot be generated.');
 end
 
-%% Add all their descendants
+end
+
+function candidate_names = region_and_descendants(root_ids, terms)
+% The names of the roots and of every region below them.
 
 % walk down the hierarchy one level at a time
 final_term_ids = root_ids;
@@ -101,7 +142,10 @@ end
 found_rows_logical = ismember(terms.identifier, final_term_ids);
 candidate_names = terms.name(found_rows_logical);
 
-%% Apply the name filter
+end
+
+function target_names = apply_name_filter(name_filter, candidate_names)
+% The names that contain any of the filter's terms, or all of them without one.
 
 if ~isempty(name_filter)
     fprintf('Mask Gen: Filtering %d regions with %d filter term(s)...\n', ...
@@ -129,26 +173,6 @@ else
     target_names = candidate_names;
     fprintf('Mask Gen: Total ontology terms found (Root + Descendants): %d\n', ...
         numel(target_names));
-end
-
-%% Map the names to atlas values
-
-% the rows of the membership table with these names
-if ismember('parcellation_term_name', mapping.Properties.VariableNames)
-    valid_map_rows = ismember(mapping.parcellation_term_name, target_names);
-else
-    error('Mapping file does not contain "parcellation_term_name" column.');
-end
-
-% their atlas values (parcellation_index)
-target_pixel_vals = mapping.parcellation_index(valid_map_rows);
-
-%% Make the mask
-
-mask_3d = ismember(atlas_vol, target_pixel_vals) & brain_mask;
-
-if sum(mask_3d(:)) == 0
-    warning('Mask Gen: Resulting mask is empty. Check region names or atlas alignment.');
 end
 
 end
