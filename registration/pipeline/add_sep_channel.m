@@ -400,7 +400,7 @@ plot(planes - 1, corr_reg, 'o-', 'Color', [0.15 0.15 0.15], ...
 xlabel('registered plane (ML index)');
 ylabel('r vs volume\_registered');
 title(sprintf('registered DAPI, this run vs run_register_to_atlas (median %1.4f)', ...
-    median(corr_reg, 'omitnan')));
+    median(corr_reg, 'omitnan')), 'Interpreter', 'none');
 ylim([min(0.9, min(corr_reg) - 0.01) 1.001]);
 box off
 
