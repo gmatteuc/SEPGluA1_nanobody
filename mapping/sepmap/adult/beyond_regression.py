@@ -65,6 +65,7 @@ from sepmap.adult.beyond_figures import FIGS, save
 from sepmap.config import SETTINGS
 from sepmap.plotting import DARK_GREY, MID_GREY, RED, tidy
 from sepmap.volumes.per_mouse import annotation_20, structure_terms
+from sepmap.volumes.to_ccf import CCF_CROP
 
 # the coronal planes drawn, and the floor of the colour scale (settings.toml says why)
 BEYOND_REGRESSION = SETTINGS["beyond_regression"]
@@ -227,7 +228,8 @@ def draw_map(
     if r == 0:
         ax.set_title(title, fontsize=9)
     if c == 0:
-        ax.set_ylabel(f"{plane * 0.02:.1f} mm", fontsize=8)
+        # the plane in the full CCF at 10 um, as the route's other figures give it
+        ax.set_ylabel(f"CCF plane {2 * (plane + CCF_CROP[0])} / 10 um", fontsize=8)
     if r == len(PLANES) - 1:
         cb = fig.colorbar(im, ax=ax, fraction=0.04, pad=0.02, orientation="horizontal")
         cb.ax.tick_params(labelsize=6.5)
