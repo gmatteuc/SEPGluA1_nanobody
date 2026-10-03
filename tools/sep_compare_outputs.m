@@ -503,6 +503,10 @@ function [files, dates] = relative_files(folder)
 % All files under folder, as relative paths with forward slashes, and the
 % date each was last written (datenum).
 
+% without a trailing separator, which a drive root ('G:\') keeps, so the
+% relative paths below start right after the folder
+folder = regexprep(folder, '[\\/]+$', '');
+
 % every file at any depth, without the folders
 d = dir(fullfile(folder, '**', '*'));
 d = d(~[d.isdir]);
