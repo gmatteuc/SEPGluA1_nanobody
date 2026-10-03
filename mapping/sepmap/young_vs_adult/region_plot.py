@@ -22,7 +22,8 @@ tissue voxels, and from them per mouse:
                second nano over autofluorescence.
     cref       sig over the brain's isocortex mean: a share of the cortex.
     subref     sig over the mean of the subcortex without HPF and STR, the two
-               structures that would dominate the scale.
+               structures that would dominate the scale, and without white matter
+               or ventricles (volumes.cohort.NOT_SUBCORTEX).
     zref       range-matched: the cortex-relative values minus the brain's
                median over structures, divided by its own p90-p10 spread.
 
@@ -134,8 +135,8 @@ READINGS = [
     ),
     (
         "subref",
-        "background-subtracted nanobody, relative to subcortex excluding HPF and STR  "
-        "(log2)",
+        "background-subtracted nanobody, relative to the subcortex (TH, HY, PAL, MB, "
+        "P, MY)  (log2)",
     ),
     (
         "zref",

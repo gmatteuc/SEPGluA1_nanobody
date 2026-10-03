@@ -56,8 +56,8 @@ READING_TITLES = {
     "sepratio": "nano / SEP, both background-subtracted  -  NOT a surface fraction, "
     "see run_sep_channel_check",
     "cref": "background-subtracted nano relative to each mouse's isocortex mean",
-    "subref": "background-subtracted nano relative to the subcortex, "
-    "excluding HPF and STR",
+    "subref": "background-subtracted nano relative to the subcortex: "
+    "thalamus, hypothalamus, pallidum, midbrain and hindbrain",
     "zref": "range-matched: position within each brain's own distribution "
     "(median 0, p90-p10 = 1), so level and dynamic range are equal across brains",
 }
