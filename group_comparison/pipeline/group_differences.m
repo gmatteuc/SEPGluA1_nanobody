@@ -757,8 +757,10 @@ df_diff = (var1_diff + var2_diff).^2 ./ ...
     (var1_diff.^2./(n_ctrl-1) + var2_diff.^2./(n_exp-1));
 df_sum = (var1_sum + var2_sum).^2 ./ ...
     (var1_sum.^2 ./ (n_ctrl-1) + var2_sum.^2 ./ (n_exp-1));
-df_diff(n_ctrl < 2 | n_exp < 2) = NaN;
-df_sum(n_ctrl < 2 | n_exp < 2) = NaN;
+if n_ctrl < 2 || n_exp < 2
+    df_diff(:) = NaN;
+    df_sum(:) = NaN;
+end
 
 % the two-sided p of the Welch t, and the surprise -log10 p
 p_diff = 2 * tcdf(-abs(t_lr_diff_groupdiff), df_diff);
