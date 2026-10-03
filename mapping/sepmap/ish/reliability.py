@@ -38,6 +38,7 @@ from sepmap.config import DATA, SETTINGS
 from sepmap.plotting import RED, tidy
 
 OUT = DATA / "adult_v2" / "ish"
+MERGED = OUT / "gene_region_table_merged.csv"
 
 # the table to read is the one run_ish_regions wrote for a panel pass of
 # settings.toml ([ish_panels]); by default the ontology panel, whose genes include
@@ -162,6 +163,16 @@ def gene_tables(
     return rows, merged_rows, rel_by_pairing
 
 
+def merged_profiles() -> tuple[dict[str, dict[str, float]], dict[str, str]]:
+    """{gene: {structure: mean rank}} and {gene: role}, from the merged table."""
+    per, role = defaultdict(dict), {}
+    with open(MERGED, newline="", encoding="utf-8") as fh:
+        for r in csv.DictReader(fh):
+            per[r["symbol"]][r["structure"]] = float(r["rank_mean"])
+            role[r["symbol"]] = r["role"]
+    return per, role
+
+
 def write_tables(rows: list[dict], merged_rows: list[dict]) -> None:
     """Write gene_reliability.csv and gene_region_table_merged.csv."""
     p1 = OUT / "gene_reliability.csv"
@@ -169,7 +180,7 @@ def write_tables(rows: list[dict], merged_rows: list[dict]) -> None:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
         w.writeheader()
         w.writerows(rows)
-    p2 = OUT / "gene_region_table_merged.csv"
+    p2 = MERGED
     with open(p2, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=list(merged_rows[0].keys()))
         w.writeheader()

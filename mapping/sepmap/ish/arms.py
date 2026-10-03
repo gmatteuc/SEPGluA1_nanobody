@@ -44,10 +44,11 @@ from collections import defaultdict
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.stats import rankdata, spearmanr, wilcoxon
+from scipy.stats import spearmanr, wilcoxon
 
 from sepmap.config import DATA, SETTINGS
 from sepmap.ish.compare import gene_profiles
+from sepmap.ish.panel_test import partial
 from sepmap.plotting import DARK_BLUE, RED, tidy
 
 # the gene that stands in for total receptor, partialled out in test 2, and the
@@ -77,24 +78,6 @@ def arm_profiles() -> dict[str, dict[str, float]]:
         for r in csv.DictReader(fh):
             per[r["arm"]][r["structure"]].append(float(r["log2_value"]))
     return {arm: {s: float(np.mean(v)) for s, v in d.items()} for arm, d in per.items()}
-
-
-def partial_spearman(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> float:
-    """Spearman of `x` and `y` with `z` removed: Pearson on the rank residuals.
-
-    NaN when either residual is constant.
-    """
-    rx, ry, rz = (rankdata(v).astype(float) for v in (x, y, z))
-    zc = np.column_stack([rz, np.ones_like(rz)])
-
-    def resid(r):
-        """`r` minus its least-squares fit on the control gene's ranks."""
-        return r - zc @ np.linalg.lstsq(zc, r, rcond=None)[0]
-
-    a, b = resid(rx), resid(ry)
-    if a.std() == 0 or b.std() == 0:
-        return np.nan
-    return float(np.corrcoef(a, b)[0, 1])
 
 
 def correlate(
@@ -133,9 +116,7 @@ def correlate(
                     category=category[gene],
                     n_structures=len(common),
                     rho=float(rho),
-                    rho_partial=(
-                        np.nan if gene == control else partial_spearman(x, y, c)
-                    ),
+                    rho_partial=(np.nan if gene == control else partial(x, y, [c])),
                 )
             )
     return rows

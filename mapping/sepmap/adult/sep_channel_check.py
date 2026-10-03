@@ -41,6 +41,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import spearmanr
 
+from sepmap.adult.beyond_density import residual
 from sepmap.config import SETTINGS
 from sepmap.plotting import RED, tidy
 from sepmap.volumes.cohort import NAIVE, RWS
@@ -112,12 +113,6 @@ def gria1_profile() -> dict[str, float]:
     return prof
 
 
-def residual(y: np.ndarray, x: np.ndarray) -> np.ndarray:
-    """log2(SEP) with the part predicted by log2(auto) taken out, linearly."""
-    a = np.column_stack([x, np.ones_like(x)])
-    return y - a @ np.linalg.lstsq(a, y, rcond=None)[0]
-
-
 def channel_rows(
     per: dict[str, dict[str, dict[str, float]]], profile: dict[str, float]
 ) -> list[dict]:
@@ -134,7 +129,7 @@ def channel_rows(
         with_gria1 = [s for s in common if s in profile]
         gria1 = np.array([profile[s] for s in with_gria1])
         idx = [common.index(s) for s in with_gria1]
-        res = residual(v["sep"], v["auto"])
+        res = residual(v["sep"], [v["auto"]])
         row = dict(
             mouse=mouse,
             n_structures=len(common),

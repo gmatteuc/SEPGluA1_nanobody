@@ -50,16 +50,15 @@ from scipy.stats import rankdata, spearmanr
 
 from sepmap.config import DATA, SETTINGS
 from sepmap.ish.compare import gene_profiles
+from sepmap.ish.panel_test import adult_profile
 from sepmap.plotting import DARK_BLUE, RED, tidy
 
 # the adult groups, the reading of the tests and the structures a correlation needs
 ISH = SETTINGS["ish"]
 
-NANO = DATA / "comparisons_v2" / "young_vs_adult" / "region_means_per_mouse.csv"
 OUT = DATA / "adult_v2" / "ish"
 
-# the adult groups, pooled, as a tuple; every reading, for the table by role
-ADULT_GROUPS = tuple(ISH["adult_groups"])
+# every reading, for the table by role
 ALL_READINGS = ("zref", "cref", "subref", "ratio", "sepratio")
 
 # curated roles, from what the protein does, not from any correlation: subunit and
@@ -164,19 +163,6 @@ NICE = {
     "control_glia": "glial\ncontrols",
     "control_struct": "structural\ncontrols",
 }
-
-
-def adult_profile(reading: str) -> dict[str, float]:
-    """{structure: mean over the adults} of one reading, from the per-mouse table.
-
-    A structure's mean is over the adults that have it, however many they are.
-    """
-    per = defaultdict(list)
-    with open(NANO, newline="", encoding="utf-8") as fh:
-        for r in csv.DictReader(fh):
-            if r["group"] in ADULT_GROUPS and r["reading"] == reading:
-                per[r["structure"]].append(float(r["log2_value"]))
-    return {s: float(np.mean(v)) for s, v in per.items()}
 
 
 def role_of(gene: str, category: dict[str, str]) -> str:

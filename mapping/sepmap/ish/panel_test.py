@@ -42,6 +42,7 @@ import numpy as np
 from scipy.stats import rankdata, spearmanr
 
 from sepmap.config import DATA, SETTINGS
+from sepmap.ish.reliability import merged_profiles
 from sepmap.plotting import RED, tidy
 
 # the adult groups and the reading; the structures a gene needs, the reliability of
@@ -51,7 +52,6 @@ ISH_PANEL_TEST = SETTINGS["ish_panel_test"]
 
 NANO = DATA / "comparisons_v2" / "young_vs_adult" / "region_means_per_mouse.csv"
 OUT = DATA / "adult_v2" / "ish"
-MERGED = OUT / "gene_region_table_merged.csv"
 RELIABILITY = OUT / "gene_reliability.csv"
 
 # the adult groups, pooled, as a tuple
@@ -69,16 +69,6 @@ def adult_profile(reading: str) -> dict[str, float]:
             if r["group"] in ADULT_GROUPS and r["reading"] == reading:
                 per[r["structure"]].append(float(r["log2_value"]))
     return {s: float(np.mean(v)) for s, v in per.items()}
-
-
-def merged_profiles() -> tuple[dict[str, dict[str, float]], dict[str, str]]:
-    """{gene: {structure: mean rank}} and {gene: role}, from the merged table."""
-    per, role = defaultdict(dict), {}
-    with open(MERGED, newline="", encoding="utf-8") as fh:
-        for r in csv.DictReader(fh):
-            per[r["symbol"]][r["structure"]] = float(r["rank_mean"])
-            role[r["symbol"]] = r["role"]
-    return per, role
 
 
 def reliability_and_level() -> tuple[dict[str, float], dict[str, float]]:

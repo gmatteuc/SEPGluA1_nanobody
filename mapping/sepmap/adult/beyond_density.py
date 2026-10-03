@@ -95,13 +95,13 @@ import itertools
 import math
 from collections import defaultdict
 from collections.abc import Sequence
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import rankdata, spearmanr
 
 from sepmap.config import SETTINGS
+from sepmap.ish.reliability import merged_profiles
 from sepmap.plotting import DARK_BLUE, RED, tidy
 from sepmap.volumes.cohort import NAIVE, RWS
 from sepmap.volumes.per_mouse import DATA, MICE, annotation_20, structure_terms
@@ -113,7 +113,6 @@ BEYOND = SETTINGS["beyond"]
 REGION_TABLES = SETTINGS["region_tables"]
 
 NANO = DATA / "comparisons_v2" / "young_vs_adult" / "region_means_per_mouse.csv"
-MERGED_ISH = DATA / "adult_v2" / "ish" / "gene_region_table_merged.csv"
 OUT = DATA / "adult_v2" / "beyond"
 
 # the ten adults, naive and rws pooled
@@ -153,18 +152,6 @@ def nano_per_mouse() -> tuple[dict[str, dict[str, float]], dict[str, str]]:
                 per[r["mouse"]][r["structure"]] = float(r["log2_value"])
                 division[r["structure"]] = r["division"]
     return per, division
-
-
-def gene_profiles(
-    path: Path = MERGED_ISH,
-) -> tuple[dict[str, dict[str, float]], dict[str, str]]:
-    """{gene: {structure: rank_mean}} and {gene: role}; replicates already merged."""
-    per, role = defaultdict(dict), {}
-    with open(path, newline="", encoding="utf-8") as fh:
-        for r in csv.DictReader(fh):
-            per[r["symbol"]][r["structure"]] = float(r["rank_mean"])
-            role[r["symbol"]] = r["role"]
-    return per, role
 
 
 def autofluorescence(structures: set[str]) -> dict[str, dict[str, float]]:
@@ -350,7 +337,7 @@ def prepare() -> tuple[
 ]:
     """Everything the analysis and the controls both need, loaded once."""
     nano, division = nano_per_mouse()
-    expr, role = gene_profiles()
+    expr, role = merged_profiles()
     everywhere = set.intersection(*[set(nano[m]) for m in ADULTS])
     everywhere &= set.intersection(*[set(expr[g]) for g in SUBUNITS + MARKERS])
     kept = [s for s in sorted(everywhere) if keep_structure(s, division.get(s, ""))[0]]
@@ -776,7 +763,7 @@ def main() -> None:
     """Run the four steps on the ten adults and write their tables and figures."""
     OUT.mkdir(parents=True, exist_ok=True)
     nano, division = nano_per_mouse()
-    expr, role = gene_profiles()
+    expr, role = merged_profiles()
 
     # the structures: grey matter, measured everywhere, with autofluorescence
     kept = step0_structures(nano, division, expr)
