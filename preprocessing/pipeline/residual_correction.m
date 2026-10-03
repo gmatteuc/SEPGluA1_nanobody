@@ -605,12 +605,13 @@ for z = 1:Z
     J_mask(bg_mask_vol(:, :, z)) = NaN;
     ratio_map = J_mask ./ I_mask;
 
-    % draw it on black, red to blue
+    % draw it on black in the palette's difference map: blue below 1 (nano
+    % dimmer than autofluorescence), white at 1, red above
     figure('visible', 'off', 'units', 'normalized', 'outerposition', [0 0 1 1]);
     h = imagesc(ratio_map);
     clim(gca, [clim_min_ratio, clim_max_ratio]);
     colorbar;
-    colormap(get_color2color_colormap([1, 0, 0], [0, 0, 1]));
+    colormap(sep_palette('difference'));
     ax = gca;
     ax.Color = 'k';
     alpha_mask = ~isnan(ratio_map);
