@@ -28,8 +28,8 @@ come from the same postsynaptic population. A positive control runs the same tes
 on a difference that must exist (reproducible against unreproducible control
 genes): if it fails, the test detects nothing and a null result means nothing.
 
-One seeded generator feeds the permutation tests in the order they are printed, so
-each p value depends on that order; the figure has a generator of its own.
+Each permutation test has a seeded generator of its own, so its p value does not
+depend on which other tests ran before it; the figure has one too.
 
 Run by run_ish_panel_test.py.
 """
@@ -213,16 +213,17 @@ def localisation_tests(
     ctrl: list[str],
     matched_ctrl: list[str],
     by: dict[str, dict],
-    rng: np.random.Generator,
+    rngs: list[np.random.Generator],
 ) -> dict[str, tuple]:
     """The test against all controls and against the matched ones, then plain rho.
 
     Returns {label: (a, b, difference, p, null)} of the two partial-rho tests;
-    `rng` is drawn from in the order the tests are printed.
+    `rngs` holds one generator for each of the three tests, in the order printed.
     """
     print("\nTEST -- partial rho given the subunit composite, localisation vs control")
     results = {}
-    for label, cs in (("all controls", ctrl), ("expression-matched", matched_ctrl)):
+    tests = (("all controls", ctrl), ("expression-matched", matched_ctrl))
+    for (label, cs), rng in zip(tests, rngs[:2]):
         a = np.array([by[g]["rho_partial"] for g in loc])
         b = np.array([by[g]["rho_partial"] for g in cs])
         a, b = a[np.isfinite(a)], b[np.isfinite(b)]
@@ -242,7 +243,7 @@ def localisation_tests(
     # and the plain correlation, for comparison with everything reported before
     a = np.array([by[g]["rho"] for g in loc])
     b = np.array([by[g]["rho"] for g in matched_ctrl])
-    obs, p, _ = two_sample(a, b, rng)
+    obs, p, _ = two_sample(a, b, rngs[2])
     print(
         f"  {'before partialling':20s} localisation {np.median(a):+.3f}, "
         f"control {np.median(b):+.3f}, difference {obs:+.3f}, p = {p:.4f}"
@@ -341,12 +342,13 @@ def main() -> None:
     matched_ctrl = sorted(set(pairs.values()))
     write_table(rows)
 
-    # the tests; this generator feeds every permutation test, in this order: all
-    # controls, the matched ones, before partialling, sensitivity, positive control
-    rng = np.random.default_rng(0)
-    results = localisation_tests(loc, ctrl, matched_ctrl, by, rng)
-    sensitivity_test(loc, matched_ctrl, by, rng)
-    positive_control(ctrl, by, rng)
+    # the tests, each with a generator of its own, so its p value is the same
+    # whichever other tests run: all controls, the matched ones, before
+    # partialling, sensitivity, positive control
+    rngs = [np.random.default_rng(s) for s in np.random.SeedSequence(0).spawn(5)]
+    results = localisation_tests(loc, ctrl, matched_ctrl, by, rngs[:3])
+    sensitivity_test(loc, matched_ctrl, by, rngs[3])
+    positive_control(ctrl, by, rngs[4])
 
     # the top localisation genes, and the figure
     print_top(loc, by)
