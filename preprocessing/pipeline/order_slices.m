@@ -93,11 +93,12 @@ end
 S = load(sliceinfo_name);
 sliceinfo = S.sliceinfo;
 
-% report the decisions (slices flipped, slices not in their place)
+% report the decisions (slices flipped, slices not in their place, slices
+% discarded, FlipState -1)
 T = readtable(decisions);
-fprintf('  decisions: %d slices, %d flipped, %d reordered\n', ...
+fprintf('  decisions: %d slices, %d flipped, %d reordered, %d discarded\n', ...
     height(T), sum(T.FlipState == 1), ...
-    sum(T.NewOrderOriginalIndex(:)' ~= 1:height(T)));
+    sum(T.NewOrderOriginalIndex(:)' ~= 1:height(T)), sum(T.FlipState == -1));
 
 % the mouse's folder in the cohort, in place of the absolute paths stored in
 % sliceinfo.mat, which in a copied tree name the original folder (see above)
