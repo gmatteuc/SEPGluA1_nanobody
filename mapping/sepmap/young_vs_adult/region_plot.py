@@ -123,7 +123,11 @@ AREAS = [
 
 # the readings and their panel titles
 READINGS = [
-    ("ratio", "nanobody / autofluorescence, both background-subtracted  (log2)"),
+    (
+        "ratio",
+        "nanobody / autofluorescence, both background-subtracted  (log2; its level "
+        "follows the exposures, so 0 is not nano = autofluorescence)",
+    ),
     (
         "sepratio",
         "nanobody / SEP  -  NOT a surface fraction: SEP is mostly autofluorescence "
