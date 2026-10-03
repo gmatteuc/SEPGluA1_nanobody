@@ -293,8 +293,11 @@ engine = auto_annotate('check');
 if engine.ok
     opts.plugin = @auto_annotation_plugin;
 else
-    fprintf(['  the automatic annotation is not installed (%s):\n' ...
-             '  the GUI opens without its keys (a, j, k, u).\n'], engine.message);
+
+    % a warning, which stands out among the start-up lines
+    warning('run_register_to_atlas:noAutoAnnotation', ...
+        ['run_register_to_atlas: the automatic annotation is not installed (%s); ' ...
+         'the GUI opens without its keys (a, j, k, u).'], engine.message);
 end
 fprintf('  opening the control-point GUI against atlas ''%s''.\n', atlas.key);
 fprintf('  place points on every slice, then SAVE and CLOSE, and re-run with run_mode = ''register''.\n');
