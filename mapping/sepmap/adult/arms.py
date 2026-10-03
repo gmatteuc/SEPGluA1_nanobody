@@ -78,9 +78,10 @@ ARMS = ("sepauto", "ratio", "sepratio")
 # the two arms young_vs_adult.region_plot also computes, and must agree on
 SHARED = {"ratio": "ratio", "sepratio": "sepratio"}
 
-# that module's table is written to four decimals, so half of its last digit is the
-# most the two can differ by if they compute the same thing
-BOUND = 0.5e-4
+# that module's table is written to four decimals and this one's to six, so half
+# the last digit of each, plus a margin for the float subtraction, is the most the
+# two can differ by if they compute the same thing
+BOUND = 0.5e-4 + 0.5e-6 + 1e-12
 
 
 def mouse_table(
@@ -156,8 +157,8 @@ def check_against_existing(rows: list[dict]) -> tuple[dict[str, list[float]], bo
                 diffs[key[0]].append(abs(ours[key] - float(r["log2_value"])))
 
     print(
-        f"\nagainst run_region_plot (bound is {BOUND:.1e}, "
-        "half the last digit it stores):"
+        f"\nagainst run_region_plot (bound is {BOUND:.3e}, "
+        "half the last digit of each table):"
     )
     ok = True
     for arm, d in sorted(diffs.items()):
