@@ -48,7 +48,7 @@ from scipy.stats import spearmanr, wilcoxon
 
 from sepmap.config import DATA, SETTINGS
 from sepmap.ish.compare import gene_profiles
-from sepmap.ish.panel_test import partial
+from sepmap.ish.panel_test import partial as partial_spearman
 from sepmap.plotting import DARK_BLUE, RED, tidy
 
 # the gene that stands in for total receptor, partialled out in test 2, and the
@@ -116,7 +116,9 @@ def correlate(
                     category=category[gene],
                     n_structures=len(common),
                     rho=float(rho),
-                    rho_partial=(np.nan if gene == control else partial(x, y, [c])),
+                    rho_partial=(
+                        np.nan if gene == control else partial_spearman(x, y, [c])
+                    ),
                 )
             )
     return rows
