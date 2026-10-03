@@ -28,8 +28,9 @@ brain itself:
               a pure scale, so region ratios within a mouse survive exactly; blind
               to a change that moves the whole cortex.
     subref    sig / that mouse's subcortex mean, without the divisions in
-              NOT_SUBCORTEX (cortex, HPF, STR and others): a reference that is
-              neither the cortex nor the two structures that dominate the scale.
+              NOT_SUBCORTEX (cortex, HPF, STR, fiber tracts, ventricles and
+              others): a reference that is neither the cortex nor the two
+              structures that dominate the scale, and no white matter or ventricle.
     zref      log2(sig / cortex mean), minus that brain's median over structures,
               divided by its own p90-p10 spread, so level and dynamic range are
               the same in every brain; the pup brain is flatter (spread 0.89 +-
@@ -93,16 +94,28 @@ if _unknown:
     )
 
 # divisions left out of the subcortex reference of subref ('' is a structure that
-# belongs to no division)
+# belongs to no division). The fiber tracts (fiber tracts-unassigned to cbf) and
+# the ventricular system (V3 to c) are categories of the atlas, not divisions, so
+# they are listed by the divisions its division term set splits them into
 NOT_SUBCORTEX = {
     "Isocortex",
     "HPF",
     "STR",
     "OLF",
     "CTXsp",
-    "fiber tracts",
-    "VS",
     "CB",
+    "fiber tracts-unassigned",
+    "lfbs",
+    "mfbs",
+    "cm",
+    "scwm",
+    "eps",
+    "cbf",
+    "V3",
+    "V4",
+    "VL",
+    "AQ",
+    "c",
     "",
 }
 
