@@ -51,13 +51,23 @@ it. Cohorts: young (P16, P20 and P22 pooled, the main
 comparison), young_P20 (the P20 brains alone, the sensitivity check), young_P16,
 young_P22, naive, rws, and adult (naive and rws).
 
-Writes comparisons_v2/ccf/<cohort>/<reading>_{mean,sd,n}.npy and mice.txt under
-the data root.
+The same statistics are taken a second time with each brain's two hemispheres
+averaged first (young_vs_adult.hemispheres.fold), on the left half of the grid.
+Each brain then gives one value per voxel, so the count is the brains with a value
+on either side and a t over them has the n it claims; folding the cohort's own
+left and right maps instead leaves no such n where the two sides were cut in
+different brains.
+
+Writes comparisons_v2/ccf/<cohort>/<reading>_{mean,sd,n}.npy,
+<reading>_folded_{mean,sd,n}.npy (660 x 400 x 285) and mice.txt under the data
+root.
 
 Run by run_cohort.py; its cohorts and readings are imported across the package.
 """
 
 import os
+import warnings
+from pathlib import Path
 
 import numpy as np
 from scipy.ndimage import gaussian_filter
@@ -65,6 +75,7 @@ from scipy.ndimage import gaussian_filter
 from sepmap.config import SETTINGS
 from sepmap.volumes.per_mouse import DATA, MICE, annotation_20, structure_terms
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
+from sepmap.young_vs_adult.hemispheres import fold
 
 READINGS = SETTINGS["readings"]
 REGION_TABLES = SETTINGS["region_tables"]
@@ -293,44 +304,71 @@ def mouse_modes(mouse: str) -> tuple[dict[str, np.ndarray], np.ndarray]:
     return ({k: out[k]() for k in MODES}, tissue)
 
 
+def new_sums(volumes: dict[str, np.ndarray]) -> dict[str, list[np.ndarray]]:
+    """Empty sums per reading: of the values, of their squares, and the count."""
+    return {
+        k: [
+            np.zeros(v.shape, np.float64),
+            np.zeros(v.shape, np.float64),
+            np.zeros(v.shape, np.int16),
+        ]
+        for k, v in volumes.items()
+    }
+
+
+def add_mouse(acc: dict[str, list[np.ndarray]], volumes: dict[str, np.ndarray]) -> None:
+    """Add one brain's readings to the sums, in place; a NaN adds nothing."""
+    for k, v in volumes.items():
+        w = np.nan_to_num(v)
+        acc[k][0] += w
+        acc[k][1] += w * w
+        acc[k][2] += np.isfinite(v)
+
+
+def write_stats(out: Path, acc: dict[str, list[np.ndarray]], tag: str) -> None:
+    """Write <reading><tag>_{mean,sd,n}.npy, NaN where fewer than one or two mice."""
+    for k, (s, ss, n) in acc.items():
+        nf = np.maximum(n, 1).astype(np.float64)
+        mean = np.where(n > 0, s / nf, np.nan).astype(np.float32)
+        var = np.where(n > 1, (ss - s * s / nf) / np.maximum(nf - 1, 1), np.nan)
+        np.save(out / f"{k}{tag}_mean.npy", mean)
+        np.save(
+            out / f"{k}{tag}_sd.npy",
+            np.sqrt(np.maximum(var, 0)).astype(np.float32),
+        )
+        np.save(out / f"{k}{tag}_n.npy", n)
+
+
 def main() -> None:
-    """Write the mean, SD and n of every reading for every cohort, a line each."""
+    """Write the mean, SD and n of every reading for every cohort, a line each.
+
+    Twice per reading: over the whole brain, and with each brain's hemispheres
+    averaged first (`_folded`, the left half).
+    """
     for cohort, mice in COHORTS.items():
         out = OUT_ROOT / cohort
         out.mkdir(parents=True, exist_ok=True)
 
         # per reading: the sum of the values, the sum of their squares, and the count of
         # the mice with a value there (ratio and sepratio have none in tissue where the
-        # smoothed reference is not positive, and a NaN must not count as a zero)
-        acc = None
+        # smoothed reference is not positive, and a NaN must not count as a zero); the
+        # same with each brain's two hemispheres averaged first
+        acc = acc_folded = None
         for mouse in mice:
             modes, tissue = mouse_modes(mouse)
+
+            # a voxel with no value on either side stays NaN, which nanmean warns about
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)
+                folded = {k: fold(v) for k, v in modes.items()}
             if acc is None:
-                acc = {
-                    k: [
-                        np.zeros(v.shape, np.float64),
-                        np.zeros(v.shape, np.float64),
-                        np.zeros(v.shape, np.int16),
-                    ]
-                    for k, v in modes.items()
-                }
-            for k, v in modes.items():
-                w = np.nan_to_num(v)
-                acc[k][0] += w
-                acc[k][1] += w * w
-                acc[k][2] += np.isfinite(v)
+                acc, acc_folded = new_sums(modes), new_sums(folded)
+            add_mouse(acc, modes)
+            add_mouse(acc_folded, folded)
 
         # mean and sample SD, NaN where fewer than one or two mice have a value
-        for k, (s, ss, n) in acc.items():
-            nf = np.maximum(n, 1).astype(np.float64)
-            mean = np.where(n > 0, s / nf, np.nan).astype(np.float32)
-            var = np.where(n > 1, (ss - s * s / nf) / np.maximum(nf - 1, 1), np.nan)
-            np.save(out / f"{k}_mean.npy", mean)
-            np.save(
-                out / f"{k}_sd.npy",
-                np.sqrt(np.maximum(var, 0)).astype(np.float32),
-            )
-            np.save(out / f"{k}_n.npy", n)
+        write_stats(out, acc, "")
+        write_stats(out, acc_folded, "_folded")
         with open(out / "mice.txt", "w") as fh:
             fh.write("\n".join(mice) + "\n")
         n = acc["cref"][2]

@@ -6,8 +6,9 @@ sides were cut and leaves a voxel with one side where only one was. A count map
 folds to the larger count of the two sides, the most brains behind either.
 
 Only numpy is imported, so the flatmap environment (young_vs_adult.closeup) can
-import this module too. Used by young_vs_adult.compare, video, video_compare and
-closeup.
+import this module too. Used by volumes.cohort, which folds each brain before the
+cohort statistics behind the videos, and by young_vs_adult.compare, video_compare
+and closeup.
 """
 
 import numpy as np

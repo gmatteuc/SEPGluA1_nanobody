@@ -3,9 +3,11 @@
 One video per cohort and reading, in the adult CCF, where volumes.cohort builds the
 cohort volumes; the young brains were carried there one by one (volumes.to_ccf),
 which is what lets the pooled young group mix ages. Each frame is one 20 um plane,
-front to back: on the left the hemisphere-averaged cohort mean, on the right the
-reliability t = mean / SEM over the mice with tissue at that voxel, with the atlas
-outlines and acronyms on both.
+front to back: on the left the hemisphere-averaged cohort mean, as the comparison
+figures draw it, on the right the reliability t = mean / SEM, with the atlas
+outlines and acronyms on both. The t is taken over each brain's two hemispheres
+averaged first (volumes.cohort, the _folded files, which says why), one value per
+brain, so the SEM's n is the brains with a value on either side.
 
     cohorts   young (every registered young brain), young_P20, adult, naive, rws
     readings  those of the region tables: ratio (per unit autofluorescence),
@@ -55,13 +57,29 @@ def annotation_ccf20() -> np.ndarray:
 def cohort_maps(
     cohort: str, reading: str, n_h: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Folded mean and SD, the voxels with enough brains, and t where there is an SD."""
-    mean = fold(np.load(CCF_ROOT / cohort / f"{reading}_mean.npy"))
-    sd = fold(np.load(CCF_ROOT / cohort / f"{reading}_sd.npy"))
+    """Folded mean, the SD behind t, the voxels with enough brains, and t.
+
+    The mean is the cohort map folded; t, where there is an SD, is the mean over
+    the SEM of the brains folded one by one (the _folded files of volumes.cohort),
+    each brain one value. Stops if run_cohort.py has not written those files.
+    """
+    folder = CCF_ROOT / cohort
+    if not (folder / f"{reading}_folded_mean.npy").exists():
+        raise FileNotFoundError(
+            f"no {reading}_folded_mean.npy in {folder}: the reliability t needs each "
+            "brain's hemispheres averaged first. Run run_cohort.py again."
+        )
+    mean = fold(np.load(folder / f"{reading}_mean.npy"))
     ok = (n_h >= VIDEOS["min_n"][cohort]) & np.isfinite(mean)
+
+    # t over the brains, each folded first, with their own count
+    mean_b = np.load(folder / f"{reading}_folded_mean.npy")
+    sd_b = np.load(folder / f"{reading}_folded_sd.npy")
+    n_b = np.load(folder / f"{reading}_folded_n.npy")
     with np.errstate(divide="ignore", invalid="ignore"):
-        tval = np.where(ok & (sd > 0), mean / (sd / np.sqrt(np.maximum(n_h, 1))), np.nan)
-    return mean, sd, ok, tval
+        sem_b = sd_b / np.sqrt(np.maximum(n_b, 1))
+        tval = np.where(ok & (sd_b > 0), mean_b / sem_b, np.nan)
+    return mean, sd_b, ok, tval
 
 
 def colour_limits(

@@ -29,8 +29,10 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     25. run_beyond_figures     the figures of that result
     26. run_beyond_regression  the regression, shown
 
-The layout and the colour ranges are described in sepmap/young_vs_adult/video.py.
-Writes, in comparisons_v2/ccf/<cohort>/ under the data root:
+Reads the cohort volumes run_cohort.py writes, the t from the _folded ones (each
+brain's hemispheres averaged first); the layout and the colour ranges are
+described in sepmap/young_vs_adult/video.py. Writes, in
+comparisons_v2/ccf/<cohort>/ under the data root:
 
     video_<reading>_<cohort>.mp4    the mean and its reliability t, plane by plane
 

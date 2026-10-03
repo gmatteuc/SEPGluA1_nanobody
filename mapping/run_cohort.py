@@ -35,7 +35,10 @@ sepmap/volumes/cohort.py. Writes, in comparisons_v2/ccf/<cohort>/ under the data
 root:
 
     <reading>_mean.npy, _sd.npy, _n.npy    per voxel: the mean, the SD and the
-                                           number of mice with tissue
+                                           number of mice with a value
+    <reading>_folded_{mean,sd,n}.npy       the same with each brain's two
+                                           hemispheres averaged first, on the
+                                           left half (the videos' reliability t)
     mice.txt                               the cohort's mice
 
     python run_cohort.py
