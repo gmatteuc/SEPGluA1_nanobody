@@ -19,7 +19,8 @@ the separate repository `SEPGluA1_autoannotation` (its `LOG.md`).
    `plane_anchors.mat` (the anchors and the plane the GUI interpolates for every
    slice) and `auto_atlas_planes.mat` (the warped atlas exactly as drawn).
 2. `run_mode = 'autoannotate'`: writes `auto_proposal_controlpoints.mat` and
-   `auto_proposal_info.mat`. About 30 s per brain on a GPU.
+   `auto_proposal_info.mat`. About 40 s per brain on the 64-core workstation;
+   the engine runs on the CPU, so a rerun proposes the same points (core.device).
 3. `run_mode = 'annotate'`: the proposal loads orange (provisional), the least
    confident quarter of each slice's points marked `?`. `k` accepts a slice and
    moves on, `u` re-proposes the slice at the plane on screen, the usual tools

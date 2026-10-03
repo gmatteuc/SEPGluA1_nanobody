@@ -49,7 +49,7 @@ DEFORM_SCALES = ((2, 120, 2e-3), (1, 80, 1e-3))
 # stiffness of the deformation, the weight of its bending energy
 BENDING = 100.0
 
-# sections registered together on the GPU
+# sections registered together
 BATCH = 48
 
 # landmarks, as in the sandbox's landmark_net.py: how many per section
@@ -76,8 +76,16 @@ LOW_CONFIDENCE = 0.25
 
 
 def device() -> str:
-    """The torch device: the GPU when there is one, else the CPU."""
-    return "cuda" if torch.cuda.is_available() else "cpu"
+    """The torch device: the CPU, so that two runs propose the same points.
+
+    On the GPU the registration's gradient goes through grid_sample, whose
+    backward pass has no deterministic CUDA kernel (torch 2.6 refuses it under
+    torch.use_deterministic_algorithms), so two runs on MG914 moved the proposed
+    points by a median of 0.07 px and up to 13 px. On the CPU two runs give the
+    same points; on the 64-core workstation a brain takes about 40 s, against 25 s
+    on its GPU.
+    """
+    return "cpu"
 
 
 # ===== Images =====
