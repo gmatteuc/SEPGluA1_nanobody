@@ -23,7 +23,7 @@ registered 10 um-equivalent grid):
              has carried it into registered space. It was meant to make nano/sep
              read as surface per unit receptor expressed, against nano/auto's
              surface per unit tissue. It does not: adult.sep_channel_check finds
-             this channel dominated by autofluorescence in fixed, cleared tissue.
+             this channel dominated by autofluorescence in fixed, mounted tissue.
              Kept because it is a real measurement and the check needs it, but
              nano/sep is not a surface fraction.
 

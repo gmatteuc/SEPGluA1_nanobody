@@ -19,7 +19,7 @@ brain itself:
               this reading understates a real pup deficit and would overstate a
               pup excess. A bound, not a value.
     sepratio  sig / SEP per voxel, meant as surface receptor per unit receptor
-              expressed. The green channel in this fixed, cleared tissue is
+              expressed. The green channel in this fixed, mounted tissue is
               mostly autofluorescence (rho 0.79 +- 0.04 against the auto channel
               in all ten adults; dynamic range 0.95 log2 against auto's 1.07 and
               nano's 1.93; adult.sep_channel_check), so this reading tracks ratio

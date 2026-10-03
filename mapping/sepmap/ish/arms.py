@@ -20,7 +20,7 @@ reports abundance only, nothing survives; if it reports the surface pool, the
 machinery genes still predict the residual.
 
 The premise of test 1 failed: SEP / auto correlates with Gria1 at -0.11, and
-adult.sep_channel_check shows that in this fixed, cleared tissue the green channel
+adult.sep_channel_check shows that in this fixed, mounted tissue the green channel
 is mostly autofluorescence (rho 0.79 +- 0.04 with the autofluorescence channel
 across the ten adults, against 0.26 for nano). So sepauto is not total receptor
 and sepratio is not a surface fraction (it follows ratio at rho 0.89 to 0.97 in

@@ -19,11 +19,11 @@ the per-mouse files, with no denominator anywhere. Three things decide it.
                     under the autofluorescence, an unmixed SEP could still serve
                     as the total-receptor arm, and this says how much is there.
 
-The answer is a property of this tissue, fixed, cleared and mounted, not of
-SEP-GluA1 mice. Superecliptic pHluorin is quenched in acidic compartments in a
-living cell, which makes it a surface reporter in vivo; after fixation and
-clearing the pH gradients are gone, and whatever green emission survives the
-protocol is what these volumes contain.
+The answer is a property of this tissue, fixed and mounted, not of SEP-GluA1
+mice. Superecliptic pHluorin is quenched in acidic compartments in a living cell,
+which makes it a surface reporter in vivo; after fixation the pH gradients are
+gone, and whatever green emission survives the protocol is what these volumes
+contain.
 
 Writes, in adult_v2/arms/ under the data root:
 
@@ -288,7 +288,7 @@ def figure(per: dict[str, dict[str, dict[str, float]]], rows: list[dict]) -> Non
     for ax in axes:
         tidy(ax)
     fig.suptitle(
-        "The green channel in fixed, cleared tissue: one dot per adult, "
+        "The green channel in fixed, mounted tissue: one dot per adult, "
         "structure means with no denominator anywhere",
         fontsize=9,
     )

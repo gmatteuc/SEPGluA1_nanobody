@@ -21,9 +21,9 @@ expression best of the three, ratio sits in between, and sepratio tracks the
 trafficking and anchoring machinery best and Gria1 least.
 
 The premise does not hold in this tissue. SEP is superecliptic pHluorin on GluA1,
-so in a living cell it reports the surface pool; fixed, cleared and mounted tissue
-has lost its pH gradients, so the green channel was expected to report the
-receptor wherever it sits. It does not: adult.sep_channel_check finds that it
+so in a living cell it reports the surface pool; fixed and mounted tissue has lost
+its pH gradients, so the green channel was expected to report the receptor
+wherever it sits. It does not: adult.sep_channel_check finds that it
 tracks the autofluorescence channel at rho 0.79 +- 0.04 across the ten adults,
 with a dynamic range of 0.95 log2 against nano's 1.93; whatever tag survives the
 protocol, autofluorescence dominates what is left. The table is still correct
