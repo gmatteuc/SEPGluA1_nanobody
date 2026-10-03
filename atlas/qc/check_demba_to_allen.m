@@ -22,9 +22,9 @@
 % data root.
 %
 % Setup: DeMBA P20 against the adult CCF, compared at 20 um. The transformed
-% annotation comes from tmp/demba_to_allen.py, which is not in the
-% repository; re-run it if the atlas or its crop changes. Run sep_setup_paths
-% first, once per MATLAB session.
+% annotation is written by demba_to_allen.py, beside this script; re-run it
+% (python atlas\qc\demba_to_allen.py, in tools\venv_atlas) if the atlas or its
+% crop changes. Run sep_setup_paths first, once per MATLAB session.
 
 clear; clc; close all;
 
@@ -85,7 +85,7 @@ csv_dir = atlas_adult.dir;
 
 if ~exist(transformed_file, 'file')
     error(['Transformed annotation not found:\n  %s\n' ...
-           'Run tmp/demba_to_allen.py first (it needs the venv at ' ...
+           'Run atlas\\qc\\demba_to_allen.py first (it needs the venv at ' ...
            'code\\tools\\venv_atlas).'], transformed_file);
 end
 

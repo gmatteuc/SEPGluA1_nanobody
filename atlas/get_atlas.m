@@ -63,9 +63,10 @@ function atlas = get_atlas(atlas_key)
 %   about 11% longer in AP than the CCF for the same anatomy. The CCFv3
 %   template is rostrocaudally shrunken and the developmental templates are
 %   not (Carey 2025). A slicethickness tuned against the CCF therefore
-%   under-scales against DeMBA by roughly that much. These numbers came from
-%   tmp/remap_demba.py and tmp/check_crop.py, which are not in the
-%   repository; atlas\qc\atlas_diagnostics measures them again.
+%   under-scales against DeMBA by roughly that much. build_demba_atlas.py
+%   measures these numbers for each age it builds (the remap, both crops and
+%   the slope, in the folder's source.txt); atlas\qc\atlas_diagnostics
+%   measures them again.
 %
 %   Another atlas gets a key of its own here, pointing at its template and
 %   annotation volumes. A comparison across atlases needs both to resolve
