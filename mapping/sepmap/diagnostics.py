@@ -35,6 +35,7 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 
+from sepmap.config import SETTINGS
 from sepmap.plotting import DARK_GREY, RED, save_figure
 from sepmap.volumes.cohort import COHORTS, PER_MOUSE_CCF
 from sepmap.volumes.cohort import OUT_ROOT as CCF_ROOT
@@ -46,6 +47,9 @@ from sepmap.volumes.per_mouse import (
     isocortex_ids,
 )
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
+
+# the tissue mask's threshold, in MADs above the auto background
+TISSUE = SETTINGS["tissue"]
 
 OUT = DATA / "comparisons_v2" / "processing_diagnostics"
 
@@ -105,7 +109,8 @@ def sheet_tissue(mouse: str, ann: np.ndarray, z: np.lib.npyio.NpzFile) -> None:
             fontsize=10,
         )
     fig.suptitle(
-        f"{mouse}: red = tissue mask (auto channel above background + 4 MAD, "
+        f"{mouse}: red = tissue mask (auto channel above background "
+        f"+ {TISSUE['mad_k']:g} MAD, "
         "and a section reached here), "
         "blue = atlas brain.  Background subtracted: "
         f"nano {float(z['bg_nano']):.0f}, auto {float(z['bg_auto']):.0f} counts",
@@ -148,12 +153,13 @@ def draw_levels(
     )
     ax.axvline(bg, color="k", lw=1.2, label=f"background {bg:.0f}")
     if name == "auto":
+        threshold = bg + TISSUE["mad_k"] * mad
         ax.axvline(
-            bg + 4 * mad,
+            threshold,
             color="#2980b9",
             lw=1.2,
             ls="--",
-            label=f"mask threshold {bg + 4 * mad:.0f}",
+            label=f"mask threshold {threshold:.0f}",
         )
     ax.set_xlabel(f"{name} channel, raw counts")
     ax.set_ylabel("density")
