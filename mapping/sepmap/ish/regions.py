@@ -51,6 +51,9 @@ ISH_REGIONS = SETTINGS["ish_regions"]
 ISH_DIR = DATA / "atlas_ish"
 OUT = DATA / "adult_v2" / "ish"
 
+# why ish.panel_fetch did not leave a grid on disk, so a drop can say why
+FETCH_FAILURES = DATA / "adult_v2" / "panel" / "fetch_failures.csv"
+
 # the panel passes of settings.toml ([ish_panels]): each names a panel and the
 # table it writes, and is chosen by name (run_ish_regions.py --panel), so both
 # panels go through this one aggregation. A relative panel path is taken inside the
@@ -183,6 +186,14 @@ def eroded_annotation(ann_full: np.ndarray) -> np.ndarray:
     return eroded
 
 
+def fetch_failures() -> dict[str, str]:
+    """The reasons ish.panel_fetch recorded, by experiment id; empty without its file."""
+    if not FETCH_FAILURES.exists():
+        return {}
+    with open(FETCH_FAILURES, newline="", encoding="utf-8") as fh:
+        return {r["experiment_id"]: r["reason"] for r in csv.DictReader(fh)}
+
+
 def experiment_rows(
     panel: list[dict],
     ann_full: np.ndarray,
@@ -192,8 +203,10 @@ def experiment_rows(
     """One mean per structure for every experiment of the panel, and the drops.
 
     Returns the rows of the region table and of its drops table, an experiment
-    whose grid is missing or in a box of its own being dropped with the reason.
+    whose grid is missing or in a box of its own being dropped with the reason;
+    for a missing grid, the reason ish.panel_fetch recorded when it has one.
     """
+    fetch_failed = fetch_failures()
     rows, dropped = [], []
     for i, gene in enumerate(panel, 1):
         t0 = time.time()
@@ -201,12 +214,11 @@ def experiment_rows(
         try:
             vol = read_energy(eid)
         except FileNotFoundError:
-            dropped.append(
-                dict(symbol=sym, experiment_id=eid, reason="grid not downloaded")
-            )
-            print(
-                f"{i:3d}/{len(panel)} {sym:10s} DROPPED  grid not downloaded", flush=True
-            )
+            reason = "grid not downloaded"
+            if eid in fetch_failed:
+                reason += f" ({fetch_failed[eid]})"
+            dropped.append(dict(symbol=sym, experiment_id=eid, reason=reason))
+            print(f"{i:3d}/{len(panel)} {sym:10s} DROPPED  {reason}", flush=True)
             continue
         except NotReferenceGrid as why:
             dropped.append(dict(symbol=sym, experiment_id=eid, reason=str(why)))
