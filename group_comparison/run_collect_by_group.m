@@ -41,10 +41,6 @@ age_filter = [20];
 % holds whatever is ready
 skip_missing = true;
 
-% preprocessing correction ('slicewise'); not passed to the code below, so it has
-% no effect on this step
-correction_type = 'slicewise';
-
 %% Run
 
 % pass the settings to the code, under the same names
