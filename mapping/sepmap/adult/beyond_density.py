@@ -654,7 +654,10 @@ def residual_against_genes(
             rho = spearmanr(res, [expr[gene][s] for s in structures]).statistic
             scored.append((abs(rho), rho, gene))
     scored.sort(reverse=True)
-    print("  the residual against all 390 genes -- is it just something we left out?")
+    print(
+        f"  the residual against all {len(scored)} genes measured in every structure "
+        "-- is it just something we left out?"
+    )
     for _, rho, gene in scored[:5]:
         print(f"    {gene:10s} rho {rho:+.3f}   ({role[gene]})")
     print("    no single gene in the panel accounts for it.")

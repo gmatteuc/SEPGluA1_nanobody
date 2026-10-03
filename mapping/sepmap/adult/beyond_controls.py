@@ -18,7 +18,8 @@ a specific way the claim could be wrong, with the number that says whether it is
                                       this control is why the quoted model bends,
                                       and it asks whether it bends enough
     F  our choice of covariates?      the strongest version: give the model the
-                                      whole 390-gene expression space and see
+                                      expression of every panel gene measured in
+                                      all the structures (253 of the 390) and see
                                       whether the leftover survives
     G  zref?                          the same test on every other reading
 
@@ -371,8 +372,11 @@ def control_f_gene_space(
     curve (per number of components, n_components, r2 fitted and cv_r2
     cross-validated) and the best number of components.
     """
-    print("\nF  is it our choice of covariates? (give the model all 390 genes)")
     genes = sorted(g for g in expr if all(s in expr[g] for s in structures))
+    print(
+        "\nF  is it our choice of covariates? (give the model all "
+        f"{len(genes)} genes measured in every structure)"
+    )
     m = gene_matrix(expr, structures, genes)
     m = (m - m.mean(axis=1, keepdims=True)) / m.std(axis=1, keepdims=True)
     _, _, vt = np.linalg.svd(m - m.mean(axis=0), full_matrices=False)
@@ -569,7 +573,10 @@ def figure_model_space(
         "ceiling", (ks[-1], ceiling**2), fontsize=7.5, ha="right", va="bottom"
     )
     axes[0].axvline(best_k, color="0.4", ls=":", lw=1.0)
-    axes[0].set_xlabel("components of the 390-gene expression space", fontsize=8)
+    axes[0].set_xlabel(
+        "components of the expression of the genes measured in every structure",
+        fontsize=8,
+    )
     axes[0].set_ylabel("variance of the map explained", fontsize=8)
     axes[0].legend(fontsize=7.5, frameon=False)
     axes[0].set_title(
