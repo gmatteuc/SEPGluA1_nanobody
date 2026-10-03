@@ -267,7 +267,7 @@ def structure_means(mice: list[str], names: dict[int, str]) -> dict[str, dict]:
     """
     anns, per = {}, {}
     for mouse in mice:
-        cohort, atlas_key = MICE[mouse][:2]
+        atlas_key = MICE[mouse][1]
         if atlas_key not in anns:
             anns[atlas_key] = annotation_20(atlas_key)
         ann = anns[atlas_key]
@@ -734,6 +734,7 @@ def plot_regions(
     )
     fig.tight_layout(rect=(0, 0, 1, 0.965))
     save_figure(fig, OUT / "region_plot.png", dpi=105)
+    plt.close(fig)
 
 
 def main() -> None:
