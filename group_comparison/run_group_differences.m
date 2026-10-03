@@ -70,8 +70,7 @@ final_exp_indices = all_exp_indices(selected_mice_idx_list{exp_group_idx});
 exp_mousenames = mice(final_exp_indices);
 
 % videos to write: the group means, every mouse, the group t-scores, the surprise,
-% the rolling slab, the signed differences (the surprise videos use the t limits
-% set with the t-score ones, so they need those on too)
+% the rolling slab, the signed differences
 generate_diff_videos = true;
 generate_individual_diff_videos = true;
 generate_t_scored_videos = true;
