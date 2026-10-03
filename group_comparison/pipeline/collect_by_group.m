@@ -8,26 +8,20 @@ function collect_by_group(run_settings)
 %   collected_mice<tag>.mat (the mice along the fourth dimension, in order);
 %   <tag> is empty for a whole group, _P20 for age_filter = [20].
 %
-%   Only nano_4d is saved: the saves of auto_4d, mask_4d and the averages are
-%   commented out, so a rerun leaves those files as they were. The adults'
-%   auto_4d.mat (19 Nov 2025) comes from the registration before the one behind
-%   their nano_4d.mat (27 Nov), about two 10 um voxels away (r 0.94-0.99 plane
-%   by plane), so a ratio of the two would mix two registrations. Uncomment a
-%   save before reading its file, or read the registered tiffs, as
-%   mapping/sepmap/volumes/per_mouse.py does.
+%   Only the nano volumes are read and stacked. The auto_4d.mat, mask_4d.mat
+%   and average files beside nano_4d.mat in the adults' group folders are not
+%   written here, and are not to be read: the adults' auto_4d.mat (19 Nov
+%   2025) comes from the registration before the one behind their nano_4d.mat
+%   (27 Nov), about two 10 um voxels away (r 0.94-0.99 plane by plane), so a
+%   ratio of the two would mix two registrations. For the autofluorescence or
+%   the mask, read the registered tiffs, as mapping/sepmap/volumes/per_mouse.py
+%   does.
 
 % settings of run_collect_by_group, under the names the code below uses
 paths = run_settings.paths;
 mousetypes_list = run_settings.mousetypes_list;
 age_filter = run_settings.age_filter;
 skip_missing = run_settings.skip_missing;
-
-%% Add paths
-
-% the toolboxes are on the path from sep_setup_paths; only the atlas folder is
-% added here, although nothing below reads the atlas
-atlas_dir = paths.atlas;
-addpath(atlas_dir)
 
 %% Collect each group
 
@@ -75,77 +69,32 @@ for group_idx = 1:numel(mousetypes_list)
     fprintf('run_collect_by_group: %s%s — collecting %d mouse/mice: %s\n', ...
         group, subset_tag, n_mice, strjoin(current_mice, ', '));
 
-    % one cell per mouse, for each channel
+    % one cell per mouse
     nano_vols = cell(1, n_mice);
-    auto_vols = cell(1, n_mice);
-    mask_vols = cell(1, n_mice);
 
     for i = 1:n_mice
 
-        % get the mouse
+        % load the mouse's registered nano volume
         mouse_name = current_mice{i};
-
-        % set its folders (base_dir is the group's)
-        base_dir = fullfile(paths.data, group);
-        mouse_dir = fullfile(base_dir, mouse_name, 'lightsuite');
-        correction_dir = fullfile(base_dir, mouse_name, 'lightsuite', ...
-            'correction_output');
-        before_correction_dir = fullfile(base_dir, mouse_name, 'lightsuite', ...
-            'volume_centered');
-        processed_dir = fullfile(base_dir, mouse_name, 'lightsuite', ...
-            'volume_centered_processed');
-        aligned_dir = fullfile(mouse_dir, 'volume_aligned');
-        registered_dir = fullfile(mouse_dir, 'volume_registered');
-
-        % load its registered nano, autofluorescence and mask volumes
+        registered_dir = fullfile(paths.data, group, mouse_name, 'lightsuite', ...
+            'volume_registered');
         nano_file = fullfile(registered_dir, sprintf('chan02_NANO.tiff'));
-        auto_file = fullfile(registered_dir, sprintf('chan03_AUTO.tiff'));
-        mask_file = fullfile(registered_dir, sprintf('chan05_MASK.tiff'));
         nanoVol = single(loadVolume({nano_file}, 1));
-        autoVol = single(loadVolume({auto_file}, 1));
-        maskVol = single(loadVolume({mask_file}, 1));
-
-        % store them
         nano_vols{i} = nanoVol;
-        auto_vols{i} = autoVol;
-        mask_vols{i} = maskVol;
 
     end
 
     % stack the mice along the 4th dimension; a cohort's volumes share one grid,
     % set by get_atlas_crop (CCF 900 x 800 x 1140, DeMBA P20 994 x 800 x 1140)
     nano_4d = cat(4, nano_vols{:});
-    auto_4d = cat(4, auto_vols{:});
-    mask_4d = cat(4, mask_vols{:});
 
     % free the per-mouse copies
-    clear nano_vols auto_vols mask_vols
-
-    % average over mice
-    avg_nano = nanmean(nano_4d, 4); %#ok<NANMEAN>
-    avg_auto = nanmean(auto_4d, 4); %#ok<NANMEAN>
-    sum_mask_4d = nansum(mask_4d, 4); %#ok<NANSUM>
-
-    % mask of the voxels covered by min_n_mice mice or fewer, for display
-    min_n_mice = 3;
-    avg_mask = sum_mask_4d <= min_n_mice;
-
-    % nano relative to autofluorescence, (nano - auto) / auto, per mouse and averaged
-    rel_diff_4d = (nano_4d - auto_4d) ./ auto_4d;
-    avg_rel_diff = nanmean(rel_diff_4d, 4); %#ok<NANMEAN>
+    clear nano_vols
 
     % save the nano stack (-v7.3 for large arrays), as nano_4d_P20.mat beside
-    % nano_4d.mat for an age-filtered run; the other saves are off (reason not recorded)
+    % nano_4d.mat for an age-filtered run
     base_dir = fullfile(paths.data, group);
     save(fullfile(base_dir, ['nano_4d' subset_tag '.mat']), 'nano_4d', '-v7.3');
-    % save(fullfile(base_dir, ['auto_4d' subset_tag '.mat']), 'auto_4d', '-v7.3');
-    % save(fullfile(base_dir, ['mask_4d' subset_tag '.mat']), 'mask_4d', '-v7.3');
-    % save(fullfile(base_dir, ['diff_4d_new' subset_tag '.mat']), 'rel_diff_4d', '-v7.3');
-    % save(fullfile(base_dir, ['avg_nano' subset_tag '.mat']), 'avg_nano', '-v7.3');
-    % save(fullfile(base_dir, ['avg_auto' subset_tag '.mat']), 'avg_auto', '-v7.3');
-    % save(fullfile(base_dir, ['avg_mask' subset_tag '.mat']), 'avg_mask', '-v7.3');
-    % save(fullfile(base_dir, ['sum_mask_4d' subset_tag '.mat']), 'sum_mask_4d', '-v7.3');
-    % save(fullfile(base_dir, ['avg_diff_new' subset_tag '.mat']), 'avg_rel_diff', '-v7.3');
 
     % save the mice along the 4th dimension, in order: without it a stack of a
     % partly registered cohort cannot be labelled later (get_cohort_spec reads it)
@@ -153,8 +102,7 @@ for group_idx = 1:numel(mousetypes_list)
     save(fullfile(base_dir, ['collected_mice' subset_tag '.mat']), 'collected_mice');
 
     % free memory before the next group
-    clear nano_4d auto_4d mask_4d rel_diff_4d avg_nano avg_auto avg_mask sum_mask_4d ...
-        avg_rel_diff
+    clear nano_4d
 
 end
 
