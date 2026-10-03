@@ -7,10 +7,11 @@
 %
 % run_register_to_atlas registers five channels (DAPI, NANO, AUTO, DIFF, MASK).
 % The microscope recorded a sixth, on the green filter it names EGFP, and that one
-% stops at volume_centered. Every mouse is a SEP-GluA1 knock-in, so the green
-% channel was meant as the tagged receptor itself, the whole GluA1 pool (fixed,
-% permeabilised tissue loses the pH sensitivity that makes SEP surface-specific in
-% a living cell), and nano/SEP as surface receptor per receptor expressed.
+% stops at volume_centered. Every mouse is a SEP-GluA1 knock-in. The tissue is
+% stained without permeabilising it (no detergent, or very little), so the
+% nanobody, a GFP booster that binds the SEP tag, labels the receptors on the cell
+% surface; the green channel, the SEP's own fluorescence, was meant to report the
+% whole tagged GluA1 pool, and nano/SEP the surface receptor per receptor expressed.
 % Measured directly (run_sep_channel_check), the green channel tracks the
 % autofluorescence instead (rho 0.79 across the ten adults), so nano/SEP is not a
 % surface fraction. The SEP channel is added as an extra registered volume, and
