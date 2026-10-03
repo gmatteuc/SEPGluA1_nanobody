@@ -269,9 +269,9 @@ end
 clear S_exp_vol S_exp_mask
 fprintf('  Kept %d mice based on selection.\n', size(data_4d_new_exp, 4));
 
-% each control mouse's mean tissue intensity per plane, on the saved masks (they
-% are not recomputed, whatever the message says)
-fprintf('Recomputing background masks controls (%s)...\n', ctrl_type);
+% each control mouse's mean tissue intensity per plane, on the saved masks
+fprintf(['Plane means of the tissue, on the saved background masks, controls ' ...
+         '(%s)...\n'], ctrl_type);
 med_data_4d_ctrl = plane_tissue_means(data_4d_new_ctrl, data_4d_new_ctrl_bkgmask);
 
 % the saved masks are the ones used from here on
@@ -279,7 +279,8 @@ recomputed_bkg_mask_4d_ctrl = data_4d_new_ctrl_bkgmask;
 clear data_4d_new_ctrl_bkgmask
 
 % the same for each experimental mouse
-fprintf('Recomputing background masks experimentals (%s)...\n', exp_type);
+fprintf(['Plane means of the tissue, on the saved background masks, experimentals ' ...
+         '(%s)...\n'], exp_type);
 med_data_4d_exp = plane_tissue_means(data_4d_new_exp, data_4d_new_exp_bkgmask);
 recomputed_bkg_mask_4d_exp = data_4d_new_exp_bkgmask;
 clear data_4d_new_exp_bkgmask
