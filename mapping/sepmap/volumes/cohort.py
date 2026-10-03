@@ -32,10 +32,14 @@ brain itself:
               neither the cortex nor the two structures that dominate the scale.
     zref      log2(sig / cortex mean), minus that brain's median over structures,
               divided by its own p90-p10 spread, so level and dynamic range are
-              the same in every brain; the pup brain is flatter (spread 0.89 +-
-              0.25 log2 against 1.79 +- 0.24). The only reading not linear in the
-              signal: its maps show a position within a range, and the compression
-              it removes may itself be the finding, so it is read beside cref.
+              the same in every brain. Median and spread are taken over the
+              brain's structures of at least region_tables.min_vox20 voxels
+              (mouse_scalars). The pup brain is flatter: its spread is about half
+              the adult one, 0.9 to 1.0 log2 against 1.8 to 1.9, depending on
+              which brains and structures enter. The only reading not linear in
+              the signal: its maps show a position within a range, and the
+              compression it removes may itself be the finding, so it is read
+              beside cref.
 
 Per voxel a cohort gets the mean over the mice with tissue there, the SD and the
 count. No voxel needs every mouse; the n map says what each mean rests on, and
