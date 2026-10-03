@@ -22,7 +22,8 @@ on both sides.
 
 Prints one line per file, then a summary. Statuses: "same code", and
 "added (listed)" or "removed (listed)" for files the map lists; the failures
-are "CODE CHANGED", "NO COUNTERPART", "ONLY IN REF" and "SYNTAX ERROR".
+are "CODE CHANGED", "NO COUNTERPART", "ONLY IN REF" and "SYNTAX ERROR" (a file
+that does not parse, or is not UTF-8 text).
 Exit code 1 if there is any failure.
 
     python check_code_identity.py NEW_DIR REF_DIR [--map NAME_MAP.csv]
@@ -114,9 +115,10 @@ def code_of(path):
 
 def compare_pair(new_path, ref_path):
     """Status of one new file against its reference file."""
+    # a file that is not UTF-8, or holds a null byte, does not parse either
     try:
         same = code_of(new_path) == code_of(ref_path)
-    except SyntaxError:
+    except (SyntaxError, ValueError):
         return "SYNTAX ERROR"
     if same:
         return "same code"

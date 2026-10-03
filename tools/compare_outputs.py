@@ -38,6 +38,7 @@ import filecmp
 import io
 import re
 import sys
+import zipfile
 from datetime import datetime
 from pathlib import Path
 
@@ -199,7 +200,7 @@ def main(old_dir, new_dir, ignore, replacements, newer_than=None):
         else:
             try:
                 status = compare(old_dir / rel, new_dir / rel, replacements)
-            except (OSError, ValueError) as err:
+            except (OSError, ValueError, EOFError, zipfile.BadZipFile) as err:
                 # a file that cannot be read is reported, and the others still compared
                 status = "compare failed"
                 detail = f"  ({err})"
