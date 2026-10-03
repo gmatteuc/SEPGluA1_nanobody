@@ -162,10 +162,12 @@ for z = 1:Z
     [ref_pix_mask_J, ~, bg_mask, ~, used_clim, h_diag_J] = select_reference_pixels( ...
         J, 15, rangewinmax, 60, range_frac, doPlotBkg);
 
-    % its figure, saved when drawn
+    % its figure, saved when drawn, then closed, so one figure per slice does not
+    % stay open until the end of the mouse
     if doPlotBkg && savePlotBkg
         saveas(h_diag_J, fullfile(plotDir, ...
             sprintf('reference_pix_selection_slice_J_%03d.png', z)));
+        close(h_diag_J);
     end
     ref_pix_mask = ref_pix_mask_J;
     bg_mask_vol(:, :, z) = bg_mask;
