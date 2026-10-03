@@ -119,18 +119,12 @@ NOT_SUBCORTEX = {
     "",
 }
 
-# the cohorts, from the same mice as per_mouse.MICE
-YOUNG_P20 = [
-    "MG897_SepGluA_P20",
-    "MG903_SepGluA_P20",
-    "MG913_SepGluA_P20",
-    "MG909_SepGluA_P20",
-    "MG910_SepGluA_P20",
-]
-YOUNG_P16 = ["MG911_SepGluA_P16"]
-YOUNG_P22 = ["MG904_SepGluA_P22"]
-NAIVE = ["CGF027_Gria1", "CGF028_Gria1", "CGF033_Gria1", "CGF034_Gria1", "CGF035_Gria1"]
-RWS = ["MG691_Gria1", "MG692_Gria1", "MG693_Gria1", "MG736_Gria1", "MG737_Gria1"]
+# the cohorts, from per_mouse.MICE (the cohort table), each in the route's order
+YOUNG_P20 = [m for m, (cohort, _, _) in MICE.items() if cohort == "young_P20"]
+YOUNG_P16 = [m for m, (cohort, _, _) in MICE.items() if cohort == "young_P16"]
+YOUNG_P22 = [m for m, (cohort, _, _) in MICE.items() if cohort == "young_P22"]
+NAIVE = [m for m, (cohort, _, _) in MICE.items() if cohort == "naive"]
+RWS = [m for m, (cohort, _, _) in MICE.items() if cohort == "rws"]
 COHORTS = {
     "young": YOUNG_P20 + YOUNG_P16 + YOUNG_P22,
     "young_P20": YOUNG_P20,

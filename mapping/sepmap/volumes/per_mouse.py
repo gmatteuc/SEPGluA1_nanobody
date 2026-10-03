@@ -49,50 +49,29 @@ import nibabel as nib
 import numpy as np
 import tifffile
 
-from sepmap.config import DATA, SETTINGS
+from sepmap.config import DATA, SETTINGS, mapping_mice
 
 TISSUE = SETTINGS["tissue"]
 
 OUT = DATA / "comparisons_v2" / "per_mouse"
 CSV_MAP = DATA / "atlas" / "parcellation_to_parcellation_term_membership.csv"
 
-# mouse -> (cohort, atlas, group folder under data\). Every brain is read from its
-# own registered tiffs, on the atlas of its own age. MG911 is P16 and MG904 P22:
-# same recipe, different grid, so nothing here may assume the P20 crop (atlas_grid).
-MICE = {
-    **{
-        m: ("young_P20", "demba_p20", "young")
-        for m in (
-            "MG897_SepGluA_P20",
-            "MG903_SepGluA_P20",
-            "MG913_SepGluA_P20",
-            "MG909_SepGluA_P20",
-            "MG910_SepGluA_P20",
-        )
-    },
-    "MG911_SepGluA_P16": ("young_P16", "demba_p16", "young"),
-    "MG904_SepGluA_P22": ("young_P22", "demba_p22", "young"),
-    **{
-        m: ("naive", "ccf", "naive")
-        for m in (
-            "CGF027_Gria1",
-            "CGF028_Gria1",
-            "CGF033_Gria1",
-            "CGF034_Gria1",
-            "CGF035_Gria1",
-        )
-    },
-    **{
-        m: ("rws", "ccf", "rws")
-        for m in (
-            "MG691_Gria1",
-            "MG692_Gria1",
-            "MG693_Gria1",
-            "MG736_Gria1",
-            "MG737_Gria1",
-        )
-    },
-}
+
+def atlas_of(row: dict[str, str]) -> str:
+    """The atlas a brain is registered to, as cohort_atlas_key.m decides it.
+
+    The adults are on the Allen CCF, a young brain on the DeMBA atlas of its age.
+    """
+    if row["group"] == "young":
+        return f"demba_p{int(row['age_days'])}"
+    return "ccf"
+
+
+# mouse -> (cohort, atlas, group folder under data\), from the cohort table
+# (config.mapping_mice), in the route's order. Every brain is read from its own
+# registered tiffs, on the atlas of its own age. MG911 is P16 and MG904 P22: same
+# recipe, different grid, so nothing here may assume the P20 crop (atlas_grid).
+MICE = {r["name"]: (r["mapping_cohort"], atlas_of(r), r["group"]) for r in mapping_mice()}
 
 
 def atlas_grid(atlas_key: str) -> tuple[Path, tuple[int, int], None]:

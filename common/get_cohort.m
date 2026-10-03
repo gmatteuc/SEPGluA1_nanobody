@@ -23,6 +23,14 @@ function cohort = get_cohort(varargin)
 %   select mice by index (run_nano_equalisation, mice_to_process = 1:17), so
 %   reordering these entries would silently change which mouse is processed.
 %   GET_COHORT('verify') checks that the order still matches that list.
+%
+%   The registry is the table common\cohort.csv, read here and by the Python
+%   route (sepmap.config.mapping_mice), one row per mouse in the order above.
+%   Its last two columns are the Python route's: mapping_cohort, the cohort a
+%   brain enters there (empty for a brain it does not take yet), and
+%   mapping_order, the order it stacks its brains in, which is not this one.
+%   The young rows are Sami's list of good-quality brains (3 Aug 2026), with
+%   MG909 to MG914 added on 12 Aug; MG911, at P16, is the youngest brain.
 
 %% Parse inputs
 
@@ -53,43 +61,10 @@ end
 paths = get_paths();
 base_root = paths.data;
 
-% name, group, age_days, share_subdir; the adults in their legacy order, never
-% to be reordered (see the help)
-registry_rows = { ...
-    'MG691_Gria1',        'rws',       NaN, ''
-    'MG692_Gria1',        'rws',       NaN, ''
-    'MG693_Gria1',        'rws',       NaN, ''
-    'MG736_Gria1',        'rws',       NaN, ''
-    'MG737_Gria1',        'rws',       NaN, ''
-    'CGF027_Gria1',       'naive',     NaN, ''
-    'CGF028_Gria1',       'naive',     NaN, ''
-    'CGF033_Gria1',       'naive',     NaN, ''
-    'CGF034_Gria1',       'naive',     NaN, ''
-    'CGF035_Gria1',       'naive',     NaN, ''
-    'MG705_Gria1',        'behavior',  NaN, ''
-    'MG706_Gria1',        'behavior',  NaN, ''
-    'MG709_Gria1',        'behavior',  NaN, ''
-    'MG716_Gria1',        'behavior',  NaN, ''
-    'MG718_Gria1',        'behavior',  NaN, ''
-    'MG725_Gria1',        'behavior',  NaN, ''
-    'MG727_Gria1',        'behavior',  NaN, ''
-    % the young cohort: Sami's list of good-quality brains, 3 Aug 2026
-    'MG895_SepGluA_P36',  'young',      36, fullfile('Anatomy','Axioscan')
-    'MG896_SepGluA_P28',  'young',      28, fullfile('Anatomy','Axioscan')
-    'MG897_SepGluA_P20',  'young',      20, fullfile('Anatomy','Axioscan')
-    'MG903_SepGluA_P20',  'young',      20, ''
-    'MG904_SepGluA_P22',  'young',      22, ''
-    'MG906_SepGluA_P32',  'young',      32, ''
-    'MG907_SepGluA_P36',  'young',      36, ''
-    'MG908_SepGluA_P32',  'young',      32, ''
-    % added to that list on 12 Aug 2026; MG911, at P16, is the youngest brain
-    'MG909_SepGluA_P20',  'young',      20, ''
-    'MG910_SepGluA_P20',  'young',      20, ''
-    'MG911_SepGluA_P16',  'young',      16, ''
-    'MG912_SepGluA_P20',  'young',      20, ''
-    'MG913_SepGluA_P20',  'young',      20, ''
-    'MG914_SepGluA_P28',  'young',      28, ''
-    };
+% name, group, age_days, share_subdir, from the cohort table; the adults in their
+% legacy order, never to be reordered (see the help)
+registry_rows = read_cohort_table(fullfile(fileparts(mfilename('fullpath')), ...
+    'cohort.csv'));
 
 %% Build the struct array
 
@@ -130,6 +105,36 @@ end
 end
 
 % ===== Local functions =====
+
+function rows = read_cohort_table(table_file)
+% The cohort table's first four columns as an N x 4 cell array: name, group, age in
+% days (NaN where empty) and share subfolder ('' where empty).
+
+expected = {'name', 'group', 'age_days', 'share_subdir', 'mapping_cohort', ...
+    'mapping_order'};
+lines = splitlines(strtrim(fileread(table_file)));
+header = strsplit(lines{1}, ',');
+if ~isequal(header, expected)
+    error('get_cohort: %s has the columns %s, expected %s.', table_file, ...
+        strjoin(header, ', '), strjoin(expected, ', '));
+end
+
+rows = cell(numel(lines) - 1, 4);
+for i = 1:size(rows, 1)
+    fields = strsplit(lines{i + 1}, ',', 'CollapseDelimiters', false);
+    if numel(fields) ~= numel(expected)
+        error('get_cohort: line %d of %s has %d fields, expected %d.', i + 1, ...
+            table_file, numel(fields), numel(expected));
+    end
+
+    % an empty share subfolder is '', as the registry always held it
+    share_subdir = fields{4};
+    if isempty(share_subdir)
+        share_subdir = '';
+    end
+    rows(i, :) = {fields{1}, fields{2}, str2double(fields{3}), share_subdir};
+end
+end
 
 function verify_legacy_order(cohort)
 % Check the adults of the registry against the mouse list the drivers wrote out
