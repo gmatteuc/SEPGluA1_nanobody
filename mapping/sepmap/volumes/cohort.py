@@ -27,10 +27,12 @@ brain itself:
     cref      sig / that mouse's isocortex mean of sig, measured before any warp:
               a pure scale, so region ratios within a mouse survive exactly; blind
               to a change that moves the whole cortex.
-    subref    sig / that mouse's subcortex mean, without the divisions in
-              NOT_SUBCORTEX (cortex, HPF, STR, fiber tracts, ventricles and
-              others): a reference that is neither the cortex nor the two
-              structures that dominate the scale, and no white matter or ventricle.
+    subref    sig / that mouse's subcortex mean: TH, HY, PAL, MB, P and MY, the
+              divisions not in NOT_SUBCORTEX (which holds the isocortex, OLF, HPF,
+              CTXsp, STR, CB, the fiber tracts, the ventricles and the atlas's two
+              catch-all labels). A reference that is neither the cortex nor HPF and
+              STR, which would dominate the scale, and holds no white matter,
+              ventricle or voxel of no structure.
     zref      log2(sig / cortex mean), minus that brain's median over structures,
               divided by its own p90-p10 spread, so level and dynamic range are
               the same in every brain. Median and spread are taken over the
@@ -101,7 +103,9 @@ if _unknown:
 # divisions left out of the subcortex reference of subref ('' is a structure that
 # belongs to no division). The fiber tracts (fiber tracts-unassigned to cbf) and
 # the ventricular system (V3 to c) are categories of the atlas, not divisions, so
-# they are listed by the divisions its division term set splits them into
+# they are listed by the divisions its division term set splits them into. The two
+# catch-alls go too: brain-unassigned is brain with no structure, unassigned is
+# outside the brain. Left in: TH, HY, PAL, MB, P and MY
 NOT_SUBCORTEX = {
     "Isocortex",
     "HPF",
@@ -121,6 +125,8 @@ NOT_SUBCORTEX = {
     "VL",
     "AQ",
     "c",
+    "brain-unassigned",
+    "unassigned",
     "",
 }
 
