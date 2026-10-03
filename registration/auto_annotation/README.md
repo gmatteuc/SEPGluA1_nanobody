@@ -51,7 +51,9 @@ and the hook it uses are described in its help and in
 ```
 registration/auto_annotation/
   core.py            the algorithms; importable, no file I/O
-  cli.py             python cli.py propose <folder> | section <folder> <slice> <plane> <out.mat>
+  cli.py             python cli.py propose <folder>
+                       | section <folder> <slice> <plane> <out.mat>   (the u key)
+                       | sections <folder> <request.mat> <out.mat>    (the U key)
   weights/           landmark.pt, matcher.pt, VERSION.txt (which models, which brains they never saw)
   requirements.txt
   setup.ps1          creates the venv (CUDA torch if a GPU), self-test
