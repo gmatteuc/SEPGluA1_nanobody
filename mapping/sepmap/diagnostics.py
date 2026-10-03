@@ -370,29 +370,35 @@ def sheet_scaling() -> None:
         ann = ANN[MICE[mouse][1]]
         iso = z["tissue"] & np.isin(ann, ISO)
         rows.append(
-            (
-                mouse,
-                MICE[mouse][0],
-                float(z["bg_nano"]),
-                float(z["bg_auto"]),
-                float(z["cortex_mean"]),
-                float(z["auto"].astype(np.float32)[iso].mean()),
+            dict(
+                mouse=mouse,
+                cohort=MICE[mouse][0],
+                bg_nano=float(z["bg_nano"]),
+                bg_auto=float(z["bg_auto"]),
+                cortex_nano=float(z["cortex_mean"]),
+                cortex_auto=float(z["auto"].astype(np.float32)[iso].mean()),
             )
         )
-    young = [r for r in rows if r[1].startswith("young")]
-    adult = [r for r in rows if not r[1].startswith("young")]
+    young = [r for r in rows if r["cohort"].startswith("young")]
+    adult = [r for r in rows if not r["cohort"].startswith("young")]
     order = young + adult
 
     # nano background and isocortex mean per brain, the young first
     fig, axes = plt.subplots(1, 3, figsize=(17, 4.8))
-    for ax, (j, name) in zip(
+    for ax, (column, name) in zip(
         axes,
-        ((2, "off-tissue background, nano"), (4, "isocortex mean, nano (bg-subtracted)")),
+        (
+            ("bg_nano", "off-tissue background, nano"),
+            ("cortex_nano", "isocortex mean, nano (bg-subtracted)"),
+        ),
     ):
         for i, r in enumerate(order):
-            ax.plot(i, r[j], "o", color=RED if r[1].startswith("young") else DARK_GREY)
+            colour = RED if r["cohort"].startswith("young") else DARK_GREY
+            ax.plot(i, r[column], "o", color=colour)
         ax.set_xticks(range(len(order)))
-        ax.set_xticklabels([r[0].split("_")[0] for r in order], rotation=70, fontsize=7)
+        ax.set_xticklabels(
+            [r["mouse"].split("_")[0] for r in order], rotation=70, fontsize=7
+        )
         ax.axvline(len(young) - 0.5, color="k", lw=0.6, ls=":")
         ax.set_ylabel("raw counts")
         ax.set_title(name, fontsize=10)
@@ -401,7 +407,13 @@ def sheet_scaling() -> None:
     # isocortex nano against auto across brains
     ax = axes[2]
     for grp, col, lbl in ((young, RED, "young"), (adult, DARK_GREY, "adult")):
-        ax.plot([r[4] for r in grp], [r[5] for r in grp], "o", color=col, label=lbl)
+        ax.plot(
+            [r["cortex_nano"] for r in grp],
+            [r["cortex_auto"] for r in grp],
+            "o",
+            color=col,
+            label=lbl,
+        )
     ax.set_xlabel("isocortex mean, nano")
     ax.set_ylabel("isocortex mean, auto")
     ax.set_title("the two channels track each other across brains", fontsize=10)
@@ -568,7 +580,7 @@ def sheet_mask_vs_p6bis() -> None:
     plt.close(fig)
 
 
-def denominator_rows() -> list[tuple]:
+def denominator_rows() -> list[dict]:
     """Per brain with a SEP channel: mouse, cohort, isocortex nano, auto and SEP."""
     rows = []
     for mouse in list(MICE):
@@ -578,25 +590,32 @@ def denominator_rows() -> list[tuple]:
         ann = ANN[MICE[mouse][1]]
         iso = z["tissue"] & np.isin(ann, ISO)
         rows.append(
-            (
-                mouse,
-                MICE[mouse][0],
-                float(z["cortex_mean"]),
-                float(z["auto"].astype(np.float32)[iso].mean()),
-                float(z["sep"].astype(np.float32)[iso].mean()),
+            dict(
+                mouse=mouse,
+                cohort=MICE[mouse][0],
+                cortex_nano=float(z["cortex_mean"]),
+                cortex_auto=float(z["auto"].astype(np.float32)[iso].mean()),
+                cortex_sep=float(z["sep"].astype(np.float32)[iso].mean()),
             )
         )
     return rows
 
 
-def panel_denominators(ax: plt.Axes, order: list[tuple], young: list[tuple]) -> None:
+def panel_denominators(ax: plt.Axes, order: list[dict], young: list[dict]) -> None:
     """Draw what each denominator does with age, in the cortex, per brain."""
     for i, r in enumerate(order):
-        col = RED if r[1].startswith("young") else DARK_GREY
-        ax.plot(i, r[3], "o", color=col, mfc="none", label="auto" if i == 0 else None)
-        ax.plot(i, r[4], "s", color=col, label="SEP" if i == 0 else None)
+        col = RED if r["cohort"].startswith("young") else DARK_GREY
+        ax.plot(
+            i,
+            r["cortex_auto"],
+            "o",
+            color=col,
+            mfc="none",
+            label="auto" if i == 0 else None,
+        )
+        ax.plot(i, r["cortex_sep"], "s", color=col, label="SEP" if i == 0 else None)
     ax.set_xticks(range(len(order)))
-    ax.set_xticklabels([r[0].split("_")[0] for r in order], rotation=70, fontsize=7)
+    ax.set_xticklabels([r["mouse"].split("_")[0] for r in order], rotation=70, fontsize=7)
     ax.axvline(len(young) - 0.5, color="k", lw=0.6, ls=":")
     ax.set_ylabel("isocortex mean, raw counts")
     ax.legend(fontsize=8)
@@ -604,10 +623,16 @@ def panel_denominators(ax: plt.Axes, order: list[tuple], young: list[tuple]) -> 
     ax.grid(lw=0.3, alpha=0.6)
 
 
-def panel_nano_sep(ax: plt.Axes, young: list[tuple], adult: list[tuple]) -> None:
+def panel_nano_sep(ax: plt.Axes, young: list[dict], adult: list[dict]) -> None:
     """Draw how much of the nano difference SEP would absorb, across brains."""
     for grp, col, lbl in ((young, RED, "young"), (adult, DARK_GREY, "adult")):
-        ax.plot([r[2] for r in grp], [r[4] for r in grp], "o", color=col, label=lbl)
+        ax.plot(
+            [r["cortex_nano"] for r in grp],
+            [r["cortex_sep"] for r in grp],
+            "o",
+            color=col,
+            label=lbl,
+        )
     ax.set_xlabel("isocortex mean, nano")
     ax.set_ylabel("isocortex mean, SEP")
     ax.set_title("nano against SEP across brains", fontsize=10)
@@ -664,8 +689,8 @@ def sheet_denominators() -> None:
     if not rows:
         print("09 skipped: no brain carries a SEP channel yet", flush=True)
         return
-    young = [r for r in rows if r[1].startswith("young")]
-    adult = [r for r in rows if not r[1].startswith("young")]
+    young = [r for r in rows if r["cohort"].startswith("young")]
+    adult = [r for r in rows if not r["cohort"].startswith("young")]
     order = young + adult
 
     fig, axes = plt.subplots(1, 3, figsize=(17, 4.8))

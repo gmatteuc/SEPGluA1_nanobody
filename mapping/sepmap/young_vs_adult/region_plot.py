@@ -160,6 +160,49 @@ LABEL = {
 }
 
 
+# the columns of region_means_per_mouse.csv and of region_stats.csv
+PER_MOUSE_COLUMNS = [
+    "reading",
+    "group",
+    "cohort",
+    "mouse",
+    "structure",
+    "acronym",
+    "division",
+    "n_vox20",
+    "log2_value",
+]
+STATS_COLUMNS = [
+    "reading",
+    "structure",
+    "acronym",
+    "division",
+    "n_young",
+    "n_adult",
+    "young_mean_log2",
+    "adult_mean_log2",
+    "diff_log2",
+    "diff_median_log2",
+    "welch_p",
+    "mannwhitney_p",
+    "welch_q_BH",
+    "mannwhitney_q_BH",
+    "diff_log2_P20only",
+    "welch_p_P20only",
+    "diff_log2_P16_single",
+    "naive_minus_rws_log2",
+]
+
+
+def stars(p: float) -> str:
+    """The stars of a p-value: ** under 0.01, * under 0.05, otherwise none."""
+    if p < 0.01:
+        return "**"
+    if p < 0.05:
+        return "*"
+    return ""
+
+
 def bh_fdr(p: list[float] | np.ndarray) -> np.ndarray:
     """Benjamini-Hochberg q-values for one family of tests; NaN where p is NaN.
 
@@ -376,45 +419,48 @@ def structure_row(
     ad: list[float],
     nv: list[float],
     rw: list[float],
-) -> tuple:
+) -> dict:
     """One structure's test row, in the columns of region_stats.csv but the q-values.
 
     `yo`, `y20`, `p16`, `ad`, `nv` and `rw` are the values of the young, the P20
     and P16 young, the adults, the naive and the RWS adults.
     """
-    return (
-        reading,
-        k,
-        meta[k][0],
-        meta[k][1],
-        len(yo),
-        len(ad),
-        np.mean(yo),
-        np.mean(ad),
-        np.mean(yo) - np.mean(ad),
-        np.median(yo) - np.median(ad),
-        welch(yo, ad),
-        mannwhitney(yo, ad),
-        (np.mean(y20) - np.mean(ad)) if len(y20) >= 2 else float("nan"),
-        welch(y20, ad) if len(y20) >= 2 else float("nan"),
-        (p16[0] - np.mean(ad)) if p16 else float("nan"),
-        (np.mean(nv) - np.mean(rw)) if nv and rw else float("nan"),
+    return dict(
+        reading=reading,
+        structure=k,
+        acronym=meta[k][0],
+        division=meta[k][1],
+        n_young=len(yo),
+        n_adult=len(ad),
+        young_mean_log2=np.mean(yo),
+        adult_mean_log2=np.mean(ad),
+        diff_log2=np.mean(yo) - np.mean(ad),
+        diff_median_log2=np.median(yo) - np.median(ad),
+        welch_p=welch(yo, ad),
+        mannwhitney_p=mannwhitney(yo, ad),
+        diff_log2_P20only=(np.mean(y20) - np.mean(ad)) if len(y20) >= 2 else float("nan"),
+        welch_p_P20only=welch(y20, ad) if len(y20) >= 2 else float("nan"),
+        diff_log2_P16_single=(p16[0] - np.mean(ad)) if p16 else float("nan"),
+        naive_minus_rws_log2=(np.mean(nv) - np.mean(rw)) if nv and rw else float("nan"),
     )
 
 
-def with_q_values(rows_st: list[tuple]) -> list[tuple]:
-    """The test rows with the BH q of the Welch and of the Mann-Whitney p inserted.
+def with_q_values(rows_st: list[dict]) -> list[dict]:
+    """The test rows with the BH q of the Welch and of the Mann-Whitney p added.
 
     The q-values are taken within each reading, so the brain-wide lists can be
-    read honestly; they go in after the Mann-Whitney p.
+    read honestly; in the CSV they go after the Mann-Whitney p.
     """
     q_welch, q_mw = {}, {}
     for reading, _ in READINGS:
-        idx = [i for i, r in enumerate(rows_st) if r[0] == reading]
-        for store, col in ((q_welch, 10), (q_mw, 11)):
+        idx = [i for i, r in enumerate(rows_st) if r["reading"] == reading]
+        for store, col in ((q_welch, "welch_p"), (q_mw, "mannwhitney_p")):
             for i, qi in zip(idx, bh_fdr([rows_st[i][col] for i in idx])):
                 store[i] = qi
-    return [r[:12] + (q_welch[i], q_mw[i]) + r[12:] for i, r in enumerate(rows_st)]
+    return [
+        {**r, "welch_q_BH": q_welch[i], "mannwhitney_q_BH": q_mw[i]}
+        for i, r in enumerate(rows_st)
+    ]
 
 
 def region_rows(
@@ -424,7 +470,7 @@ def region_rows(
     per: dict[str, dict],
     norm: dict[str, tuple[float, float]],
     refs: dict[str, dict[str, float]],
-) -> tuple[list[tuple], list[tuple]]:
+) -> tuple[list[dict], list[dict]]:
     """The per-mouse rows, and per structure and reading the young-against-adult tests.
 
     A structure is tested when at least region_plot.min_young young and min_adult
@@ -441,16 +487,16 @@ def region_rows(
             # one row per mouse, in the columns of region_means_per_mouse.csv
             for m, x in v.items():
                 rows_pm.append(
-                    (
-                        reading,
-                        group_of[m],
-                        MICE[m][0],
-                        m,
-                        k,
-                        meta[k][0],
-                        meta[k][1],
-                        per[m][k][0],
-                        x,
+                    dict(
+                        reading=reading,
+                        group=group_of[m],
+                        cohort=MICE[m][0],
+                        mouse=m,
+                        structure=k,
+                        acronym=meta[k][0],
+                        division=meta[k][1],
+                        n_vox20=per[m][k][0],
+                        log2_value=x,
                     )
                 )
 
@@ -473,56 +519,32 @@ def region_rows(
     return rows_pm, rows_st
 
 
-def write_tables(rows_pm: list[tuple], rows_st: list[tuple]) -> None:
-    """Write region_means_per_mouse.csv and region_stats.csv into OUT."""
+def write_tables(rows_pm: list[dict], rows_st: list[dict]) -> None:
+    """Write region_means_per_mouse.csv and region_stats.csv into OUT.
+
+    Values to four decimals, but the text columns and the two counts.
+    """
     with open(
         OUT / "region_means_per_mouse.csv", "w", newline="", encoding="utf-8"
     ) as fh:
-        w = csv.writer(fh)
-        w.writerow(
-            [
-                "reading",
-                "group",
-                "cohort",
-                "mouse",
-                "structure",
-                "acronym",
-                "division",
-                "n_vox20",
-                "log2_value",
-            ]
-        )
-        w.writerows([r[:8] + (f"{r[8]:.4f}",) for r in rows_pm])
+        w = csv.DictWriter(fh, fieldnames=PER_MOUSE_COLUMNS)
+        w.writeheader()
+        w.writerows([{**r, "log2_value": f"{r['log2_value']:.4f}"} for r in rows_pm])
+    as_is = STATS_COLUMNS[:6]
     with open(OUT / "region_stats.csv", "w", newline="", encoding="utf-8") as fh:
-        w = csv.writer(fh)
-        w.writerow(
+        w = csv.DictWriter(fh, fieldnames=STATS_COLUMNS)
+        w.writeheader()
+        w.writerows(
             [
-                "reading",
-                "structure",
-                "acronym",
-                "division",
-                "n_young",
-                "n_adult",
-                "young_mean_log2",
-                "adult_mean_log2",
-                "diff_log2",
-                "diff_median_log2",
-                "welch_p",
-                "mannwhitney_p",
-                "welch_q_BH",
-                "mannwhitney_q_BH",
-                "diff_log2_P20only",
-                "welch_p_P20only",
-                "diff_log2_P16_single",
-                "naive_minus_rws_log2",
+                {c: r[c] if c in as_is else f"{r[c]:.4f}" for c in STATS_COLUMNS}
+                for r in rows_st
             ]
         )
-        w.writerows([r[:6] + tuple(f"{x:.4f}" for x in r[6:]) for r in rows_st])
 
 
-def print_cortex_table(rows_st: list[tuple]) -> None:
+def print_cortex_table(rows_st: list[dict]) -> None:
     """Print log2(young / adult) of each area in AREAS and reading, with its stars."""
-    st = {(r[0], r[2]): r for r in rows_st}
+    st = {(r["reading"], r["acronym"]): r for r in rows_st}
     print(
         f"\nCORTEX  log2(young / adult), young = {len(GROUPS['young'])} mice (P20 + P16) "
         f"vs {len(ADULTS)} adults "
@@ -547,10 +569,15 @@ def print_cortex_table(rows_st: list[tuple]) -> None:
                 continue
 
             # stars from the rank-sum p
-            star = "**" if r[11] < 0.01 else ("*" if r[11] < 0.05 else "")
-            cells.append(f"{r[8]:+7.2f}{star:3s}")
+            star = stars(r["mannwhitney_p"])
+            cells.append(f"{r['diff_log2']:+7.2f}{star:3s}")
         r = st.get(("cref", a))
-        tail = f"{r[14]:+9.2f} {r[16]:+7.2f} {r[17]:+10.2f}" if r else ""
+        tail = ""
+        if r:
+            tail = (
+                f"{r['diff_log2_P20only']:+9.2f} {r['diff_log2_P16_single']:+7.2f} "
+                f"{r['naive_minus_rws_log2']:+10.2f}"
+            )
         print(f"  {a:9s} " + " ".join(cells) + " " + tail)
 
 
@@ -652,7 +679,7 @@ def draw_divide(ax: plt.Axes, lo: float, hi: float) -> None:
 
 
 def plot_regions(
-    rows_st: list[tuple],
+    rows_st: list[dict],
     by_acro: dict[str, str],
     per: dict[str, dict],
     norm: dict[str, tuple[float, float]],
@@ -661,10 +688,7 @@ def plot_regions(
     """Draw region_plot.png: a panel per reading, a dot per mouse in each of AREAS."""
     # every mouse a dot of the same size, the P16 brain included; the bar is the
     # group median, to match the rank-sum test that sets the stars
-    star_of = {
-        (r[0], r[2]): ("**" if r[11] < 0.01 else ("*" if r[11] < 0.05 else ""))
-        for r in rows_st
-    }
+    star_of = {(r["reading"], r["acronym"]): stars(r["mannwhitney_p"]) for r in rows_st}
     ylab = {
         "ratio": "log2  nano / auto",
         "sepratio": "log2  nano / SEP",

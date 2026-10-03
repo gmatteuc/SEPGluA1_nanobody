@@ -250,8 +250,9 @@ def control_c_mice(
         for b in ADULTS[i + 1 :]
     ]
 
-    # the mouse whose leftover agrees least, on average, with the others
-    worst = min(
+    # the mouse whose leftover agrees least, on average, with the others (the
+    # first by name on a tie)
+    worst_rho, worst = min(
         (
             float(
                 np.mean([spearmanr(per[m], per[o]).statistic for o in ADULTS if o != m])
@@ -264,7 +265,7 @@ def control_c_mice(
         f"   each mouse against each other mouse: median rho {np.median(pairs):+.3f}, "
         f"range {min(pairs):+.3f} to {max(pairs):+.3f}"
     )
-    print(f"   least typical animal: {worst[1]} at {worst[0]:+.3f} mean agreement")
+    print(f"   least typical animal: {worst} at {worst_rho:+.3f} mean agreement")
     if min(pairs) < BEYOND_CONTROLS["pair_rho"]:
         verdict = "one animal may be carrying it -- LOOK CLOSER"
     else:
@@ -360,15 +361,15 @@ def control_f_gene_space(
     y: np.ndarray,
     ceiling: float,
     splits: list[tuple[list[int], list[int]]],
-) -> tuple[dict[str, str], list[tuple[int, float, float]], int]:
+) -> tuple[dict[str, str], list[dict[str, float]], int]:
     """Control F, the strongest: any combination of the panel's genes may try.
 
     The genes measured in every structure are reduced to principal components;
     models of 1 to beyond_controls.max_pcs components are scored by
     cross-validation, and the
     leftover of the best is tested for replication. Returns the verdict row, the
-    (components, fitted R2, cross-validated R2) curve and the best number of
-    components.
+    curve (per number of components, n_components, r2 fitted and cv_r2
+    cross-validated) and the best number of components.
     """
     print("\nF  is it our choice of covariates? (give the model all 390 genes)")
     genes = sorted(g for g in expr if all(s in expr[g] for s in structures))
@@ -379,8 +380,9 @@ def control_f_gene_space(
     curve = []
     for k in range(1, BEYOND_CONTROLS["max_pcs"] + 1):
         pcs = [vt[i] for i in range(k)]
-        curve.append((k, r_squared(y, pcs), cv_r2(y, pcs)))
-    best_k, _, best_cv = max(curve, key=lambda t: t[2])
+        curve.append(dict(n_components=k, r2=r_squared(y, pcs), cv_r2=cv_r2(y, pcs)))
+    best = max(curve, key=lambda c: c["cv_r2"])
+    best_k, best_cv = best["n_components"], best["cv_r2"]
     pcs = [vt[i] for i in range(best_k)]
     rep = replication(nano, structures, pcs, splits)
     print(
@@ -418,12 +420,13 @@ def control_g_readings(
     auto: dict[str, dict[str, float]],
     structures: list[str],
     splits: list[tuple[list[int], list[int]]],
-) -> tuple[dict[str, str], list[tuple[str, float, float, float]]]:
+) -> tuple[dict[str, str], list[dict]]:
     """Control G: whether any of this is specific to zref.
 
     The same covariates, ceiling and replication for each reading measured in
-    every structure. Returns the verdict row and, per reading, (reading, R2 of
-    the covariates, the map's replication, the leftover's replication).
+    every structure. Returns the verdict row and, per reading, a row of the R2 of
+    the covariates (r2), the map's replication (map_replication) and the
+    leftover's (leftover_replication).
     """
     print("\nG  is it zref? (the same test on every reading)")
     out = []
@@ -450,12 +453,21 @@ def control_g_readings(
             )
         )
         rep = replication(per, structures, xs, splits)
-        out.append((reading, r_squared(y, xs), raw, rep))
-        print(
-            f"   {reading:9s} covariates explain R2 {out[-1][1]:.3f}; map replicates "
-            f"{raw:.3f}, leftover {rep:.3f}"
+        out.append(
+            dict(
+                reading=reading,
+                r2=r_squared(y, xs),
+                map_replication=raw,
+                leftover_replication=rep,
+            )
         )
-    agree = all(r > BEYOND_CONTROLS["readings_replication"] for _, _, _, r in out)
+        print(
+            f"   {reading:9s} covariates explain R2 {out[-1]['r2']:.3f}; "
+            f"map replicates {raw:.3f}, leftover {rep:.3f}"
+        )
+    agree = all(
+        r["leftover_replication"] > BEYOND_CONTROLS["readings_replication"] for r in out
+    )
     if agree:
         verdict = "the leftover replicates under every reading"
     else:
@@ -464,7 +476,9 @@ def control_g_readings(
     return (
         dict(
             control="G reading choice",
-            number="; ".join(f"{r} {rep:.2f}" for r, _, _, rep in out),
+            number="; ".join(
+                f"{r['reading']} {r['leftover_replication']:.2f}" for r in out
+            ),
             verdict="pass" if agree else "CHECK",
         ),
         out,
@@ -537,7 +551,7 @@ def figure_artefacts(
 
 
 def figure_model_space(
-    curve: list[tuple[int, float, float]],
+    curve: list[dict[str, float]],
     best_k: int,
     ceiling: float,
     cubic: float,
@@ -545,9 +559,11 @@ def figure_model_space(
 ) -> None:
     """Draw controls F and E: the gene-space curve, and bending further."""
     fig, axes = plt.subplots(1, 2, figsize=(11.0, 4.2))
-    ks = [c[0] for c in curve]
-    axes[0].plot(ks, [c[1] for c in curve], color="0.6", lw=1.5, label="fitted")
-    axes[0].plot(ks, [c[2] for c in curve], color=RED, lw=1.8, label="cross-validated")
+    ks = [c["n_components"] for c in curve]
+    axes[0].plot(ks, [c["r2"] for c in curve], color="0.6", lw=1.5, label="fitted")
+    axes[0].plot(
+        ks, [c["cv_r2"] for c in curve], color=RED, lw=1.8, label="cross-validated"
+    )
     axes[0].axhline(ceiling**2, color="0.3", ls="--", lw=1.2)
     axes[0].annotate(
         "ceiling", (ks[-1], ceiling**2), fontsize=7.5, ha="right", va="bottom"
@@ -582,14 +598,14 @@ def figure_model_space(
     save(fig, "fig5_model_space.png")
 
 
-def figure_readings(rows: list[tuple[str, float, float, float]]) -> None:
+def figure_readings(rows: list[dict]) -> None:
     """Draw control G: per reading, the map's and the leftover's replication, and R2."""
     fig, ax = plt.subplots(figsize=(7.0, 4.0))
-    labels = [r[0] for r in rows]
+    labels = [r["reading"] for r in rows]
     x = np.arange(len(rows))
     ax.bar(
         x - 0.22,
-        [r[2] for r in rows],
+        [r["map_replication"] for r in rows],
         width=0.2,
         color="0.55",
         edgecolor="0.25",
@@ -598,7 +614,7 @@ def figure_readings(rows: list[tuple[str, float, float, float]]) -> None:
     )
     ax.bar(
         x,
-        [r[3] for r in rows],
+        [r["leftover_replication"] for r in rows],
         width=0.2,
         color=RED,
         edgecolor="0.25",
@@ -607,7 +623,7 @@ def figure_readings(rows: list[tuple[str, float, float, float]]) -> None:
     )
     ax.bar(
         x + 0.22,
-        [r[1] for r in rows],
+        [r["r2"] for r in rows],
         width=0.2,
         color="0.8",
         edgecolor="0.25",
