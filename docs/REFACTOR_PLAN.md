@@ -1111,6 +1111,26 @@ The style pass will add to this list.
   missing sepratio voxels as zero. Open, no commit: P7bis smoothing sets
   voxels outside the tissue to 0, not NaN, so the zeros enter the group
   means of the approved December 2025 comparison.
+- **3 Oct, Giulio's answers to the held fixes** (`G:\sep_refactor\MORNING_REPORT.md`):
+  yes to 1-9 and 11-21, no to 10 (the automatic annotation stays on the GPU:
+  speed matters more than exact repeatability). With them: 1 also takes
+  "brain-unassigned" and "unassigned" out of subref's reference; 9 checks the
+  whole surprise-bar region list for other assembly errors; 11 also selects
+  the behavior mice by name; 15 gets a short title saying what the ratio
+  panel's zero means. New fixes, now: 23 P7bis smoothing NaN-aware (changes
+  the approved December comparison: measured on the S6 inputs, the S1
+  result reported before and after); 24 the video reliability t by exact
+  per-mouse folding; 25 NaN-aware region sums ("every time we can we should
+  be NaN aware"); 26 P4 register sets its grid explicitly; 27: the sections
+  are not cleared (docstrings corrected), test_backward_compat's young count
+  not pinned, explore_czi_G's SizeS on adult files, check_demba_to_allen's
+  helpers out of `tmp\`, one colour convention for the ratio video, printed
+  conclusions that follow the numbers (concise). Later: 22 (P2's slices with
+  too few reference pixels: a guard, to discuss), output file names that
+  record their settings (ROADMAP: renaming outputs breaks the readers of
+  existing data). MG904 is P22 (the age in a raw folder's name is the
+  mouse's age); the grant figure only grouped it with the P20 brains, as
+  Sami asked.
 - **New order** (Giulio, 2 Oct): merge first, new science after. Step 7's
   kind C and the step 8 fixes go in one batch with one set of reruns (a fix
   that changes production numbers still waits for Giulio); then step 10's
