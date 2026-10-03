@@ -1,5 +1,7 @@
 # Adult nano characterisation and the ISH gene comparison — design
 
+This file describes the code before step 7 of the refactor (`v2_*.py` scripts, constants in the code, panels chosen by environment variable); the current names are in [refactor_name_map.csv](refactor_name_map.csv), the run order in the headers of `mapping/run_*.py`, and the constants in `mapping/settings.toml`.
+
 **Status: design agreed 25 Sep 2026, implementation starting.**
 This document is the running record of *what we decided and why*, plus a map of the
 pipeline. Update it as steps land; if the code and this file disagree, the file is wrong
@@ -215,7 +217,7 @@ no denominators anywhere — `v2_sep_channel_check.py`, figure `sep_channel_chec
 | nano ~ autofluorescence | +0.257 ± 0.110 |
 | against Gria1: nano / autofluo / SEP / SEP−autofluo | +0.604 / +0.232 / +0.299 / +0.120 |
 
-**In this fixed, cleared tissue the green channel is mostly autofluorescence.** It varies
+**In this fixed tissue the green channel is mostly autofluorescence.** It varies
 less across the brain than the autofluorescence channel does, and it tracks it at 0.79 in
 every one of the ten brains while nano tracks it at 0.26. Subtracting the autofluorescence
 component linearly leaves a residual that correlates with Gria1 at only +0.12.
@@ -380,7 +382,7 @@ unmatched comparison would partly measure which set contains louder genes.
 
 | contrast (zref) | localisation | control | difference | p |
 |---|---|---|---|---|
-| partial ρ, expression-matched | +0.139 (84) | +0.149 (84) | **−0.010** | 0.74 |
+| partial ρ, expression-matched | +0.139 (84) | +0.149 (84) | **−0.010** | 0.74 (0.75 after fix 5 of step 8: each permutation test gets its own generator, a move within Monte Carlo error) |
 | partial ρ, all controls | +0.139 (84) | +0.123 (300) | +0.016 | 0.65 |
 | plain ρ, before partialling | +0.390 | +0.379 | +0.011 | 0.89 |
 | partial ρ, reliability ≥ 0.3 only | 45 genes | 39 genes | −0.004 | 0.91 |
@@ -388,7 +390,7 @@ unmatched comparison would partly measure which set contains louder genes.
 **Sensitivity, so the null is interpretable**: a difference of **±0.062** would have been
 detected at p < 0.05; the observed is 0.16 of that. **Positive control**: the same
 machinery, on control genes split at their median reliability, finds |ρ| 0.509 against
-0.354 — difference **+0.155, p = 0.0007**. So the test detects a real effect of that size
+0.354 — difference **+0.155, p = 0.0007** (0.0006 after fix 5). So the test detects a real effect of that size
 with these sample sizes and does not detect this one.
 
 **AMPAR localisation genes, as a class, explain no more of the adult nano map than

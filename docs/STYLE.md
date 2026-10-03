@@ -1,9 +1,8 @@
 # Code style
 
 Reference for all code in this repository, MATLAB and Python. New code
-follows it; old code is brought in line by the style pass, step 7 of
-[REFACTOR_PLAN.md](REFACTOR_PLAN.md), whose procedure is in
-[STYLE_PASS.md](STYLE_PASS.md) while the step runs.
+follows it; the code that existed was brought in line by the style pass,
+step 7 of [REFACTOR_PLAN.md](REFACTOR_PLAN.md).
 
 Shared rules come first. The MATLAB half is the imaging repository's guide
 (`D:\dendrites\code\docs\STYLE.md`) adapted (Y6); the Python half quotes two
@@ -20,7 +19,9 @@ wins unless a project rule applies (table at the end of the MATLAB half).
 | `mapping/run_compare.py` | a Python run script: header with the run order, `main()` |
 | `mapping/sepmap/young_vs_adult/compare.py` | a package module: docstring with the method, constants, docstrings |
 
-Their comments and layout are final; STYLE_PASS.md lists the code not to copy.
+They are in final style, with one departure: `compare.py`, like every
+analysis module of the Python route, still draws its own figures, which new
+code puts in a plotting module (Python, Pipelines and run scripts).
 
 ## Shared rules
 
@@ -101,32 +102,41 @@ Each is defined in one place; never copy a value into a script.
   A number someone could reasonably choose differently is a parameter. One fixed
   by the method stays in the code, with a comment saying what it is (`0.6745`
   turns a median absolute deviation into an SD); a figure's layout stays too.
-- Colours: the values under Figures, copied exactly (into a MATLAB script's
-  settings, or where Python draws) until one palette holds them.
+- Colours: `common/sep_palette.m` in MATLAB (`sep_palette('nano')`,
+  `sep_palette('difference')`; `help sep_palette` lists the names) and
+  `mapping/sepmap/plotting.py` in Python (`GROUP_COLOURS`, `NO_DATA_GREY`,
+  `hot_cut()`), with the values under Figures. A new colour goes into the
+  palette of its language, never into a script.
 
 ### Figures
 
 | what | colormap |
 |---|---|
-| intensity (nano, autofluorescence, a reading) | hot |
-| atlas, anatomy, raw images | gray |
-| a difference (young minus adult, control against experimental, t maps) | blue-red, symmetric limits, zero in the middle: `get_color2color_colormap([0 0 1], [1 0 0])`, `RdBu_r` |
+| intensity (nano, autofluorescence, a reading) | hot: `sep_palette('intensity')`, `plotting.hot_cut()` |
+| atlas, anatomy, raw images | gray: `sep_palette('anatomy')` |
+| a difference (young minus adult, control against experimental, t maps) | blue-red, symmetric limits, zero in the middle: `sep_palette('difference')`, `RdBu_r` |
 | a signed position within a brain (zref) | `PuOr_r`, purple low, so blue-red keeps meaning a difference |
 | counts of brains (n maps) | magma |
 | coverage lines | plasma |
 
 - Never parula; jet or turbo only when asked for, into a subfolder of their
   own (`run_closeup --cmap`), and a difference stays blue-red.
-- No data is flat grey `#bfbfbf`, which no data colormap produces. In the
-  young-against-adult maps hot stops at 0.82 of its range, never reaching white.
+- No data is flat grey `#bfbfbf` (`plotting.NO_DATA_GREY`), which no data
+  colormap produces. In the young-against-adult maps hot stops at 0.82 of its
+  range, never reaching white (`plotting.hot_cut()`).
 - Bars of a value per structure across mice: the height is the value, the
   colour its reliability (t, clamped) in grey, darker for more reliable, never
-  pure white. Bars that compare categories take palette colours.
-- Palette: nano `[0.95 0.55 0.10]`, autofluorescence `[0.95 0.85 0.20]`,
-  their per-mouse dots `[0.65 0.30 0.00]` and `[0.70 0.60 0.00]`, lines joining
-  paired mice `[0.6 0.6 0.6]`; groups young `#c0392b`, naive `#555555`, rws
-  `#9a9a9a`. New colours extend this orange, yellow, blue, red and grey family:
-  no green, pink or purple outside the colormaps above.
+  pure white (`sep_palette('bars')`). Bars that compare categories take
+  palette colours.
+- Palette (`sep_palette`; the groups also in `plotting.py`): nano
+  `[0.95 0.55 0.10]`, autofluorescence `[0.95 0.85 0.20]`, their per-mouse dots
+  `[0.65 0.30 0.00]` and `[0.70 0.60 0.00]`, lines joining paired mice
+  `[0.6 0.6 0.6]`; groups young `#c0392b`, naive `#555555`, rws `#9a9a9a`; the
+  plasticity comparison's control and experimental groups, MATLAB's default
+  blue and orange (`'control'`, `'experimental'`, darker for their means); the
+  receptor subunits dark blue `#1f3b73` (`plotting.DARK_BLUE`). New colours
+  extend this orange, yellow, blue, red and grey family: no green, pink or
+  purple outside the colormaps above.
 - Scatter plots of many structures: 35-point dots, no edge, alpha 0.85.
 - Counts in titles are computed, never typed. Coronal planes are drawn dorsal
   up, (DV, ML), never transposed. White background, except image panels.
@@ -240,7 +250,7 @@ Every file has one, local functions included: sentence case, short.
 | short `if` | on one line | imaging: three lines |
 | numbers in the code | every configurable value at the top | earlier, now a shared rule |
 | path setup | `%% Add paths` in each driver (imaging: `setup_paths`) | neither: `sep_setup_paths` once per session |
-| figures | `.png` and `.fig`; hot, gray, blue-red, grey bars; RGB triplets in each script (imaging: `save_fig`, `condition_color`) | earlier (project rules), plus `PuOr_r`, magma, plasma; one palette function later |
+| figures | `.png` and `.fig`; hot, gray, blue-red, grey bars; RGB triplets in each script (imaging: `save_fig`, `condition_color`) | earlier (project rules), plus `PuOr_r`, magma, plasma; the colours from one palette function, `common/sep_palette.m` |
 | replaced files | overwritten (imaging: moved to `superseded/`) | earlier: no `set_aside_file` here |
 
 ## Python
@@ -260,7 +270,11 @@ file follows it, `tools/` included (Y5).
   analysis, laid out the same way (`sepmap/volumes/`, `young_vs_adult/`).
 - `config.py` loads the settings and holds the paths. `plotting.py` holds the
   palette, the style, the save function and every figure function (one per
-  sub-package with figures); the modules that compute draw nothing.
+  sub-package with figures); the modules that compute draw nothing. In the
+  Python route, `mapping/sepmap/plotting.py` holds the palette, the
+  colormaps, `save_figure` and the drawing several modules share (the coronal
+  frame); the figure functions of each analysis are still in its module, and
+  new figure code goes into a plotting module.
 - Only run scripts have an `if __name__ == "__main__":` block. `__init__.py`
   is empty or a one-line docstring.
 - Notebooks are optional, numbered (`01_exploration.ipynb`), and only call the
@@ -413,8 +427,17 @@ def fit_all(matrix, return_flags=False):
   top, a `set_style()` called by the run script and every notebook, the save
   function and the figure functions: `plot_<what>(data, ..., save=None)`
   returns the figure, or with `ax=None` draws one panel and returns the axes.
+  `mapping/sepmap/plotting.py` has the constants (`RED`, `DARK_GREY`,
+  `MID_GREY`, `DARK_BLUE`, `NO_DATA_GREY`, `GROUP_COLOURS`), the colormaps
+  (`hot_cut`, `transparent_bad`), the save function and `tidy` for the axes;
+  it has no `set_style()` yet.
 - The save function closes the figure after `fig.savefig(save, dpi=150,
   bbox_inches="tight")`; new figures use its dpi, existing ones keep theirs.
+  The route's `plotting.save_figure(fig, path, dpi)` writes the PNG and, by
+  default, an EPS beside it with the image layers rasterised (PostScript has
+  no transparency), and `<name>_new.png` when the PNG is open in a viewer. It
+  leaves the figure open, because a video draws into the figure of its still
+  again; the caller closes it.
 - Titles and labels lowercase, names and symbols as written, the unit in
   parentheses (`"peak amplitude (uV)"`), counts computed
   (`f"recorded electrodes (n = {len(mapping)})"`). New figure files are

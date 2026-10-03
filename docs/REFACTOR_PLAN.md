@@ -142,7 +142,11 @@ Decided on 30 Sep (Giulio):
   what it means here. The PDFs stay in `data\ref_papers\`.
 - **Y1.** No comment above a function repeating its docstring.
 - **Y2.** Double quotes everywhere, existing code included, for consistency.
-- **Y4.** One cohort table, read by MATLAB and Python alike.
+- **Y4.** One cohort table, read by MATLAB and Python alike. Done in step 8,
+  as a fix with a before/after check, not in step 5: the Python route stacks
+  its brains in its own order (young P20, P16, P22, naive, RWS) and the
+  MATLAB registry in the legacy order, so a shared table either keeps a
+  per-route order or changes cohort means in their last bits.
 - **Y5.** The two Python verification tools are restyled.
 - **Y6.** The MATLAB half of the style guide is the imaging repository's
   `docs/STYLE.md`, adapted (paths through `get_paths` and `SEP_DATA_ROOT`, the
@@ -533,10 +537,13 @@ with historical outputs inform rather than decide.
 ### What is compared with what
 
 - **Pass criterion.** Where the old code is deterministic, new must equal old:
-  tables and `.mat` values exactly, figures up to renderer noise. Registration
-  is not deterministic (elastix's sampler, `bsplineRegisterSlice.m:15`): new
-  against old must differ no more than old against old, on the voxelwise
-  correlation of the registered volumes per channel and on `errall`.
+  tables and `.mat` values exactly, figures up to renderer noise. Where it is
+  not, new against old must differ no more than old against old. Measured in
+  step 4: the registration of MG914 came out identical voxel for voxel in two
+  old runs and the new one, despite elastix's unseeded sampler; the automatic
+  proposal on the GPU is not reproducible (see the bug list), and two
+  Python outputs depend on string hashing or file dates (see the step-4
+  check below).
 - **Quick and full checks.** A quick check after each commit (the plasticity
   chain on the small set without videos, one brain through the Python
   per-mouse steps); the full small-set check at the end of each step, a few
@@ -845,6 +852,72 @@ geometry; record which version processed which cohort.
 - `v2_ish_compare` skips the old-against-new check silently when P9's summary
   is missing (to fail instead).
 - `v2_video.MIN_N` has no `young_P22` key (KeyError; fixed here, not in A10).
+- `v2_ish_words` gives slightly different bootstrap intervals (`gap_lo`,
+  `gap_hi`) from run to run: one random generator is shared across features in
+  the order they were collected from Python sets, which changes with each
+  run's string hashing (step 4 check: medians 0.004 apart, at most 0.19; every
+  feature, p and q identical). Iterate the features sorted.
+- The automatic annotation's matcher is not reproducible on the GPU: two runs
+  of the same code on MG914 moved the proposed points by a median of 0.07 px,
+  at most 13 px (atlas landmarks identical). Ask PyTorch for deterministic
+  algorithms in the engine; the proposals are reviewed by hand anyway.
+- `run_group_differences` (P7bis): with `perform_area_based_analysis_coarse`
+  on and `perform_area_based_analysis_fine` off, the coarse block reads
+  `half_width` before anything sets it. Both are off in production. Its
+  comment beside the behavior subset still says "subselect 3 of ... 4".
+- **First of step 8, a safety bug.** `run_order_slices` 'apply':
+  LightSuite's `generateReordedVolume` takes the decisions file,
+  `volume_for_ordering.tiff` and its output `volume_ordered.tiff` from the
+  absolute `procpath` and `volorder` that P1 stored in `sliceinfo.mat`, not
+  from the cohort folder. On a copied tree it reads and overwrites the
+  original folder, which the data-root guard does not see (or fails if that
+  drive is absent); if the decisions file is missing there it keeps the
+  original order without a word. Fix: set `sliceinfo.procpath` and
+  `sliceinfo.volorder` from the cohort folder before the call, as
+  `register_to_atlas` already does for `opts.procpath`. Until then 'apply'
+  is never run on a copied mouse folder (its help says so).
+- `compare.draw_figures` (young against adult) titles each slice
+  `plane {zc * 2 + CCF_AP0}`, which reads 180 planes too high (526 to 1074
+  instead of 346 to 894 at 10 um): every figure shown with those titles
+  carries wrong plane numbers; the maps themselves are right.
+- P8 colours its reliability bars with the first 200 levels of
+  `flipud(gray(256))`; its comment says this avoids white at the low end, but
+  level 1 is white and the dark end is cut, so the least reliable structures
+  are white bars on white. P8 retires; A4 must not copy the scale.
+- `ArtifactAnnotator` (P3's GUI, unchanged since before the refactor) breaks
+  when Esc is pressed again while its close dialog is open or the window is
+  slow: the queued key presses run the close handler on a deleted figure
+  (`uiresume(src)` on an invalid object), and a second launch can delete its
+  window before `uiwait`. Seen in the step 6 hand check (2 Oct). Not fixed:
+  P3 has not been used in production, and Giulio would rather replace the
+  annotator with something better or retire it (ROADMAP).
+- The annotate mode's "the automatic annotation is not installed" line is
+  easy to miss among the start-up messages (Giulio, 2 Oct): make it a
+  `warning` or a banner.
+- `run_nano_equalisation` (P2bis) stops when `save_results` is false:
+  `timestamp` is set only in the save branch and the first video needs it.
+  Its two videos per mouse cannot be switched off. It also saves the
+  inter-quartile range with the wrong sign (25th minus 75th percentile) as
+  `stats_intensity_iqr_*`; nothing reads it.
+- `run_residual_correction` (P2) stops when `doPlotBkg` is false
+  (`select_reference_pixels` then never assigns its figure output), and
+  loads the atlas annotation without using it.
+- `explore_czi_G` reads `globalMeta` before setting it; the error is caught,
+  so the first file reports no scene information and later files the
+  previous file's.
+- `add_sep_channel.m:279`: since step 4 its panel title names
+  `run_register_to_atlas`, and the TeX interpreter draws the underscores as
+  subscripts; give the title `'Interpreter', 'none'`. Also in the register
+  code, an `annotated{end+1}` keeps the script form `%#ok<SAGROW>`, which a
+  function does not honour (style pass).
+- `v2_adult_arms` stops at its self-check before drawing
+  `arms_consistency.png`, so the figure that would show a drift is missing
+  exactly when the check fails (the table is written).
+- `v2_adult_arms`' consistency check against `v2_region_plot` compares values
+  stored to 4 decimals with `<=` half the last digit (5.0e-05) and no margin for
+  floating-point error, so it fails when a difference lands exactly on the
+  bound (5.000e-05 in the step-3 reference run); the table is written before
+  it stops.
 - `v2_video`'s reliability t uses n = max(nL, nR), which overstates n when the
   two hemispheres come from different mice.
 - The `ratio` reading's level depends on exposure: the zero line in
@@ -865,3 +938,207 @@ geometry; record which version processed which cohort.
   `bk/LightSuite.txt` (copied into the README in step 4).
 
 The style pass will add to this list.
+
+## Progress
+
+- **30 Sep, step 0** (`6a29c37`, `c2e4cdc`, `8f16f14` on `main`): the data-root
+  variable and its guards in both languages, the P4 align guard, the
+  verification tools, frozen environments, the plan documents.
+- **30 Sep, step 2**: snapshot refreshed (2,156 files, 7.2 GB, nothing
+  deleted); tags `refactor-start` (`c2e4cdc`) and `grant-2026-09` (`04c0484`)
+  pushed; check trees `G:\sep_refactor\ref` and `G:\sep_refactor\check`.
+- **1 Oct, step 3**: the reference run of the old code on the small set, all
+  stages. Old code bugs met on the way: `v2_adult_arms`' self-check (in the
+  bug list).
+- **1 Oct, S6, informative**: today's P7bis on the inputs of the approved
+  December 2025 figures reproduces them (slab t maps and surprise masks
+  correlate 0.997 to 0.998 for RWS, 0.988 to 0.999 for behavior; individual
+  maps 1.000000; regional bars 0.994 to 0.998). The residue comes from the
+  background masks, which were regenerated since. The S1 increase is there.
+- **1 Oct, step 4** (branch `refactor`: `a50bc66` pure moves, `3a735f0` paths
+  and references, `e37d6bc`, `684ce64`): passed. Code identity shows only the
+  intended files changed; the path test finds no clash. Run on the check tree
+  and compared with the reference:
+  - plasticity chain: every `.mat` and every P7bis output identical; 11
+    diagnostic PNGs differ by 1 or 2 anti-aliasing pixels;
+  - Python route: 817 of 825 files identical, and the same step fails
+    (`v2_adult_arms`); the rest is expected or old-code non-determinism: the
+    `*_scalars.npz` caches store their source's file date, the diagnostics
+    index and sheet 08's title name the renamed scripts, `v2_ish_words`'
+    bootstrap bounds move with string hashing (bug list);
+  - registration of MG914: identical voxel for voxel (old, old and new), its
+    transform file identical; the automatic proposal moves by a median of
+    0.06 px between old and new, less than between two runs of the old code
+    on the GPU (0.07 px median, 13 px at most; bug list).
+- **1 Oct, step 5, plasticity chain** (`ca5b2f0` pure moves, `a984279`):
+  `run_collect_by_group`, `run_normalise_groups` and `run_group_differences`
+  keep their settings and call `collect_by_group`, `normalise_groups` and
+  `group_differences` in `group_comparison/pipeline/`, whose bodies are the old
+  scripts' bodies (parse trees identical); P7bis's behavior subset is the
+  setting `behavior_subset`. Fresh run on the check tree against the
+  reference: all 12 `.mat` files and every P7bis output identical, 7
+  diagnostic PNGs differ by 1 or 2 anti-aliasing pixels; `sep_test_path`
+  passes. The Python stage now pins `PYTHONHASHSEED=0`, and the reference's
+  `v2_ish_words` outputs were regenerated with it by the old code (identical
+  on two runs; the unseeded originals are kept in `G:\sep_refactor\ref_unseeded`).
+- **1 Oct, step 5, Python route** (`add8135` pure moves, `f473cb5`): the
+  `v2_*.py` scripts are the package `mapping/sepmap/` (`volumes`,
+  `young_vs_adult`, `adult`, `ish`, `diagnostics`, `config`), with one
+  `mapping/run_<step>.py` per step and `mapping/settings.toml`. In it for
+  now: the constants two modules kept in step by hand (all copies were equal)
+  and the two ISH passes, chosen with `--panel targets|ontology` instead of
+  `V2_ISH_PANEL`/`V2_ISH_TABLE` (refused if set). Each run prints the
+  settings in force. Reviewed from three sides before the run (one minor
+  finding). Full route on the check tree against the reference, 120 min: the
+  same step fails (`run_adult_arms`, the known self-check); 259 output files
+  identical; the 8 that differ were each checked to differ only where a
+  script is named (diagnostics README, sheet 08 and `slices_sepratio`
+  titles) or in the scalars cache's source date. Every other parameter is
+  still a constant in its module, and `matplotlib.use` is still in the
+  modules (style pass).
+- **1 Oct, step 5, registration** (`89a24c4` pure moves, `1d240a0`):
+  `run_register_to_atlas` and `run_add_sep_channel` keep their settings and
+  call `register_to_atlas` and `add_sep_channel` in `registration/pipeline/`
+  (parse trees identical to the old bodies). Four variables of the align
+  branch come from `load` without an output; none is a function on the path,
+  and the function's help says so for step 6. `verify_demba_setup` reads the
+  moved settings code. Reviewed for the GUI modes, which cannot run headless:
+  their windows keep their own state, nothing reads the old script's
+  variables. MG914 on the check tree against the reference: registered
+  volumes identical page for page, `transform_params.mat` the same, the
+  automatic proposal within the old-against-old spread (median 0.06 px).
+  Still to try by hand, after step 6 changes the GUI: annotate mode on MG914
+  in the check tree (the step 6 checklist).
+- **1 Oct, step 5, preprocessing** (`6ed2472` pure moves, `15c2f2e`): the
+  six drivers (`run_copy_raw_data`, `run_extract_and_center`,
+  `run_order_slices`, `run_residual_correction`, `run_nano_equalisation`,
+  `run_annotate_artifacts`) keep their settings and call one function each
+  in `preprocessing/pipeline/` (parse trees identical to the old bodies);
+  `explore_czi_G`'s folder is a setting at its top. P2 and P2bis run on
+  MG914 alone, old code against new on identical inputs in
+  `G:\sep_refactor\pre\{ref,check}`: all 7 `.mat` files, the 4 videos and 94
+  of 102 figures identical, 8 per-slice PNGs differ by 1 or 2 anti-aliasing
+  pixels. P0 and P1 by code identity and review; the two GUIs (slice order,
+  artifacts) reviewed in the code: each blocks until its window closes and
+  keeps its own state. The QC scripts and the tools `make_ordering_volume`
+  and `make_atlas_reference_sheet` stay scripts (hand-run audits; headers
+  in the style pass). To try by hand with the step 6 checklist: both GUIs on
+  `G:\sep_refactor\pre\gui\data` (no `sliceinfo.mat` there on purpose, so
+  'apply' cannot run).
+- **1 Oct, step 6, the big files** (`24c41cf`, `e88475b`, `d67d8a2`,
+  `5e67ade`, `0a8fce9`, `510bc6a`, `586430f`): `group_differences`,
+  `normalise_groups`, `residual_correction`, `nano_equalisation` and
+  `register_to_atlas` are a short main function of `%%` steps calling local
+  functions with explicit inputs and outputs; `region_plot` and
+  `region_groups` have a short `main()`. Every old statement is still there
+  once, unchanged (checked per statement). Split in four worktrees, reviewed
+  (no findings), checked one at a time on the check trees: plasticity 135
+  files, every `.mat`, `.fig` and P7bis output identical, 10 PNGs differ by
+  1 to 3 anti-aliasing pixels; P2/P2bis on MG914 identical apart from 9 such
+  PNGs; MG914's registration identical page for page, the proposal within
+  the GPU spread; the Python steps and their readers, 72 files identical
+  (3 EPS differ in their creation date). Not run: the angle, annotate and
+  align modes (their code moved into `load_regopts`, `set_cutting_angle`,
+  `annotate_control_points`, `refuse_annotated_mice`, `bridge_preprocessing`
+  and `align_slices`, statements unchanged), for the hand check.
+- **1 Oct, step 6, the annotation GUI** (`303c566`, `d8356d6`, `b83da33`,
+  `dfef3b5`): the r key and landmark_refine are retired (L3, LS8; files in
+  `archive/`, P4 annotate no longer starts the worker). The automatic
+  annotation left LightSuite's GUI file (-505 lines) for
+  `registration/annotation_gui/auto_annotation_plugin.m`, behind one generic
+  hook (LS7: `value = plugin(event, gui_fig, gui_data, value, info)`, events
+  open, key, planes, title, labels, window, edit, save; without a plugin every
+  call hands its value back), with its settings in `annotation_settings.m`.
+  `annotate` passes the plugin when `auto_annotate('check')` finds the
+  engine, otherwise it says so and opens the plain GUI. Checked by driving
+  the old and new GUI headless through the sandbox's drive scripts plus
+  three new ones (hand annotation, reopening a review, save unchanged), with
+  and without the engine: the same files, apart from click times and the
+  GPU proposal's usual spread. Still by hand: `G:\sep_refactor\gui_check\HAND_CHECK.md`.
+  **For the merge (step 11):** move `code\auto_annotation\.venv` to
+  `registration\auto_annotation\.venv` (git does not move ignored files) and
+  run its self-test before the first `annotate`, or annotate opens without
+  the automatic layer; the leftover `code\landmark_refine\.venv` can be
+  deleted (the root `.gitignore` now ignores both).
+- **2 Oct, step 6 hand check** (Giulio, `G:\sep_refactor\gui_check\HAND_CHECK.md`):
+  passed. Annotate mode with the engine (open a reviewed brain; review a
+  proposal with k, u, j, a, U, K, t, p, s), without the engine (plain GUI,
+  points only), the cutting angle (refused with points; set and saved on a
+  copy), the slice order editor (decisions file unchanged) and the artifact
+  annotator (saves; its old close-handler weakness, bug list) all behave as
+  before; every difference in the saved files came from the keys pressed.
+  The `s` key saves only the points, the close dialog also the affine, as
+  in the old GUI.
+- **2 Oct, step 7 decisions** (Giulio): `docs/STYLE.md` and the four
+  reference examples approved, with the seven open choices as recommended:
+  `ruff format`; MATLAB settings stay lower case; `clear all` becomes
+  `clear; clc; close all;` in the drivers, QC scripts, tools and test (kind B);
+  `sep_setup_paths` once per session; `collect_by_group`'s dead code goes in
+  step 8; the structural changes (kind C) are part of step 7, each its own
+  commit checked by a rerun; local variables may be renamed (kind B),
+  saved names, columns and settings keep theirs. The procedure is in
+  `docs/STYLE_PASS.md` (temporary).
+- **2-3 Oct, step 7, kinds A and B** (refactor `742d7b8`): nine groups
+  restyled in parallel worktrees (comments and layout proven code-identical
+  by the identity tools; small code changes in their own commits: `clear all`
+  in the drivers, QC scripts and test, local renames, isort, type hints,
+  `assert` into `raise`), merged, evened out by a consistency pass, the
+  kind A commits in `.git-blame-ignore-revs`. Checks against the reference:
+  plasticity (every `.mat`, `.fig` and P7bis output identical), P2/P2bis on
+  MG914 (identical), MG914's registration and the GUI drive scripts
+  (identical), the Python route (259 of 267 rewritten outputs identical, the
+  8 known differences; sheet 08's longer title also moves its panels by a
+  fraction of a pixel, proven by redrawing it with the old title).
+- **3 Oct (overnight), step 7 kind C and step 8 applied fixes** (refactor
+  `47c252f`): Python: one plotting module, the backend set by the run
+  scripts, duplicate helpers merged, 63 analysis constants in
+  `settings.toml`, `pathlib`, about 25 long functions split, rows read by
+  column name, `build_demba_atlas` on argparse; MATLAB: `common/sep_palette.m`,
+  duplicate helpers merged, long functions split. 49 fixes that change no
+  production output (the `run_order_slices` 'apply' safety fix first; the
+  P2/P2bis/P7bis crash fixes; dead code; the "not installed" warning; the
+  corrected "not permeabilised" header; tool robustness). Checks against the
+  reference all passed (plasticity: every `.mat`, `.fig`, P7bis output
+  identical; P2/P2bis identical; MG914 registration identical, the proposal
+  in the GPU spread; GUI drive scripts the same; Python 259 of 267 identical,
+  the 8 known differences). 21 fixes that change an output wait on
+  `step8-pending` for Giulio, listed in `G:\sep_refactor\MORNING_REPORT.md`
+  and `G:\sep_refactor\FIXES_STEP8.md`; among them two that change results:
+  subref's reference never excluded fiber tracts and ventricles (the
+  exclusion names never matched; fixing it moves the young-adult subref
+  difference by -0.19 log2 and its q < 0.05 structures from 104 to 86; the
+  other readings are unchanged), and the cohort mean counting MG897's 183
+  missing sepratio voxels as zero. Open, no commit: P7bis smoothing sets
+  voxels outside the tissue to 0, not NaN, so the zeros enter the group
+  means of the approved December 2025 comparison.
+- **3 Oct, Giulio's answers to the held fixes** (`G:\sep_refactor\MORNING_REPORT.md`):
+  yes to 1-9 and 11-21, no to 10 (the automatic annotation stays on the GPU:
+  speed matters more than exact repeatability). With them: 1 also takes
+  "brain-unassigned" and "unassigned" out of subref's reference; 9 checks the
+  whole surprise-bar region list for other assembly errors; 11 also selects
+  the behavior mice by name; 15 gets a short title saying what the ratio
+  panel's zero means. New fixes, now: 23 P7bis smoothing NaN-aware (changes
+  the approved December comparison: measured on the S6 inputs, the S1
+  result reported before and after); 24 the video reliability t by exact
+  per-mouse folding; 25 NaN-aware region sums ("every time we can we should
+  be NaN aware"); 26 P4 register sets its grid explicitly; 27: the sections
+  are not cleared (docstrings corrected), test_backward_compat's young count
+  not pinned, explore_czi_G's SizeS on adult files, check_demba_to_allen's
+  helpers out of `tmp\`, one colour convention for the ratio video, printed
+  conclusions that follow the numbers (concise). Later: 22 (P2's slices with
+  too few reference pixels: a guard, to discuss), output file names that
+  record their settings (ROADMAP: renaming outputs breaks the readers of
+  existing data). MG904 is P22 (the age in a raw folder's name is the
+  mouse's age); the grant figure only grouped it with the P20 brains, as
+  Sami asked.
+- **New order** (Giulio, 2 Oct): merge first, new science after. Step 7's
+  kind C and the step 8 fixes go in one batch with one set of reruns (a fix
+  that changes production numbers still waits for Giulio); then step 10's
+  documents and step 11's merge. Step 9 (A1 to A5, then retiring P8 to P10)
+  moves after the merge, as normal project work on the merged code; P8 to
+  P10 stay in place and keep running until A1 to A5 replace them.
+- **For step 10** (Giulio, 2 Oct): the README's cover image is the slice-order
+  montage on Giulio's desktop (`slice_order_montage.png`, 1 Oct), copied to
+  `assets/` and shown on the README's first lines as the imaging repository
+  does (`![...](assets/example.png)`); Giulio can also set it as the GitHub
+  social preview (repository settings).
