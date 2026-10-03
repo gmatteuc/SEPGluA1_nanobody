@@ -78,6 +78,10 @@ ARMS = ("sepauto", "ratio", "sepratio")
 # the two arms young_vs_adult.region_plot also computes, and must agree on
 SHARED = {"ratio": "ratio", "sepratio": "sepratio"}
 
+# that module's table is written to four decimals, so half of its last digit is the
+# most the two can differ by if they compute the same thing
+BOUND = 0.5e-4
+
 
 def mouse_table(
     mouse: str, names: dict[int, str]
@@ -130,18 +134,19 @@ def mouse_table(
     }
 
 
-def check_against_existing(rows: list[dict]) -> dict[str, list[float]]:
+def check_against_existing(rows: list[dict]) -> tuple[dict[str, list[float]], bool]:
     """Check that the two arms young_vs_adult.region_plot also computes are identical.
 
     They are computed here from the same per-mouse files with the same
     arithmetic, so anything above rounding means the two modules have drifted
-    apart and nothing downstream can be trusted; a RuntimeError stops the run
-    then. Returns the absolute differences per arm, or an empty dict when that
-    table does not exist.
+    apart and nothing downstream can be trusted; main stops the run then, after
+    drawing the figure that shows it. Returns the absolute differences per arm
+    (an empty dict when that table does not exist) and whether every one is
+    within BOUND.
     """
     if not EXISTING.exists():
         print("no existing table to check against -- skipped")
-        return {}
+        return {}, True
     ours = {(r["arm"], r["mouse"], r["structure"]): float(r["log2_value"]) for r in rows}
     diffs = defaultdict(list)
     with open(EXISTING, newline="", encoding="utf-8") as fh:
@@ -150,31 +155,26 @@ def check_against_existing(rows: list[dict]) -> dict[str, list[float]]:
             if key in ours:
                 diffs[key[0]].append(abs(ours[key] - float(r["log2_value"])))
 
-    # that table is written to four decimals, so half of the last digit is the
-    # most the two can differ by if they are computing the same thing
-    tol = 0.5e-4
     print(
-        f"\nagainst run_region_plot (bound is {tol:.1e}, half the last digit it stores):"
+        f"\nagainst run_region_plot (bound is {BOUND:.1e}, "
+        "half the last digit it stores):"
     )
     ok = True
     for arm, d in sorted(diffs.items()):
         worst = max(d)
-        ok &= worst <= tol
+        ok &= worst <= BOUND
         print(
             f"  {arm:9s} n = {len(d):5d}   max |difference| = {worst:.3e}   "
-            f"{'agrees' if worst <= tol else 'DRIFTED'}"
+            f"{'agrees' if worst <= BOUND else 'DRIFTED'}"
         )
-    if not ok:
-        raise RuntimeError(
-            "the two scripts no longer compute the same thing -- stop here"
-        )
-    return diffs
+    return diffs, ok
 
 
-def panel_shared(ax: plt.Axes, diffs: dict[str, list[float]]) -> None:
+def panel_shared(ax: plt.Axes, diffs: dict[str, list[float]], ok: bool) -> None:
     """Draw the differences of the shared arms, jittered, on a log axis.
 
-    An exact zero is drawn at 1e-17; each arm's jitter restarts from seed 0.
+    An exact zero is drawn at 1e-17; each arm's jitter restarts from seed 0. The
+    dashed line is the check's bound, and the title its verdict (`ok`).
     """
     if diffs:
         for i, (arm, d) in enumerate(sorted(diffs.items())):
@@ -189,9 +189,13 @@ def panel_shared(ax: plt.Axes, diffs: dict[str, list[float]]) -> None:
         ax.set_yscale("log")
         ax.set_xticks(range(len(diffs)))
         ax.set_xticklabels(sorted(diffs), fontsize=8)
-        ax.axhline(1e-9, color=RED, lw=0.8, ls="--")
+        ax.axhline(BOUND, color=RED, lw=0.8, ls="--")
         ax.set_ylabel("|this script - run_region_plot|  (log2 units)", fontsize=8)
-    ax.set_title("the two shared arms agree", fontsize=9)
+    if ok:
+        title = "the two shared arms agree"
+    else:
+        title = "the two shared arms drifted apart"
+    ax.set_title(title, fontsize=9)
 
 
 def panel_jensen_gap(
@@ -243,14 +247,16 @@ def panel_channels(
 
 
 def figure(
-    per: dict[str, dict[str, tuple[int, dict[str, float]]]], diffs: dict[str, list[float]]
+    per: dict[str, dict[str, tuple[int, dict[str, float]]]],
+    diffs: dict[str, list[float]],
+    ok: bool,
 ) -> None:
     """Draw the self-check: the shared arms' agreement and the log-space identity."""
     fig, axes = plt.subplots(1, 3, figsize=(12.6, 3.9))
 
     # the differences of the shared arms; the gap between the arms in log space; the
     # two channels against each other in the first mouse
-    panel_shared(axes[0], diffs)
+    panel_shared(axes[0], diffs, ok)
     panel_jensen_gap(axes[1], per)
     panel_channels(axes[2], per)
 
@@ -298,6 +304,10 @@ def main() -> None:
         writer.writerows(rows)
     print(f"\n{len(rows):,} rows -> {path}")
 
-    # the check stops the run before the figure when the shared arms have drifted
-    diffs = check_against_existing(rows)
-    figure(per, diffs)
+    # the check, drawn before the run stops on a drift, so the figure shows it
+    diffs, ok = check_against_existing(rows)
+    figure(per, diffs, ok)
+    if not ok:
+        raise RuntimeError(
+            "the two scripts no longer compute the same thing -- stop here"
+        )
