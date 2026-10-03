@@ -71,8 +71,8 @@ if strcmp(run_mode, 'align')
     refuse_annotated_mice(cohort);
 end
 
-% the registered volumes come out on the grid sliceinfo.mat's px_atlas sets,
-% which must be every other brain's; checked before any brain is registered
+% the registered volumes go on one grid for every brain (registered_grid_um);
+% what could still put a brain on another is checked before any is registered
 if strcmp(run_mode, 'register')
     check_registered_grid(cohort);
 end
@@ -191,32 +191,39 @@ fprintf('run_register_to_atlas: atlas resolution agrees with local_settings for 
 end
 
 function check_registered_grid(cohort)
-% Stop unless px_atlas in each mouse's sliceinfo.mat is 10, the grid every
-% registered brain is on (a mouse without the file is skipped).
+% Stop unless px_register in each mouse's sliceinfo.mat is twice the registered
+% grid, and name the mice whose px_atlas there differs from the grid (a mouse
+% without the file is skipped).
 
-% sliceinfo.mat's px_atlas, which run_extract_and_center copied from
-% local_settings.txt, sets the grid of volume_registered. Every brain, adult and
-% young, was extracted with 10, and the Python route block-averages that
-% 10 um-sampled grid to 20 um; a young brain extracted again would read 20 from
-% its local_settings.txt (where 'align' needs the DeMBA resolution) and come out
-% on a grid half as fine, without an error
-registered_px = 10;
+% 'register' samples each slice at registered_grid_um (10 um) whatever px_atlas
+% sliceinfo.mat holds: run_extract_and_center copies it from local_settings.txt,
+% where 'align' needs the atlas resolution, so a young brain extracted again
+% holds the DeMBA 20. LightSuite places the slices in 3D on a grid of half the
+% registration voxel, px_register, so the two agree on the 10 um grid that the
+% Python route block-averages to 20 um only with px_register = 20
+registered_px = registered_grid_um();
 for k = 1:numel(cohort)
     sliceinfo_name = fullfile(cohort(k).base_dir, 'lightsuite', 'sliceinfo.mat');
     if ~exist(sliceinfo_name, 'file')
         continue
     end
     S_slice = load(sliceinfo_name, 'sliceinfo');
-    px = S_slice.sliceinfo.px_atlas;
-    if px ~= registered_px
-        error(['run_register_to_atlas: %s has px_atlas = %g in sliceinfo.mat, so ' ...
-               'its registered volumes would be sampled at %g um, not at the %g um ' ...
-               'of every other brain, which the Python route expects.\n  %s'], ...
-               cohort(k).name, px, px, registered_px, sliceinfo_name);
+    px_register = S_slice.sliceinfo.px_register;
+    if px_register ~= 2 * registered_px
+        error(['run_register_to_atlas: %s has px_register = %g in sliceinfo.mat, so ' ...
+               'its registered volumes would be on a %g um grid, not on the %g um ' ...
+               'grid of every other brain, which the Python route expects.\n  %s'], ...
+               cohort(k).name, px_register, px_register / 2, registered_px, ...
+               sliceinfo_name);
+    end
+    px_atlas = S_slice.sliceinfo.px_atlas;
+    if px_atlas ~= registered_px
+        fprintf(['  %s: sliceinfo.mat has px_atlas = %g; registered on the %g um ' ...
+                 'grid all the same.\n'], cohort(k).name, px_atlas, registered_px);
     end
 end
-fprintf(['run_register_to_atlas: every selected mouse registers onto the %g ' ...
-         'um-sampled grid.\n'], registered_px);
+fprintf('run_register_to_atlas: every selected mouse registers onto the %g um grid.\n', ...
+    registered_px);
 end
 
 function refuse_annotated_mice(cohort)
@@ -480,6 +487,10 @@ transformparams = registerSlicesToAtlas(opts); %#ok<NASGU>
 transformparams = load(fullfile(mouse_dir, 'transform_params.mat'));
 S_slice = load(fullfile(mouse_dir, 'sliceinfo.mat'));
 sliceinfo_new = S_slice.sliceinfo;
+
+% the registered grid, set here rather than taken from sliceinfo.mat, so a brain
+% extracted again lands on the grid of every other (registered_grid_um)
+sliceinfo_new.px_atlas    = registered_grid_um();
 sliceinfo_new.channames   = {'DAPI','NANO','AUTO','DIFF','MASK'};
 sliceinfo_new.slicevol    = processed_dir;
 sliceinfo_new.procpath    = mouse_dir;

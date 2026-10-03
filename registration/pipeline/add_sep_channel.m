@@ -320,9 +320,11 @@ end
 % path, and LightSuite stays as the adults were registered with it, so it
 % writes into a working folder and the result is moved into place. sliceinfo is
 % otherwise passed as the 'register' mode of run_register_to_atlas passes it,
-% stale px_atlas and all: the SEP volume must land on volume_registered's grid.
+% with the registered grid in px_atlas: the SEP volume must land on
+% volume_registered's grid.
 makeNewDir(work_dir);
 si = sliceinfo;
+si.px_atlas = registered_grid_um();
 si.channames = {'DAPI', 'SEP'};
 si.procpath = work_dir;
 si.slicevolfin = out_aligned;

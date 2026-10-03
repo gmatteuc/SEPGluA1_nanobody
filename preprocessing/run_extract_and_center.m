@@ -21,9 +21,9 @@
 % the others go on. The extraction is automatic; the order is curated by hand
 % next, in run_order_slices.
 %
-% local_settings.txt also sets px_atlas, which decides the grid of the
-% registered volume: the young brains registered so far were extracted with
-% px_atlas = 10. Check it before extracting a new brain.
+% local_settings.txt also sets px_atlas, which sliceinfo.mat keeps but which
+% does not decide the grid of the registered volume: run_register_to_atlas puts
+% every brain on the 10 um grid (registered_grid_um), provided px_register is 20.
 %
 % Setup: the young brains MG909 to MG914. Run sep_setup_paths first, once per
 % MATLAB session; the code is in pipeline\extract_and_center.m.
