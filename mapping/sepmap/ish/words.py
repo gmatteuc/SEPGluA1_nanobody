@@ -328,16 +328,24 @@ def strip(ax: Axes, rows: list[dict], rho: dict[str, float]) -> None:
 
 
 def figure(terms: list[dict], words: list[dict], rho: dict[str, float]) -> None:
-    """Draw the two bar panels and the contrast; saved as ish_word_enrichment.png."""
+    """Draw the two bar panels and the contrast; saved as ish_word_enrichment.png.
+
+    Not drawn, with a line saying so, when no GO term and no word was tested.
+    """
+    # the features shown, if any
+    n_shown = ISH_WORDS["n_shown"]
+    shown = terms[:n_shown] + words[:n_shown]
+    if not shown:
+        print("\nno GO term and no word was tested; ish_word_enrichment.png not drawn")
+        return
     fig, axes = plt.subplots(
         1, 3, figsize=(15.5, 4.6), gridspec_kw=dict(width_ratios=[1.3, 1.0, 0.8])
     )
 
     # one x range for both bar panels, from the intervals of the features shown
-    n_shown = ISH_WORDS["n_shown"]
     xlim = (
-        min(-0.02, min(r["gap_lo"] for r in terms[:n_shown] + words[:n_shown]) - 0.02),
-        max(r["gap_hi"] for r in terms[:n_shown] + words[:n_shown]) + 0.02,
+        min(-0.02, min(r["gap_lo"] for r in shown) - 0.02),
+        max(r["gap_hi"] for r in shown) + 0.02,
     )
     bars(axes[0], terms, "GO terms", xlim)
     bars(axes[1], words, "words, from GO terms and gene names", xlim)
