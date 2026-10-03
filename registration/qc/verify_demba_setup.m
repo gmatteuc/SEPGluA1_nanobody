@@ -127,7 +127,7 @@ end
 %% The vendored fixes are in place
 
 % LightSuite's two registration fixes (LS1 and LS2 in its PATCHES.md), then the
-% local settings re-read by register_to_atlas and the driver's atlas_key
+% local settings re-read by register_to_atlas and the atlas of the brains' age
 src = fileread(fullfile(paths.lightsuite, 'slice_module', 'alignSliceVolume.m'));
 [~, n_pass, n_fail] = report('alignSliceVolume takes allenres from px_atlas', ...
     contains(src, 'regopts.allenres     = sliceinfo.px_atlas'), n_pass, n_fail);
@@ -139,9 +139,13 @@ src = fileread(fullfile(paths.lightsuite, 'slice_module', 'registerSlicesToAtlas
 src = fileread(fullfile(paths.code, 'registration', 'pipeline', 'register_to_atlas.m'));
 [~, n_pass, n_fail] = report('run_register_to_atlas re-parses local_settings instead of MATLAB''s builtin', ...
     contains(src, 'parseSettingsFile(settings_name)'), n_pass, n_fail);
-src = fileread(fullfile(paths.code, 'registration', 'run_register_to_atlas.m'));
-[~, n_pass, n_fail] = report('run_register_to_atlas atlas_key is demba_p20', ...
-    contains(src, "atlas_key = 'demba_p20';"), n_pass, n_fail);
+
+% the atlas key of this age, by the rule the analysis uses (cohort_atlas_key);
+% the driver's atlas_key is a run setting, and register_to_atlas refuses a brain
+% whose age differs from its atlas (check_atlas_age), so its text is not checked
+age_key = cohort_atlas_key('young', atlas.age_days);
+[~, n_pass, n_fail] = report(sprintf('P%g brains take the %s atlas', ...
+    atlas.age_days, age_key), strcmp(age_key, atlas.key), n_pass, n_fail);
 
 %% Which brains are ready to annotate
 
