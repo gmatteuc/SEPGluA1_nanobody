@@ -3,26 +3,21 @@ function [lr_diff, lr_sum] = compute_lr_stats(volume)
 %   [lr_diff, lr_sum] = COMPUTE_LR_STATS(volume) mirrors the right half of
 %   volume (AP x DV x ML, or AP x DV x ML x mouse) onto the left along ML and
 %   returns their difference and sum, each AP x DV x floor(ML/2) (x mouse).
-%   For an odd ML width the last plane is left out, so plane i is paired with
-%   plane ML - i rather than its mirror (the registered grids are 1140 wide).
-%   A 3D input gives 3D outputs.
+%   Plane i is paired with its mirror, plane ML + 1 - i; for an odd ML width
+%   the middle plane, the midline, is left out (the registered grids are 1140
+%   wide, so even). A 3D input gives 3D outputs.
 
 [~, ~, n_width, ~] = size(volume);
 half_width = floor(n_width / 2);
 
-% left and right halves; for an odd width the right half stops before the last plane
+% left and right halves, half_width planes each; for an odd width the middle
+% plane belongs to neither
 left = volume(:, :, 1:half_width, :);
-right_start = half_width + 1;
-right_end = min(half_width * 2, n_width);
-right = volume(:, :, right_start:right_end, :);
+right_start = n_width - half_width + 1;
+right = volume(:, :, right_start:n_width, :);
 
 % mirror the right half along ML (dim 3)
 flipped_right = flip(right, 3);
-
-% crop the mirrored half to half_width (right_end above already keeps it there)
-if size(flipped_right, 3) > half_width
-    flipped_right = flipped_right(:, :, 1:half_width, :);
-end
 
 lr_diff = left - flipped_right;
 lr_sum = left + flipped_right;
