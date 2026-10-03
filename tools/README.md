@@ -1,7 +1,7 @@
 # Tools
 
-Checks that a change to the code does not change the results, and the runner
-for long MATLAB stages. The checks follow the verification design of
+Checks that a change to the code does not change the results, the runner for
+long MATLAB stages, and the requirements of the Python environments. The checks follow the verification design of
 [docs/REFACTOR_PLAN.md](../docs/REFACTOR_PLAN.md): old and new code each run
 in a fresh session on their own copy of the data, never on the production
 data, and their outputs are compared file by file.
@@ -157,9 +157,35 @@ rewrote its outputs, and for a fix, the old code fails the same test.
 | `sep_struct_defaults.m` | fills an options struct with defaults |
 | `check_code_identity.py` | code identity of two folders of `.py` files |
 | `compare_outputs.py` | file-by-file comparison of the Python route's outputs |
+| `requirements_<env>.txt` | the pinned packages of each Python environment (below) |
 
 The MATLAB tools come from the imaging repository's `tools/`, renamed with
 `sep_` so that its copies, if they are on the path, cannot shadow them. They
 call only each other. `sep_setup_paths` does not add `tools\`: a check adds
 it with `addpath('tools')` from the code root. The Python tools need numpy,
 pandas and pillow (`tools\venv_atlas` has them).
+
+## Python environments
+
+Each environment is a folder that git ignores, made from the Anaconda Python
+3.12.7 and a requirements file here, pinned to the versions the results were
+produced with. The top lines of each file say how to create it.
+
+| environment | requirements | runs |
+|---|---|---|
+| `tools\venv_atlas` | `requirements_atlas.txt` | the Python route (`mapping/run_*.py`, all but `run_closeup.py`), `atlas/build_demba_atlas.py`, the two Python tools above |
+| `tools\venv_flat` | `requirements_flat.txt` | `mapping/run_closeup.py`, the cortical flatmaps (`ccf_streamlines`) |
+| `registration\auto_annotation\.venv` | `requirements_auto_annotation.txt` | the automatic annotation's engine; made by `registration\auto_annotation\setup.ps1`, which ends with a self-test |
+| `tools\venv_dev` | `requirements_dev.txt` | pytest and ruff; it reads `venv_atlas`'s packages through a `.pth` file, so the analysis environment never changes |
+
+After recreating `venv_atlas`, put back the DeMBA-to-CCF deformation fields
+that CCF Translator would otherwise download again: the copy the results
+were made with is in `<data>\atlas\ccf_translator_fields\`, with its hashes.
+
+Python code is formatted and checked with the settings of `ruff.toml` at the
+code root:
+
+```
+tools\venv_dev\Scripts\python -m ruff format <files>
+tools\venv_dev\Scripts\python -m ruff check <files>
+```
