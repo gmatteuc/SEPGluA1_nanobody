@@ -38,9 +38,10 @@ brain itself:
               signal: its maps show a position within a range, and the compression
               it removes may itself be the finding, so it is read beside cref.
 
-Per voxel a cohort gets the mean over the mice with tissue there, the SD and the
-count. No voxel needs every mouse; the n map says what each mean rests on, and
-the reader thresholds it. Cohorts: young (P16, P20 and P22 pooled, the main
+Per voxel a cohort gets the mean over the mice with a value there (tissue, and for
+ratio and sepratio a positive reference), the SD and that count. No voxel needs
+every mouse; the n map says what each mean rests on, and the reader thresholds
+it. Cohorts: young (P16, P20 and P22 pooled, the main
 comparison), young_P20 (the P20 brains alone, the sensitivity check), young_P16,
 young_P22, naive, rws, and adult (naive and rws).
 
@@ -288,7 +289,9 @@ def main() -> None:
         out = OUT_ROOT / cohort
         out.mkdir(parents=True, exist_ok=True)
 
-        # per reading: the sum of the values, the sum of their squares, the count
+        # per reading: the sum of the values, the sum of their squares, and the count of
+        # the mice with a value there (ratio and sepratio have none in tissue where the
+        # smoothed reference is not positive, and a NaN must not count as a zero)
         acc = None
         for mouse in mice:
             modes, tissue = mouse_modes(mouse)
@@ -305,9 +308,9 @@ def main() -> None:
                 w = np.nan_to_num(v)
                 acc[k][0] += w
                 acc[k][1] += w * w
-                acc[k][2] += tissue
+                acc[k][2] += np.isfinite(v)
 
-        # mean and sample SD, NaN where fewer than one or two mice have tissue
+        # mean and sample SD, NaN where fewer than one or two mice have a value
         for k, (s, ss, n) in acc.items():
             nf = np.maximum(n, 1).astype(np.float64)
             mean = np.where(n > 0, s / nf, np.nan).astype(np.float32)
