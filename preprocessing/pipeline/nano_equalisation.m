@@ -253,7 +253,7 @@ for i = 1:num_mice
 
         if ~isempty(fg_pixels)
             slice_medians(z) = nanmedian(fg_pixels);
-            slice_iqrs(z) = quantile(fg_pixels, 0.25)-quantile(fg_pixels, 0.75);
+            slice_iqrs(z) = quantile(fg_pixels, 0.75)-quantile(fg_pixels, 0.25);
         end
     end
 
@@ -539,7 +539,7 @@ for i = 1:num_mice
 
         if ~isempty(fg_pixels)
             slice_medians(z) = nanmedian(fg_pixels);
-            slice_iqrs(z) = quantile(fg_pixels, 0.25)-quantile(fg_pixels, 0.75);
+            slice_iqrs(z) = quantile(fg_pixels, 0.75)-quantile(fg_pixels, 0.25);
         end
     end
 
