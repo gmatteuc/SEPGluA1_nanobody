@@ -287,8 +287,9 @@ def contrast_maps(
 ) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
     """Young against adult per voxel, smoothed inside the compared mask, per reading.
 
-    Returns the maps of the pooled young group and of the P20 brains alone. The
-    floor is the one volumes.cohort applies, so a map and a table agree.
+    Returns the maps of the pooled young group and of the P20 brains alone, NaN
+    where a group has no value. The floor is the one volumes.cohort applies, so a
+    map and a table agree.
     """
     floor = READINGS["log2_floor"]
     log2, log2_alt = {}, {}
@@ -306,13 +307,17 @@ def contrast_maps(
                     np.maximum(young_v, floor) / np.maximum(adult_v, floor)
                 )
 
-            # smooth the contrast over the compared voxels only, then mask again
-            weights = compared.astype(np.float32)
+            # smooth the contrast over the compared voxels that have one, then mask
+            # again: a group with no value at a voxel (the P20 brains where only the
+            # P16 and P22 brains have tissue) leaves it out, weight and all, instead
+            # of smoothing a contrast of zero into its neighbours
+            has = compared & np.isfinite(contrast)
+            weights = has.astype(np.float32)
             num = gaussian_filter(
                 np.nan_to_num(contrast) * weights, YOUNG_VS_ADULT["smooth"]
             )
             den = gaussian_filter(weights, YOUNG_VS_ADULT["smooth"])
-            dst[reading] = np.where(compared, num / np.maximum(den, 1e-3), np.nan).astype(
+            dst[reading] = np.where(has, num / np.maximum(den, 1e-3), np.nan).astype(
                 np.float32
             )
     return log2, log2_alt
@@ -480,15 +485,15 @@ def main() -> None:
     """Compare young with adult and write the maps, the tables and the figures.
 
     The maps are compared voxel by voxel and smoothed (Gaussian,
-    young_vs_adult.smooth), with the voxels outside the compared mask given no
-    weight. The tables average per structure, not per parcellation index: in this
-    ontology the layers of an area are separate indices that share one structure
-    name, and a table of areas is what anyone reads. A lookup from index to
-    structure does that grouping once, and bincount then sums 18 million voxels
-    without a Python loop. A group with no value at a voxel (the P20 group inside
-    the pooled group's mask) is left out of its own count rather than poisoning its
-    mean. Only structures with at least young_vs_adult.min_table_vox20 compared
-    voxels enter the table.
+    young_vs_adult.smooth), with the voxels outside the compared mask, or where a
+    group has no value, given no weight. The tables average per structure, not per
+    parcellation index: in this ontology the layers of an area are separate indices
+    that share one structure name, and a table of areas is what anyone reads. A
+    lookup from index to structure does that grouping once, and bincount then sums
+    18 million voxels without a Python loop. A group with no value at a voxel (the
+    P20 group inside the pooled group's mask) is left out of its own count rather
+    than poisoning its mean. Only structures with at least
+    young_vs_adult.min_table_vox20 compared voxels enter the table.
     """
     t0 = time.time()
     OUT.mkdir(parents=True, exist_ok=True)

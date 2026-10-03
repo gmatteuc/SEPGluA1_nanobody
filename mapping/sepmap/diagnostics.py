@@ -85,10 +85,10 @@ def sheet_tissue(mouse: str, ann: np.ndarray, z: np.lib.npyio.NpzFile) -> None:
     brain = ann > 0
 
     # four planes between the 5th and 95th percentiles of the planes where tissue
-    # covers more than 20% of the atlas brain
+    # covers more than 20% of the atlas brain (no coverage, NaN, without atlas brain)
     cov = np.array(
         [
-            tissue[k][brain[k]].mean() if brain[k].any() else 0
+            tissue[k][brain[k]].mean() if brain[k].any() else np.nan
             for k in range(tissue.shape[0])
         ]
     )
