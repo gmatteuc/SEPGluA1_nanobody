@@ -315,7 +315,9 @@ for m = 1:nMice
     end
 end
 xlim([1 nSlices*1.1]);
-ylim([0 max(y_data)*1.1]);
+
+% the limit from every mouse, not the last one drawn
+ylim([0 max(median_vecs, [], 'all', 'omitnan')*1.1]);
 
 % right: the background area of every mouse
 subplot(1, 2, 2);
@@ -339,7 +341,7 @@ for m = 1:nMice
     end
 end
 xlim([1 nSlices*1.1]);
-ylim([0 max(y_data)*1.1]);
+ylim([0 max(area_vecs, [], 'all', 'omitnan')*1.1]);
 sgtitle(strrep(['Background_mask_diagnostics_trace:_', current_mouse_type, '_(', ...
     channel, ')'], '_', ' '))
 end
