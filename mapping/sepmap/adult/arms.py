@@ -72,13 +72,8 @@ EXISTING = DATA / "comparisons_v2" / "young_vs_adult" / "region_means_per_mouse.
 # the ten adults, naive and rws pooled
 ADULTS = NAIVE + RWS
 
-# the three arms, and labels for them that no figure of this module uses
+# the three arms
 ARMS = ("sepauto", "ratio", "sepratio")
-LABEL = {
-    "sepauto": "SEP / autofluorescence   (total receptor)",
-    "ratio": "nano / autofluorescence   (surface receptor)",
-    "sepratio": "nano / SEP   (surface fraction)",
-}
 
 # the two arms young_vs_adult.region_plot also computes, and must agree on
 SHARED = {"ratio": "ratio", "sepratio": "sepratio"}

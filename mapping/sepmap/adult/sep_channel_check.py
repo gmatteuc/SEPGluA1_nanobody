@@ -60,10 +60,8 @@ GENES = DATA / "adult_v2" / "ish" / "gene_region_table.csv"
 # the ten adults, naive and rws pooled
 ADULTS = NAIVE + RWS
 
-# the three raw channels of the per-mouse files, and names for them that no
-# figure of this module uses
+# the three raw channels of the per-mouse files
 CHANNELS = ("sig", "auto", "sep")
-NICE = {"sig": "nano", "auto": "autofluo", "sep": "SEP (green)"}
 
 
 def mouse_channels(mouse: str, names: dict[int, str]) -> dict[str, dict[str, float]]:

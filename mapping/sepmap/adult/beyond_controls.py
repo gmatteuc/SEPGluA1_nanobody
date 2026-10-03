@@ -69,13 +69,6 @@ from sepmap.volumes.per_mouse import annotation_20, structure_terms
 # the largest gene-space model of control F, and the threshold of each verdict
 BEYOND_CONTROLS = SETTINGS["beyond_controls"]
 
-# folds of the cross-validated controls E and F (not passed on: cv_r2 uses its own
-# default, also 5)
-N_FOLDS = 5
-
-# a generator nothing in this module draws from (cv_r2 makes its own)
-RNG = np.random.default_rng(0)
-
 
 # ===== Utilities =====
 
