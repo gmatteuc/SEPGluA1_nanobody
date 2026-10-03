@@ -50,11 +50,10 @@ mice_to_process = {'MG909_SepGluA_P20', 'MG910_SepGluA_P20', 'MG911_SepGluA_P16'
 % atlas ('ccf'); its annotation is loaded but not used
 atlas_key = 'ccf';
 
-% draw the figures of the reference-pixel selection; keep it on: with it off,
-% select_reference_pixels returns no figure and no display limits, and the run stops
+% draw the figures of the reference-pixel selection (one per slice)
 doPlotBkg = true;
 
-% save those figures
+% save those figures, when drawn
 savePlotBkg = true;
 
 % write a video of the nano / autofluorescence ratio of each slice

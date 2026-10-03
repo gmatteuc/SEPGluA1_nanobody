@@ -17,9 +17,9 @@ function [ref_pix_mask, range_pix, bg_mask, bg_mask_dilated, used_clim, h_diag] 
 %   range_pix is their upper bound.
 %
 %   Defaults: p_min 20, p_max 65, disk_px 15, range_frac 0.20, plot_flag
-%   false. used_clim (display limits, the knee to 1.5 times the upper end)
-%   and h_diag (the diagnostic figure) are assigned only when plot_flag is
-%   true, so a caller that asks for them otherwise stops.
+%   false. used_clim gives display limits for the slice, the knee to 1.5
+%   times the upper end; h_diag is the diagnostic figure, drawn only when
+%   plot_flag is true (empty otherwise).
 
 if nargin < 2 || isempty(p_min)
     p_min = 20;
@@ -81,11 +81,15 @@ se = strel('disk', disk_px);
 bg_mask_dilated = imdilate(bg_mask, se);
 ref_pix_mask = and(ref_pix_mask, not(bg_mask_dilated));
 
+% display limits of the slice: the knee to 1.5 times the upper end
+used_clim = [val_max_bis, 1.5*val_max];
+
 % diagnostic figure, on request
+h_diag = [];
 if plot_flag
-    [h_diag, used_clim] = plot_reference_diagnostics(I_single, val_max_bis, val_max, ...
-        ref_pix_mask, bg_mask, p, vals, idx_max_bis, idx_min, val_min, idx_max, ...
-        ref_pix_range);
+    h_diag = plot_reference_diagnostics(I_single, val_max_bis, val_max, ref_pix_mask, ...
+        bg_mask, p, vals, idx_max_bis, idx_min, val_min, idx_max, ref_pix_range, ...
+        used_clim);
 end
 
 end
@@ -169,11 +173,11 @@ end
 
 end
 
-function [h_diag, used_clim] = plot_reference_diagnostics(I_single, val_max_bis, ...
-    val_max, ref_pix_mask, bg_mask, p, vals, idx_max_bis, idx_min, val_min, idx_max, ...
-    ref_pix_range)
-% The diagnostic figure: the slice with the reference pixels, the background mask,
-% and the percentile curve; returns it and the slice's display limits.
+function h_diag = plot_reference_diagnostics(I_single, val_max_bis, val_max, ...
+    ref_pix_mask, bg_mask, p, vals, idx_max_bis, idx_min, val_min, idx_max, ...
+    ref_pix_range, used_clim)
+% The diagnostic figure: the slice (shown within used_clim) with the reference
+% pixels, the background mask, and the percentile curve; returns the figure.
 
 h_diag = figure('name', 'Background mask diagnostics', 'units', 'normalized', ...
     'outerposition', [0 0 1 1]);
@@ -185,7 +189,6 @@ imagesc(I_single);
 axis image off;
 colormap(sep_palette('anatomy'));
 title('Input slice with ref pixels');
-used_clim = [val_max_bis, 1.5*val_max];
 clim(used_clim)
 hold on;
 [rows, cols] = find(ref_pix_mask);

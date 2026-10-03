@@ -167,7 +167,9 @@ for z = 1:Z
     end
     [ref_pix_mask_J, ~, bg_mask, ~, used_clim, h_diag_J] = select_reference_pixels( ...
         J, 15, rangewinmax, 60, range_frac, doPlotBkg);
-    if savePlotBkg
+
+    % its figure, saved when drawn
+    if doPlotBkg && savePlotBkg
         saveas(h_diag_J, fullfile(plotDir, ...
             sprintf('reference_pix_selection_slice_J_%03d.png', z)));
     end
