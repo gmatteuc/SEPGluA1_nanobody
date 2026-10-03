@@ -545,11 +545,18 @@ def write_tables(rows_pm: list[dict], rows_st: list[dict]) -> None:
 def print_cortex_table(rows_st: list[dict]) -> None:
     """Print log2(young / adult) of each area in AREAS and reading, with its stars."""
     st = {(r["reading"], r["acronym"]): r for r in rows_st}
+
+    # the ages the young group pools, from its lists
+    ages = [
+        age
+        for age, mice in (("P20", YOUNG_P20), ("P16", YOUNG_P16), ("P22", YOUNG_P22))
+        if mice
+    ]
     print(
-        f"\nCORTEX  log2(young / adult), young = {len(GROUPS['young'])} mice (P20 + P16) "
-        f"vs {len(ADULTS)} adults "
+        f"\nCORTEX  log2(young / adult), young = {len(GROUPS['young'])} mice "
+        f"({' + '.join(ages)}) vs {len(ADULTS)} adults "
         "(* p<0.05, ** p<0.01, Mann-Whitney, uncorrected; q in the CSV). "
-        "P20only = without the P16 brain; P16 = that brain alone; "
+        "P20only = the P20 brains alone; P16 = the P16 brain alone; "
         "naive-rws = the null scale."
     )
     print(
