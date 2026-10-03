@@ -1089,6 +1089,28 @@ The style pass will add to this list.
   (identical), the Python route (259 of 267 rewritten outputs identical, the
   8 known differences; sheet 08's longer title also moves its panels by a
   fraction of a pixel, proven by redrawing it with the old title).
+- **3 Oct (overnight), step 7 kind C and step 8 applied fixes** (refactor
+  `47c252f`): Python: one plotting module, the backend set by the run
+  scripts, duplicate helpers merged, 63 analysis constants in
+  `settings.toml`, `pathlib`, about 25 long functions split, rows read by
+  column name, `build_demba_atlas` on argparse; MATLAB: `common/sep_palette.m`,
+  duplicate helpers merged, long functions split. 49 fixes that change no
+  production output (the `run_order_slices` 'apply' safety fix first; the
+  P2/P2bis/P7bis crash fixes; dead code; the "not installed" warning; the
+  corrected "not permeabilised" header; tool robustness). Checks against the
+  reference all passed (plasticity: every `.mat`, `.fig`, P7bis output
+  identical; P2/P2bis identical; MG914 registration identical, the proposal
+  in the GPU spread; GUI drive scripts the same; Python 259 of 267 identical,
+  the 8 known differences). 21 fixes that change an output wait on
+  `step8-pending` for Giulio, listed in `G:\sep_refactor\MORNING_REPORT.md`
+  and `G:\sep_refactor\FIXES_STEP8.md`; among them two that change results:
+  subref's reference never excluded fiber tracts and ventricles (the
+  exclusion names never matched; fixing it moves the young-adult subref
+  difference by -0.19 log2 and its q < 0.05 structures from 104 to 86; the
+  other readings are unchanged), and the cohort mean counting MG897's 183
+  missing sepratio voxels as zero. Open, no commit: P7bis smoothing sets
+  voxels outside the tissue to 0, not NaN, so the zeros enter the group
+  means of the approved December 2025 comparison.
 - **New order** (Giulio, 2 Oct): merge first, new science after. Step 7's
   kind C and the step 8 fixes go in one batch with one set of reruns (a fix
   that changes production numbers still waits for Giulio); then step 10's
