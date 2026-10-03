@@ -11,7 +11,9 @@ as in get_paths.m, make that hard to get wrong: a copy of the code may not use
 the production data, and neither the snapshot on G: (a backup) nor the code
 folder is ever a data root.
 
-settings.toml, next to the package in mapping/, is read once into SETTINGS.
+settings.toml, next to the package in mapping/, is read once into SETTINGS, and
+mapping_mice reads the brains of the route from the cohort table that MATLAB's
+get_cohort reads too (common/cohort.csv).
 print_settings gives every run script the same first lines: the data root,
 where it came from, and the run's options.
 
@@ -19,6 +21,7 @@ Only the standard library is used, so the flatmap environment can import it
 too. Imported by every run script and by the modules of the package.
 """
 
+import csv
 import os
 import tomllib
 from pathlib import Path
@@ -97,6 +100,22 @@ _SETTINGS_PATH = os.path.join(
 )
 with open(_SETTINGS_PATH, "rb") as _fh:
     SETTINGS = tomllib.load(_fh)
+
+
+# the cohort table, one row per mouse, shared with MATLAB's get_cohort
+COHORT_TABLE = Path(code_root()) / "common" / "cohort.csv"
+
+
+def mapping_mice() -> list[dict[str, str]]:
+    """The rows of the cohort table this route takes, in the order it stacks them.
+
+    A row (name, group, age_days, share_subdir, mapping_cohort, mapping_order, all
+    strings) is taken when mapping_cohort is set; mapping_order is the route's
+    order, which differs from the registry's (get_cohort.m keeps the legacy one).
+    """
+    with open(COHORT_TABLE, newline="", encoding="utf-8") as fh:
+        rows = [r for r in csv.DictReader(fh) if r["mapping_cohort"]]
+    return sorted(rows, key=lambda r: int(r["mapping_order"]))
 
 
 def print_settings(options: dict) -> None:
