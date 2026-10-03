@@ -43,7 +43,6 @@ from sepmap.volumes.per_mouse import (
     DATA,
     MICE,
     annotation_20,
-    atlas_grid,
     isocortex_ids,
 )
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
@@ -249,7 +248,6 @@ def sheet_coverage() -> None:
                     for k in range(t.shape[0])
                 ]
             )
-            lo, hi = atlas_grid(MICE[mouse][1])[1]
             ax.plot(
                 np.arange(len(cov)),
                 100 * cov,
