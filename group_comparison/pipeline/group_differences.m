@@ -262,6 +262,9 @@ if strcmp(exp_type, 'rws')
 elseif strcmp(exp_type, 'behavior')
     data_4d_new_exp = S_exp_vol.(norm_var_name)(:, :, :, behavior_subset);
     data_4d_new_exp_bkgmask = S_exp_mask.recomputed_bkg_mask_4d(:, :, :, behavior_subset);
+else
+    error('run_group_differences: unknown exp_type ''%s'' (use ''rws'' or ''behavior'').', ...
+        exp_type);
 end
 clear S_exp_vol S_exp_mask
 fprintf('  Kept %d mice based on selection.\n', size(data_4d_new_exp, 4));
