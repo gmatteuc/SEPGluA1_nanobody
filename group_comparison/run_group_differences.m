@@ -20,7 +20,8 @@
 % at least min_mice_per_group of them. Saves, in
 % data\comparisons\<ctrl>_vs_<exp>_<channel>\, the profile alignment figure, the
 % slab figures around plane 565 (group t-maps masked by surprise, individual
-% mice), the regional surprise bars and the videos switched on below.
+% mice), the regional surprise bars (the fraction of each region's voxels with a
+% t at p < 0.01) with their table, and the videos switched on below.
 %
 % Setup: naive against behavior (the four behavior mice), nano channel, smoothed
 % with sigma 5, every video on, the region analyses off. Run sep_setup_paths

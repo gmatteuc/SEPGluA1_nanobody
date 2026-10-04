@@ -106,7 +106,7 @@ RWS: the hemisphere-sum t map of the slab, masked by surprise at p < 0.01.
 |---|---|
 | `Slab_Avg_565_<comp>_surpmask.png/.fig` | the group t maps of the left-right difference and sum, median over the slab, opaque where the surprise reaches p < 0.01 |
 | `Indiv_Slab_Avg_565_<group>.png/.fig` | every mouse's left-right difference and sum in the same slab |
-| `Region_Surprise_Bar_DiffSum_<comp>.png/.fig` | the surprise summed per region, for the difference and the sum |
+| `Region_Surprise_Bar_DiffSum_<comp>.png/.fig` | the surprise summed per region, for the difference and the sum (since 4 October 2026 the fraction of each region's voxels with a t at p < 0.01, the sum in `Region_Surprise_DiffSum_<comp>.csv`) |
 | `Normalization_Profiles_LR_<comp>.png/.fig` | the experimental group's plane profile aligned onto the control group's |
 | `lr_diff_sum_nano_<group>.mp4`, `lr_diff_sum_nano_groupdiff_<comp>.mp4`, `t_*`, `surp_*`, `*_surpmask*.mp4`, `Individual_*_<group>.mp4` | the same, plane by plane |
 

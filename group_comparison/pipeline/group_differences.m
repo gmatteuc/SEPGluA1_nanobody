@@ -8,8 +8,9 @@ function group_differences(run_settings)
 %   comp_out_dir, each as .fig and .png: Normalization_Profiles_LR_<comp_tag>
 %   (the profile alignment), Slab_Avg_565_<comp_tag>_surpmask and
 %   Indiv_Slab_Avg_565_<group> (the slab figures), and
-%   Region_Surprise_Bar_DiffSum_<comp_tag> (the regional surprise bars); then
-%   the videos switched on, and the region analyses if switched on.
+%   Region_Surprise_Bar_DiffSum_<comp_tag> (the regional surprise bars), with
+%   their values in Region_Surprise_DiffSum_<comp_tag>.csv; then the videos
+%   switched on, and the region analyses if switched on.
 %
 %   The volumes are on the adults' CCF crop (planes 180 to 1079 of the 10 um
 %   annotation). Each mouse's values outside its tissue (the atlas brain,
@@ -27,6 +28,12 @@ function group_differences(run_settings)
 %   degrees of freedom. Every mean, SEM and degree of freedom counts, voxel by
 %   voxel, only the mice with a value there, and a voxel has a t and a surprise
 %   only where each group has at least min_mice_per_group of them.
+%
+%   The regional bars take the median of the surprise over +/- 10 planes on the
+%   voxels with a t, and give for each region of the list (the atlas's
+%   isocortical areas and a declared set of subcortical regions, each without
+%   the regions of the list inside it) the fraction of its voxels with a t that
+%   is at p < 0.01.
 
 % settings of run_group_differences, under the names the code below uses
 paths = run_settings.paths;
@@ -246,9 +253,9 @@ end
 
 %% Regional surprise bars
 
-% the surprise summed over each region of the list (the isocortical areas of the
-% atlas and a declared set of subcortical regions, none counted twice), for L - R
-% and L + R, over the voxels with a t
+% the fraction of each region's voxels with a t that is significant, for L - R
+% and L + R, over the regions of the list (the isocortical areas of the atlas and a
+% declared set of subcortical regions, no voxel in two)
 regional_surprise_bars(surp_diff, surp_sum, has_t, AllenCrop, allenDir, exp_type, ...
     comp_tag, comp_out_dir);
 
@@ -2205,23 +2212,22 @@ end
 
 function regional_surprise_bars(surp_diff, surp_sum, has_t, AllenCrop, allenDir, ...
     exp_type, comp_tag, comp_out_dir)
-% Bar charts of the surprise summed over each region of the list, after a
-% rolling median over planes, over the voxels with a t, for the difference and
-% the sum.
+% Bar charts of the fraction of each region's voxels with a t that is
+% significant, after a rolling median of the surprise over planes, for the
+% difference and the sum; the counts and the summed surprise in a table.
 
 fprintf('Starting Regional Surprise Analysis (Rolling Median - Diff & Sum)...\n');
 
-% median over +/- 10 planes; a voxel counts in its region's sum from p < 0.01
+% median over +/- 10 planes; a voxel is significant from p < 0.01
 slab_range = 10;
 p_thresh_agg = 0.01;
-surp_thresh_val = -log10(p_thresh_agg);
 
 % the regions, and the region of each atlas voxel of the left hemisphere
 [T_regions, valid_pixels, region_of_voxel] = surprise_regions(AllenCrop, allenDir);
 
-% the bars of the difference and the sum, as one figure
+% the bars of the difference and the sum, as one figure, and the table
 plot_regional_surprise(surp_diff, surp_sum, has_t, T_regions, valid_pixels, ...
-    region_of_voxel, slab_range, surp_thresh_val, exp_type, comp_tag, comp_out_dir);
+    region_of_voxel, slab_range, p_thresh_agg, exp_type, comp_tag, comp_out_dir);
 end
 
 function [T_regions, valid_pixels, region_of_voxel] = surprise_regions(AllenCrop, ...
@@ -2446,18 +2452,26 @@ end
 end
 
 function plot_regional_surprise(surp_diff, surp_sum, has_t, T_regions, valid_pixels, ...
-    region_of_voxel, slab_range, surp_thresh_val, exp_type, comp_tag, comp_out_dir)
-% The surprise bar charts, difference and sum side by side.
+    region_of_voxel, slab_range, p_thresh_agg, exp_type, comp_tag, comp_out_dir)
+% The bar charts of the fraction of each region's voxels with a t that is at
+% p < p_thresh_agg, difference and sum side by side, and the table of the
+% regions with, for each, its voxels with a t, those significant, their
+% fraction and their summed surprise (Region_Surprise_DiffSum_<comp_tag>.csv).
 
 fig_surp = figure('Visible', 'off', 'Name', ...
     ['Region_Surprise_BarChart_DiffSum_' comp_tag], 'Color', 'w', ...
     'Units', 'Normalized', 'Position', [0 0 0.9 0.9]);
 
-% the difference, then the sum
+% a voxel is significant above this surprise
+surp_thresh_val = -log10(p_thresh_agg);
+
+% the difference, then the sum, and the prefix of their columns in the table
 modes = {'Diff', 'Sum'};
+column_prefixes = {'lr_diff_', 'lr_sum_'};
 
 for m_idx = 1:2
     mode_name = modes{m_idx};
+    prefix = column_prefixes{m_idx};
 
     % the surprise map of this panel
     if strcmp(mode_name, 'Diff')
@@ -2476,30 +2490,37 @@ for m_idx = 1:2
     % a t, kept on the voxels with a t
     vol_surp = rolling_surprise_median(raw_surp_vol, slab_range, has_t, mode_name);
 
-    % each region's sum of the surprise above the threshold
-    roi_surp_agg = summed_surprise(vol_surp, valid_pixels, region_of_voxel, ...
-        T_regions.n_voxels, surp_thresh_val);
+    % each region's voxels with a t, those significant, their fraction and their
+    % summed surprise, into the table
+    [n_with_t, n_significant, fraction_significant, surprise_sum] = ...
+        region_significance(vol_surp, valid_pixels, region_of_voxel, ...
+        height(T_regions), surp_thresh_val);
+    T_regions.([prefix 'n_with_t']) = n_with_t;
+    T_regions.([prefix 'n_significant']) = n_significant;
+    T_regions.([prefix 'fraction_significant']) = fraction_significant;
+    T_regions.([prefix 'surprise_sum']) = surprise_sum;
 
-    % sorted, and only the regions with a sum above zero, labelled with the
-    % regions taken out of them
-    sort_metric = roi_surp_agg;
-    [sorted_surp, sort_idx] = sort(sort_metric, 'ascend');
-    sorted_rois_surp = T_regions.label(sort_idx);
-
-    valid_k = sorted_surp > 0 & ~isnan(sorted_surp);
-    sorted_surp = sorted_surp(valid_k);
-    sorted_rois_surp = sorted_rois_surp(valid_k);
+    % sorted by the fraction, and only the regions with a fraction above zero,
+    % labelled with the regions taken out of them
+    [sorted_fraction, sort_idx] = sort(fraction_significant, 'ascend');
+    sorted_labels = T_regions.label(sort_idx);
+    is_drawn = sorted_fraction > 0 & ~isnan(sorted_fraction);
+    sorted_fraction = sorted_fraction(is_drawn);
+    sorted_labels = sorted_labels(is_drawn);
+    fprintf('  [%s] %d of %d regions with voxels at p < %g.\n', mode_name, ...
+        nnz(is_drawn), height(T_regions), p_thresh_agg);
 
     % the bars, in this mode's panel
     subplot(1, 2, m_idx);
-    draw_surprise_bars(sorted_surp, sorted_rois_surp, surp_thresh_val, mode_name);
+    draw_surprise_bars(sorted_fraction, sorted_labels, p_thresh_agg, mode_name);
 
     % the regions expected to change, labelled in bold magenta
     highlight_surprise_regions(exp_type);
 end
 
-sgtitle(['Regional integrated significance (rolling median) - ' ...
-    strrep(comp_tag, '_', ' ')], 'FontSize', 14, 'FontWeight', 'bold');
+sgtitle(['Regional significance, fraction of voxels at p < ' num2str(p_thresh_agg) ...
+    ' (rolling median) - ' strrep(comp_tag, '_', ' ')], 'FontSize', 14, ...
+    'FontWeight', 'bold');
 
 % save it
 set(fig_surp, 'InvertHardcopy', 'off');
@@ -2509,62 +2530,70 @@ exportgraphics(fig_surp, ...
     fullfile(comp_out_dir, ['Region_Surprise_Bar_DiffSum_' comp_tag '.png']), ...
     'Resolution', 300);
 
+% the table, every region in the list's order
+table_file = fullfile(comp_out_dir, ['Region_Surprise_DiffSum_' comp_tag '.csv']);
+writetable(T_regions, table_file);
+
 fprintf('Regional surprise analysis (Diff & Sum) saved to: %s\n', comp_out_dir);
 
 % clearing these is not needed, since the workspace goes when the function returns
 % clear roi_masks_surp surp_vec valid_pixels pixel_ids vol_surp
 end
 
-function roi_surp_agg = summed_surprise(vol_surp, valid_pixels, region_of_voxel, ...
-    n_voxels, surp_thresh_val)
-% Each region's sum of the surprise above surp_thresh_val (a voxel without a t,
-% NaN, adds nothing); NaN for a region with no voxel.
+function [n_with_t, n_significant, fraction_significant, surprise_sum] = ...
+    region_significance(vol_surp, valid_pixels, region_of_voxel, n_regions, ...
+    surp_thresh_val)
+% Per region: its voxels with a t (vol_surp not NaN), those above surp_thresh_val,
+% their fraction (NaN for a region without a voxel with a t), and the surprise
+% summed over them.
 
-% each region's sum of the surprise above the threshold (a voxel without a t adds
-% nothing); a sum, so a large region gathers more than a small nucleus at the same
-% surprise
+% the fraction is the bar, not the sum: a sum grows with the region's size, so
+% the hippocampal formation (20M voxels) outranked the subthalamic nucleus (0.1M)
+% at the same surprise; over the voxels with a t, since a voxel without one can be
+% neither significant nor not, and counting it would favour well-covered regions
 surp_vec = vol_surp(valid_pixels);
-surp_vec(isnan(surp_vec)) = 0;
-n_regions = numel(n_voxels);
-roi_surp_agg = nan(n_regions, 1);
+n_with_t = zeros(n_regions, 1);
+n_significant = zeros(n_regions, 1);
+surprise_sum = zeros(n_regions, 1);
 for r = 1:n_regions
 
-    % a region with no voxel keeps NaN
-    if n_voxels(r) == 0
-        continue;
-    end
-
-    % the region's voxels, summed over those above the threshold
-    vals = surp_vec(region_of_voxel == r);
-    roi_surp_agg(r) = sum(vals(vals > surp_thresh_val));
-end
+    % the region's voxels, NaN where they have no t
+    region_surp = surp_vec(region_of_voxel == r);
+    is_significant = region_surp > surp_thresh_val;
+    n_with_t(r) = nnz(~isnan(region_surp));
+    n_significant(r) = nnz(is_significant);
+    surprise_sum(r) = sum(region_surp(is_significant));
 end
 
-function draw_surprise_bars(sorted_surp, sorted_rois_surp, surp_thresh_val, mode_name)
-% The bars of one panel, grey by their sum relative to the largest.
+% 0 / 0 is NaN, for a region without a voxel with a t
+fraction_significant = n_significant ./ n_with_t;
+end
 
-b = barh(sorted_surp);
+function draw_surprise_bars(sorted_fraction, sorted_labels, p_thresh_agg, mode_name)
+% The bars of one panel, grey by their fraction relative to the largest.
+
+b = barh(sorted_fraction);
 b.FaceColor = 'flat';
 
-% bar colour by its sum relative to the largest: light grey (0.78) to black
+% bar colour by its fraction relative to the largest: light grey (0.78) to black
 c_map_surp = sep_palette('bars');
-if ~isempty(sorted_surp)
-    c_vals = round((sorted_surp / max(sorted_surp)) * size(c_map_surp, 1));
+if ~isempty(sorted_fraction)
+    c_vals = round((sorted_fraction / max(sorted_fraction)) * size(c_map_surp, 1));
     c_vals(c_vals < 1) = 1;
     c_vals(isnan(c_vals)) = 1;
-    for k = 1:length(sorted_surp)
+    for k = 1:length(sorted_fraction)
         b.CData(k, :) = c_map_surp(c_vals(k), :);
     end
 end
 
 % the region names as tick labels, in the bars' order
-yticks(1:length(sorted_rois_surp));
-yticklabels(sorted_rois_surp);
-xlabel(['Aggregated surprise ( > ' num2str(surp_thresh_val, '%.1f') ')']);
+yticks(1:length(sorted_labels));
+yticklabels(sorted_labels);
+xlabel(['Fraction of the voxels with a t at p < ' num2str(p_thresh_agg)]);
 title(['Regional ' lower(mode_name) ' significance']);
 grid on;
 set(gca, 'FontSize', 10);
-ylim([0 length(sorted_rois_surp)+1]);
+ylim([0 length(sorted_labels)+1]);
 end
 
 function highlight_surprise_regions(exp_type)
