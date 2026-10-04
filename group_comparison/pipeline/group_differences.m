@@ -2596,7 +2596,7 @@ function [n_with_t, n_significant, fraction_significant, surprise_sum] = ...
 % summed over them.
 
 % the fraction is the bar, not the sum: a sum grows with the region's size, so
-% the hippocampal formation (20M voxels) outranked the subthalamic nucleus (0.1M)
+% the hippocampal formation (20M voxels) would outrank the subthalamic nucleus (0.1M)
 % at the same surprise; over the voxels with a t, since a voxel without one can be
 % neither significant nor not, and counting it would favour well-covered regions
 surp_vec = vol_surp(valid_pixels);
