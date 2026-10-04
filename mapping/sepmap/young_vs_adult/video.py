@@ -7,7 +7,8 @@ front to back: on the left the hemisphere-averaged cohort mean, as the compariso
 figures draw it, on the right the reliability t = mean / SEM, with the atlas
 outlines and acronyms on both. The t is taken over each brain's two hemispheres
 averaged first (volumes.cohort, the _folded files, which says why), one value per
-brain, so the SEM's n is the brains with a value on either side.
+brain, so the SEM's n is the brains with a value on either side; each frame's
+header gives that n, the largest of the plane's voxels with a t.
 
     cohorts   young (every registered young brain), young_P20, adult, naive, rws
     readings  those of the region tables: ratio (per unit autofluorescence),
@@ -56,12 +57,13 @@ def annotation_ccf20() -> np.ndarray:
 
 def cohort_maps(
     cohort: str, reading: str, n_h: np.ndarray
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Folded mean, the SD behind t, the voxels with enough brains, and t.
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Folded mean, the SD behind t, the voxels with enough brains, t and its n.
 
     The mean is the cohort map folded; t, where there is an SD, is the mean over
     the SEM of the brains folded one by one (the _folded files of volumes.cohort),
-    each brain one value. Stops if run_cohort.py has not written those files.
+    each brain one value, and its n is the brains with a value on either side.
+    Stops if run_cohort.py has not written those files.
     """
     folder = CCF_ROOT / cohort
     if not (folder / f"{reading}_folded_mean.npy").exists():
@@ -79,7 +81,7 @@ def cohort_maps(
     with np.errstate(divide="ignore", invalid="ignore"):
         sem_b = sd_b / np.sqrt(np.maximum(n_b, 1))
         tval = np.where(ok & (sd_b > 0), mean_b / sem_b, np.nan)
-    return mean, sd_b, ok, tval
+    return mean, sd_b, ok, tval, n_b
 
 
 def colour_limits(
@@ -125,13 +127,16 @@ def write_video(
     mean: np.ndarray,
     tval: np.ndarray,
     ok: np.ndarray,
-    n_h: np.ndarray,
+    n_t: np.ndarray,
     cmap_use: Colormap,
     lims: tuple[tuple[float, float], tuple[float, float]],
     ann_h: np.ndarray,
     acro: dict[int, str],
 ) -> None:
-    """Draw `frames` into one figure, plane by plane, and encode them into `out`."""
+    """Draw `frames` into one figure, plane by plane, and encode them into `out`.
+
+    `n_t` is the brains behind each voxel's t, each brain's hemispheres averaged.
+    """
     lim_mean, lim_t = lims
     writer = imageio_ffmpeg.write_frames(
         out, (1600, 800), fps=VIDEOS["fps"], quality=7, macro_block_size=8
@@ -156,12 +161,11 @@ def write_video(
         )
 
         # black outside the atlas, grey inside it where there is no data,
-        # colour where there is; the header gives the plane and the most
-        # brains behind any voxel of it
+        # colour where there is; the header gives the plane and the most brains
+        # behind the t of any voxel of it, the n the t's SEM was taken with
+        n_plane = int(np.max(np.where(np.isfinite(tval[k]), n_t[k], 0)))
         header = (
-            f"CCF plane {2 * k} / 10 um   "
-            f"n = {int(np.nanmax(np.where(ok[k], n_h[k], 0)))} "
-            "mice at this plane"
+            f"CCF plane {2 * k} / 10 um   n = {n_plane} mice behind the t at this plane"
         )
         coronal_frame(fig, axes, caxes, k, panels, ann_h, acro, header)
         fig.canvas.draw()
@@ -191,7 +195,7 @@ def main(cohorts: list[str]) -> None:
 
             # folded mean and SD, and t where there are enough brains and an SD; the
             # colour limits, fixed for the mean
-            mean, sd, ok, tval = cohort_maps(cohort, reading, n_h)
+            mean, sd, ok, tval, n_t = cohort_maps(cohort, reading, n_h)
             signed = reading in SIGNED_READINGS
             lims = colour_limits(reading, signed, ok, sd, tval)
             cmap_use = puor if signed else hot
@@ -204,7 +208,7 @@ def main(cohorts: list[str]) -> None:
                 f"(n = {len(COHORTS[cohort])})"
             )
             write_video(
-                out, frames, title, mean, tval, ok, n_h, cmap_use, lims, ann_h, acro
+                out, frames, title, mean, tval, ok, n_t, cmap_use, lims, ann_h, acro
             )
             print(
                 f"{cohort:10s} {reading:6s} {len(frames)} frames -> {out}   "
