@@ -1179,6 +1179,33 @@ The style pass will add to this list.
   `get_cohort('verify')` passes, data root `D:\sep_histology\data`, 32
   sepmap modules import, 26 run scripts answer `--help`. Next: the
   production reruns the fixes call for, the open decisions, A1 to A5.
+- **4 Oct, after the merge** (`main` `bc5a78e`): P8, P9 and P10 are
+  `adult_matlab/run_characterize_distribution.m`,
+  `run_compare_with_allen_ish.m` and `run_compare_nano_with_autofluorescence.m`,
+  with headers and a folder README, kept until A1 to A5 replace them (their
+  messages name the new scripts; outputs keep their names). A comment pass on
+  the sparsest analysis files (Giulio: the big files were under-commented):
+  every step and sub-step explained, comments only (identity tools: same
+  code); e.g. group_differences 0.22 to 0.30 comment lines per code line,
+  normalise_groups 0.21 to 0.30, the Python modules about three times as
+  many. Checked on the merged production code: identity, ruff, the run
+  scripts, `sep_test_path`.
+- **4 Oct, Giulio's decisions on the open points** (to do after the comment
+  pass, each measured before adopting): (1) P7bis: a voxel gets a t only with
+  at least 3 mice per group, and the surprise bars and slab opacity sum only
+  over voxels with their own t (no rolling-median fill); (2) the surprise-bar
+  regions: a child region is taken out of its parent (HPF without SUB, HY
+  without STN and ZI, MBmot without SCm), the bar is the fraction of the
+  region's voxels that is significant (the sum stays in the table), the list
+  is built systematically from the atlas (all cortical areas at one level
+  plus a declared set of subcortical nuclei, completing S1's subfields), and
+  the group labels are corrected; (3) the video mean panel stays as
+  run_compare's maps, the frame header gives the t's folded n (per-mouse
+  means in run_compare and the videos together: ROADMAP); (4) NaN-aware
+  per-brain backgrounds (per_mouse block means) and a NaN-aware warp of the
+  young brains to the CCF (no edge darkening), measured on the check tree on
+  the headline numbers (RL+AL under zref, the laminar contrasts, the
+  significant-structure counts) before Giulio adopts them.
 - **New order** (Giulio, 2 Oct): merge first, new science after. Step 7's
   kind C and the step 8 fixes go in one batch with one set of reruns (a fix
   that changes production numbers still waits for Giulio); then step 10's
