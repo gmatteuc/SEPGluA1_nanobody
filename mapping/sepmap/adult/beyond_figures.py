@@ -557,8 +557,8 @@ def write_caption_numbers(
         f"Numbers for the captions (all on {n_structures} grey-matter structures, "
         f"{len(ADULTS)} adult mice).",
         "",
-        # A: each explanation as a share of the explainable variance; a negative
-        # held-out R2 (worse than the mean) is quoted as 0%
+        # A: each explanation as a share of the explainable variance; autofluorescence,
+        # whose held-out R2 can be negative (worse than the mean), at 0% at least
         f"A. The map is reproducible enough that {ceiling:.1%} of its variance is",
         f"   explainable in principle (95% CI {ceiling_ci[0]:.1%} "
         f"to {ceiling_ci[1]:.1%}).",

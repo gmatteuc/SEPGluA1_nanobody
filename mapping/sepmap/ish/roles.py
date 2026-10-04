@@ -473,7 +473,8 @@ def panel_by_role(
         # the median as a black bar
         ax.plot([i - 0.3, i + 0.3], [np.median(v)] * 2, color="0.15", lw=1.8, zorder=3)
 
-    # zero, and each role named on one line (chr(10) is the line break) with its count
+    # zero, and each role's label on one line (its line break, chr(10), a space),
+    # with its count
     ax.axhline(0, color="0.85", lw=0.7, zorder=0)
     ax.set_xticks(range(len(roles)))
     ax.set_xticklabels(
