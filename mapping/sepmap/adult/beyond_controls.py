@@ -84,16 +84,19 @@ def centroids(structures: list[str]) -> dict[str, np.ndarray]:
     gets NaN; when none of them is, ValueError, since control A and the artefact
     figure both read every structure's centroid.
     """
+    # the structure name of each annotation index, and the CCF annotation at 20 um
     names, _, _ = structure_terms()
     annotation = annotation_20("ccf")
     coords = {}
 
-    # the annotation indices of each structure name
+    # the annotation indices of each structure name (0 is outside the brain)
     per_name = defaultdict(list)
     for idx in np.unique(annotation):
         if idx == 0 or int(idx) not in names:
             continue
         per_name[names[int(idx)]].append(int(idx))
+
+    # the indices of the structures asked for, each mapped back to its structure
     wanted = {s: per_name.get(s, []) for s in structures}
     flat = {i: s for s, ids in wanted.items() for i in ids}
     if not flat:
@@ -109,6 +112,8 @@ def centroids(structures: list[str]) -> dict[str, np.ndarray]:
     sums = defaultdict(lambda: np.zeros(4))
     for a, d, m, lab in zip(ap, dv, ml, labels):
         sums[flat[int(lab)]] += (a, d, m, 1)
+
+    # the mean position in mm (a voxel is 0.02 mm), NaN for a structure with no voxels
     for s in structures:
         v = sums.get(s)
         coords[s] = (
@@ -124,6 +129,8 @@ def replication(
     splits: list[tuple[list[int], list[int]]],
 ) -> float:
     """How well the leftover of one half-cohort matches the leftover of the other."""
+    # each half's ranked map fitted to the predictors on its own, the Spearman of
+    # the two leftovers, averaged over every split
     return float(
         np.mean(
             [
@@ -141,6 +148,7 @@ def gene_matrix(
     expr: dict[str, dict[str, float]], structures: list[str], genes: list[str]
 ) -> np.ndarray:
     """Rank profiles of many genes as one array, genes by structures."""
+    # ranks, since each Allen experiment has its own arbitrary intensity scale
     return np.array([rankdata([expr[g][s] for s in structures]) for g in genes])
 
 
@@ -161,6 +169,9 @@ def control_a_space(
     structures have a centroid.
     """
     print("\nA  is it a smooth spatial gradient? (an illumination artefact)")
+
+    # the structures with a centroid; on too few, a fit of six position terms would
+    # explain much of the leftover by chance
     coords = centroids(structures)
     xyz = np.array([coords[s] for s in structures])
     ok = np.all(np.isfinite(xyz), axis=1)
@@ -168,15 +179,19 @@ def control_a_space(
         print("   not enough centroids; skipped")
         return None
 
-    # the residual against a quadratic in the three ranked positions
+    # the residual against a quadratic in the three ranked positions, enough to
+    # follow a ramp or a bowl across the block, as uneven illumination would give
     pos = [rankdata(xyz[ok, i]) for i in range(3)]
     quad = pos + [p**2 for p in pos]
     smooth = r_squared(res[ok], quad)
+
+    # and against each axis on its own
     for axis, p in zip("AP DV ML".split(), pos):
         print(f"   residual against {axis}: rho {spearmanr(res[ok], p).statistic:+.3f}")
     print(f"   a smooth quadratic in all three axes explains R2 = {smooth:.3f} of it")
 
-    # the replication with position added to the covariates
+    # the replication with position added to the covariates: the bent covariates
+    # and the three ranked axes, straight
     with_pos = replication(
         nano,
         structures,
@@ -189,6 +204,9 @@ def control_a_space(
         f"   and with position added as a covariate the leftover {still} "
         f"at {with_pos:.3f}"
     )
+
+    # the verdict, printed and as a row of controls.csv: a gradient could explain
+    # the leftover if position explains more than beyond_controls.gradient_r2 of it
     if smooth > BEYOND_CONTROLS["gradient_r2"]:
         verdict = "a gradient could explain it -- LOOK CLOSER"
     else:
@@ -210,15 +228,22 @@ def control_b_size(
     verdict row.
     """
     print("\nB  is it small structures, where a mean is noisy?")
+
+    # the leftover against structure volume, structures with no volume left out
     size = np.array([nano_rows.get(s, np.nan) for s in structures])
     ok = np.isfinite(size)
     rho = spearmanr(res[ok], np.log10(size[ok])).statistic
+
+    # noise would make the leftover larger in the smaller structures, so compare
+    # the median |residual| of the two halves by volume
     big = size[ok] >= np.median(size[ok])
     print(f"   residual against log structure volume: rho {rho:+.3f}")
     print(
         f"   |residual| in the larger half {np.median(np.abs(res[ok][big])):.1f} ranks, "
         f"smaller half {np.median(np.abs(res[ok][~big])):.1f}"
     )
+
+    # the verdict: size drives the leftover if |rho| exceeds beyond_controls.size_rho
     if abs(rho) > BEYOND_CONTROLS["size_rho"]:
         verdict = "size drives it -- LOOK CLOSER"
     else:
@@ -242,8 +267,12 @@ def control_c_mice(
     pair of mice.
     """
     print("\nC  is it one or two animals?")
+
+    # each mouse's own leftover: its ranked map fitted to the bent covariates
     xs = flexible(list(covariates.values()))
     per = {m: residual(rankdata([nano[m][s] for s in structures]), xs) for m in ADULTS}
+
+    # the agreement of every pair of mice
     pairs = [
         spearmanr(per[a], per[b]).statistic
         for i, a in enumerate(ADULTS)
@@ -266,6 +295,9 @@ def control_c_mice(
         f"range {min(pairs):+.3f} to {max(pairs):+.3f}"
     )
     print(f"   least typical animal: {worst} at {worst_rho:+.3f} mean agreement")
+
+    # the verdict rests on the worst pair, since an odd brain lowers every pair it
+    # is in: below beyond_controls.pair_rho, one animal may carry the leftover
     if min(pairs) < BEYOND_CONTROLS["pair_rho"]:
         verdict = "one animal may be carrying it -- LOOK CLOSER"
     else:
@@ -292,6 +324,8 @@ def control_d_groups(
     Returns the verdict row and the leftovers of the naive and the RWS group.
     """
     print("\nD  is it the whisker manipulation? (naive and RWS are pooled)")
+
+    # each group's leftover: its mean map, ranked, fitted to the bent covariates
     xs = flexible(list(covariates.values()))
     naive = residual(
         rankdata([float(np.mean([nano[m][s] for m in NAIVE])) for s in structures]), xs
@@ -299,6 +333,9 @@ def control_d_groups(
     rws = residual(
         rankdata([float(np.mean([nano[m][s] for m in RWS])) for s in structures]), xs
     )
+
+    # how well the two groups' leftovers agree; below beyond_controls.groups_rho
+    # the pooling hides a difference between them
     rho = spearmanr(naive, rws).statistic
     print(f"   leftover from the five naive against the five RWS: rho {rho:+.3f}")
     if rho < BEYOND_CONTROLS["groups_rho"]:
@@ -329,6 +366,9 @@ def control_e_curvature(
     cross-validated R2 of the cubic and the quintic model.
     """
     print("\nE  is the bending model bent enough? (does more curvature keep paying?)")
+
+    # held-out R2 of the covariates straight, to cubes (the quoted model) and to
+    # fifth powers; held out, because in-sample every added term fits better
     xs = list(covariates.values())
     linear = cv_r2(y, xs)
     cubic = cv_r2(y, flexible(xs))
@@ -336,6 +376,9 @@ def control_e_curvature(
     print(f"   cross-validated R2, straight              {linear:+.3f}")
     print(f"   cross-validated R2, squares and cubes     {cubic:+.3f}   <- the model")
     print(f"   cross-validated R2, up to fifth powers    {quintic:+.3f}")
+
+    # the verdict: the model is not bent enough if fifth powers gain more than
+    # beyond_controls.curvature_gain of held-out R2
     gain = BEYOND_CONTROLS["curvature_gain"]
     if quintic - cubic > gain:
         verdict = "more curvature still pays -- the model is not bent enough"
@@ -371,19 +414,28 @@ def control_f_gene_space(
     curve (per number of components, n_components, r2 fitted and cv_r2
     cross-validated) and the best number of components.
     """
+    # the panel genes measured in every one of the structures
     genes = sorted(g for g in expr if all(s in expr[g] for s in structures))
     print(
         "\nF  is it our choice of covariates? (give the model all "
         f"{len(genes)} genes measured in every structure)"
     )
+
+    # each gene's rank profile z-scored and the mean profile removed; the rows of
+    # vt are then the panel's shared patterns across structures, strongest first
     m = gene_matrix(expr, structures, genes)
     m = (m - m.mean(axis=1, keepdims=True)) / m.std(axis=1, keepdims=True)
     _, _, vt = np.linalg.svd(m - m.mean(axis=0), full_matrices=False)
 
+    # models of the first 1 to beyond_controls.max_pcs components, each scored
+    # in-sample and held out
     curve = []
     for k in range(1, BEYOND_CONTROLS["max_pcs"] + 1):
         pcs = [vt[i] for i in range(k)]
         curve.append(dict(n_components=k, r2=r_squared(y, pcs), cv_r2=cv_r2(y, pcs)))
+
+    # the best model by held-out R2 (in-sample would always pick the most
+    # components), and whether its leftover still replicates
     best = max(curve, key=lambda c: c["cv_r2"])
     best_k, best_cv = best["n_components"], best["cv_r2"]
     pcs = [vt[i] for i in range(best_k)]
@@ -392,6 +444,8 @@ def control_f_gene_space(
         f"   {len(genes)} genes reduced to components; the best model by "
         f"cross-validation uses {best_k}"
     )
+
+    # its held-out R2 as a share of the explainable variance, the squared ceiling
     print(
         f"   in-sample R2 {r_squared(y, pcs):.3f}, cross-validated {best_cv:.3f}, "
         f"{best_cv / ceiling**2:.0%} of the ceiling"
@@ -435,17 +489,26 @@ def control_g_readings(
     print("\nG  is it zref? (the same test on every reading)")
     out = []
     for reading in ("zref", "cref", "subref", "ratio", "sepratio"):
+        # the reading's log2 value per adult and structure
         per = defaultdict(dict)
         with open(NANO, newline="", encoding="utf-8") as fh:
             for r in csv.DictReader(fh):
                 if r["reading"] == reading and r["mouse"] in ADULTS:
                     per[r["mouse"]][r["structure"]] = float(r["log2_value"])
+
+        # the test needs the structures zref used, so a reading missing from any
+        # of them in any mouse is skipped
         if not all(all(s in per[m] for s in structures) for m in ADULTS):
             print(f"   {reading:9s} not measured in every structure; skipped")
             continue
+
+        # the bent covariates, and the reading's ranked mean map over the adults
         covariates, _, _ = build_covariates(per, expr, role, auto, structures)
         xs = flexible(list(covariates.values()))
         y = half_map(per, range(len(ADULTS)), structures)
+
+        # how well the two half-cohort maps agree, then their leftovers, averaged
+        # over the splits
         raw = float(
             np.mean(
                 [
@@ -457,6 +520,8 @@ def control_g_readings(
             )
         )
         rep = replication(per, structures, xs, splits)
+
+        # one row per reading, R2 in-sample
         out.append(
             dict(
                 reading=reading,
@@ -469,6 +534,9 @@ def control_g_readings(
             f"   {reading:9s} covariates explain R2 {out[-1]['r2']:.3f}; "
             f"map replicates {raw:.3f}, leftover {rep:.3f}"
         )
+
+    # the verdict: the claim does not hang on zref if every reading's leftover
+    # replicates above beyond_controls.readings_replication
     agree = all(
         r["leftover_replication"] > BEYOND_CONTROLS["readings_replication"] for r in out
     )
@@ -510,6 +578,7 @@ def figure_artefacts(
     """
     fig, axes = plt.subplots(1, 4, figsize=(15.5, 3.9))
 
+    # A: the leftover against anterior-posterior position, structures with a centroid
     xyz = np.array([coords[s] for s in structures])
     ok = np.all(np.isfinite(xyz), axis=1)
     axes[0].scatter(
@@ -518,6 +587,8 @@ def figure_artefacts(
     axes[0].axhline(0, color="0.85", lw=0.7)
     axes[0].set_xlabel("structure centroid, anterior-posterior (mm)", fontsize=8)
     axes[0].set_ylabel("residual (ranks)", fontsize=8)
+
+    # each title says what the control's verdict says
     if "A" not in passed:
         title = "A. not tested: too few centroids"
     elif passed["A"]:
@@ -527,6 +598,7 @@ def figure_artefacts(
     axes[0].set_title(title, fontsize=9)
     tidy(axes[0])
 
+    # B: the leftover against structure volume, structures with a volume
     good = np.isfinite(sizes)
     axes[1].scatter(
         np.log10(sizes[good]),
@@ -543,6 +615,7 @@ def figure_artefacts(
     axes[1].set_title(title, fontsize=9)
     tidy(axes[1])
 
+    # C: the agreement of every pair of mice, the median in red
     axes[2].hist(pairs, bins=20, color="0.7", edgecolor="0.35", linewidth=0.4)
     axes[2].axvline(float(np.median(pairs)), color=RED, lw=1.8)
     axes[2].set_xlabel("leftover of one mouse against another (Spearman)", fontsize=8)
@@ -551,6 +624,8 @@ def figure_artefacts(
     axes[2].set_title(title, fontsize=9)
     tidy(axes[2])
 
+    # D: the naive leftover against the RWS one, with the identity line over both
+    # ranges and a margin of three ranks
     axes[3].scatter(naive, rws, s=12, facecolor="0.6", edgecolor="0.25", linewidth=0.3)
     lim = [min(naive.min(), rws.min()) - 3, max(naive.max(), rws.max()) + 3]
     axes[3].plot(lim, lim, color="0.75", ls="--", lw=0.8)
@@ -592,11 +667,15 @@ def figure_model_space(
     `passed` holds each control's verdict by letter; each title follows its own.
     """
     fig, axes = plt.subplots(1, 2, figsize=(11.0, 4.2))
+
+    # F: in-sample and held-out R2 against the number of components
     ks = [c["n_components"] for c in curve]
     axes[0].plot(ks, [c["r2"] for c in curve], color="0.6", lw=1.5, label="fitted")
     axes[0].plot(
         ks, [c["cv_r2"] for c in curve], color=RED, lw=1.8, label="cross-validated"
     )
+
+    # the explainable variance (the squared ceiling), and the best model dotted
     axes[0].axhline(ceiling**2, color="0.3", ls="--", lw=1.2)
     axes[0].annotate(
         "ceiling", (ks[-1], ceiling**2), fontsize=7.5, ha="right", va="bottom"
@@ -608,6 +687,8 @@ def figure_model_space(
     )
     axes[0].set_ylabel("variance of the map explained", fontsize=8)
     axes[0].legend(fontsize=7.5, frameon=False)
+
+    # the title follows the verdict of F
     if passed["F"]:
         title = "F. even the whole panel falls short"
     else:
@@ -617,6 +698,8 @@ def figure_model_space(
     )
     tidy(axes[0])
 
+    # E: held-out R2 of the quoted model and of the model bent to fifth powers,
+    # titled by the verdict of E
     axes[1].bar(
         [0, 1],
         [cubic, quintic],
@@ -648,6 +731,8 @@ def figure_readings(rows: list[dict], passed: bool) -> None:
     fig, ax = plt.subplots(figsize=(7.0, 4.0))
     labels = [r["reading"] for r in rows]
     x = np.arange(len(rows))
+
+    # left of each reading: how well the two half-cohort maps agree
     ax.bar(
         x - 0.22,
         [r["map_replication"] for r in rows],
@@ -657,6 +742,8 @@ def figure_readings(rows: list[dict], passed: bool) -> None:
         linewidth=0.4,
         label="the map replicates",
     )
+
+    # middle, in red: how well their leftovers agree, the claim itself
     ax.bar(
         x,
         [r["leftover_replication"] for r in rows],
@@ -666,6 +753,8 @@ def figure_readings(rows: list[dict], passed: bool) -> None:
         linewidth=0.4,
         label="the leftover replicates",
     )
+
+    # right: the in-sample R2 of the bent covariates
     ax.bar(
         x + 0.22,
         [r["r2"] for r in rows],
@@ -679,6 +768,8 @@ def figure_readings(rows: list[dict], passed: bool) -> None:
     ax.set_xticklabels(labels, fontsize=8)
     ax.set_ylim(0, 1.05)
     ax.legend(fontsize=7.5, frameon=False, loc="lower right")
+
+    # the title follows the verdict of G
     if passed:
         title = "G. the same picture under every reading, not just zref"
     else:
@@ -695,6 +786,8 @@ def map_ceiling(
     splits: list[tuple[list[int], list[int]]],
 ) -> float:
     """The map's reliability: Spearman-Brown of the mean half-cohort agreement."""
+    # the two half-cohort maps' Spearman averaged over every split, then stepped up
+    # to what the whole cohort is worth
     ceiling = spearman_brown(
         float(
             np.mean(
@@ -712,6 +805,8 @@ def map_ceiling(
 
 def mean_sizes() -> dict[str, float]:
     """Mean structure volume over the adults, in 20 um voxels."""
+    # each adult's voxel count per structure, from the zref rows, one per mouse
+    # and structure (the table holds a row per reading)
     sizes = {}
     with open(NANO, newline="", encoding="utf-8") as fh:
         for r in csv.DictReader(fh):
@@ -723,12 +818,15 @@ def mean_sizes() -> dict[str, float]:
 
 def write_verdicts(verdicts: list[dict[str, str] | None]) -> None:
     """Write controls.csv, a skipped control (None) left out, and print the verdict."""
+    # one row per control that ran
     path = OUT / "controls.csv"
     with open(path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=["control", "number", "verdict"])
         writer.writeheader()
         writer.writerows([v for v in verdicts if v])
     print(f"\n-> {path}")
+
+    # the claim stands only if every control that ran passes
     failed = [v["control"] for v in verdicts if v and v["verdict"] != "pass"]
     if not failed:
         verdict = "every control passes; the claim stands as written."
@@ -742,10 +840,14 @@ def main() -> None:
     # the structures and the quoted model, as adult.beyond_density builds them
     nano, _, expr, role, auto, structures = prepare()
 
+    # the ranked mean map of the ten adults and its leftover after the bent covariates
     covariates, _, _ = build_covariates(nano, expr, role, auto, structures)
     splits = half_splits()
     y = half_map(nano, range(len(ADULTS)), structures)
     res = residual(y, flexible(list(covariates.values())))
+
+    # the ceiling and the quoted model's replication, as beyond_density finds them:
+    # the baseline the controls are read against
     ceiling = map_ceiling(nano, structures, splits)
     quoted_replication = replication(
         nano, structures, flexible(list(covariates.values())), splits
@@ -758,7 +860,8 @@ def main() -> None:
     # mean structure volume over the adults, in 20 um voxels
     size_mean = mean_sizes()
 
-    # the seven controls
+    # the seven controls, each returning its verdict row (None when skipped) and
+    # what its figure draws; the centroids are for the figure of A to D
     verdicts = []
     coords = centroids(structures)
     verdicts.append(control_a_space(res, structures, y, covariates, nano, splits))
@@ -777,6 +880,9 @@ def main() -> None:
     # the verdicts, and the figures
     write_verdicts(verdicts)
     sizes_arr = np.array([size_mean.get(s, np.nan) for s in structures])
+
+    # each control's verdict by its letter, the first of its name; a skipped one
+    # is missing
     passed = {v["control"][0]: v["verdict"] == "pass" for v in verdicts if v}
     figure_artefacts(
         res, structures, sizes_arr, per_mouse, pairs, naive, rws, coords, passed
