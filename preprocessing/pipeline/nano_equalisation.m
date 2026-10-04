@@ -23,6 +23,7 @@ addpath(atlas_dir);
 
 %% Load the volumes
 
+% the folder of the run's statistics, figures and videos
 if ~exist(base_output_dir, 'dir')
     mkdir(base_output_dir);
 end
@@ -36,6 +37,7 @@ else
     cohort = get_cohort('names', mice_to_process);
 end
 
+% the mice's names and groups, which label the figures and the saved statistics
 num_mice = numel(cohort);
 processed_mouse_names = {cohort.name};
 processed_mouse_groups = {cohort.group};
@@ -61,6 +63,8 @@ nano_4d = load_volumes(file_paths, dim_store, num_mice, MAX_H, MAX_W, MAX_Z);
 
 fprintf('--- Phase 3: Calculating Statistics ---\n');
 
+% per slice, the median and inter-quartile range of the tissue pixels, the
+% background removed (select_background_pixels); NaN for a padded or empty slice
 [intensity_medians, intensity_iqrs] = slice_statistics_raw(nano_4d, dim_store, ...
     num_mice, MAX_Z, processed_mouse_names);
 
@@ -72,6 +76,8 @@ fprintf('--- Phase 4: Generating Diagnostic Plots ---\n');
 mouse_consensus = repmat(nanmean(intensity_medians, 1), [size(intensity_medians, 1), 1]);
 rel_diff_map = (intensity_medians - mouse_consensus) ./ mouse_consensus;
 
+% heatmaps of the medians and of their deviations (slice x mouse), and the
+% profiles along the slices
 [fig_traces, fig_heatmap_abs, fig_heatmap_rel] = plot_intensity_raw(intensity_medians, ...
     rel_diff_map, processed_mouse_names, num_mice, MAX_Z);
 
@@ -94,6 +100,8 @@ end
 
 fprintf('--- Phase 5: Generating Individual Videos ---\n');
 
+% one video per mouse, slice by slice with its background masked, to check the
+% background selection and the slice medians by eye
 write_videos_raw(nano_4d, dim_store, intensity_medians, processed_mouse_names, ...
     num_mice, base_output_dir, timestamp);
 
@@ -101,6 +109,9 @@ write_videos_raw(nano_4d, dim_store, intensity_medians, processed_mouse_names, .
 
 fprintf('--- Phase 6: Performing Slice Equalization (Window: 5 slices) ---\n');
 
+% scale each slice so that its median becomes the moving median over 5 slices: a
+% slice brighter or dimmer than its neighbours is brought to their level, while the
+% slow change along the brain stays
 nano_4d = equalise_slices(nano_4d, intensity_medians, dim_store, num_mice, ...
     processed_mouse_names);
 
@@ -108,6 +119,7 @@ nano_4d = equalise_slices(nano_4d, intensity_medians, dim_store, num_mice, ...
 
 fprintf('--- Phase 7: Recalculating Statistics (Equalized) ---\n');
 
+% the same statistics on the equalised slices, to check that the jumps are gone
 [intensity_medians_eq, intensity_iqrs_eq] = slice_statistics_equalised(nano_4d, ...
     dim_store, num_mice, MAX_Z, processed_mouse_names);
 
@@ -120,6 +132,7 @@ mouse_consensus_eq = repmat(nanmean(intensity_medians_eq, 1), ...
     [size(intensity_medians_eq, 1), 1]); %#ok<*NANMEAN>
 rel_diff_map_eq = (intensity_medians_eq - mouse_consensus_eq) ./ mouse_consensus_eq;
 
+% the same heatmaps and profiles, after equalisation
 [fig_heatmap_abs_eq, fig_heatmap_rel_eq, fig_traces_eq] = plot_intensity_equalised( ...
     intensity_medians_eq, rel_diff_map_eq, processed_mouse_names, num_mice, MAX_Z);
 
@@ -137,6 +150,7 @@ end
 
 fprintf('--- Phase 9: Generating Individual Videos (Equalized) ---\n');
 
+% one video per mouse of its equalised slices, to compare with the first one
 write_videos_equalised(nano_4d, dim_store, intensity_medians_eq, ...
     processed_mouse_names, num_mice, base_output_dir, timestamp);
 
@@ -144,6 +158,8 @@ write_videos_equalised(nano_4d, dim_store, intensity_medians_eq, ...
 
 fprintf('--- Phase 10: Saving Equalized Volumes to Individual Folders ---\n');
 
+% each mouse's equalised volume, cropped back to its own size, in the file the
+% registration's 'align' mode reads (use_equalized_nano = 1)
 save_equalised_volumes(nano_4d, cohort, paths, dim_store, intensity_medians, ...
     intensity_iqrs, intensity_medians_eq, intensity_iqrs_eq, num_mice);
 
@@ -163,6 +179,7 @@ for i = 1:num_mice
     mouse_name = cohort(i).name;
     mouse_type = cohort(i).group;
 
+    % the mouse's centred nano volume; stop if it is missing
     nanoPath = fullfile(paths.data, mouse_type, mouse_name, ...
         'lightsuite', 'volume_centered', 'chan02_Cy5.tiff');
     file_paths{i} = nanoPath;
@@ -171,6 +188,7 @@ for i = 1:num_mice
         error('File not found: %s', nanoPath);
     end
 
+    % its size from the tiff header, without reading the slices
     info = imfinfo(nanoPath);
     dim_store(i, 1) = info(1).Height;
     dim_store(i, 2) = info(1).Width;
@@ -186,6 +204,7 @@ function nano_4d = load_volumes(file_paths, dim_store, num_mice, MAX_H, MAX_W, M
 % All the mice's nano volumes in one 4D array padded with NaN, each volume in the
 % top-left corner of its MAX_H x MAX_W x MAX_Z block.
 
+% NaN marks the padding around a smaller mouse
 nano_4d = NaN(MAX_H, MAX_W, MAX_Z, num_mice);
 
 for i = 1:num_mice
@@ -211,6 +230,8 @@ function [pmax_val, pmin_val] = background_window(z)
 % The percentile window of the background search in slice z: the 15th to the
 % 75th percentile in the first nine slices, the 15th to the 50th after.
 
+% the windows of the reference pixels in residual_correction; why the first nine
+% slices get a wider one is not recorded
 if z < 10
     pmax_val = 75;
     pmin_val = 15;
@@ -227,6 +248,7 @@ function [intensity_medians, intensity_iqrs] = slice_statistics_raw(nano_4d, ...
 % equalisation; the padding is set to the slice's mode before the background is
 % selected.
 
+% slice x mouse; NaN where a mouse has no slice, left out of every mean and median
 intensity_medians = nan(MAX_Z, num_mice);
 intensity_iqrs = nan(MAX_Z, num_mice);
 
@@ -234,11 +256,13 @@ for i = 1:num_mice
     fprintf('  Calculating Stats for Mouse %d/%d (%s)...\n', i, num_mice, ...
         processed_mouse_names{i});
 
+    % the mouse's volume, padded to the largest size
     mouse_vol = nano_4d(:, :, :, i);
 
     slice_medians = nan(MAX_Z, 1);
     slice_iqrs = nan(MAX_Z, 1);
 
+    % its own number of slices; the ones after it are padding
     actual_z = dim_store(i, 3);
 
     parfor z = 1:MAX_Z
@@ -268,6 +292,7 @@ for i = 1:num_mice
         end
     end
 
+    % the mouse's column of the slice x mouse tables
     intensity_medians(:, i) = slice_medians;
     intensity_iqrs(:, i) = slice_iqrs;
 end
@@ -312,6 +337,8 @@ clim([-1, 1]);
 % profiles, absolute above and relative below, one line per mouse
 fig_traces = figure('Name', 'Intensity Profiles', 'Color', 'w', 'Units', 'normalized', ...
     'Position', [0.1 0.1 0.8 0.8]);
+
+% one shade of purple per mouse, dark to light
 colors = linspace(0.25, 0.75, num_mice)' * [1, 0, 1];
 
 % absolute profiles, with the median over mice
@@ -335,6 +362,8 @@ for i = 1:num_mice
     plot(rel_diff_map(:, i), 'Color', [colors(i, :) 0.6], 'LineWidth', 2, ...
         'DisplayName', processed_mouse_names{i});
 end
+
+% the median over mice in black, and zero (the mouse's mean) dashed
 group_rel_avg = nanmedian(rel_diff_map, 2); %#ok<*NANMEDIAN>
 plot(group_rel_avg, 'k-', 'LineWidth', 2, 'DisplayName', 'Group Median');
 yline(0, 'k--', 'LineWidth', 2, 'DisplayName', 'Mouse Mean (Zero Dev)');
@@ -353,6 +382,7 @@ function save_statistics_raw(base_output_dir, timestamp, intensity_medians, ...
 % Save the statistics and the three figures from before equalisation, named with
 % the time stamp of the run.
 
+% the statistics, with the mice they belong to
 savePathData = fullfile(base_output_dir, ['Intensity_Stats_' timestamp '.mat']);
 
 % intensity_iqrs is an input here, so the first branch is the one that runs
@@ -365,6 +395,7 @@ else
 end
 fprintf('Data saved to: %s\n', savePathData);
 
+% the three figures, 300 dpi
 exportgraphics(fig_traces, fullfile(base_output_dir, ['Plot_Traces_' timestamp '.png']), ...
     'Resolution', 300);
 exportgraphics(fig_heatmap_abs, fullfile(base_output_dir, ...
@@ -372,6 +403,7 @@ exportgraphics(fig_heatmap_abs, fullfile(base_output_dir, ...
 exportgraphics(fig_heatmap_rel, fullfile(base_output_dir, ...
     ['Plot_Heatmap_Rel_' timestamp '.png']), 'Resolution', 300);
 
+% close every figure, so the videos' frames go into their own hidden figure
 close all
 
 end
@@ -390,6 +422,7 @@ for i = 1:num_mice
     mouse_name = processed_mouse_names{i};
     fprintf('  Processing Video for Mouse %d/%d: %s...\n', i, num_mice, mouse_name);
 
+    % the mouse's video, one frame per slice, 5 slices a second
     video_filename = fullfile(base_output_dir, ...
         ['Video_' mouse_name '_' timestamp '.mp4']);
     vidObj = VideoWriter(video_filename, 'MPEG-4');
@@ -397,6 +430,7 @@ for i = 1:num_mice
     vidObj.Quality = 95;
     open(vidObj);
 
+    % its own slices only, not the padding
     actual_z = dim_store(i, 3);
 
     for z = 1:actual_z
@@ -426,11 +460,13 @@ for i = 1:num_mice
         frame = getframe(h_fig);
         writeVideo(vidObj, frame);
 
+        % progress every 100 slices
         if mod(z, 100) == 0
             fprintf('    Frame %d / %d\n', z, actual_z);
         end
     end
 
+    % finish the mouse's file
     close(vidObj);
     fprintf('    Video saved: %s\n', video_filename);
 end
@@ -449,7 +485,8 @@ function draw_raw_frame(z, img_single, h_fig, img_crop, mouse_name, intensity_me
 img_single(isnan(img_single)) = mode(img_single(:));
 bg_mask = select_background_pixels(img_single, pmin_val, pmax_val);
 
-% draw the slice in grey, the background transparent on black
+% draw the slice in grey, the background transparent on black; the same grey
+% limits (0 to 5000) in every frame, so the frames compare by brightness
 clf(h_fig);
 h_im = imagesc(img_crop);
 colormap(sep_palette('anatomy'));
@@ -459,6 +496,7 @@ axis image;
 axis off;
 set(gca, 'Color', 'k');
 
+% the mouse, the slice and its tissue median in the title
 title([sprintf('%s - Slice %d', strrep(mouse_name, '_', ' '), z), ...
     ' - median = ', num2str(round(intensity_medians(z, i), 2))], ...
     'Color', 'w', 'FontSize', 14, 'FontWeight', 'bold');
@@ -498,6 +536,7 @@ for i = 1:num_mice
             continue;
         end
 
+        % the whole slice scaled, background included
         nano_4d(:, :, z, i) = nano_4d(:, :, z, i) * current_factor;
     end
 end
@@ -511,6 +550,7 @@ function [intensity_medians_eq, intensity_iqrs_eq] = slice_statistics_equalised(
 % equalisation; the mask comes from a copy with the padding set to its mode, the
 % statistics from the slice itself.
 
+% slice x mouse; NaN where a mouse has no slice, left out of every mean and median
 intensity_medians_eq = nan(MAX_Z, num_mice);
 intensity_iqrs_eq = nan(MAX_Z, num_mice);
 
@@ -518,6 +558,7 @@ for i = 1:num_mice
     fprintf('  Stats (Eq) for Mouse %d/%d (%s)...\n', i, num_mice, ...
         processed_mouse_names{i});
 
+    % the mouse's volume, padded, and its own number of slices
     mouse_vol = nano_4d(:, :, :, i);
     actual_z = dim_store(i, 3);
 
@@ -553,6 +594,7 @@ for i = 1:num_mice
         end
     end
 
+    % the mouse's column of the slice x mouse tables
     intensity_medians_eq(:, i) = slice_medians;
     intensity_iqrs_eq(:, i) = slice_iqrs;
 end
@@ -598,6 +640,8 @@ clim([-1, 1]);
 % profiles, absolute above and relative below, one line per mouse
 fig_traces_eq = figure('Name', 'Intensity Profiles (Equalized)', 'Color', 'w', ...
     'Units', 'normalized', 'Position', [0.1 0.1 0.8 0.8]);
+
+% one shade of purple per mouse, dark to light
 colors = linspace(0.25, 0.75, num_mice)' * [1, 0, 1];
 
 % absolute profiles, with the median over mice
@@ -621,6 +665,8 @@ for i = 1:num_mice
     plot(rel_diff_map_eq(:, i), 'Color', [colors(i, :) 0.6], 'LineWidth', 2, ...
         'DisplayName', processed_mouse_names{i});
 end
+
+% zero, the mouse's mean, dashed
 yline(0, 'k--', 'LineWidth', 2);
 xlabel('Slice Number');
 ylabel('Relative Deviation');
@@ -637,11 +683,13 @@ function save_statistics_equalised(base_output_dir, timestamp, intensity_medians
 % Save the statistics and the three figures from after equalisation, named with
 % the time stamp of the run.
 
+% the statistics, with the mice they belong to
 savePathData = fullfile(base_output_dir, ['Intensity_Stats_Equalized_' timestamp '.mat']);
 save(savePathData, 'intensity_medians_eq', 'intensity_iqrs_eq', 'rel_diff_map_eq', ...
     'processed_mouse_names', 'processed_mouse_groups', '-v7.3');
 fprintf('Equalized Data saved to: %s\n', savePathData);
 
+% the three figures, 300 dpi
 exportgraphics(fig_traces_eq, fullfile(base_output_dir, ...
     ['Plot_Traces_Equalized_' timestamp '.png']), 'Resolution', 300);
 exportgraphics(fig_heatmap_abs_eq, fullfile(base_output_dir, ...
@@ -649,6 +697,7 @@ exportgraphics(fig_heatmap_abs_eq, fullfile(base_output_dir, ...
 exportgraphics(fig_heatmap_rel_eq, fullfile(base_output_dir, ...
     ['Plot_Heatmap_Rel_Equalized_' timestamp '.png']), 'Resolution', 300);
 
+% close every figure, so the videos' frames go into their own hidden figure
 close all
 
 end
@@ -667,6 +716,7 @@ for i = 1:num_mice
     mouse_name = processed_mouse_names{i};
     fprintf('  Processing Video for Mouse %d/%d: %s...\n', i, num_mice, mouse_name);
 
+    % the mouse's video, one frame per slice, 5 slices a second
     video_filename = fullfile(base_output_dir, ['Video_' mouse_name '_Equalized_' ...
         timestamp '.mp4']);
     vidObj = VideoWriter(video_filename, 'MPEG-4');
@@ -674,6 +724,7 @@ for i = 1:num_mice
     vidObj.Quality = 95;
     open(vidObj);
 
+    % its own slices only, not the padding
     actual_z = dim_store(i, 3);
 
     for z = 1:actual_z
@@ -703,10 +754,13 @@ for i = 1:num_mice
         frame = getframe(h_fig);
         writeVideo(vidObj, frame);
 
+        % progress every 100 slices
         if mod(z, 100) == 0
             fprintf('    Frame %d / %d\n', z, actual_z);
         end
     end
+
+    % finish the mouse's file
     close(vidObj);
 end
 
@@ -724,7 +778,8 @@ function draw_equalised_frame(z, img_single, h_fig, img_crop, mouse_name, ...
 img_single(isnan(img_single)) = mode(img_single(:));
 bg_mask = select_background_pixels(img_single, pmin_val, pmax_val);
 
-% draw the slice in grey, the background transparent on black
+% draw the slice in grey, the background transparent on black; the grey limits of
+% the first video (0 to 5000), so the two compare frame by frame
 clf(h_fig);
 h_im = imagesc(img_crop);
 colormap(sep_palette('anatomy'));
@@ -734,6 +789,7 @@ axis image;
 axis off;
 set(gca, 'Color', 'k');
 
+% the mouse, the slice and its tissue median after equalisation in the title
 title([sprintf('%s (Eq) - Slice %d', strrep(mouse_name, '_', ' '), z), ...
     ' - med = ', num2str(round(intensity_medians_eq(z, i), 2))], ...
     'Color', 'w', 'FontSize', 14, 'FontWeight', 'bold');
@@ -773,7 +829,7 @@ for i = 1:num_mice
     stats_intensity_median_eq = intensity_medians_eq(1:cur_z, i);
     stats_intensity_iqr_eq = intensity_iqrs_eq(1:cur_z, i);
 
-    % save
+    % save, -v7.3 for large arrays; this overwrites the file of an earlier run
     save_filename = fullfile(correction_dir, 'equalized_volume.mat');
 
     save(save_filename, ...
