@@ -41,6 +41,7 @@ fprintf('run_add_sep_channel: %d mouse/mice selected.\n', numel(cohort));
 
 for mouse_idx = 1:numel(cohort)
 
+    % the mouse, and a header line for it in the log
     mouse_name = cohort(mouse_idx).name;
     mouse_type = cohort(mouse_idx).group;
     fprintf('\n=== %s (%s) ===\n', mouse_name, mouse_type);
@@ -97,9 +98,11 @@ if isempty(idx_dapi) || isempty(idx_egfp)
         mouse_name, centered_dir);
 end
 
+% the aligned DAPI, which each raw DAPI slice is matched to
 aligned_dapi = fullfile(aligned_dir, 'chan01_DAPI.tiff');
 info_aligned = imfinfo(aligned_dapi);
 
+% the extraction settings, whose pixel sizes set the grids
 S = load(fullfile(mouse_dir, 'sliceinfo.mat'));
 sliceinfo = S.sliceinfo;
 
@@ -130,10 +133,12 @@ reapply_registration(tp_name, mouse_dir, work_dir, sliceinfo, out_aligned, ...
 
 %% Diagnostic figure
 
+% the recovery, the registered DAPI's agreement, the worst slice and the SEP
 plot_sep_diagnostics(Nslices, corr_slice, min_slice_corr, shift_slice, planes, ...
     corr_reg, aligned_dapi, info_aligned, rawvol, Rsample, tforms, Raligned, info_new, ...
     out_registered, mouse_name, diag_dir);
 
+% the numbers behind it, in a text file beside it
 write_sep_numbers(diag_dir, mouse_name, mouse_type, Nslices, corr_slice, ...
     min_slice_corr, bad, shift_slice, sliceinfo, corr_reg, out_registered);
 
@@ -154,7 +159,12 @@ function [rawvol, Nslices] = load_raw_slices(centered_dir, idx_dapi, idx_egfp, .
 % here rather than trusting the slice counts to match
 fprintf('Loading raw DAPI and SEP... ');
 tic;
+
+% the raw DAPI and green channels, H x W x 2 x slice
 rawvol = loadLargeSliceVolume(centered_dir, [idx_dapi idx_egfp]);
+
+% the decisions of the ordering step: the new order, the flips (1) and the slices
+% to drop (-1), by original slice
 orderfile = fullfile(mouse_dir, 'volume_for_ordering_processing_decisions.txt');
 if exist(orderfile, 'file')
     tabledecisions = readtable(orderfile);
@@ -162,16 +172,21 @@ if exist(orderfile, 'file')
     flipsdo = tabledecisions.FlipState == 1;
     toremove = tabledecisions.FlipState == -1;
 else
+
+    % no ordering file: the extraction order, nothing flipped or dropped
     sliceorder = (1:size(rawvol, 4))';
     flipsdo = false(size(sliceorder));
     toremove = false(size(sliceorder));
 end
+
+% flip left-right, reorder, then drop, the drop flags put in the new order first
 rawvol(:, :, :, flipsdo) = flip(rawvol(:, :, :, flipsdo), 2);
 rawvol = rawvol(:, :, :, sliceorder);
 rawvol(:, :, :, toremove(sliceorder)) = [];
 Nslices = size(rawvol, 4);
 fprintf('Done! Took %2.2f s\n', toc);
 
+% slice n here must be slice n of the aligned volume
 if Nslices ~= numel(info_aligned)
     error(['run_add_sep_channel: %s has %d slices after reordering but volume_aligned has %d.\n' ...
            'The ordering file and the aligned volume disagree, so no slice-to-slice\n' ...
@@ -194,9 +209,11 @@ pxsamp = double(sliceinfo.px_process) / double(sliceinfo.px_register);
 Rsample = imref2d(size(rawvol, [1 2]), pxsamp, pxsamp);
 Raligned = imref2d([info_aligned(1).Height info_aligned(1).Width], pxsamp, pxsamp);
 
+% an intensity fit of DAPI onto DAPI, one modality, up to 300 iterations a level
 [optimizer, metric] = imregconfig('monomodal');
 optimizer.MaximumIterations = 300;
 
+% per slice: the transform, its correlation and its residual shift
 tforms(Nslices, 1) = affinetform2d;
 corr_slice = nan(Nslices, 1);
 shift_slice = nan(Nslices, 1);
@@ -206,6 +223,7 @@ rectic = tic;
 msg = [];
 for islice = 1:Nslices
 
+    % the DAPI slice the alignment saved (fixed) and the raw one (moving)
     fixed = single(imread(aligned_dapi, 'Index', islice, 'Info', info_aligned));
     moving = single(rawvol(:, :, 1, islice));
 
@@ -213,6 +231,7 @@ for islice = 1:Nslices
     best = fit_slice_transform(recovery_levels, fixed, Raligned, moving, Rsample, ...
         optimizer, metric);
 
+    % keep it, with how well it reproduces the aligned slice
     tforms(islice) = best;
     [corr_slice(islice), shift_slice(islice)] = recovery_score(moving, Rsample, ...
         fixed, Raligned, best);
@@ -289,7 +308,12 @@ function warp_to_aligned(rawvol, Raligned, Nslices, Rsample, tforms, out_aligned
 
 fprintf('Warping DAPI and SEP into aligned space... ');
 tic;
+
+% each image's background (the 1st percentile of its nonzero pixels), which fills
+% the area outside the warp, as LightSuite fills it
 backvalues = recompute_backvalues(rawvol);
+
+% each slice's two channels through its transform onto the aligned grid
 alvol = zeros([Raligned.ImageSize 2 Nslices], 'uint16');
 for islice = 1:Nslices
     for ichan = 1:2
@@ -298,6 +322,8 @@ for islice = 1:Nslices
             'FillValues', double(backvalues(ichan, islice)));
     end
 end
+
+% saved as volume_aligned_sep, the input of the registration below
 saveLargeSliceVolume(alvol, {'DAPI', 'SEP'}, out_aligned);
 fprintf('Done! Took %2.2f s\n', toc);
 
@@ -330,6 +356,8 @@ si.procpath = work_dir;
 si.slicevolfin = out_aligned;
 generateRegisteredSliceVolume(si, transformparams);
 
+% replace an earlier volume_registered_sep with the result, and remove the
+% working folder
 if exist(out_registered, 'dir')
     rmdir(out_registered, 's');
 end
@@ -347,10 +375,15 @@ function [info_new, planes, corr_reg] = check_registered_dapi(registered_dir, ..
 % then every twentieth plane correlated over the voxels either one covers
 fprintf('Checking the registered DAPI against the one run_register_to_atlas wrote... ');
 tic;
+
+% the two registered DAPI volumes and their tiff headers
 ref_dapi = fullfile(registered_dir, 'chan01_DAPI.tiff');
 new_dapi = fullfile(out_registered, 'chan01_DAPI.tiff');
 info_ref = imfinfo(ref_dapi);
 info_new = imfinfo(new_dapi);
+
+% stop unless both are on one grid: the SEP is to be compared voxel by voxel
+% with NANO and AUTO on volume_registered's grid
 if numel(info_ref) ~= numel(info_new) || info_ref(1).Height ~= info_new(1).Height ...
         || info_ref(1).Width ~= info_new(1).Width
     error(['run_add_sep_channel: %s registered SEP came out %dx%dx%d against volume_registered''s %dx%dx%d.\n' ...
@@ -358,11 +391,16 @@ if numel(info_ref) ~= numel(info_new) || info_ref(1).Height ~= info_new(1).Heigh
            mouse_name, info_new(1).Height, info_new(1).Width, numel(info_new), ...
            info_ref(1).Height, info_ref(1).Width, numel(info_ref));
 end
+
+% every twentieth plane, enough to catch a misplaced volume at a fraction of the
+% reading time
 planes = 1:20:numel(info_ref);
 corr_reg = nan(numel(planes), 1);
 for k = 1:numel(planes)
     a = single(imread(ref_dapi, 'Index', planes(k), 'Info', info_ref));
     b = single(imread(new_dapi, 'Index', planes(k), 'Info', info_new));
+
+    % over the voxels either volume covers; a plane with 100 or fewer stays NaN
     m = a > 0 | b > 0;
     if nnz(m) > 100
         corr_reg(k) = corr(a(m), b(m));
@@ -412,6 +450,8 @@ box off
 fixed = single(imread(aligned_dapi, 'Index', iworst, 'Info', info_aligned));
 chk = imwarp(single(rawvol(:, :, 1, iworst)), Rsample, tforms(iworst), 'linear', ...
     'OutputView', Raligned, 'FillValues', 0);
+
+% one grey scale for both, 0 to the 99.9th percentile of the aligned slice
 lim = [0 quantile(fixed(fixed > 0), 0.999)];
 nexttile(tl);
 imagesc(fixed, lim);
@@ -423,6 +463,8 @@ imagesc(chk, lim);
 axis image off;
 colormap(gca, sep_palette('anatomy'));
 title(sprintf('recovered warp of the raw DAPI (r = %1.4f)', corr_slice(iworst)));
+
+% their absolute difference, on a quarter of that scale so small misfits show
 nexttile(tl);
 imagesc(abs(chk - fixed), [0 diff(lim) / 4]);
 axis image off;
@@ -438,6 +480,7 @@ axis image off;
 colormap(gca, sep_palette('intensity'));
 title(sprintf('registered SEP, ML plane %d', mid));
 
+% the mouse in the overall title, then save at 150 dpi
 title(tl, sprintf('%s -- SEP carried into registered space with the saved transforms', ...
     strrep(mouse_name, '_', ' ')), 'FontWeight', 'bold');
 exportgraphics(fig, fullfile(diag_dir, sprintf('%s.png', mouse_name)), ...
@@ -480,6 +523,8 @@ function r = image_match(moving, Rmoving, fixed, Rfixed, tform)
 % Correlation of the fixed image with the moving one warped onto it, to choose
 % between two candidate transforms at one level, where only the order matters.
 
+% the moving image warped onto the fixed grid, compared over the fixed image's
+% nonzero pixels; fewer than 100 give NaN
 warped = imwarp(moving, Rmoving, tform, 'linear', 'OutputView', Rfixed, 'FillValues', 0);
 m = fixed > 0;
 if nnz(m) < 100
@@ -498,6 +543,9 @@ function [r, shiftpx] = recovery_score(moving, Rmoving, fixed, Rfixed, tform)
 % which is what a misplaced channel would look like
 warped = imwarp(moving, Rmoving, tform, 'linear', 'OutputView', Rfixed, ...
     'FillValues', NaN);
+
+% tissue: above twice the background (the 1st percentile of the nonzero pixels)
+% and inside the warp
 bg = quantile(fixed(fixed > 0), 0.01);
 ok = (fixed > 2 * bg) & isfinite(warped);
 if nnz(ok) < 100
