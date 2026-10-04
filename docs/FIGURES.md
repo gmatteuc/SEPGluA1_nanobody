@@ -87,10 +87,12 @@ The grant's "mPFC": the nearest group in the code is `frontal` (ACA, ORB, PL,
 ILA, FRP, DP).
 
 **Changed since.** A1 changes the reference of `zref` and so every value in
-these panels. The fixes of 3 October leave the `zref` close-ups unchanged; in
-`group_plot.png` and `group_stats.csv` they change the `subref` panel (its
-reference now leaves out fibre tracts and ventricles) and, slightly, the
-`sepratio` panel (MG897's missing voxels no longer count as zero).
+these panels. The fixes of 3 October leave the `zref` close-ups and every
+`zref` and `cref` value unchanged; in `group_plot.png` and `group_stats.csv`
+they change the `subref` panel and its title (the reference is now TH, HY,
+PAL, MB, P and MY: fibre tracts, ventricles and unassigned labels left out).
+MG897's missing `sepratio` voxels, now left out of its region means, move one
+marker of `group_plot.eps` by a thousandth of a point; the PNG is unchanged.
 
 ## The plasticity comparison Sami El-Boustani approved (5 December 2025)
 
@@ -128,11 +130,12 @@ MG693, MG736, MG737; behaviour MG705, MG709, MG716, MG718.
 **Settings that matter.**
 
 - `run_group_differences`: `ctrl_type = 'naive'`, `exp_type` (`'rws'` or
-  `'behavior'`), `behavior_subset` (all four behaviour mice saved),
-  `channel = 'nano'`, `apply_smoothing = true` with `smooth_sigma = 5` (a 3D
-  Gaussian over each mouse's tissue, in 10 um voxels, after which the voxels
-  outside the tissue are set to 0; fix 23 leaves them out), every video flag
-  on, both region analyses off.
+  `'behavior'`), `behavior_mice` (the four behaviour mice saved, by name;
+  `behavior_subset`, by position, before step 8), `channel = 'nano'`,
+  `apply_smoothing = true` with `smooth_sigma = 5` (a 3D Gaussian over each
+  mouse's tissue, in 10 um voxels, normalised by the smoothed tissue mask;
+  outside the tissue a mouse has no value since fix 23, where the approved run
+  set those voxels to 0), every video flag on, both region analyses off.
 - `run_normalise_groups`: the mice kept per group (`selected_mice_idx_list`:
   rws and naive all five, behaviour four of seven), and `cohort_specs`, or
   `SEP_COHORT_SPECS=rws,naive,behavior` so behaviour is normalised by the same
@@ -150,14 +153,21 @@ MG693, MG736, MG737; behaviour MG705, MG709, MG716, MG718.
 (`Slab_Avg_565_naive_vs_rws_nano_surpmask`). It never overwrites the approved
 folders.
 
-**Changed since.** After smoothing, the voxels outside the tissue are left
-out instead of set to 0 (fix 23, accepted on 3 October): they no longer
-enter the group means and the SEM's n as zeros, which changes the values of
-every figure. In the regional bars, the parafascicular nucleus was listed
-twice, and the bar labelled mediodorsal nucleus summed the intermediodorsal
-nucleus, whose name contains the one asked for; the duplicate goes, and the
-bar sums the mediodorsal nucleus. "Hemishpere" becomes "Hemisphere" in the
-individual videos' titles.
+**Changed since.** Each mouse's voxels outside its tissue are left out
+instead of set to 0 after smoothing (fix 23, accepted on 3 October): every
+mean, SEM and t is taken over the mice with tissue at that voxel, and the t
+and surprise videos show only the voxels that have a t. Values inside the
+tissue are unchanged; the t maps, the surprise and the bars change wherever
+some mouse lacks tissue, and in the individual slab figures 0.2 to 0.5% of
+the pixels shown differ. Naive against behaviour changes over the whole slab,
+since MG709 has no tissue there and no longer counts as a fourth mouse. The
+S1 result before and after, on the approved run's inputs, is in
+[ROADMAP.md](ROADMAP.md), section 1. In the regional bars, the
+parafascicular nucleus was listed twice, and the bar labelled mediodorsal
+nucleus summed the intermediodorsal nucleus (88,205 voxels), whose name
+contains the one asked for; the duplicate goes, and the bar sums the
+mediodorsal nucleus (691,695 voxels). "Hemishpere" becomes "Hemisphere" in
+the individual videos' titles.
 
 ## The adult map
 
@@ -168,7 +178,7 @@ ten naive and RWS adults pooled.
 
 | output | made by | what it shows |
 |---|---|---|
-| `<data>\comparisons_v2\ccf\adult\<reading>_mean.npy`, `_sd.npy`, `_n.npy` | `mapping/run_cohort.py` (`v2_cohort.py`) | the cohort mean, SD and brain count per voxel, on the CCF at 20 um |
+| `<data>\comparisons_v2\ccf\adult\<reading>_mean.npy`, `_sd.npy`, `_n.npy` | `mapping/run_cohort.py` (`v2_cohort.py`) | the cohort mean, SD and brain count per voxel, on the CCF at 20 um; `<reading>_folded_mean.npy`, `_sd`, `_n` the same with each brain's hemispheres averaged first, on the left half |
 | `<data>\comparisons_v2\ccf\adult\video_<reading>_adult.mp4` | `mapping/run_video.py` (`v2_video.py`) | the mean and its reliability t, plane by plane |
 | `<data>\comparisons_v2\young_vs_adult\region_means_per_mouse.csv` | `mapping/run_region_plot.py` (`v2_region_plot.py`) | one value per reading, mouse and structure; the table the adult and ISH analyses read |
 
@@ -178,10 +188,15 @@ smallest structure, 250 voxels of 20 um (`[region_tables] min_vox20`); for the
 videos the colour range per reading (`[videos] mean_vmax`), the t panel's
 upper end (`t_pct`) and the brains a voxel needs (`min_n`).
 
-**Changed since.** The videos' reliability t will count each mouse once over
-its two hemispheres (fix of 3 October; today it takes the larger of the two
-hemispheres' counts). The `subref` volumes and video change with the `subref`
-fix. A1 changes every `zref` value.
+**Changed since.** The videos' reliability t is taken over each brain's two
+hemispheres averaged first, one value per brain, from the `_folded` files
+(fix 24; before, the SEM's n was the larger of the two hemispheres' counts).
+The absolute t rises in 89 to 96% of the voxels shown, by a median factor of
+1.10 to 1.14 for `cref` and `zref` (1.02 to 1.06 for `ratio`, 1.00 to 1.04 for
+`sepratio`, 1.09 to 1.11 for `subref`), and the t panel's upper end with it
+(adult `cref` 22.9 to 28.0, `zref` 14.8 to 16.9); the mean panel is
+unchanged. The `subref` volumes and video change with the `subref` fix. A1
+changes every `zref` value.
 
 ### P8 and P10, until A4 and A5 replace them
 
@@ -250,11 +265,17 @@ control's threshold; `[beyond_figures]`, bootstrap and permutation counts;
 `[beyond_regression]`, the planes drawn (215, 265 and 315 of the cropped 20 um
 grid) and the colour floor. Random seeds are fixed (0).
 
-**Changed since.** Panel F's rows are labelled with their CCF planes (they
-read 4.3, 5.3 and 6.3 mm). `fig5_model_space` says how many genes the model
-used (it said all 390). Panel A's EPS draws the ceiling band light grey under
-the bars (it was solid over them). The printed conclusions are reworded to
-follow the numbers. A1 to A3 do not move this result.
+**Changed since.** Panel F's rows are labelled with their CCF planes 610,
+710 and 810 (they read 4.3, 5.3 and 6.3 mm). `fig5_model_space` says how many
+genes the model used, 253 (it said all 390). Panel A's EPS draws the ceiling
+band light grey under the bars (it was solid over them). The titles and
+printed conclusions now follow the numbers, in short wording (fix 27):
+`fig1_ceiling` drops "highly", `fig3_residual`'s right title reads "where it
+is largest", `C_where` reads "Where the leftover lives", `D_controls` counts
+its controls ("7 ways"), and `numbers_for_the_caption.txt` says "10 adult
+mice" and "D. 7 controls"; panel E's verdict on the residuals takes its
+threshold from `[beyond_regression] diagnostic_p`. No number changes. A1 to
+A3 do not move this result.
 
 ### The ISH comparison
 
@@ -298,17 +319,26 @@ compare, words, roles, the arms), then the 390-gene pass (`run_panel_build`,
 `run_panel_fetch`, which needs the network, `run_ish_regions.py --panel
 ontology`, `run_ish_reliability`, `run_ish_panel_test`). Settings: the
 reading (`[ish] reading`, `zref`) and the gene for total receptor
-(`control_gene`, Gria1); `[ish_words]`, `[ish_panel_test]` (20,000
-permutations, the reliability a gene needs); `PYTHONHASHSEED` for
-`run_ish_words` until its fix. The structure set is today every structure the
+(`control_gene`, Gria1); `[ish_words]`; `[ish_roles] evidence_p`, the
+permutation p below which the roles figure's title reads the split by
+function as evidence; `[ish_panel_test]` (20,000 permutations, the
+reliability a gene needs). The structure set is today every structure the
 cohort measures, which is why S5 holds the numbers back until A1 to A3.
 
 **Changed since.** The words' bootstrap intervals no longer depend on the
-order of Python sets; each permutation test of the panel test gets its own
-random generator (its p moves within Monte Carlo error); the arms' self-check
-gets a margin for floating point and draws its figure before it stops; the
-table of dropped experiments gives the real reason for Gria1 and Negr1 (no
-`energy.mhd` in the downloaded file).
+order of Python sets, so `run_ish_words` gives the same result whatever
+`PYTHONHASHSEED` (`gap_lo` and `gap_hi` move, by 0.006 at the median; every
+gap, p and q is unchanged). Each permutation test of the panel test gets its
+own random generator: the matched p moves from 0.7432 to 0.7481 and the
+positive control's from 0.0007 to 0.0006, within Monte Carlo error, and
+`panel_test.csv` is unchanged. The arms' self-check gets a margin for
+floating point and draws `arms_consistency.png` before it stops; it now
+passes. The table of dropped experiments gives the real reason for Gria1 and
+Negr1 (no `energy.mhd` in the downloaded file). The `subref` correlations of
+`gene_correlations.csv` and `role_summary.csv` move by at most 0.005 with the
+`subref` fix; Cacng8 stays first. `ish_roles.png`'s title takes the direction
+of the split and its verdict from the numbers (fix 27), with the same reading
+as before.
 
 ### What the green channel reports
 
@@ -317,7 +347,8 @@ made by `mapping/run_sep_channel_check.py` (`v2_sep_channel_check.py`) from the
 per-brain files of the ten adults and the 100-gene table: each channel's
 dynamic range, what each tracks across structures, and the SEP residual once
 autofluorescence is regressed out. The figure behind the finding that the
-green channel is mostly autofluorescence.
+green channel is mostly autofluorescence. Changed since: its title no longer
+calls the sections cleared (fix 27).
 
 ## Young against adult: figures and videos
 
@@ -346,9 +377,9 @@ use the maps for the pattern: maps and tables do not give the same number
 
 **Settings that matter.**
 
-- The cohorts (`COHORTS` in `sepmap/volumes/cohort.py`, then the shared
-  cohort table `common\cohort.csv` of decision Y4): `young` pools P16, P20
-  and P22.
+- The cohorts: the `mapping_cohort` column of the cohort table
+  `common\cohort.csv` (decision Y4), grouped by `COHORTS` in
+  `sepmap/volumes/cohort.py`; `young` pools P16, P20 and P22.
 - `[young_vs_adult]`: brains a voxel needs to be compared (2 young, 5 adult),
   the smoothing of the log2 map (1 voxel of 20 um); `[region_plot]` and
   `[region_groups]`: brains a structure or group needs to be tested.
@@ -366,12 +397,21 @@ use the maps for the pattern: maps and tables do not give the same number
 
 - `slices_<reading>.png`: the panel titles gave plane numbers 180 too high
   (526 to 1074 for 346 to 894); the maps were right.
-- `subref` everywhere: its reference now leaves out fibre tracts and
-  ventricles (and the unassigned labels).
-- `sepratio` young means: MG897's missing voxels no longer count as zero in
-  the cohort mean, and the region sums become NaN-aware.
-- `region_plot.png`: the `ratio` panel's title says what its zero means.
-- The videos' reliability t: each mouse counted once over both hemispheres.
+- `subref` everywhere, maps, tables, figures and video: its reference now
+  leaves out fibre tracts, ventricles and the unassigned labels, and its
+  titles say so (each brain's `subref` moves by one constant; the numbers are
+  in [ROADMAP.md](ROADMAP.md), section 1).
+- `sepratio` young means: MG897's 183 missing voxels no longer count as zero
+  in the cohort mean (the young mean there rises by a factor of 7/6, n 7 to
+  6), and the region tables leave its 117 missing voxels out of its
+  nucleus accumbens mean (one value of `region_means_per_mouse.csv` and three
+  of `region_stats.csv` move in the fourth decimal). The P20-only maps
+  `log2_alt_*` in `volumes_ccf20.npz`, drawn by no figure, are smoothed
+  without counting a missing value as zero.
+- `region_plot.png`: the `ratio` panel's title says what its zero means
+  ("0 = equally bright").
+- The videos' reliability t: each brain counted once, its hemispheres
+  averaged first (the adult map, above).
 - A1 moves every `zref` value; the laminar contrast per mouse is added to
   `run_region_groups`' outputs (step 9).
 
@@ -401,7 +441,8 @@ Inputs: the per-brain files, the cohort volumes, `region_table.csv` and
 `young\nano_4d_normalized_bkgmask_P20.mat` for MG903), so it runs after the
 plasticity chain. `run_diagnostics.py <mouse>` refreshes one brain's sheets.
 Settings: `[tissue]` (the mask's threshold, `mad_k`, appears in the titles).
-Changed since: sheet 01's title says what the tissue mask needs.
+Changed since: sheet 01's title says what the tissue mask needs; the titles of
+sheets 06, 08 and 09 state what the numbers show (fix 27).
 
 `processing_diagnostics\sep_channel\<mouse>.png` and `.txt`, one per brain,
 are written by `registration/run_add_sep_channel.m` (`P4bis_add_sep_channel.m`):
@@ -420,7 +461,9 @@ Under each brain's folder, `<data>\<group>\<mouse>\lightsuite\`:
   `preprocessing/run_residual_correction.m` (`P2`). Settings: `doPlotBkg`,
   `savePlotBkg`, `saveRatioMap`. A slice with fewer than two reference pixels
   draws its overlay with the previous slice's slope (question 22,
-  [ROADMAP.md](ROADMAP.md)).
+  [ROADMAP.md](ROADMAP.md)). Changed since: the ratio video
+  (`ratio_map_video.mp4`, only with `saveRatioMap`, off in production) takes
+  the palette's difference map, blue below 1 and red above (fix 27).
 - `slice_order_montage.png`, every slice as a tile in its curated order:
   the slice-order editor of `preprocessing/run_order_slices.m` (`P1bis`),
   saved next to the decisions file. The README's image is one of these.
@@ -432,7 +475,8 @@ Across brains:
 - `<data>\intensity_diagnostics\`, the slice-to-slice equalisation of the nano
   channel (`Plot_*_<time>.png`, `Video_<mouse>_<time>.mp4`, the statistics):
   `preprocessing/run_nano_equalisation.m` (`P2bis`); the names carry the run's
-  clock time.
+  clock time. Changed since: the saved inter-quartile ranges are positive
+  (they were saved negated; fix 8).
 - `<data>\<group>\Background_mask_diagnostics_trace_<group>_<channel>.png` and
   `<group>\global_diagnostics\normalization_checks_<channel>\`:
   `group_comparison/run_normalise_groups.m`. Changed since: the background
@@ -441,7 +485,8 @@ Across brains:
   `atlas_crop_and_ap_mapping.png`, `atlas_comparison_adult_vs_p20.png`,
   `atlas_region_comparison.png`, `demba_to_allen_transform_qc.png`): the atlas
   checks in `atlas/qc/` (`atlas_diagnostics`, `compare_atlases_montage`,
-  `compare_atlas_regions`, `check_demba_to_allen`), run by hand.
+  `compare_atlas_regions`, `check_demba_to_allen`, which reads the annotation
+  `demba_to_allen.py` beside it writes), run by hand.
   `registration/qc/check_registration_error.m` prints each aligned brain's
   fit error.
 

@@ -114,10 +114,14 @@ questions of the map:
   new animals.
 - **A change to the smoothing.** The smoothing worked over the tissue only,
   but then set the voxels outside it to zero, so the zeros entered the group
-  means and the n of the SEM. Fix 23 of step 8 leaves them out; it changes
-  the approved comparison. Its effect on the S1 result, measured on the same
-  December 2025 inputs, is not known yet ([ROADMAP.md](ROADMAP.md),
-  section 1).
+  means and the n of the SEM. Fix 23 of step 8 leaves them out, which changes
+  the approved comparison. Rerun on the same December 2025 inputs, the RWS
+  S1 increase holds: the hemisphere-difference map keeps the same 292
+  significant pixels in the barrel field, the hemisphere-sum map 287 of its
+  437, and per mouse the barrel field is 26% higher after RWS (p = 0.12, five
+  against five), as before. The behaviour comparison changes most: MG709,
+  with no tissue at that slab, no longer counts as a fourth mouse
+  ([ROADMAP.md](ROADMAP.md), section 1).
 - **Status.** The team was not fully confident that the effect holds, and
   more animals would be a large investment, so the line is paused, not
   closed. The code stays runnable, and documented well enough to resume with
@@ -242,8 +246,9 @@ reliability (the ceiling, 97.4% of the variance). From
   test and of the permutation are held back until then; the values computed
   so far are in [adult_ish_design.md](adult_ish_design.md). Fix 5 of step 8
   gives each permutation test its own random generator, which moves the
-  powered test's p there from 0.74 to 0.75, within Monte Carlo error, and
-  leaves `panel_test.csv` unchanged. These p values are anticonservative,
+  powered test's p there from 0.7432 to 0.7481 and the positive control's
+  from 0.0007 to 0.0006, within Monte Carlo error, and leaves
+  `panel_test.csv` unchanged. These p values are anticonservative,
   because genes within a set are co-expressed (Fulcher et al. 2021); a
   spatial null is planned (A7).
 
@@ -374,13 +379,15 @@ reliability (the ceiling, 97.4% of the variance). From
   value, the differences behind the grant figures included. The code state
   behind the grant figures is tagged `grant-2026-09`. Fix 1 of step 8 takes
   the fibre tracts, the ventricles and the unassigned labels out of subref's
-  reference, which moves each brain's subref by one constant; measured before
-  the unassigned labels were added to it, the young-adult subref difference
-  moved by -0.19 log2 and the structures at q < 0.05 fell from 104 to 86
-  (REFACTOR_PLAN.md, Progress, 3 October). Fix 3 of step 8 stops the cohort
-  mean from counting MG897's 183 voxels without a sepratio value as zero, so
-  the young sepratio mean rises there and its n falls from 7 to 6; nothing
-  else changes.
+  reference, which moves each brain's subref by one constant (+0.19 to +0.45
+  log2 in the adults, +0.02 to +0.32 in the young brains). The young-adult
+  subref difference moves by -0.21 log2, and its structures at Welch
+  q < 0.05 fall from 104 to 81; the other readings are unchanged (the
+  rerun of 4 October on a copy, [ROADMAP.md](ROADMAP.md), section 1; the
+  production tables change at the rerun after the merge). Fix 3 of step 8
+  stops the cohort mean from counting MG897's 183 voxels without a sepratio
+  value as zero, so the young sepratio mean there rises by a factor of 7/6
+  and its n falls from 7 to 6; nothing else changes.
 
 ## The grant: SNSF Weave (El-Boustani, Geneva; Gjorgjieva, Munich)
 
@@ -669,7 +676,9 @@ its parameters in `mapping/settings.toml`.
   - `subref`: nano over that brain's subcortical mean: without the
     isocortex, olfactory areas, cortical subplate, hippocampus, striatum and
     cerebellum, and from fix 1 of step 8 also without the fibre tracts, the
-    ventricles and the unassigned labels (`NOT_SUBCORTEX` in `cohort.py`).
+    ventricles and the unassigned labels (`NOT_SUBCORTEX` in `cohort.py`),
+    which leaves the thalamus, hypothalamus, pallidum, midbrain, pons and
+    medulla.
   - `zref`: below.
   - `sepauto` (SEP per unit autofluorescence) appears only in the channel
     arms of line 3.
@@ -702,7 +711,9 @@ its parameters in `mapping/settings.toml`.
   `atlas/build_demba_atlas.py <age>` builds one per age from BrainGlobe's
   `demba_allen_seg_dev_mouse_p<age>_20um`, with the labels remapped to the
   CCF's parcellation index. The files keep LightSuite's `_10` names, so a
-  young brain needs `px_atlas = 20`. CCF Translator
+  young brain's `local_settings.txt` says `px_atlas = 20` for the alignment;
+  its registered volumes are on the 10 µm grid all the same
+  (`registered_grid_um`). CCF Translator
   (`brainglobe-ccf-translator`) carries a young brain to the CCF.
 - **RWS.** Rhythmic whisker stimulation, as in Gambino et al. 2014: one
   session, then perfusion.

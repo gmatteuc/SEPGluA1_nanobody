@@ -91,7 +91,7 @@ one, machinery genes in red.
 | v2 reading | Spearman against the old MATLAB ordering |
 |---|---|
 | `cref` | **+0.914** |
-| `subref` | +0.913 |
+| `subref` | +0.913 (+0.912 after fix 1 of step 8, which takes fibre tracts, ventricles and unassigned labels out of subref's reference) |
 | `zref` | **+0.910** |
 | `ratio` | +0.869 |
 | `sepratio` | +0.840 |
@@ -486,7 +486,7 @@ Medial geniculate +48 ranks, subthalamic nucleus +44, ventral LGN +38, lateral h
 
 | | control | result |
 |---|---|---|
-| A | smooth spatial gradient (clearing/illumination artefact) | quadratic in AP/DV/ML explains R² 0.18; with position as a covariate the leftover still replicates at 0.934 — **pass** |
+| A | smooth spatial gradient (an illumination artefact; the sections are not cleared) | quadratic in AP/DV/ML explains R² 0.18; with position as a covariate the leftover still replicates at 0.934 — **pass** |
 | B | small or noisy structures | ρ with log volume −0.116 — **pass** |
 | C | one or two odd animals | every pair of mice agrees, median 0.780, worst 0.595 — **pass** |
 | D | the whisker manipulation | naive leftover vs RWS leftover ρ +0.884 — **pass** |

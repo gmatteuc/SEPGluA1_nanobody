@@ -1,8 +1,8 @@
 # Roadmap
 
-What comes next, in order, and why. Written on 3 October 2026, when the
-refactor of [REFACTOR_PLAN.md](REFACTOR_PLAN.md) had done its steps 0 to 8 on
-the branch `refactor` and the documents and the merge were next. What each
+What comes next, in order, and why. Written on 3 and 4 October 2026, when
+the refactor of [REFACTOR_PLAN.md](REFACTOR_PLAN.md) had done its steps 0 to 8
+on the branch `refactor` and the documents and the merge were next. What each
 line of work found is in [SCIENTIFIC_CONTEXT.md](SCIENTIFIC_CONTEXT.md); which
 script makes each figure, in [FIGURES.md](FIGURES.md).
 
@@ -43,21 +43,18 @@ depend on A1 and can run beside it.
 
 ## 1. Merge the refactor
 
-Steps 0 to 8 are done and checked (Progress in
-[REFACTOR_PLAN.md](REFACTOR_PLAN.md)). Left before the merge:
+Steps 0 to 8 are done (Progress in [REFACTOR_PLAN.md](REFACTOR_PLAN.md)).
+The fixes Giulio accepted on 3 October (yes to 1 to 9 and 11 to 21, no to
+10; the new fixes 23 to 27) are on `refactor`, each in its own commit, and
+were rechecked against the reference: the plasticity chain, P2 and P2bis on
+MG914, the whole Python route, and fix 23 on the inputs of the approved
+run. Every output that changed is traced to its fix. Left before the merge:
 
-- The fixes Giulio accepted on 3 October (yes to 1 to 9 and 11 to 21, no to
-  10; the new fixes 23 to 27), each applied on its own and rechecked. Two
-  change results on purpose. Subref's reference now leaves out fibre tracts
-  and ventricles, which moves the young-against-adult `subref` difference by
-  -0.19 log2 and its structures with q < 0.05 from 104 to 86
-  ([REFACTOR_PLAN.md](REFACTOR_PLAN.md), Progress, 3 October); this was
-  measured before the unassigned labels joined the exclusion, so the final
-  numbers may differ. And the plasticity comparison's smoothing stops
-  setting the voxels outside the tissue to zero, so they no longer enter the
-  group means (fix 23), which changes the approved December 2025 comparison.
-  Its effect on the S1 result is not known yet: the fix is checked on the
-  inputs of the approved run, before and after, when it is applied.
+- **The registration check of step 8** (MG914, 'register' then the SEP
+  channel), which stopped on 3 October when drive C: ran out of space. To
+  rerun before the merge, with room on C: for MATLAB's temporary files.
+- **Decisions from step 8** (below): fix 23's edge voxels, the region list of
+  the surprise bars, and the cohort videos' mean panel.
 - The documents of step 10 and the final report.
 - The merge itself, as the plan's "Merging" lists it: every MATLAB session
   closed; the uncommitted run settings of `P4_register_to_atlas.m` on `main`
@@ -66,6 +63,86 @@ Steps 0 to 8 are done and checked (Progress in
   (git does not move ignored files) and its self-test run before the first
   `annotate`, otherwise the GUI opens without the automatic layer; the nested
   duplicate `matlab_elastix-master` deleted.
+
+### The fixes that change results
+
+Measured on the check trees on 4 October; the production outputs change only
+at the rerun after the merge (section 2).
+
+- **Subref's reference (fix 1).** It is now exactly TH, HY, PAL, MB, P and
+  MY: fibre tracts, ventricles and the unassigned labels left out. Each
+  brain's `subref` moves by one constant, +0.19 to +0.45 log2 in the adults
+  (mean +0.34) and +0.02 to +0.32 in the young brains (mean +0.13). The
+  young-against-adult `subref` difference moves by -0.21 log2 (-0.19 from
+  the fibre tracts and ventricles, -0.02 from the unassigned labels), and its
+  structures at Welch q < 0.05 go from 104 to 81 (Mann-Whitney 97 to 75).
+  `ratio`, `sepratio`, `cref` and `zref` are unchanged.
+- **Missing values left out (fixes 3 and 25).** Only MG897 has voxels without
+  a `sepratio` value: 183 in the CCF maps, and in its own atlas 117, all in
+  the nucleus accumbens. At the 183 the young `sepratio` mean rises by a
+  factor of 7/6 (5/4 for `young_P20`) and its n falls from 7 to 6 (5 to 4);
+  in the region tables one value moves in the fourth decimal. The P20-only
+  contrast maps of `volumes_ccf20.npz` (`log2_alt_*`, drawn by no figure)
+  are now smoothed without counting a missing value as zero.
+- **The plasticity comparison's smoothing (fix 23).** Each mouse is NaN
+  outside its tissue, the smoothing is normalised by the smoothed tissue
+  mask, and every mean, SEM and t is taken over the mice with tissue on both
+  sides of the voxel. Values inside the tissue are unchanged; t changes
+  wherever some mouse lacks tissue. Rerun on the inputs of the approved run,
+  as the S6 run of 1 October was (the check's tables are in
+  `G:\sep_refactor\s6\scratch\step8b\`), naive against RWS, barrel field at
+  slab 565:
+
+  | | approved run | before the fix | after |
+  |---|---|---|---|
+  | difference map (L - R), pixels at p < 0.01 | 271 | 292 | 292, the same pixels |
+  | sum map (L + R), pixels at p < 0.01 | 532 | 437 | 287, all among the 437 |
+  | surprise bar, L - R | 14,155 (rank 1 of 36) | 14,562 (1 of 36) | 15,041 (1 of 42) |
+  | surprise bar, L + R | 89,140 (rank 14 of 38) | 84,521 (13 of 38) | 81,773 (5 of 35) |
+  | per mouse, L + R, naive and RWS: mean (SEM), Welch p, 5 and 5 mice | 1.389 (0.143) and 1.766 (0.161), p 0.118 | p 0.120 | 1.414 (0.135) and 1.776 (0.157), p 0.119 |
+
+  - The RWS S1 increase holds. The difference map is unchanged in S1; the
+    sum map's significant area there shrinks by about a third. The barrel
+    field rises in the sum bars because large bars made of zeros counted as
+    data disappear (midbrain, motor related 5.22M to 159; VISp 0.96M to
+    4,208; HPF 0.91M to 14,493; RSP 588k to 18,180). Per mouse, the barrel
+    field is 26% higher in RWS, not significant with five against five,
+    before and after; no mouse's own value moves by more than 0.006.
+  - Naive against behaviour changes most. MG709 has no tissue at slab 565,
+    but the old code counted it as a fourth behaviour mouse. With the three
+    real ones, the sum map is significant over about a quarter of the slab
+    (76,879 pixels against 7,888; in the barrel field 2,944 against 1), and
+    the difference map has 286 significant pixels, mostly positive, against
+    14, all negative. Per mouse, the barrel field's L + R is 55% higher after
+    behaviour (naive 1.372, SEM 0.131; behaviour 2.119, SEM 0.133; 5 and 3
+    mice; Welch p 0.009), before and after the fix. That figure needs
+    re-reading.
+  - New with the fix: at tissue edges, voxels left with two or three mice
+    per group give very large t (9 pixels of the RWS slab above |t| = 10, up
+    to 73), and probably the new L - R bars at tissue edges (olfactory
+    tubercle, orbital, VISp, HPF, midbrain motor), not checked directly.
+
+### Decisions open from step 8
+
+- **Fix 23's edge voxels.** A minimum number of mice per voxel (for example
+  3 per group), and/or the surprise bars and the slab opacity summed only
+  over voxels with a t of their own (today the rolling median of +/- 10
+  planes fills a voxel without a t from its neighbours). Either moves the
+  December comparison again.
+- **The surprise bars' region list** (55 names, each an exact atlas name,
+  none twice since fix 9). Nested regions count voxels twice: SUB inside HPF
+  (4.9% of HPF), STN and ZI inside HY (1.3%, 11.8%), SCm inside MBmot
+  (26.5%); keep both, drop one, or take the smaller out of the larger? The
+  bars are sums, so large regions win over small nuclei (HPF 21.3M voxels,
+  STN 0.1M): sum, mean, or fraction of voxels over the threshold? Was the
+  second parafascicular entry meant to be another region (PVT, SSp-n, SSp-m,
+  SSp-un, VISpm, VISpl and AUDpo are absent)?
+- **The cohort videos' mean panel** (fix 24). The t is now over each brain's
+  hemispheres averaged first; the mean panel still folds the cohort map, so
+  it matches `run_compare` and `run_video_compare`. Taking the per-brain
+  average there too is one line, and would move the mean by more than 1% in
+  12 to 25% of voxels. Each frame's header still gives the larger side's
+  count of mice, not the t's n.
 
 ## 2. Rerun the production outputs
 
@@ -76,8 +153,12 @@ production data:
 
 - **Python route**, in the run order of the `mapping/run_*.py` headers, with
   the `<mouse>_scalars.npz` caches in `comparisons_v2\per_mouse\` deleted
-  first (the subref fix changes the per-brain scalars). This rewrites
-  `comparisons_v2\` and `adult_v2\`, the grant figures included. The data
+  first: they are reused when their source file's date matches, and would
+  keep the subcortex mean from before the subref fix. This rewrites
+  `comparisons_v2\` and `adult_v2\`, the grant figures included.
+  `run_cohort` now also writes the `<reading>_folded_{mean,sd,n}.npy` files
+  the videos' t needs (about 26 GB more on D:, and 55 minutes instead of 36),
+  and `run_video` stops until it has. The data
   tree as of 30 September is in the snapshot `G:\sep_histology_snapshot_2026-09-29`;
   copying `comparisons_v2\young_vs_adult\` aside under a dated name before
   the rerun keeps the grant state next to the new one.
@@ -89,7 +170,8 @@ production data:
   inputs of the approved run (`nano_4d_normalized_bk.mat` of naive and rws,
   behavior's file of 5 December), as the informative S6 run did. The second
   isolates the effect of the fixes; the first is what a new animal would go
-  through.
+  through. Settle fix 23's edge voxels first (section 1): so far the fixed
+  group-difference step has run only on the S6 copy on G:.
 
 ## 3. The scientific additions A1 to A5 (step 9)
 
@@ -200,11 +282,14 @@ P32 and P36 are built (`data\atlas_demba_p28\`, `_p32\`, `_p36\`).
 
 Things to watch with these brains:
 
-- **The registered grid.** `register` takes it from each brain's
-  `sliceinfo.mat`, written by extraction. Every young brain was extracted in
-  August with `px_atlas = 10`, the grid the Python route expects. The
-  refactor adds a guard that stops on any other value, and a fix of
-  3 October sets the grid explicitly, checked against the rest of the cohort.
+- **The registered grid.** Since fix 26 of step 8, `register` sets it
+  itself: every brain is sampled on the 10 um grid of
+  `registration/pipeline/registered_grid_um.m`, the grid the Python route
+  expects, whatever `px_atlas` the brain's `sliceinfo.mat` holds. It stops
+  before registering any brain whose `px_register` there is not 20 (LightSuite
+  places the slices on a grid of half `px_register`), and only prints a line
+  for a `px_atlas` other than 10. Every brain registered so far has
+  `px_atlas` 10 and `px_register` 20, so nothing changes for them.
 - **Never re-align an annotated brain**: control points follow slice
   positions. The `align` mode refuses a brain that has them.
 - **A clean test of the automatic annotation.** Its models (v1.0,
@@ -219,8 +304,10 @@ Things to watch with these brains:
 
 Into the Python route:
 
-- Each brain gets its row in the cohort table (`common\cohort.csv`, one
-  table read by both routes, decision Y4), with its age and atlas.
+- Each brain already has its row in the cohort table (`common\cohort.csv`,
+  one table read by both routes, decision Y4), with its age, from which its
+  atlas follows; it enters the Python route when its `mapping_cohort` and
+  `mapping_order` are set ([ADDING_DATA.md](ADDING_DATA.md), step 4).
 - New cohorts per age (`young_P28`, `young_P32`, `young_P36`), and their
   `min_n` in `[videos]` of `mapping/settings.toml` (a cohort of one brain
   needs 1, as `young_P16` and `young_P22` have).
@@ -362,6 +449,17 @@ script did.
   regional surprise bars, RL included, five in the coarse t-score bars (off by
   default), without RL. One list would do.
 - No check drives the engine's `sections` mode (the `U` key).
+- Three places in the Python route still count a missing value as zero, or
+  mix counts, found with fix 25 and left as they are because a fix would move
+  values where data exist: `per_mouse.block_means` averages unsectioned
+  10 um voxels in as zero, and those means also set the backgrounds;
+  `to_ccf` warps a young brain linearly over the zeros outside its tissue,
+  which darkens tissue edges; `compare` and `video_compare` apply the
+  brain-count minimum with `cref_n` for every reading (no voxel is affected
+  today).
+- zref's median and spread count "brain, unassigned" as one structure among
+  several hundred (`mouse_scalars`, `region_plot`); A1's declared set settles
+  it.
 
 ## 9. LightSuite: upstream contributions (Z2), then the swap (Z1)
 
@@ -455,8 +553,9 @@ The check costs little and is informative already. In the per-structure table,
 which takes both hemispheres together, the sign of the barrel field's naive
 minus RWS difference depends on the reading: RWS is higher under `cref`
 (-0.0749 log2) and `zref` (-0.0032), naive under `ratio` (+0.2356), `subref`
-(+0.0722, before the subref fix) and `sepratio` (+0.0620), and no test is
-computed (`comparisons_v2\young_vs_adult\region_stats.csv`, SSp-bfd,
+(+0.0546 with fix 1's reference, in the rerun on a copy; +0.0722 before it)
+and `sepratio` (+0.0620), and no test is computed
+(`comparisons_v2\young_vs_adult\region_stats.csv`, SSp-bfd,
 `naive_minus_rws_log2`). That is no consistent whole-structure shift. The
 MATLAB result is voxelwise, in one slab, so the two do not contradict each
 other, and the side of the stimulation decides which hemispheric reading fits
@@ -469,7 +568,10 @@ approved figures, and the informative S6 run reproduced the computation on the
 same inputs: slab t maps and surprise masks at 0.997 to 0.998 for RWS (0.988
 to 0.999 for behaviour), individual maps at 1.000000, regional bars at 0.994 to
 0.998 ([REFACTOR_PLAN.md](REFACTOR_PLAN.md), Progress, 1 October). That checks
-the computation, not the effect. What would make it convincing:
+the computation, not the effect. With the smoothing fixed (fix 23, section 1)
+the increase is still there, smaller in the sum map; per mouse the barrel
+field is 26% higher after RWS, p 0.12 with five against five. What would make
+it convincing:
 
 - more animals per group, the number fixed in advance;
 - the protocol written into the cohort table: the RWS mice had one RWS
@@ -482,8 +584,11 @@ the computation, not the effect. What would make it convincing:
   maps, five mice per group): a cluster-level permutation, or a test of
   declared structures (S1 barrel field, VPM, the posterior thalamic complex);
 - the comparison repeated in new animals;
-- what the naive-against-behaviour comparison shows, written down: the
-  sources record only that it reproduces.
+- what the naive-against-behaviour comparison shows, written down. The
+  sources record only that it reproduced; with fix 23, which leaves out
+  MG709 (no tissue at the slab), it shows a broad increase of the hemisphere
+  sum over about a quarter of the slab, the barrel field included
+  (section 1).
 
 **What the label reports.** The tissue was not permeabilised (no or very
 little detergent; Giulio, 2 October), so the nanobody reaches the surface
@@ -546,6 +651,9 @@ For the reasons, see the plan and the documents named.
 - **The ISH tests**: the ranking is descriptive; the powered panel test is
   negative with a working positive control; numbers held back under S5.
 - **Normalisation**: both routes kept as they are (section 11).
+- **Missing values** (3 October): a mean leaves a missing value out instead
+  of counting it as zero, wherever the code allows (fixes 3, 23 and 25 of
+  step 8), even where that changes the approved December 2025 comparison.
 - **The automatic annotation** stays on the GPU (3 October): speed matters
   more than proposals that repeat to the last pixel; the proposals are
   reviewed by hand anyway.
