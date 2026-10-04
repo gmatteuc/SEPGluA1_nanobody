@@ -50,6 +50,8 @@ for mouse_idx = 1:numel(cohort)
         n_bad = n_bad + 1;
         continue
     end
+
+    % their number and total size
     src_bytes = sum([src_files.bytes]);
     fprintf('  %d .czi, %.2f GB\n', numel(src_files), src_bytes/1024^3);
 
@@ -59,6 +61,7 @@ for mouse_idx = 1:numel(cohort)
         continue
     end
 
+    % the local folder, made if new
     if ~exist(dst_dir, 'dir')
         mkdir(dst_dir);
     end
@@ -76,6 +79,7 @@ for mouse_idx = 1:numel(cohort)
     % check that every file on the share arrived with the same size
     ok = verify_copy(src_files, dst_dir);
 
+    % count the mouse as verified, or as one with a problem
     if ok
         fprintf('  VERIFIED: %d/%d files, %.2f GB\n', numel(src_files), ...
             numel(src_files), src_bytes/1024^3);
@@ -88,6 +92,7 @@ end
 
 %% Report
 
+% how many mice were verified, and how many had a problem
 fprintf('\n%s\n', repmat('=', [1 60]));
 fprintf('run_copy_raw_data done: %d mouse/mice verified, %d with problems.\n', ...
     n_ok, n_bad);
@@ -104,6 +109,8 @@ function status = robocopy_czi(src_dir, dst_dir)
 % progress, /NDL no folder list, /NJH no job header; never /MIR or /MOV
 cmd = sprintf('robocopy "%s" "%s" *.czi /Z /R:3 /W:10 /NP /NDL /NJH', ...
     src_dir, dst_dir);
+
+% run it, timed, and print its log
 t0 = tic;
 [status, out] = system(cmd);
 fprintf('%s', out);
@@ -117,11 +124,15 @@ function ok = verify_copy(src_files, dst_dir)
 % check that every file on the share arrived with the same size
 ok = true;
 for k = 1:numel(src_files)
+
+    % a file that did not arrive
     dst_file = fullfile(dst_dir, src_files(k).name);
     if ~exist(dst_file, 'file')
         fprintf('  MISSING  %s\n', src_files(k).name);
         ok = false;
     else
+
+        % a file whose size differs from the share's, so not a full copy
         dinfo = dir(dst_file);
         if dinfo.bytes ~= src_files(k).bytes
             fprintf('  SIZE MISMATCH  %s: src %d vs dst %d\n', ...
@@ -137,9 +148,11 @@ function assert_local_destination(dst_dir, share_root)
 % Stop if the destination is on the drive of the raw-data share, which is read
 % only, or is a network (UNC) path, which can name the share without its letter.
 
+% the drive letter of each path (the whole path when it has none), upper case
 share_drive = upper(extractBefore([share_root ':'], ':'));
 dst_drive = upper(extractBefore([dst_dir ':'], ':'));
 
+% the share's drive is refused as a whole, not only the share's folder
 if strcmp(dst_drive, share_drive)
     error(['Refusing to write to the raw-data share.\n' ...
            '  destination: %s\n  share root : %s\n' ...
