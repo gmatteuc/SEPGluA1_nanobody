@@ -73,10 +73,13 @@ MACHINERY = ("auxiliary", "trafficking", "scaffold")
 
 def arm_profiles() -> dict[str, dict[str, float]]:
     """{arm: {structure: mean over the adults}}, from region_means_arms.csv."""
+    # each arm's log2 value per structure, one per adult
     per = defaultdict(lambda: defaultdict(list))
     with open(ARMS_CSV, newline="", encoding="utf-8") as fh:
         for r in csv.DictReader(fh):
             per[r["arm"]][r["structure"]].append(float(r["log2_value"]))
+
+    # the mean over the adults
     return {arm: {s: float(np.mean(v)) for s, v in d.items()} for arm, d in per.items()}
 
 
@@ -93,13 +96,18 @@ def correlate(
     are a paired comparison, not three different samples. The control gene's own
     partial rho is NaN.
     """
+    # the structures measured in all three arms
     shared_arms = set.intersection(*[set(arms[a]) for a in ARMS])
     rows = []
     for gene, expr in sorted(genes.items()):
+        # the structures this gene shares with the arms and with the control gene
+        # (the control gene itself only with the arms)
         if gene == control:
             common = sorted(shared_arms & set(expr))
         else:
             common = sorted(shared_arms & set(expr) & set(genes[control]))
+
+        # a gene sharing fewer than ish.min_structures is left out, its rho too noisy
         if len(common) < ISH["min_structures"]:
             continue
 
@@ -107,6 +115,8 @@ def correlate(
         y = np.array([expr[s] for s in common])
         c = np.array([genes[control][s] for s in common])
         for arm in ARMS:
+            # rho, and the partial rho with the control gene's ranks regressed out
+            # of both the arm and the gene
             x = np.array([arms[arm][s] for s in common])
             rho, _ = spearmanr(x, y)
             rows.append(
@@ -145,6 +155,8 @@ def print_test1(
         f"  {'':12s} {'sepauto':>9s} {'ratio':>9s} {'sepratio':>9s}   "
         f"{'sepratio-sepauto':>17s}"
     )
+
+    # the control gene and the six machinery genes with the highest sepratio rho
     named = [control] + mach[:6]
     for gene in named:
         rhos = plain[gene]
@@ -156,6 +168,8 @@ def print_test1(
     # the swing towards the surface fraction, Gria1 against the machinery
     swing = {g: plain[g]["sepratio"] - plain[g]["sepauto"] for g in plain}
     mach_swing = [swing[g] for g in plain if category[g] in MACHINERY]
+
+    # the control gene's swing, then how many machinery genes swing more
     print(f"\n  {control} swing towards the surface fraction: {swing[control]:+.3f}")
     print(
         f"  machinery genes (n = {len(mach_swing)}):  "
@@ -178,6 +192,8 @@ def print_test2(
 ) -> None:
     """Print test 2: what is left of the machinery genes, the control partialled out."""
     print(f"\nTEST 2 -- with {control} partialled out, what is left")
+
+    # the eight machinery genes with the highest sepratio rho, partial rho per arm
     print(f"  {'':12s} {'sepauto':>9s} {'ratio':>9s} {'sepratio':>9s}")
     for gene in mach[:8]:
         rhos = partial[gene]
@@ -185,6 +201,9 @@ def print_test2(
             f"  {gene:12s} {rhos['sepauto']:+9.3f} {rhos['ratio']:+9.3f} "
             f"{rhos['sepratio']:+9.3f}"
         )
+
+    # per arm, the median over all machinery genes and how many stay positive; a
+    # NaN partial (a constant residual) is left out
     for arm in ARMS:
         vals = [
             partial[g][arm]
@@ -199,6 +218,8 @@ def print_test2(
 
 def print_paired(plain: dict[str, dict[str, float]], mach: list[str]) -> None:
     """Print the paired contrast: same genes, same structures, two arms."""
+    # each machinery gene's rho with sepratio against its rho with sepauto: a paired
+    # Wilcoxon signed-rank test, in which the inflation the two rho share cancels
     a = np.array([plain[g]["sepratio"] for g in mach])
     b = np.array([plain[g]["sepauto"] for g in mach])
     stat, p = wilcoxon(a, b)
@@ -216,6 +237,7 @@ def report(
     Returns ({gene: {arm: rho}}, {gene: {arm: partial rho}}, the machinery genes
     sorted by their sepratio rho, highest first).
     """
+    # the two rho tables, and the machinery genes by their sepratio rho
     control = ISH["control_gene"]
     plain, partial = by_gene(rows, "rho"), by_gene(rows, "rho_partial")
     mach = sorted(
@@ -238,11 +260,14 @@ def panel_across_arms(
     control: str,
 ) -> None:
     """Draw every gene's rho across the three arms, Gria1 and machinery picked out."""
+    # every other gene as a thin grey line, under the rest
     x = np.arange(len(ARMS))
     for gene in sorted(plain):
         if gene == control or category[gene] in MACHINERY:
             continue
         ax.plot(x, [plain[gene][a] for a in ARMS], color="0.85", lw=0.7, zorder=1)
+
+    # the machinery genes in red
     for gene in mach:
         ax.plot(
             x,
@@ -252,6 +277,8 @@ def panel_across_arms(
             alpha=0.55,
             zorder=2,
         )
+
+    # the control gene on top in dark blue, named at its sepratio end
     ax.plot(
         x,
         [plain[control][a] for a in ARMS],
@@ -269,6 +296,8 @@ def panel_across_arms(
         xytext=(6, -2),
         textcoords="offset points",
     )
+
+    # an arm per tick, in the order of test 1
     ax.set_xticks(x)
     ax.set_xticklabels([LABEL[a] for a in ARMS], fontsize=7.5)
     ax.set_ylabel("Spearman with the arm, over structures", fontsize=8)
@@ -288,12 +317,15 @@ def panel_swing(
     rng: np.random.Generator,
 ) -> None:
     """Draw the swing towards the surface fraction, machinery against the rest."""
+    # each gene's swing, its sepratio rho minus its sepauto rho, for the other
+    # genes (the control gene apart) and for the machinery
     swing = {g: plain[g]["sepratio"] - plain[g]["sepauto"] for g in plain}
     groups = [
         [swing[g] for g in plain if category[g] not in MACHINERY and g != control],
         [swing[g] for g in mach],
     ]
     for i, (vals, colour) in enumerate(zip(groups, ("0.65", RED))):
+        # the genes as dots, jittered sideways so they do not hide each other
         ax.scatter(
             np.full(len(vals), i) + rng.uniform(-0.12, 0.12, len(vals)),
             vals,
@@ -303,9 +335,13 @@ def panel_swing(
             linewidth=0.4,
             zorder=2,
         )
+
+        # the group's median as a black bar
         ax.plot(
             [i - 0.28, i + 0.28], [np.median(vals)] * 2, color="0.15", lw=1.7, zorder=3
         )
+
+    # the control gene's swing as a dashed line, the reference both groups face
     ax.axhline(swing[control], color=DARK_BLUE, lw=1.4, ls="--", zorder=1)
     ax.annotate(
         control,
@@ -315,6 +351,8 @@ def panel_swing(
         va="bottom",
         ha="right",
     )
+
+    # zero, and each group named with its count
     ax.axhline(0, color="0.8", lw=0.7, zorder=0)
     ax.set_xticks([0, 1])
     ax.set_xticklabels(
@@ -333,6 +371,7 @@ def panel_partial(
 ) -> None:
     """Draw what of the machinery genes survives partialling out the control gene."""
     for i, arm in enumerate(ARMS):
+        # the machinery genes' partial rho with this arm, jittered dots, NaN left out
         vals = [partial[g][arm] for g in mach if np.isfinite(partial[g][arm])]
         ax.scatter(
             np.full(len(vals), i) + rng.uniform(-0.12, 0.12, len(vals)),
@@ -343,9 +382,13 @@ def panel_partial(
             linewidth=0.4,
             zorder=2,
         )
+
+        # their median as a black bar
         ax.plot(
             [i - 0.28, i + 0.28], [np.median(vals)] * 2, color="0.15", lw=1.7, zorder=3
         )
+
+    # zero: a partial above it is what the control gene does not account for
     ax.axhline(0, color="0.8", lw=0.7, zorder=0)
     ax.set_xticks(range(len(ARMS)))
     ax.set_xticklabels([LABEL[a] for a in ARMS], fontsize=7.5)
@@ -390,7 +433,9 @@ def figure(
 def main() -> None:
     """Correlate every gene with every arm, write the table, report and draw."""
     control = ISH["control_gene"]
-    # the arm profiles and the gene profiles, the control gene among them
+
+    # the arm profiles and the gene profiles, the control gene among them; both
+    # tests need all three arms and the control gene
     arms = arm_profiles()
     missing = [a for a in ARMS if a not in arms]
     if missing:
@@ -407,6 +452,8 @@ def main() -> None:
 
     # plain and partial rho per arm and gene
     rows = correlate(arms, genes, category, control)
+
+    # one row per arm and gene, numbers to four decimals
     path = OUT / "arm_gene_correlations.csv"
     with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
