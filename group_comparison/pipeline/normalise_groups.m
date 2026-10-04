@@ -132,6 +132,8 @@ function [S, current_mouse_type, current_mice, subset_indices, A, AllenCrop, ...
 % The cohort's spec, the mice to normalise, and the cohort's atlas on the grid
 % of its registered volumes.
 
+% the cohort's spec, and its position among the adult groups (empty for a young
+% cohort)
 S = get_cohort_spec(cohort_specs{ci});
 current_mouse_type = S.group;
 mousetype_idx = find(strcmp(mousetypes_list, S.group));
@@ -154,6 +156,7 @@ AllenCrop = A.annot;
 brainMask = A.brainMask;
 allenDir = A.csv_dir;
 
+% the number of mice kept, printed with their names
 num_current = numel(current_mice);
 num_mice_subset = num_current;
 
@@ -195,11 +198,14 @@ name_filter = {'Layer 1', 'Layer 2/3', 'Layer 4', 'Layer 5'};
 cortex_mask_3d_inclusion_all = get_allen_region_mask(allenDir, AllenCrop, ...
     target_regions, brainMask, name_filter);
 
-% the same layers of the three midline areas, left out
+% the same layers of the three midline areas, left out (why these three, and
+% layer 6, are left out is not recorded)
 target_regions = {'Retrosplenial', 'Anterior cingulate area', 'Prelimbic area'};
 name_filter = {'Layer 1', 'Layer 2/3', 'Layer 4', 'Layer 5'};
 cortex_mask_3d_exclusion_all = get_allen_region_mask(allenDir, AllenCrop, ...
     target_regions, brainMask, name_filter);
+
+% the reference voxels: the layers kept, without the midline areas
 cortex_mask_3d_all = and(cortex_mask_3d_inclusion_all, not(cortex_mask_3d_exclusion_all));
 end
 
@@ -209,19 +215,27 @@ function [recomputed_bkg_mask_4d, median_vecs, area_vecs] = ...
 % change along the AP axis, and the median and area of each mask.
 
 fprintf('Recomputing background masks (per slice/mouse)...\n');
+
+% the masks (true for background), and per plane and mouse the median intensity
+% and the area of the background
 recomputed_bkg_mask_4d = false(size(data_4d));
 total_slices = size(data_4d, 1);
 median_vecs = NaN(total_slices, size(data_4d, 4));
 area_vecs = NaN(total_slices, size(data_4d, 4));
+
 for iii = 1:size(data_4d, 4)
     fprintf('  Processing Mouse %d / %d ...\n', iii, size(data_4d, 4));
     for slice_idx_loop = 1:total_slices
+
+        % progress every 100 planes
         if mod(slice_idx_loop, 100) == 0
             fprintf('    -> Slice %d / %d\n', slice_idx_loop, total_slices);
         end
 
-        % percentile bounds of the background by AP position; the breakpoints are
-        % adult planes, so a longer young volume follows them at the same relative depth
+        % the percentile window in which select_background_pixels looks for the knee
+        % between background and tissue, in six bands along AP (the reason for each
+        % band is not recorded); the breakpoints are adult planes, so a longer young
+        % volume follows them at the same relative depth
         s_adult = slice_idx_loop / A.ap_scale;
         if s_adult < 100
             pmax_val = 95;
@@ -243,7 +257,7 @@ for iii = 1:size(data_4d, 4)
             pmin_val = 20;
         end
 
-        % the plane's background mask
+        % the plane's background mask, without its diagnostic figure
         img_data = squeeze(data_4d(slice_idx_loop, :, :, iii));
         bool_diag_plot = false;
         bg_mask = select_background_pixels(img_data, pmin_val, pmax_val, bool_diag_plot);
@@ -261,9 +275,12 @@ function plot_background_trace(median_vecs, area_vecs, current_mouse_type, S, ch
 % The figure of the background median and area per plane, saved in the cohort
 % folder.
 
+% the figure, named after the cohort and channel (the name becomes the file name)
 h_fig = figure('Visible', 'off', 'Name', ['Background_mask_diagnostics_trace_', ...
     current_mouse_type, S.tag, '_', channel], 'Color', 'w', ...
     'Position', [100 100 1400 600]);
+
+% one line per mouse, one point per plane
 nMice = size(median_vecs, 2);
 nSlices = size(median_vecs, 1);
 x_vals = 1:nSlices;
@@ -302,11 +319,15 @@ title('Background median intensity per slice', 'FontSize', 12);
 xlabel('Slice index');
 ylabel('Median intensity');
 for m = 1:nMice
+
+    % skip a mouse with no background on any plane
     y_data = median_vecs(:, m);
     if all(isnan(y_data))
         continue;
     end
     plot(x_vals, y_data, 'Color', colors(m, :), 'LineWidth', 1.5);
+
+    % its label after its last plane with a value, staggered in height by mouse
     last_idx = find(~isnan(y_data), 1, 'last');
     if ~isempty(last_idx)
         text(x_vals(last_idx), 0.1*m*max(y_data), sprintf('  M%d', m), ...
@@ -314,6 +335,8 @@ for m = 1:nMice
             'VerticalAlignment', 'middle');
     end
 end
+
+% 10% of room on the right for the labels
 xlim([1 nSlices*1.1]);
 
 % the limit from every mouse, not the last one drawn
@@ -328,6 +351,8 @@ title('Background mask area per slice', 'FontSize', 12);
 xlabel('Slice index');
 ylabel('Pixel count (sum)');
 for m = 1:nMice
+
+    % each mouse's line and label, as on the left
     y_data = area_vecs(:, m);
     if all(isnan(y_data))
         continue;
@@ -342,6 +367,8 @@ for m = 1:nMice
 end
 xlim([1 nSlices*1.1]);
 ylim([0 max(area_vecs, [], 'all', 'omitnan')*1.1]);
+
+% the cohort and channel in the title, underscores as spaces
 sgtitle(strrep(['Background_mask_diagnostics_trace:_', current_mouse_type, '_(', ...
     channel, ')'], '_', ' '))
 end
@@ -387,8 +414,13 @@ function samples = plane_cortex_samples(data_4d, recomputed_bkg_mask_4d, plane, 
 
 samples = NaN(length(valid_pixels_indices), num_mice_subset);
 for iii = 1:num_mice_subset
+
+    % the mouse's plane, and its tissue (outside its background mask)
     current_slice = squeeze(data_4d(plane, :, :, iii));
     current_indiv_mask = ~squeeze(recomputed_bkg_mask_4d(plane, :, :, iii));
+
+    % its values on the given voxels, NaN where it has no tissue, so a voxel
+    % missing in one mouse does not enter the median or the fit as a value
     vals = current_slice(valid_pixels_indices);
     is_valid_tissue = current_indiv_mask(valid_pixels_indices);
     vals(~is_valid_tissue) = NaN;
@@ -401,7 +433,8 @@ function [consensus_pixels_pooled, norm_params] = fit_to_consensus( ...
 % The median across mice as the reference, and each mouse's robust line against
 % it (slope, intercept).
 
-% the reference: the median mouse of each pooled voxel
+% the reference: the median mouse of each pooled voxel, over the mice with tissue
+% there, so no single mouse sets it
 fprintf('Calculating Global Median Consensus...\n');
 consensus_pixels_pooled = nanmedian(cortex_samples_pooled, 2);
 
@@ -410,11 +443,14 @@ fprintf('Calculating Global Normalization Parameters...\n');
 norm_params = zeros(num_mice_subset, 2);
 
 for i = 1:num_mice_subset
+
+    % the mouse (y) against the reference (x), so the line gives raw from reference
+    % and (raw - intercept) / slope brings the mouse onto the reference
     y_raw = cortex_samples_pooled(:, i);
     x_ref = consensus_pixels_pooled;
 
-    % a robust line through the voxels both have, if there are more than 100
-    % (least squares if the robust fit fails); slope 1, intercept 0 if fewer
+    % a robust line through the voxels both have, so outlying voxels (anatomy,
+    % registration) weigh less; least squares if it fails; none with 100 or fewer
     valid_idx = ~isnan(x_ref) & ~isnan(y_raw);
     if sum(valid_idx) > 100
         try
@@ -431,9 +467,13 @@ for i = 1:num_mice_subset
             p = polyfit(x_ref(valid_idx), y_raw(valid_idx), 1);
         end
     else
+
+        % too few voxels for a line: the mouse is left as it is
         p = [1, 0];
         warning('Not enough valid pixels to fit Mouse %d globally', i);
     end
+
+    % one row per mouse: slope, intercept
     norm_params(i, :) = p;
     fprintf('  Mouse %d: Slope=%.2f, Int=%.2f\n', i, p(1), p(2));
 end
@@ -473,6 +513,7 @@ norm_var_name = [channel '_4d_normalized'];
 save_filename = fullfile(base_dir, [channel '_4d_normalized' S.tag '.mat']);
 save_filename_bis = fullfile(base_dir, [channel '_4d_normalized_bkgmask' S.tag '.mat']);
 
+% the volume, with each mouse's line, the mice and the cohort it belongs to
 save_struct = struct();
 save_struct.(norm_var_name) = data_4d_normalized;
 save_struct.norm_params = norm_params;
@@ -483,6 +524,8 @@ save_struct.cohort_spec = S.label;
 save_struct.atlas_key = S.atlas_key;
 save(save_filename, '-struct', 'save_struct', '-v7.3');
 
+% the background masks, which run_group_differences reads to find each mouse's
+% tissue
 save(save_filename_bis, 'recomputed_bkg_mask_4d', 'current_mice', ...
     'selected_mice_idx_list', '-v7.3');
 
@@ -549,6 +592,7 @@ for i = 1:num_mice_subset
     hold on;
     axis equal
 
+    % the fitted line in blue, over the range of the reference values drawn
     valid_idx = ~isnan(x_ref) & ~isnan(y_raw);
     if any(valid_idx)
         min_x = min(x_ref(valid_idx));
@@ -557,11 +601,14 @@ for i = 1:num_mice_subset
         y_fit = p(1)*x_grid + p(2);
         plot(x_grid, y_fit, 'b-', 'LineWidth', 2);
     end
+
+    % the identity in red, and the line's slope and intercept
     plot([0 plot_limit], [0 plot_limit], 'r--', 'LineWidth', 1.5);
     text(0.05*plot_limit, 0.85*plot_limit, ...
         sprintf('Slope: %.2f\nInt: %.0f', p(1), p(2)), ...
         'Color', 'b', 'FontSize', 9, 'FontWeight', 'bold');
 
+    % the same limits in every panel; tick labels on the first column only
     title(mouse_name, 'FontSize', 11, 'FontWeight', 'bold');
     xlim([0 plot_limit]);
     ylim([0 plot_limit]);
@@ -581,6 +628,8 @@ for i = 1:num_mice_subset
     axis equal
     plot([0 plot_limit], [0 plot_limit], 'r--', 'LineWidth', 1.5);
 
+    % the correlation with the median mouse over the points drawn, NaN if it
+    % cannot be computed
     R = corrcoef(x_ref, y_norm, 'Rows', 'complete');
     if numel(R) > 1
         r_val = R(1, 2);
@@ -590,6 +639,7 @@ for i = 1:num_mice_subset
     text(0.05*plot_limit, 0.9*plot_limit, sprintf('R = %.2f', r_val), ...
         'Color', 'r', 'FontSize', 10, 'FontWeight', 'bold');
 
+    % limits and labels as in the top row
     title(mouse_name, 'FontSize', 11, 'FontWeight', 'bold');
     xlim([0 plot_limit]);
     ylim([0 plot_limit]);
@@ -619,7 +669,8 @@ for viz_idx = 1:length(slices_to_visualize_list)
     % close the figures of the previous plane
     close all
 
-    % the plane's cortical voxels
+    % the plane's cortical voxels (the same mask under two names, as the plots
+    % below take it)
     cortex_slice_mask = squeeze(cortex_mask_3d_all(slice_to_plot, :, :));
     mask_2d_slice = squeeze(cortex_mask_3d_all(slice_to_plot, :, :));
     valid_pixels_indices = find(mask_2d_slice == 1);
@@ -671,6 +722,8 @@ function plot_individual_slices(num_mice_subset, current_mice, recomputed_bkg_ma
 % Plot 1: every mouse's plane, dimmed outside its cortical tissue.
 
 for iii = 1:num_mice_subset
+
+    % one figure per mouse, on black
     figure('Visible', 'off', 'Name', ['Individual_Slice_' current_mice{iii}], ...
         'Color', 'k');
 
@@ -679,16 +732,19 @@ for iii = 1:num_mice_subset
     overlay_alpha = zeros(size(cortex_slice_mask));
     overlay_alpha(cortex_slice_mask .* mask_data == 0) = 0.75;
 
+    % the raw plane in hot, on the fixed colour limit
     img_data = squeeze(data_4d(slice_to_plot, :, :, iii));
     imagesc(img_data);
     colormap(sep_palette('intensity'));
     clim([0, plot_limit]);
     hold on;
 
+    % a black layer on top, at the opacity above
     black_overlay = zeros(size(img_data));
     h_ov = imagesc(black_overlay);
     set(h_ov, 'AlphaData', overlay_alpha);
 
+    % the mouse's name and the colour bar, in white
     axis image;
     axis off;
     set(gca, 'Color', 'k');
@@ -716,6 +772,8 @@ figure('Visible', 'off', 'Name', 'Pairwise Cortex Intensity Comparison', 'Color'
 
 for row = 1:num_mice_subset
     for col = 1:num_mice_subset
+
+        % the panel of mouse row (y) against mouse col (x)
         idx = (row - 1) * num_mice_subset + col;
         subplot(num_mice_subset, num_mice_subset, idx);
         name_row = strrep(current_mice{row}, '_', ' ');
@@ -730,12 +788,17 @@ for row = 1:num_mice_subset
             xlim([0 plot_limit]);
             yticklabels([]);
         else
+
+            % each cortical voxel's two values, with the identity
             x_data = cortex_samples(:, col);
             y_data = cortex_samples(:, row);
             scatter(x_data, y_data, 2, 'filled', 'MarkerFaceColor', 'k', ...
                 'MarkerEdgeColor', 'none', 'MarkerFaceAlpha', 0.1);
             hold on;
             plot([0 plot_limit], [0 plot_limit], 'r--', 'LineWidth', 1);
+
+            % their correlation over the voxels both have, NaN if it cannot be
+            % computed
             R = corrcoef(x_data, y_data, 'Rows', 'complete');
             if numel(R) > 1
                 r_val = R(1, 2);
@@ -747,6 +810,8 @@ for row = 1:num_mice_subset
             xlim([0 plot_limit]);
             ylim([0 plot_limit]);
             grid on;
+
+            % the mouse names on the outer panels only
             if col == 1
                 ylabel(name_row, 'FontSize', 8, 'FontWeight', 'bold');
             else
@@ -760,6 +825,8 @@ for row = 1:num_mice_subset
         end
     end
 end
+
+% the plane and the colour range in the title
 sgtitle(['Cortex Pixel Intensity Comparison (Slice ' num2str(slice_to_plot) ...
     ') - Range [0, ' num2str(plot_limit) ']']);
 
@@ -771,6 +838,7 @@ function plot_median_consensus(consensus_slice, recomputed_bkg_mask_4d, slice_to
     num_mice_subset, mask_2d_slice, plot_limit, global_diagnostics_dir, channel)
 % Plot 3: the median mouse of the plane.
 
+% the median plane in hot, on the fixed colour limit
 figure('Visible', 'off', 'Name', 'Median Consensus Slice');
 imagesc(consensus_slice);
 colormap(sep_palette('intensity'));
@@ -784,9 +852,12 @@ median_overlay_alpha = zeros(size(consensus_slice));
 is_valid_region = (mask_2d_slice == 1) & at_least_one_tissue;
 median_overlay_alpha(~is_valid_region) = 0.5;
 
+% a black layer on top at that opacity
 black_overlay = zeros(size(consensus_slice));
 h_ov = imagesc(black_overlay);
 set(h_ov, 'AlphaData', median_overlay_alpha);
+
+% the title and colour bar in black, on the figure's default light background
 axis image;
 axis off;
 set(gca, 'Color', 'k');
@@ -813,6 +884,7 @@ for i = 1:num_mice_subset
     subplot(1, num_mice_subset, i);
     mouse_name = strrep(current_mice{i}, '_', ' ');
 
+    % the mouse (y) against the plane's median mouse (x), with the identity
     x_data = consensus_pixels;
     y_data = cortex_samples(:, i);
 
@@ -821,6 +893,8 @@ for i = 1:num_mice_subset
     hold on;
     plot([0 plot_limit], [0 plot_limit], 'r--', 'LineWidth', 1);
     axis equal
+
+    % their correlation, NaN if it cannot be computed
     R = corrcoef(x_data, y_data, 'Rows', 'complete');
     if numel(R) > 1
         r_val = R(1, 2);
@@ -829,6 +903,8 @@ for i = 1:num_mice_subset
     end
     text(0.05 * plot_limit, 0.9 * plot_limit, sprintf('R = %.2f', r_val), ...
         'Color', 'r', 'FontSize', 10, 'FontWeight', 'bold');
+
+    % the same limits in every panel; the y label on the first only
     xlim([0 plot_limit]);
     ylim([0 plot_limit]);
     grid on;
@@ -852,6 +928,7 @@ function plot_slice_norm_diagnostic(cortex_samples, consensus_pixels, norm_param
 % Plot 5: the global fit of every mouse on the plane, before and after the
 % normalisation.
 
+% space for the normalised values, which draw_slice_norm_panels fills
 cortex_samples_norm = zeros(size(cortex_samples));
 
 figure('Visible', 'off', 'Name', 'Normalization Diagnostic and Verification', ...
@@ -873,6 +950,8 @@ function draw_slice_norm_panels(num_mice_subset, current_mice, cortex_samples, .
 % (top) and normalised (bottom).
 
 for i = 1:num_mice_subset
+
+    % the mouse (y) against the plane's median mouse (x)
     mouse_name = strrep(current_mice{i}, '_', ' ');
     y_raw = cortex_samples(:, i);
     x_ref = consensus_pixels;
@@ -887,6 +966,7 @@ for i = 1:num_mice_subset
     hold on;
     axis equal
 
+    % the global line in blue, over the range of the plane's reference values
     valid_idx = ~isnan(x_ref) & ~isnan(y_raw);
     if any(valid_idx)
         min_x = min(x_ref(valid_idx));
@@ -895,11 +975,14 @@ for i = 1:num_mice_subset
         y_fit = p(1)*x_grid + p(2);
         plot(x_grid, y_fit, 'b-', 'LineWidth', 2);
     end
+
+    % the identity in red, and the line's slope and intercept
     plot([0 plot_limit], [0 plot_limit], 'r--', 'LineWidth', 1.5);
     text(0.05*plot_limit, 0.85*plot_limit, ...
         sprintf('Slope: %.2f\nInt: %.0f', p(1), p(2)), ...
         'Color', 'b', 'FontSize', 9, 'FontWeight', 'bold');
 
+    % the same limits in every panel; tick labels on the first column only
     title(mouse_name, 'FontSize', 11, 'FontWeight', 'bold');
     xlim([0 plot_limit]);
     ylim([0 plot_limit]);
@@ -919,6 +1002,8 @@ for i = 1:num_mice_subset
     axis equal
     plot([0 plot_limit], [0 plot_limit], 'r--', 'LineWidth', 1.5);
 
+    % the correlation with the plane's median mouse after the normalisation, NaN
+    % if it cannot be computed
     R = corrcoef(x_ref, cortex_samples_norm(:, i), 'Rows', 'complete');
     if numel(R) > 1
         r_val = R(1, 2);
@@ -928,6 +1013,7 @@ for i = 1:num_mice_subset
     text(0.05*plot_limit, 0.9*plot_limit, sprintf('R = %.2f', r_val), 'Color', 'r', ...
         'FontSize', 10, 'FontWeight', 'bold');
 
+    % limits and labels as in the top row
     title(mouse_name, 'FontSize', 11, 'FontWeight', 'bold');
     xlim([0 plot_limit]);
     ylim([0 plot_limit]);
@@ -980,7 +1066,7 @@ for i = 1:num_mice_subset
     intercept = norm_params(i, 2);
     img_norm = (img_raw - intercept) / slope;
 
-    % top row: normalised
+    % top row: normalised, in hot on the fixed colour limit
     subplot(2, num_mice_subset, i);
     imagesc(img_norm);
     colormap(sep_palette('intensity'));
@@ -989,10 +1075,14 @@ for i = 1:num_mice_subset
     axis off;
     set(gca, 'Color', 'k');
     hold on;
+
+    % a black layer on top at the opacity above, and the title in white
     h_ov1 = imagesc(zeros(size(img_norm)));
     set(h_ov1, 'AlphaData', overlay_alpha);
     t = title(['Norm: ' mouse_name]);
     set(t, 'Color', 'w', 'FontSize', 11, 'FontWeight', 'bold');
+
+    % one colour bar per row, right of the last mouse
     if i == num_mice_subset
         cb = colorbar;
         cb.Label.String = 'Normalized Intensity';
@@ -1002,7 +1092,7 @@ for i = 1:num_mice_subset
     end
     hold off;
 
-    % bottom row: raw
+    % bottom row: raw, drawn as the top row
     subplot(2, num_mice_subset, i + num_mice_subset);
     imagesc(img_raw);
     colormap(sep_palette('intensity'));
@@ -1015,6 +1105,8 @@ for i = 1:num_mice_subset
     set(h_ov2, 'AlphaData', overlay_alpha);
     t = title(['Raw: ' mouse_name]);
     set(t, 'Color', 'w', 'FontSize', 11, 'FontWeight', 'normal');
+
+    % its colour bar, right of the last mouse
     if i == num_mice_subset
         cb = colorbar;
         cb.Label.String = 'Raw Intensity';
@@ -1078,11 +1170,13 @@ for s_idx = slices_to_video
     writeVideo(vidObj, frame);
     close(fh);
 
+    % progress every 20 planes
     if mod(s_idx, 20) == 0
         fprintf('  Video Frame: Slice %d written...\n', s_idx);
     end
 end
 
+% finish the file
 close(vidObj);
 fprintf('Video saved successfully: %s\n', full_video_path);
 end
@@ -1108,7 +1202,7 @@ for i = 1:num_mice_subset
     intercept = norm_params(i, 2);
     img_norm = (img_raw - intercept) / slope;
 
-    % top row: normalised
+    % top row: normalised, in hot on the fixed colour limit
     subplot(2, num_mice_subset, i);
     imagesc(img_norm);
     colormap(sep_palette('intensity'));
@@ -1118,12 +1212,15 @@ for i = 1:num_mice_subset
     set(gca, 'Color', 'k');
     hold on;
 
+    % a black layer on top at the opacity above
     h_ov1 = imagesc(zeros(size(img_norm)));
     set(h_ov1, 'AlphaData', overlay_alpha);
 
+    % the title in white
     t = title(['Norm: ' mouse_name]);
     set(t, 'Color', 'w', 'FontSize', 10, 'FontWeight', 'bold');
 
+    % one colour bar per row, right of the last mouse
     if i == num_mice_subset
         cb = colorbar;
         cb.Label.String = 'Norm Int';
@@ -1133,7 +1230,7 @@ for i = 1:num_mice_subset
     end
     hold off;
 
-    % bottom row: raw
+    % bottom row: raw, drawn as the top row
     subplot(2, num_mice_subset, i + num_mice_subset);
     imagesc(img_raw);
     colormap(sep_palette('intensity'));
@@ -1149,6 +1246,7 @@ for i = 1:num_mice_subset
     t = title(['Raw: ' mouse_name]);
     set(t, 'Color', 'w', 'FontSize', 10, 'FontWeight', 'normal');
 
+    % its colour bar, right of the last mouse
     if i == num_mice_subset
         cb = colorbar;
         cb.Label.String = 'Raw Int';
@@ -1164,9 +1262,13 @@ function save_check_figure(global_diagnostics_dir, channel, slice_to_plot)
 % Save the current figure as .fig and .png in normalization_checks_<channel>\,
 % named after the figure, and after the plane when slice_to_plot is not empty.
 
+% the folder, made if missing; the figure saved with its own background colour
 save_output_dir = checks_folder(global_diagnostics_dir, channel);
 fig_handle = gcf;
 set(fig_handle, 'InvertHardcopy', 'off');
+
+% the file name: the figure's name with every character but letters and digits
+% as underscores, and _Slice<plane> for a figure of one plane
 clean_fig_name = regexprep(fig_handle.Name, '[^a-zA-Z0-9]', '_');
 if isempty(clean_fig_name)
     clean_fig_name = 'Untitled_Figure';
@@ -1176,6 +1278,8 @@ if isempty(slice_to_plot)
 else
     filename_base = sprintf('%s_Slice%d', clean_fig_name, slice_to_plot);
 end
+
+% .fig and a 300 dpi .png
 saveas(fig_handle, fullfile(save_output_dir, [filename_base '.fig']));
 exportgraphics(fig_handle, fullfile(save_output_dir, [filename_base '.png']), ...
     'Resolution', 300, 'BackgroundColor', 'current');
@@ -1191,6 +1295,8 @@ if nargin < 1 || isempty(global_diagnostics_dir)
            '(the group''s global_diagnostics folder, which load_cohort_stack sets).'], ...
            channel);
 end
+
+% the folder, made if missing
 save_output_dir = fullfile(global_diagnostics_dir, ['normalization_checks_' channel]);
 if ~exist(save_output_dir, 'dir')
     mkdir(save_output_dir);
