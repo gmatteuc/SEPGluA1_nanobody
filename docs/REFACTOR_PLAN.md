@@ -1206,6 +1206,23 @@ The style pass will add to this list.
   young brains to the CCF (no edge darkening), measured on the check tree on
   the headline numbers (RL+AL under zref, the laminar contrasts, the
   significant-structure counts) before Giulio adopts them.
+- **4 Oct evening, decisions 1-3 merged** (`main` `3b56943`; report
+  `G:\sep_refactor\DECISIONS_REPORT.md`): P7bis gives a t only where each
+  group has at least 3 mice (`min_mice_per_group = 3`), sums and opacity only
+  over voxels with their own t; the surprise bars are 71 atlas regions (all
+  43 isocortical areas, 28 declared subcortical regions, children taken out
+  of their parents, labels from the atlas), each bar the share of its voxels
+  at p < 0.01, the sums in `Region_Surprise_DiffSum_<comp>.csv`; the video
+  header gives the folded n. On the December inputs (S6 copy) the RWS
+  barrel-field result is unchanged (292 L-R and 287 L+R pixels, now the only
+  significant L-R spot on the slab; per mouse +26%, p 0.12), the edge t values
+  are gone (max |t| 73 to 6), behavior keeps its broad L+R increase (+55%,
+  p 0.009). Decision 4 (NaN-aware backgrounds and young warp) is on
+  `post-dec4`, being measured on all 17 brains; to adopt once its headline
+  numbers are in. Open science noted in the report: a chance level for the
+  share bars (label shuffling), a faint negative RWS L+R band at the
+  ventrolateral edge, the OT and VISp L-R bars, the behavior increase as a
+  possible normalisation effect, PVT.
 - **New order** (Giulio, 2 Oct): merge first, new science after. Step 7's
   kind C and the step 8 fixes go in one batch with one set of reruns (a fix
   that changes production numbers still waits for Giulio); then step 10's
