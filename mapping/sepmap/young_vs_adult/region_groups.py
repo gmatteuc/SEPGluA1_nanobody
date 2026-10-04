@@ -79,6 +79,8 @@ SYSTEMS = [
     # RL and AL sit on the visual-somatosensory border and look modulated in the
     # maps: a group of their own rather than averaged into the belt around them
     ("associative VT (RL+AL)", lambda a: a in ("VISrl", "VISal")),
+    # every other visual area; VISC, the visceral area, is not one and goes to
+    # lateral/insular
     (
         "higher visual (all other)",
         lambda a: a.startswith("VIS") and a not in ("VISp", "VISC", "VISrl", "VISal"),
@@ -87,12 +89,16 @@ SYSTEMS = [
     ("higher somatosensory (SSs)", lambda a: a == "SSs"),
     ("primary auditory (AUDp)", lambda a: a == "AUDp"),
     ("higher auditory (AUDd/po/v)", lambda a: a.startswith("AUD") and a != "AUDp"),
+    # anterior cingulate, orbital, prelimbic, infralimbic, frontal pole and dorsal
+    # peduncular areas
     (
         "frontal",
         lambda a: a.startswith(("ACA", "ORB")) or a in ("PL", "ILA", "FRP", "DP"),
     ),
     ("motor", lambda a: a in ("MOp", "MOs")),
     ("retrosplenial", lambda a: a.startswith("RSP")),
+    # agranular insular, gustatory, visceral, temporal association, perirhinal and
+    # ectorhinal areas
     (
         "lateral/insular",
         lambda a: a.startswith("AI") or a in ("GU", "VISC", "TEa", "PERI", "ECT"),
@@ -135,6 +141,7 @@ LAYERS = [
 
 def layer_of(substructure_name: str) -> str | None:
     """'Primary visual area, layer 2/3' -> '2/3'; anything without a layer -> None."""
+    # the token after 'layer': a number, an optional '/number' (2/3), an optional a or b
     m = re.search(r"layer\s*([0-9]+(?:/[0-9]+)?[ab]?)", substructure_name, re.I)
     return m.group(1) if m else None
 
@@ -146,6 +153,8 @@ def load_parcellation_terms() -> tuple[dict[int, str], dict[int, str], dict[int,
     """
     stru, divi, sub = {}, {}, {}
     with open(CSV_MAP, newline="", encoding="utf-8") as fh:
+        # a row ties an index to one term of one term set: keep the structure and
+        # division acronyms, and the substructure name, which carries the layer
         for r in csv.DictReader(fh):
             i = int(r["parcellation_index"])
             if r["parcellation_term_set_name"] == "structure":
@@ -166,12 +175,18 @@ def define_groups(
     with no index are dropped.
     """
     groups = {}
+
+    # each cortical system: the isocortical indices whose structure its rule accepts
     for name, pred in SYSTEMS:
         groups[("system", name)] = {
             i for i, a in stru.items() if divi.get(i) == "Isocortex" and pred(a)
         }
+
+    # each subcortical division whole, under the same grouping as the systems
     for name, div in DIVISIONS:
         groups[("system", name)] = {i for i in stru if divi.get(i) == div}
+
+    # the three depth bands within each system of the laminar figure
     for name, pred in SYSTEMS:
         if name not in LAMINAR_SYSTEMS:
             continue
@@ -181,6 +196,8 @@ def define_groups(
                 for i, a in stru.items()
                 if divi.get(i) == "Isocortex" and pred(a) and layer.get(i) in tokens
             }
+
+    # drop the groups no index falls in
     groups = {k: v for k, v in groups.items() if v}
     return groups
 
@@ -196,10 +213,17 @@ def group_cells(
     nlab = len(sums["n"])
     cells = {}
     for key, ids in groups.items():
+        # the group's indices this brain's atlas reaches: its sums stop at its
+        # largest label
         ids = [i for i in ids if i < nlab]
+
+        # tissue voxels, and the voxels that have each ratio
         c = sums["n"][ids].sum()
         c_rat = sums["ratio_n"][ids].sum()
         c_sep = sums["sepratio_n"][ids].sum()
+
+        # the means, if the group is as large as the smallest structure the tables
+        # keep (region_tables.min_vox20); None otherwise
         if c >= REGION_TABLES["min_vox20"]:
             cells[key] = (
                 int(c),
@@ -223,8 +247,11 @@ def references(
 
     The subcortex leaves out the divisions in NOT_SUBCORTEX.
     """
+    # the indices of each, among those this brain's atlas reaches
     iso = [i for i in stru if divi.get(i) == "Isocortex" and i < nlab]
     sub_ids = [i for i in stru if divi.get(i, "") not in NOT_SUBCORTEX and i < nlab]
+
+    # the voxel-weighted mean sig over each
     return {
         "cref": s_sig[iso].sum() / n[iso].sum(),
         "subref": s_sig[sub_ids].sum() / n[sub_ids].sum(),
@@ -239,12 +266,16 @@ def structure_sig_means(
     Taken per structure so that it does not depend on the grouping; structures
     under region_tables.min_vox20 voxels are left out.
     """
+    # tissue voxels and summed sig per structure, its layers pooled; label 0 (outside
+    # the brain) and an index with no structure term are skipped
     by_struct = defaultdict(lambda: [0, 0.0])
     for i in np.nonzero(n)[0]:
         if i == 0 or i not in stru:
             continue
         by_struct[stru[i]][0] += int(n[i])
         by_struct[stru[i]][1] += s_sig[i]
+
+    # the mean of each structure large enough
     return {
         k: v[1] / v[0] for k, v in by_struct.items() if v[0] >= REGION_TABLES["min_vox20"]
     }
@@ -265,6 +296,7 @@ def group_means(
     """
     anns, per, refs, struct_mean = {}, {}, {}, {}
     for mouse in mice:
+        # the brain's own atlas, loaded once for all the brains on it
         atlas_key = MICE[mouse][1]
         if atlas_key not in anns:
             anns[atlas_key] = annotation_20(atlas_key)
@@ -276,6 +308,8 @@ def group_means(
         per[mouse] = group_cells(groups, sums)
         refs[mouse] = references(stru, divi, n, s_sig, len(n))
         struct_mean[mouse] = structure_sig_means(stru, n, s_sig)
+
+        # one line per brain: how many groups are large enough to have a value
         print(
             f"{mouse:20s} {sum(v is not None for v in per[mouse].values())}"
             f"/{len(groups)} groups",
@@ -294,9 +328,12 @@ def range_match(
     Taken over the structures every brain has, so the spread does not depend on
     which regions the sections happened to cover.
     """
+    # the structures every brain has, so all spreads are taken over the same set
     common = set.intersection(*[set(struct_mean[m]) for m in mice])
     norm = {}
     for m in mice:
+        # log2 of each structure's mean over the brain's isocortex mean; a mean at or
+        # below the background has no log and is left out
         v = np.array(
             [
                 math.log2(struct_mean[m][k] / refs[m]["cref"])
@@ -304,6 +341,9 @@ def range_match(
                 if struct_mean[m][k] > 0
             ]
         )
+
+        # the median and the p90-p10 spread, floored so a flat brain cannot divide
+        # by zero
         p10, med, p90 = np.percentile(v, [10, 50, 90])
         norm[m] = (med, max(p90 - p10, 1e-6))
     return norm
@@ -318,10 +358,14 @@ def value(
     refs: dict[str, dict[str, float]],
 ) -> float | None:
     """Value of `reading` for `mouse` in group `key` (log2 or range-matched), or None."""
+    # None where the group is too small in this brain
     cell = per[mouse].get(key)
     if cell is None:
         return None
     _, m_sig, m_rat, m_sep = cell
+
+    # a signed reading (zref): the group's log2 mean over the isocortex, minus the
+    # brain's median, over its spread; None for a mean at or below the background
     if reading in SIGNED_READINGS:
         if m_sig <= 0:
             return None
@@ -353,7 +397,8 @@ def group_stats(
     rows = []
     for key in groups:
         for reading, _ in READINGS:
-            # the values of each group and subgroup
+            # the values of each group and subgroup, a brain without one (the group
+            # too small there) left out
             v = {m: value(reading, m, key, per, norm, refs) for m in mice}
             v = {m: x for m, x in v.items() if x is not None}
             yo = [v[m] for m in GROUPS["young"] if m in v]
@@ -361,19 +406,30 @@ def group_stats(
             ad = [v[m] for m in ADULTS if m in v]
             nv = [v[m] for m in NAIVE if m in v]
             rw = [v[m] for m in RWS if m in v]
+
+            # tested only with enough young and adult brains that have a value
             if (
                 len(yo) < REGION_GROUPS["min_young"]
                 or len(ad) < REGION_GROUPS["min_adult"]
             ):
                 continue
+
+            # the P20 brains alone, only with at least three, so the median does not
+            # rest on one or two
             if len(y20) >= 3:
                 diff_p20only = np.median(y20) - np.median(ad)
             else:
                 diff_p20only = float("nan")
+
+            # naive minus rws: the size of an adult-adult difference, which carries no
+            # developmental meaning
             if nv and rw:
                 naive_minus_rws = np.median(nv) - np.median(rw)
             else:
                 naive_minus_rws = float("nan")
+
+            # the medians, the young-adult differences and both tests, then the two
+            # contrasts to read them against
             rows.append(
                 dict(
                     reading=reading,
@@ -408,6 +464,7 @@ def group_stats(
 def write_group_stats(rows: list[dict]) -> None:
     """Write group_stats.csv into OUT, floats to four decimals."""
     with open(OUT / "group_stats.csv", "w", newline="", encoding="utf-8") as fh:
+        # the columns in the order of the first row, which every row shares
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
         w.writeheader()
         for r in rows:
@@ -422,16 +479,21 @@ def print_group_table(
     star: dict[tuple[str, str, str], str],
 ) -> None:
     """Print the median log2 young - adult of every group and reading, with its stars."""
+    # the header, a column per reading
     print(
         f"\n{'group':22s} "
         + " ".join(f"{r:>12s}" for r, _ in READINGS)
         + "   (log2 young - adult, medians)"
     )
+
+    # the systems, then the layers, one line per group
     for grouping in ("system", "layer"):
         print(f"--- by {grouping}")
         for key in [k for k in groups if k[0] == grouping]:
+            # one cell per reading
             cells = []
             for reading, _ in READINGS:
+                # the row of this group and reading, None if it was not tested
                 r = next(
                     (
                         r
@@ -442,6 +504,8 @@ def print_group_table(
                     ),
                     None,
                 )
+
+                # its median difference and stars, or -- for a group not tested
                 if r:
                     cells.append(
                         f"{r['diff_median']:+8.2f}{star[(reading, grouping, key[1])]:<3s}"
@@ -461,11 +525,14 @@ def draw_group_dots(
     refs: dict[str, dict[str, float]],
 ) -> None:
     """Draw group `g`'s mice side by side for each of `keys`, its median as a bar."""
+    # the mice spread across a column: the young right of each tick, the two adult
+    # groups overlapping left of it, told apart by colour
     ms = GROUPS[g]
     jit = np.linspace(-0.2, 0.2, len(ms))
     xo = 0.26 if g == "young" else -0.1
     mids = []
     for i, key in enumerate(keys):
+        # a dot per mouse with a value in this group, and the group's median
         ys = [value(reading, m, key, per, norm, refs) for m in ms]
         ys = [y for y in ys if y is not None]
         for j, y in enumerate(ys):
@@ -479,6 +546,8 @@ def draw_group_dots(
                 mec="none",
             )
         mids.append(np.median(ys) if ys else np.nan)
+
+    # the medians as horizontal bars, in one call so the group has one legend entry
     ax.plot(
         np.arange(len(keys)) + xo,
         mids,
@@ -497,8 +566,11 @@ def draw_stars(
     star: dict[tuple[str, str, str], str],
 ) -> None:
     """Draw the young-vs-adult rank-sum stars, just under the top of the panel."""
+    # 14% more room above the data, so the stars do not sit on the dots
     lo, hi = ax.get_ylim()
     ax.set_ylim(lo, hi + 0.14 * (hi - lo))
+
+    # each group's stars, in the young colour, centred on its tick
     lo, hi = ax.get_ylim()
     for i, key in enumerate(keys):
         st = star.get((reading, key[0], key[1]), "")
@@ -525,6 +597,7 @@ def dotplot(
     refs: dict[str, dict[str, float]],
 ) -> None:
     """Dot plot of the groups `keys` into OUT/`fname`, a panel per reading."""
+    # a panel per reading on a shared x axis, wider with more groups
     fig, axes = plt.subplots(
         len(READINGS),
         1,
@@ -538,8 +611,12 @@ def dotplot(
 
         # stars for the young-vs-adult rank-sum test, just under the top of the panel
         draw_stars(ax, reading, keys, star)
+
+        # zero: equal to the reading's reference (for zref, the brain's median)
         ax.axhline(0, color="k", lw=0.6)
         ax.set_title(rtitle, fontsize=10.5, loc="left")
+
+        # the y label: what each reading is relative to
         ax.set_ylabel(
             {
                 "ratio": "log2  nano / auto",
@@ -552,6 +629,8 @@ def dotplot(
         )
         ax.grid(axis="y", lw=0.3, alpha=0.6)
         ax.set_xlim(-0.7, len(keys) - 0.3)
+
+    # the legend once, on the top panel; the group names under the bottom one
     axes[0].legend(
         loc="lower left",
         fontsize=9,
@@ -576,6 +655,7 @@ def plot_groups(
     refs: dict[str, dict[str, float]],
 ) -> None:
     """Draw group_plot.png (the systems) and laminar_plot.png (the layers)."""
+    # the systems, named on the axis as in the table
     sys_keys = [k for k in groups if k[0] == "system"]
     dotplot(
         sys_keys,
@@ -634,6 +714,9 @@ def main() -> None:
     # young-against-adult tests, the table, and the stars of the figures
     rows = group_stats(groups, mice, per, norm, refs)
     write_group_stats(rows)
+
+    # two stars under p < 0.01, one under 0.05, Mann-Whitney uncorrected as the
+    # figure titles say
     star = {}
     for r in rows:
         if r["mannwhitney_p"] < 0.01:
