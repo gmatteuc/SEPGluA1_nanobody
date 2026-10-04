@@ -12,7 +12,7 @@ with more animals ([`../docs/ADDING_DATA.md`](../docs/ADDING_DATA.md), step 5).
 |---|---|---|
 | 1 | `run_collect_by_group` | stack the registered nano volumes of a group's mice into one 4D array (AP x DV x ML x mouse), in cohort-table order |
 | 2 | `run_normalise_groups` | per mouse and plane, a background mask; each mouse fitted onto the group's median cortex with a robust line, then applied to the whole volume |
-| 3 | `run_group_differences` | each mouse folded onto the left hemisphere (L - R and L + R; the group means take \|L - R\|); the experimental group aligned onto the control group's profile; tissue smoothed in 3D, each mouse NaN outside its tissue; group means, Welch t and surprise (-log10 p) maps over the mice with tissue at each voxel, slab figures, regional bars, videos |
+| 3 | `run_group_differences` | each mouse folded onto the left hemisphere (L - R and L + R; the group means take \|L - R\|); the experimental group aligned onto the control group's profile; tissue smoothed in 3D, each mouse NaN outside its tissue; group means, Welch t and surprise (-log10 p) maps over the mice with tissue at each voxel, a t only where each group has at least `min_mice_per_group` of them (3), slab figures, regional bars, videos |
 
 The comparison as it was approved (5 December 2025) runs:
 
@@ -78,8 +78,10 @@ outlines (`lr_atlas_boundaries`) sit beside them. Shared: `../common/`
   holds (the difference map unchanged in S1, the sum map's significant area
   there a third smaller), while naive against behavior changes over the
   whole slab: MG709 has no tissue in the slab around plane 565 and no longer
-  counts there as a fourth mouse (`../docs/ROADMAP.md`, section 1, with the open question of
-  voxels left with two or three mice).
+  counts there as a fourth mouse (`../docs/ROADMAP.md`, section 1). Voxels
+  left with two mice in a group, at tissue edges, gave |t| up to 73; since
+  Giulio's decision of 4 October 2026 a voxel gets a t only with at least
+  three mice in each group (`min_mice_per_group`).
 - Step 2 selects the adults by position: step 1 stacks a group in table
   order, and step 2 picks mice by their place in that stack; step 3 names
   them by the same positions, except the behavior mice it analyses, which it

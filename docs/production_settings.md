@@ -230,6 +230,7 @@ Run twice, with only `exp_type` changed.
 | `perform_area_based_analysis_coarse` | `false` | `false` | |
 | `apply_smoothing` | `true` | `true` | |
 | `smooth_sigma` | `5.0` | `5.0` | voxels, 3D Gaussian over each mouse's tissue; the old code set the voxels outside the tissue to 0 after it. Since fix 23 of step 8 the Gaussian is normalised by the smoothed tissue mask and the voxels outside the tissue stay NaN, left out of every mean, SEM and t |
+| `min_mice_per_group` (new, 4 Oct 2026) | `3` | none: every mouse counted at every voxel (2, fixed in the code, from fix 23 of step 8) | the fewest mice with a value a voxel needs in each group to get a t and a surprise. With 2, voxels at tissue edges gave \|t\| up to 73 (naive against rws); Giulio's decision of 4 Oct 2026 |
 | `channel` | `'nano'` | `'nano'` | |
 
 Fixed in code, unchanged:

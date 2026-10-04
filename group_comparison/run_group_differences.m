@@ -16,7 +16,8 @@
 % then both are put on one common scale from planes 300-500. The hemispheres are
 % folded: for every mouse |L - R| and L + R, then the group means, their
 % difference, and Welch t and surprise (-log10 p) maps of it, each voxel over
-% the mice with tissue on both sides of it. Saves, in
+% the mice with tissue on both sides of it, and a t only where each group has
+% at least min_mice_per_group of them. Saves, in
 % data\comparisons\<ctrl>_vs_<exp>_<channel>\, the profile alignment figure, the
 % slab figures around plane 565 (group t-maps masked by surprise, individual
 % mice), the regional surprise bars and the videos switched on below.
@@ -91,6 +92,11 @@ perform_area_based_analysis_coarse = false;
 apply_smoothing = true;
 smooth_sigma = 5.0;
 
+% the fewest mice with a value a voxel needs in each group to get a t (2 at least,
+% for an SEM): with 2, the SEM rests on two values, and voxels at tissue edges
+% give |t| up to 73 in naive against rws
+min_mice_per_group = 3;
+
 % channel to compare ('nano', surface GluA1, or 'auto', the autofluorescence
 % control): loads <channel>_4d_normalized.mat from each cohort folder
 channel = 'nano';
@@ -128,6 +134,7 @@ run_settings.perform_area_based_analysis_fine = perform_area_based_analysis_fine
 run_settings.perform_area_based_analysis_coarse = perform_area_based_analysis_coarse;
 run_settings.apply_smoothing = apply_smoothing;
 run_settings.smooth_sigma = smooth_sigma;
+run_settings.min_mice_per_group = min_mice_per_group;
 run_settings.channel = channel;
 run_settings.comp_tag = comp_tag;
 run_settings.ctrl_dir = ctrl_dir;

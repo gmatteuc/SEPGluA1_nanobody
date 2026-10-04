@@ -25,7 +25,8 @@ function group_differences(run_settings)
 %       t = (mean_exp - mean_ctrl) / sqrt(sem_ctrl^2 + sem_exp^2)
 %   and the surprise -log10 of its two-sided p, with Welch-Satterthwaite
 %   degrees of freedom. Every mean, SEM and degree of freedom counts, voxel by
-%   voxel, only the mice with a value there.
+%   voxel, only the mice with a value there, and a voxel has a t and a surprise
+%   only where each group has at least min_mice_per_group of them.
 
 % settings of run_group_differences, under the names the code below uses
 paths = run_settings.paths;
@@ -44,11 +45,18 @@ perform_area_based_analysis_fine = run_settings.perform_area_based_analysis_fine
 perform_area_based_analysis_coarse = run_settings.perform_area_based_analysis_coarse;
 apply_smoothing = run_settings.apply_smoothing;
 smooth_sigma = run_settings.smooth_sigma;
+min_mice_per_group = run_settings.min_mice_per_group;
 channel = run_settings.channel;
 comp_tag = run_settings.comp_tag;
 ctrl_dir = run_settings.ctrl_dir;
 exp_dir = run_settings.exp_dir;
 comp_out_dir = run_settings.comp_out_dir;
+
+% an SEM needs two mice
+if min_mice_per_group < 2
+    error(['run_group_differences: min_mice_per_group is %d, but an SEM needs at ' ...
+           'least 2 mice per group. Set it to 2 or more.'], min_mice_per_group);
+end
 
 %% Atlas
 
@@ -131,14 +139,14 @@ end
 
 %% Group t and surprise maps
 
-% Welch t of experimental minus control at every voxel, over the mice with a
-% value there, and its surprise -log10 p
+% Welch t of experimental minus control at every voxel with at least
+% min_mice_per_group mice with a value in each group, and its surprise -log10 p
 [t_lr_diff_groupdiff, t_lr_sum_groupdiff, n_ctrl, n_exp, surp_diff, surp_sum] = ...
     group_t_and_surprise(lr_diff_ctrl, lr_sum_ctrl, lr_diff_exp, lr_sum_exp, ...
     avg_lr_diff_ctrl, avg_lr_sum_ctrl, avg_lr_diff_exp, avg_lr_sum_exp, ...
     avg_lr_diff_groupdiff, avg_lr_sum_groupdiff, half_atlas, brainMask_group_diff, ...
-    comp_out_dir, channel, comp_tag, ctrl_type, exp_type, generate_t_scored_videos, ...
-    generate_surprise_videos);
+    min_mice_per_group, comp_out_dir, channel, comp_tag, ctrl_type, exp_type, ...
+    generate_t_scored_videos, generate_surprise_videos);
 
 disp('Generalized LR analysis completed successfully!');
 fprintf('All comparison results saved to: %s\n', comp_out_dir);
@@ -750,10 +758,11 @@ function [t_lr_diff_groupdiff, t_lr_sum_groupdiff, n_ctrl, n_exp, surp_diff, ...
     surp_sum] = group_t_and_surprise(lr_diff_ctrl, lr_sum_ctrl, lr_diff_exp, ...
     lr_sum_exp, avg_lr_diff_ctrl, avg_lr_sum_ctrl, avg_lr_diff_exp, avg_lr_sum_exp, ...
     avg_lr_diff_groupdiff, avg_lr_sum_groupdiff, half_atlas, brainMask_group_diff, ...
-    comp_out_dir, channel, comp_tag, ctrl_type, exp_type, generate_t_scored_videos, ...
-    generate_surprise_videos)
-% Welch t and surprise (-log10 p) maps of the group difference, and their videos.
-% One function, since the surprise video also draws the t maps, within t_lim.
+    min_mice_per_group, comp_out_dir, channel, comp_tag, ctrl_type, exp_type, ...
+    generate_t_scored_videos, generate_surprise_videos)
+% Welch t and surprise (-log10 p) maps of the group difference, NaN where a group
+% has fewer than min_mice_per_group mice with a value, and their videos. One
+% function, since the surprise video also draws the t maps, within t_lim.
 
 % the number of mice of each group, for the region analyses
 n_ctrl = size(lr_diff_ctrl, 4);
@@ -764,10 +773,13 @@ n_exp = size(lr_diff_exp, 4);
 n_vox_ctrl = single(sum(~isnan(lr_diff_ctrl), 4));
 n_vox_exp = single(sum(~isnan(lr_diff_exp), 4));
 
-% the voxels with a t: shown for both groups, with at least two mice with a value
-% in each (elsewhere the t and its surprise are NaN, which a video would draw in
-% its colormap's first colour)
-has_t = brainMask_group_diff & n_vox_ctrl >= 2 & n_vox_exp >= 2;
+% the voxels with a t: shown for both groups, with at least min_mice_per_group
+% mice with a value in each (elsewhere the t and its surprise are NaN, which a
+% video would draw in its colormap's first colour)
+has_t = brainMask_group_diff & n_vox_ctrl >= min_mice_per_group & ...
+    n_vox_exp >= min_mice_per_group;
+fprintf(['  %d voxels with a t (at least %d mice per group), of %d shown for ' ...
+         'both groups.\n'], nnz(has_t), min_mice_per_group, nnz(brainMask_group_diff));
 
 % the SEMs and the Welch t of the group difference
 [sem_lr_diff_ctrl, sem_lr_sum_ctrl, sem_lr_diff_exp, sem_lr_sum_exp, ...
@@ -775,6 +787,11 @@ has_t = brainMask_group_diff & n_vox_ctrl >= 2 & n_vox_exp >= 2;
     lr_sum_ctrl, lr_diff_exp, lr_sum_exp, n_vox_ctrl, n_vox_exp, avg_lr_diff_ctrl, ...
     avg_lr_sum_ctrl, avg_lr_diff_exp, avg_lr_sum_exp, avg_lr_diff_groupdiff, ...
     avg_lr_sum_groupdiff);
+
+% no t on the voxels with too few mice, so no figure, video or bar below uses one
+% (group_welch_t gives a t from two mice up)
+t_lr_diff_groupdiff(~has_t) = NaN;
+t_lr_sum_groupdiff(~has_t) = NaN;
 
 % the colour limits of the t maps, in both videos below
 t_lim = [-6 6];
@@ -792,7 +809,7 @@ end
 % the surprise of the t maps
 [surp_diff, surp_sum] = welch_surprise(n_vox_ctrl, n_vox_exp, sem_lr_diff_ctrl, ...
     sem_lr_diff_exp, sem_lr_sum_ctrl, sem_lr_sum_exp, t_lr_diff_groupdiff, ...
-    t_lr_sum_groupdiff);
+    t_lr_sum_groupdiff, min_mice_per_group);
 
 % the surprise video, and the t video shown where p < 0.05 (as above, on the
 % voxels with a t)
@@ -862,9 +879,10 @@ end
 
 function [surp_diff, surp_sum] = welch_surprise(n_vox_ctrl, n_vox_exp, ...
     sem_lr_diff_ctrl, sem_lr_diff_exp, sem_lr_sum_ctrl, sem_lr_sum_exp, ...
-    t_lr_diff_groupdiff, t_lr_sum_groupdiff)
+    t_lr_diff_groupdiff, t_lr_sum_groupdiff, min_mice_per_group)
 % The Welch-Satterthwaite degrees of freedom from each voxel's numbers of mice
-% with a value, and the surprise -log10 p of the t maps.
+% with a value, and the surprise -log10 p of the t maps; NaN where a group has
+% fewer than min_mice_per_group mice.
 
 % Welch-Satterthwaite degrees of freedom, voxel by voxel (the counts in double,
 % as the SEMs')
@@ -877,8 +895,8 @@ df_diff = (var1_diff + var2_diff).^2 ./ ...
 df_sum = (var1_sum + var2_sum).^2 ./ ...
     (var1_sum.^2 ./ (double(n_vox_ctrl) - 1) + var2_sum.^2 ./ (double(n_vox_exp) - 1));
 
-% NaN where a group has fewer than two mice with a value
-too_few_mice = n_vox_ctrl < 2 | n_vox_exp < 2;
+% NaN where a group has fewer than min_mice_per_group mice with a value, as the t
+too_few_mice = n_vox_ctrl < min_mice_per_group | n_vox_exp < min_mice_per_group;
 df_diff(too_few_mice) = NaN;
 df_sum(too_few_mice) = NaN;
 
