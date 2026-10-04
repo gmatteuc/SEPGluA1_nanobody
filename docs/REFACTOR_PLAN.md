@@ -1146,6 +1146,22 @@ The style pass will add to this list.
   2 per group reach |t| 73), the surprise-bar region list (nesting, sums),
   the video mean panel, two more NaN issues (per-brain backgrounds, the young
   brains' warp over zeros). Documents (step 10) on `step10-docs`, synced.
+- **4 Oct, temporary folders:** MATLAB (`tp*`, from niftiread and others) and
+  elastix (`transformix_*`) leave folders in `%TEMP%` that nothing deletes:
+  32,279 folders, 255 GB on C:, deleted with Giulio's OK. They filled C: on
+  3 Oct and stopped a registration. For after the merge: the detached runner
+  points TMP/TEMP to a scratch folder on the data drive and removes its
+  `transformix_*` folders after each registration (bug list).
+- **Merge plan (step 11, with Giulio):** a dry run of `step10-docs` into
+  `main` conflicts in two files only: `docs/REFACTOR_PLAN.md` (keep `main`'s)
+  and `tools/run_matlab_detached.ps1` (keep the branch's, after checking it
+  holds `main`'s runner fix). Giulio closes every MATLAB on the code; his 3
+  uncommitted settings lines in `P4_register_to_atlas.m` are saved as a patch
+  and set again in `registration/run_register_to_atlas.m`; the engine's
+  `.venv` moves to `registration/auto_annotation/` and passes its self-test;
+  the old `landmark_refine/.venv` and the nested `matlab_elastix-master`
+  duplicate go; `sep_test_path` and the Python imports on the production
+  code; push.
 - **New order** (Giulio, 2 Oct): merge first, new science after. Step 7's
   kind C and the step 8 fixes go in one batch with one set of reruns (a fix
   that changes production numbers still waits for Giulio); then step 10's
