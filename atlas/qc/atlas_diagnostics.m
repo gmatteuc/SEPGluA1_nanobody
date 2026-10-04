@@ -65,12 +65,15 @@ young_color = [0.95 0.55 0.10];
 
 %% Measure each atlas
 
+% each atlas's folder, voxel size and crop, from get_atlas
 atlas_adult = get_atlas(atlas_key_adult);
 atlas_young = get_atlas(atlas_key_young);
 
+% its grid, extent, brain span, crop and labels, measured from its annotation
 info_adult = measure_atlas(atlas_adult);
 info_young = measure_atlas(atlas_young);
 
+% and printed
 print_atlas(info_adult);
 print_atlas(info_young);
 
@@ -85,6 +88,8 @@ x_young = linspace(0, 1, numel(area_young));
 n_adult = area_adult / max(area_adult);
 n_young = area_young / max(area_young);
 
+% the young profile resampled onto the adult axis; the RMS of their difference is
+% 0 for two crops holding the same anatomy
 young_on_adult = interp1(x_young, n_young, x_adult, 'linear', 'extrap');
 profile_rms = sqrt(mean((n_adult(:) - young_on_adult(:)).^2));
 
@@ -99,6 +104,7 @@ if do_region_regression
 
     fprintf('\nMeasuring AP centre of mass of every shared region...\n');
 
+    % both annotation volumes
     av_adult = niftiread(fullfile(atlas_adult.dir, atlas_adult.annotation_file));
     av_young = niftiread(fullfile(atlas_young.dir, atlas_young.annotation_file));
 
@@ -121,6 +127,7 @@ if do_region_regression
     keep = tot_adult >= min_vox_adult & tot_young >= min_vox_young;
     fprintf('  regions large enough to use: %d\n', nnz(keep));
 
+    % their AP planes in the adult atlas (cc) and in the young one (dd)
     cc = com_adult(keep);
     dd = com_young(keep);
 
@@ -136,6 +143,7 @@ if do_region_regression
     nominal_slope = atlas_young.res_um / atlas_adult.res_um;
     ap_scale_ratio = nominal_slope / fit_slope;
 
+    % the results, for the figure and the note
     reg.done        = true;
     reg.n_shared    = numel(labels);
     reg.n_regions   = nnz(keep);
@@ -146,8 +154,12 @@ if do_region_regression
     reg.resid_sd_mm = std(resid) * atlas_adult.res_um / 1000;
     reg.nominal     = nominal_slope;
     reg.ap_ratio    = ap_scale_ratio;
+
+    % the young planes the fit maps onto the ends of the adult crop: the young crop
+    % that holds the adult crop's anatomy
     reg.implied_crop = round((atlas_adult.default_aplims - fit_offset) / fit_slope);
 
+    % the fit, its residual, the AP length ratio and the crop it implies
     fprintf('\n  adult_plane = %.4f * young_plane + %.2f   (r = %.5f)\n', ...
         fit_slope, fit_offset, rr);
     fprintf('  residual sd %.1f adult planes = %.3f mm\n', std(resid), reg.resid_sd_mm);
@@ -162,9 +174,12 @@ end
 
 %% AP coverage of each brain
 
+% every brain of the registry, after checking that it still lists the adults in
+% their legacy order
 get_cohort('verify');
 cohort = get_cohort();
 
+% one entry per brain with a curated slice order
 per_brain = struct('name', {}, 'group', {}, 'n_slices', {}, 'span_mm', {}, 'frac', {});
 
 for k = 1:numel(cohort)
@@ -190,6 +205,7 @@ for k = 1:numel(cohort)
     % sections times their spacing, against that crop
     span_mm = n_kept * slicethickness_um / 1000;
 
+    % the brain's entry
     per_brain(end+1).name  = cohort(k).name;   %#ok<SAGROW>
     per_brain(end).group    = cohort(k).group;
     per_brain(end).n_slices = n_kept;
@@ -198,6 +214,7 @@ for k = 1:numel(cohort)
 
 end
 
+% the table, one line per brain
 fprintf('\nAP coverage, %d curated brains (sections x %g um against the crop):\n', ...
     numel(per_brain), slicethickness_um);
 for k = 1:numel(per_brain)
@@ -208,6 +225,7 @@ end
 
 %% Crop-check figure
 
+% one row for the area profiles, a second for the region fit when it ran
 fig = figure('Visible', 'off', 'Color', 'w', 'Units', 'pixels', ...
              'Position', [50 50 1150 (1 + double(reg.done)) * 380 + 60]);
 tl = tiledlayout(fig, 1 + double(reg.done), 1, ...
@@ -243,6 +261,7 @@ if reg.done
     box off
 end
 
+% save it at 150 dpi
 if save_figure
     png_name = fullfile(out_dir, 'atlas_crop_and_ap_mapping.png');
     exportgraphics(fig, png_name, 'Resolution', 150);
@@ -251,6 +270,7 @@ end
 
 %% Write the note
 
+% ATLAS_PARAMETERS.md, every number in it measured above
 write_note(note_file, info_adult, info_young, ...
            adult_groups, young_groups, slicethickness_um, profile_rms, reg, per_brain);
 fprintf('wrote %s\n', note_file);
@@ -261,8 +281,10 @@ function info = measure_atlas(atlas)
 % Grid, extent, brain span, crop and labels of one atlas, measured from its
 % annotation volume.
 
+% the annotation volume (AP x DV x ML), 0 outside the brain
 av = niftiread(fullfile(atlas.dir, atlas.annotation_file));
 
+% what get_atlas says, and the volume's grid and extent
 info.key        = atlas.key;
 info.dir        = atlas.dir;
 info.res_um     = atlas.res_um;
@@ -272,20 +294,23 @@ info.grid       = size(av);
 info.extent_mm  = double(size(av)) * atlas.res_um / 1000;
 info.class      = class(av);
 
-% where the labelled brain sits in the full volume
+% where the labelled brain sits in the full volume: the labelled voxels of each
+% AP plane, between the first and the last plane with any
 per_plane = squeeze(sum(sum(av > 0, 2), 3));
 nz = find(per_plane > 0);
 info.brain_first    = nz(1);
 info.brain_last     = nz(end);
 info.brain_span_mm  = (nz(end) - nz(1) + 1) * atlas.res_um / 1000;
 
-% and within the crop the pipeline uses
+% and within the crop the pipeline uses: its length, its share of labelled voxels,
+% and the area profile the crops are compared by
 crop = av(info.aplims(1):info.aplims(2), :, :);
 info.crop_planes     = size(crop, 1);
 info.crop_extent_mm  = size(crop, 1) * atlas.res_um / 1000;
 info.crop_brain_frac = nnz(crop > 0) / numel(crop);
 info.crop_area_profile = squeeze(sum(sum(crop > 0, 2), 3));
 
+% the labels, 0 (outside the brain) not counted, and the largest value
 labels = unique(av(:));
 info.n_labels = numel(labels) - any(labels == 0);
 info.max_label = max(labels);
@@ -321,25 +346,33 @@ n_lab = numel(labels);
 lut = zeros(double(max(labels)) + 1, 1);
 lut(double(labels) + 1) = 1:n_lab;
 
+% each label's voxel count, and its sum of plane indices
 weighted = zeros(n_lab, 1);
 total    = zeros(n_lab, 1);
 
 for i = 1:n_ap
+
+    % the plane's labelled voxels
     plane = double(vol(i, :, :));
     plane = plane(plane > 0);
     if isempty(plane)
         continue
     end
+
+    % as positions in labels; a label not in the list drops out
     idx = lut(plane + 1);
     idx = idx(idx > 0);
     if isempty(idx)
         continue
     end
+
+    % count each label's voxels in this plane, weighted by the plane index
     counts   = accumarray(idx, 1, [n_lab 1]);
     total    = total + counts;
     weighted = weighted + counts * i;
 end
 
+% the mean plane of each label (0 / 0 = NaN for a label with no voxel)
 com = weighted ./ total;
 
 end
@@ -349,6 +382,7 @@ function write_note(note_file, ia, iy, adult_groups, young_groups, ...
 % Write ATLAS_PARAMETERS.md from the measurements (ia, iy: the adult and young
 % atlas, from measure_atlas).
 
+% open the note, closed again however the function ends
 fid = fopen(note_file, 'w');
 c = onCleanup(@() fclose(fid));
 
@@ -372,7 +406,8 @@ end
 function write_label_space(fid, iy, reg)
 % The note's heading and its section on the label space.
 
-% where the note comes from, and the label space
+% the heading, when the numbers were measured, and why the two cohorts can be
+% compared across two atlases
 fprintf(fid, '# Reference atlases and section geometry\n\n');
 fprintf(fid, ['Generated by `atlas_diagnostics.m` on %s. Every number here was ' ...
               'measured from the files on disk at that moment -- re-run the ' ...
@@ -384,6 +419,8 @@ fprintf(fid, ['The two cohorts register to two different atlases: the adults to 
               'They are compared at the level of regions, not voxels, which works ' ...
               'because both annotation volumes use the same label space.\n\n']);
 
+% the label space both volumes must share, and BrainGlobe's structure IDs, which
+% look the same and are not
 fprintf(fid, '## Label space -- check this when adding an atlas\n\n');
 fprintf(fid, ['Both annotation volumes here hold Allen **`parcellation_index`** values, ' ...
               'the re-indexed scheme that ships with the Allen AWS release and the only ' ...
@@ -414,7 +451,7 @@ end
 function write_atlas_table(fid, ia, iy, adult_groups, young_groups)
 % The table of the two atlases side by side.
 
-% the two atlases side by side
+% the two atlases side by side, one row per property
 fprintf(fid, '## The two atlases\n\n');
 fprintf(fid, '| | adult (`%s`) | young (`%s`) |\n', ia.key, iy.key);
 fprintf(fid, '|---|---|---|\n');
@@ -431,6 +468,8 @@ fprintf(fid, ...
     '| labelled brain spans | planes %d..%d (%.2f mm) | planes %d..%d (%.2f mm) |\n', ...
     ia.brain_first, ia.brain_last, ia.brain_span_mm, ...
     iy.brain_first, iy.brain_last, iy.brain_span_mm);
+
+% the crop, its length and share of brain, the labels, and the px_atlas each needs
 fprintf(fid, '| `atlasaplims` crop | **[%d %d]** | **[%d %d]** |\n', ...
     ia.aplims, iy.aplims);
 fprintf(fid, '| cropped AP | %d planes = **%.2f mm** | %d planes = **%.2f mm** |\n', ...
@@ -446,11 +485,12 @@ end
 function write_ap_alignment(fid, profile_rms, reg, iy, slicethickness_um)
 % How the two atlases line up in AP, and what that means for slicethickness.
 
-% how they line up in AP
+% how they line up in AP: first the area profiles
 fprintf(fid, '## How the two line up in AP\n\n');
 fprintf(fid, ['Cross-sectional-area profiles of the two crops agree to an RMS of ' ...
               '**%.4f** (normalised area, 0-1).\n\n'], profile_rms);
 
+% then, when it ran, the region fit and the AP length ratio it gives
 if reg.done
     fprintf(fid, ['Independently, regressing the AP centre of mass of the **%d regions** ' ...
                   'present in both volumes:\n\n'], reg.n_regions);
@@ -463,10 +503,14 @@ if reg.done
                   'of the adult CCF template, which the developmental templates do not have ' ...
                   '(Carey 2025).\n\n'], ...
                   reg.nominal, reg.slope, 100 * (reg.ap_ratio - 1));
+
+    % the crop the fit implies, against the one in use
     fprintf(fid, ['The crop implied by that regression is `[%d %d]`, against `[%d %d]` in use ' ...
                   '-- agreeing to within a few planes, and reached by a completely different ' ...
                   'route from the area profile above.\n\n'], ...
                   reg.implied_crop(1), reg.implied_crop(2), iy.aplims(1), iy.aplims(2));
+
+    % what the ratio means for slicethickness against the young atlas
     fprintf(fid, ['**Consequence for `slicethickness`.** It was settled at %g um by how well ' ...
                   'the adults fit the adult CCF. Against the young atlas the same ' ...
                   'reconstruction is about %.0f%% too short in AP; the equivalent value there ' ...
@@ -482,7 +526,8 @@ end
 function write_section_geometry(fid, slicethickness_um, ia, iy)
 % The section geometry and its parameters.
 
-% the section geometry
+% the section geometry, one row per registration parameter; pxsizes(1) assumes
+% px_register = 20, the value the registration checks for
 fprintf(fid, '## Section geometry\n\n');
 fprintf(fid, '| parameter | value | what it does |\n|---|---|---|\n');
 fprintf(fid, ...
@@ -501,6 +546,7 @@ fprintf(fid, ...
     '| `extentfactor` | 6 | how far the atlas fit is extended beyond the section range |\n');
 fprintf(fid, '| `regchan` | `dapi` | the channel registration is driven by |\n\n');
 
+% what one section's step means: a spacing, not a thickness
 fprintf(fid, ['One section therefore steps **%g um** in AP, so a brain of N sections covers ' ...
               'N x %.2f mm. Note this is the *spacing* between mounted sections, not the ' ...
               'thickness of the cut tissue -- the gap between them is not imaged.\n\n'], ...
@@ -511,7 +557,8 @@ end
 function write_coverage(fid, slicethickness_um, iy, ia, per_brain, young_groups)
 % The AP coverage of each brain, and each cohort's mean.
 
-% the AP coverage of each brain
+% the AP coverage of each brain: how it is measured, and why the percentages of
+% the two cohorts do not compare (each against its own crop)
 fprintf(fid, '## AP coverage per brain\n\n');
 fprintf(fid, ['Sections kept after the manual ordering step, times %g um, against the ' ...
               'cropped extent of that cohort''s atlas. Regions near the AP extremes will ' ...
@@ -527,6 +574,8 @@ fprintf(fid, ['**The two percentage columns are not directly comparable.** Each 
               iy.crop_extent_mm, ia.crop_extent_mm, ...
               slicethickness_um * iy.crop_extent_mm / ia.crop_extent_mm, ...
               100 * (iy.crop_extent_mm / ia.crop_extent_mm - 1));
+
+% the table, one row per brain
 fprintf(fid, '| mouse | group | sections | AP span | of crop |\n|---|---|---|---|---|\n');
 for k = 1:numel(per_brain)
     fprintf(fid, '| %s | %s | %d | %.2f mm | %.0f%% |\n', ...
