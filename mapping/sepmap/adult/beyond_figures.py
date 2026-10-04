@@ -105,8 +105,8 @@ def bootstrap_models(
     """Cross-validated R2 of each model, with an interval, resampling structures.
 
     Each of the beyond_figures.n_boot replicates ranks `y` and every predictor
-    again over the
-    structures it drew. Returns the point values and the (low, high) intervals.
+    again over the structures it drew. Returns the point values and the (low,
+    high) intervals.
     """
     # the point values, on every structure
     point = [cv_r2(y, xs) for _, xs in models]
@@ -187,9 +187,8 @@ def noise_null(
     Shuffling which structure is which in one half breaks the correspondence
     between the two halves while leaving both leftovers exactly as they are, so
     the null says "these two are unrelated" and nothing else. Uses the first
-    split; returns the observed agreement, the beyond_figures.n_perm null values and
-    the
-    two-sided p.
+    split; returns the observed agreement, the beyond_figures.n_perm null values
+    and the two-sided p.
     """
     # the two leftovers of the first split, and how well they agree
     a, b = splits[0]

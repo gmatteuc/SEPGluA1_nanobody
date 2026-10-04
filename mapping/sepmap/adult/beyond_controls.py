@@ -409,10 +409,9 @@ def control_f_gene_space(
 
     The genes measured in every structure are reduced to principal components;
     models of 1 to beyond_controls.max_pcs components are scored by
-    cross-validation, and the
-    leftover of the best is tested for replication. Returns the verdict row, the
-    curve (per number of components, n_components, r2 fitted and cv_r2
-    cross-validated) and the best number of components.
+    cross-validation, and the leftover of the best is tested for replication.
+    Returns the verdict row, the curve (per number of components, n_components, r2
+    fitted and cv_r2 cross-validated) and the best number of components.
     """
     # the panel genes measured in every one of the structures
     genes = sorted(g for g in expr if all(s in expr[g] for s in structures))
