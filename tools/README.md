@@ -1,14 +1,14 @@
 # Tools
 
-Checks that a change to the code does not change the results, and the runner
-for long MATLAB stages. The checks follow the verification design of
+Checks that a change to the code does not change the results, the runner for
+long MATLAB stages, and the requirements of the Python environments. The checks follow the verification design of
 [docs/REFACTOR_PLAN.md](../docs/REFACTOR_PLAN.md): old and new code each run
 in a fresh session on their own copy of the data, never on the production
 data, and their outputs are compared file by file.
 
 ## Where a run reads and writes: SEP_DATA_ROOT
 
-`get_paths.m` (MATLAB) and `v2_paths.py` (Python) take the data root from the
+`get_paths.m` (MATLAB) and `mapping/sepmap/config.py` (Python) take the data root from the
 environment variable `SEP_DATA_ROOT` when it is set, otherwise from the
 folder next to the code (`<root>\data`). It moves the whole data tree, inputs
 and outputs. Both refuse the production data (`D:\sep_histology\data`) to a
@@ -23,7 +23,7 @@ anything runs.
 ## Long runs: run_matlab_detached.ps1
 
 ```
-powershell -File tools\run_matlab_detached.ps1 -Script P5_collect_data_by_group -CodeDir D:\sep_histology\code -DataRoot D:\sep_histology\data -LogDir D:\sep_histology\data\young
+powershell -File tools\run_matlab_detached.ps1 -Script run_collect_by_group -CodeDir D:\sep_histology\code -DataRoot D:\sep_histology\data -LogDir D:\sep_histology\data\young
 ```
 
 `-CodeDir`, `-DataRoot` and `-LogDir` have no defaults. The runner passes the
@@ -63,9 +63,9 @@ only show the format):
 
 ```
 old_path,new_path
-P5_collect_data_by_group.m,plasticity/pipeline/collect_data_by_group.m
-,plasticity/run_collect_data_by_group.m
-landmark_refine.m,
+P5_collect_data_by_group.m,group_comparison/run_collect_by_group.m
+,tests/sep_test_path.m
+scratch.m,
 ```
 
 An empty old path is a file added on purpose, an empty new path one removed
@@ -79,7 +79,7 @@ on purpose; a path in the map that does not exist stops the check.
    change a driver's settings without editing it, run a copy of it:
 
    ```
-   powershell -File tools\run_matlab_detached.ps1 -CodeDir G:\sep_refactor\check\code -DataRoot G:\sep_refactor\check\data -LogDir G:\sep_refactor\check\logs -Script "addpath('tools'); sep_run_driver_copy('P7bis_analyze_group_differences', 'G:\sep_refactor\check\data', struct('exp_type', '''rws''', 'generate_diff_videos', 'false'))"
+   powershell -File tools\run_matlab_detached.ps1 -CodeDir G:\sep_refactor\check\code -DataRoot G:\sep_refactor\check\data -LogDir G:\sep_refactor\check\logs -Script "addpath('tools'); sep_run_driver_copy('run_group_differences', 'G:\sep_refactor\check\data', struct('exp_type', '''rws''', 'generate_diff_videos', 'false'))"
    ```
 
    Each field of the struct replaces the assignment to that setting (the
@@ -120,8 +120,9 @@ rewrote its outputs, and for a fix, the old code fails the same test.
   shadows the path, so a session started in one code folder uses that
   folder's `get_paths` whatever else is on the path. The runner always starts
   in `-CodeDir`.
-- **clear all.** Drivers start with it. `sep_run_driver_copy` runs the copy in
-  a workspace of its own, so the variable it restores afterwards survives.
+- **clear.** Drivers start with `clear; clc; close all;`, which empties the
+  workspace they run in. `sep_run_driver_copy` runs the copy in a workspace of
+  its own, so the variable it restores afterwards survives.
 - **Renderer noise.** Anti-aliasing can put an edge or a glyph a fraction of
   a pixel elsewhere, which changes the pixels along it. `sep_compare_outputs`
   calls such an image `same render` only if every changed pixel, in each
@@ -156,9 +157,35 @@ rewrote its outputs, and for a fix, the old code fails the same test.
 | `sep_struct_defaults.m` | fills an options struct with defaults |
 | `check_code_identity.py` | code identity of two folders of `.py` files |
 | `compare_outputs.py` | file-by-file comparison of the Python route's outputs |
+| `requirements_<env>.txt` | the pinned packages of each Python environment (below) |
 
 The MATLAB tools come from the imaging repository's `tools/`, renamed with
 `sep_` so that its copies, if they are on the path, cannot shadow them. They
 call only each other. `sep_setup_paths` does not add `tools\`: a check adds
 it with `addpath('tools')` from the code root. The Python tools need numpy,
 pandas and pillow (`tools\venv_atlas` has them).
+
+## Python environments
+
+Each environment is a folder that git ignores, made from the Anaconda Python
+3.12.7 and a requirements file here, pinned to the versions the results were
+produced with. The top lines of each file say how to create it.
+
+| environment | requirements | runs |
+|---|---|---|
+| `tools\venv_atlas` | `requirements_atlas.txt` | the Python route (`mapping/run_*.py`, all but `run_closeup.py`), `atlas/build_demba_atlas.py`, the two Python tools above |
+| `tools\venv_flat` | `requirements_flat.txt` | `mapping/run_closeup.py`, the cortical flatmaps (`ccf_streamlines`) |
+| `registration\auto_annotation\.venv` | `requirements_auto_annotation.txt` | the automatic annotation's engine; made by `registration\auto_annotation\setup.ps1`, which ends with a self-test |
+| `tools\venv_dev` | `requirements_dev.txt` | pytest and ruff; it reads `venv_atlas`'s packages through a `.pth` file, so the analysis environment never changes |
+
+After recreating `venv_atlas`, put back the DeMBA-to-CCF deformation fields
+that CCF Translator would otherwise download again: the copy the results
+were made with is in `<data>\atlas\ccf_translator_fields\`, with its hashes.
+
+Python code is formatted and checked with the settings of `ruff.toml` at the
+code root:
+
+```
+tools\venv_dev\Scripts\python -m ruff format <files>
+tools\venv_dev\Scripts\python -m ruff check <files>
+```

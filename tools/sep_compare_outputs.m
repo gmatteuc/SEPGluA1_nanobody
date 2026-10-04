@@ -48,6 +48,9 @@ function T = sep_compare_outputs(ref_dir, new_dir, opts)
 %                    never rewritten                            (default [])
 %     max_detail     differences listed per file                (default 5)
 
+%% Options and files
+
+% the options left out take their defaults (listed above)
 if nargin < 3
     opts = struct();
 end
@@ -75,6 +78,8 @@ new_dates = new_dates(kept);
 if isempty(ref_files) && isempty(new_files)
     error('sep_compare_outputs: no files to compare in\n  %s\n  %s', ref_dir, new_dir);
 end
+
+%% Compare each file
 
 % one row per file of either folder
 all_files = union(ref_files, new_files);
@@ -118,9 +123,12 @@ for k = 1:n
     end
 end
 
+%% Summary
+
+% the table
 T = table(all_files, result, detail, 'VariableNames', {'file', 'result', 'detail'});
 
-% summary
+% the count of each result
 kinds = {'same', 'same render', 'DIFFERENT', 'only in ref', 'only in new', ...
     'NOT REWRITTEN', 'compare failed'};
 fprintf('%d files:', n);
@@ -143,8 +151,11 @@ function [result, detail] = compare_file(ref, new, opts)
 % Compare one pair of files according to their type. Replacements apply to
 % the reference side only.
 
+% the new side is compared as written, without replacements
 detail = '';
 no_replacements = cell(0, 2);
+
+% compare by type, as the help lists
 [~, ~, ext] = fileparts(ref);
 switch lower(ext)
     case '.mat'
@@ -193,6 +204,7 @@ end
 function [result, detail] = compare_images(ref, new)
 % Same bytes, same pixels, or same figure up to rendering.
 
+% the same bytes
 detail = '';
 if isequal(file_bytes(ref), file_bytes(new))
     result = 'same';
@@ -216,11 +228,14 @@ if R.ok
 else
     result = 'DIFFERENT';
 end
+
+% the detail: both sizes, or the counts of changed pixels
 if ~strcmp(R.size_a, R.size_b)
     detail = sprintf('size %s vs %s', R.size_a, R.size_b);
 else
-    detail = sprintf(['%d pixels changed, %d of them not a mix of the original''s ' ...
-        'colours within 1 px (largest distance from a mix %.0f of 255)'], ...
+    detail = sprintf( ...
+        ['%d pixels changed, %d of them not a mix of the original''s ' ...
+         'colours within 1 px (largest distance from a mix %.0f of 255)'], ...
         R.n_changed, R.n_real, R.max_dist);
 end
 end
@@ -329,8 +344,11 @@ function t = read_table(f)
 % A .csv or .tsv file as a table. Column names that are not valid MATLAB
 % names are changed the same way in both files, so the warning is not shown.
 
+% the warning is off for this call only
 warning('off', 'MATLAB:table:ModifiedAndSavedVarnames');
 restore = onCleanup(@() warning('on', 'MATLAB:table:ModifiedAndSavedVarnames'));
+
+% tab-separated or comma-separated
 [~, ~, ext] = fileparts(f);
 if strcmpi(ext, '.tsv')
     t = readtable(f, 'FileType', 'text', 'Delimiter', '\t');
@@ -356,6 +374,7 @@ end
 function d = table_differences(a, b)
 % Differing columns of two tables, each with its first differing row.
 
+% the same columns and the same number of rows first
 d = {};
 names_a = a.Properties.VariableNames;
 names_b = b.Properties.VariableNames;
@@ -368,6 +387,7 @@ if height(a) ~= height(b)
     return
 end
 
+% each column that differs, by value or by class
 for k = 1:numel(names_a)
     x = a.(names_a{k});
     y = b.(names_a{k});
@@ -387,12 +407,14 @@ end
 end
 
 function s = figure_contents(f)
-% What a saved figure shows: the data, limits and text of every graphics
-% object, in the order the figure holds them. Window positions are left out,
-% since they depend on the screen.
+% What a saved figure shows: data, limits and text of every graphics object, in the
+% figure's order; window positions are left out, since they depend on the screen.
 
+% open the figure unseen, and delete it however this ends
 fig = openfig(f, 'invisible');
 closer = onCleanup(@() delete(fig));
+
+% the properties that make up what is drawn, for each object that has them
 objects = findall(fig);
 names = {'Type', 'XData', 'YData', 'ZData', 'CData', 'String', 'XLim', 'YLim', ...
     'ZLim', 'CLim', 'Colormap', 'Visible'};
@@ -481,6 +503,11 @@ function [files, dates] = relative_files(folder)
 % All files under folder, as relative paths with forward slashes, and the
 % date each was last written (datenum).
 
+% without a trailing separator, which a drive root ('G:\') keeps, so the
+% relative paths below start right after the folder
+folder = regexprep(folder, '[\\/]+$', '');
+
+% every file at any depth, without the folders
 d = dir(fullfile(folder, '**', '*'));
 d = d(~[d.isdir]);
 files = cell(numel(d), 1);
@@ -498,6 +525,8 @@ function p = absolute_path(p)
 if ~isfolder(p)
     error('sep_compare_outputs: folder not found: %s', p);
 end
+
+% the folder of its first entry ('.') is the folder itself, in full
 info = dir(p);
 p = info(1).folder;
 end
@@ -516,6 +545,8 @@ elseif isnumeric(v) || islogical(v)
 else
     s = class(v);
 end
+
+% at most 80 characters
 if numel(s) > 80
     s = [s(1:80) '...'];
 end

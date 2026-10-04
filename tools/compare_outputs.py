@@ -15,8 +15,9 @@ compared by type:
     .txt .json .md .py .m  same text
     anything else          DIFFERENT if the bytes differ
 
-Also lists the files present in only one folder. MATLAB's .mat and .fig files
-and videos are compared by bytes here, and they hold the time they were
+Also lists the files present in only one folder; a file that cannot be read is
+"compare failed", and the others are still compared. MATLAB's .mat and .fig
+files and videos are compared by bytes here, and they hold the time they were
 written: compare the MATLAB pipelines' folders, and videos, with
 tools/sep_compare_outputs.m, which reads their contents.
 
@@ -37,6 +38,7 @@ import filecmp
 import io
 import re
 import sys
+import zipfile
 from datetime import datetime
 from pathlib import Path
 
@@ -85,6 +87,8 @@ def same_arrays(a, b):
     arrays_b = load_arrays(b)
     if sorted(arrays_a) != sorted(arrays_b):
         return "DIFFERENT"
+
+    # NaN counts as equal to NaN only where the dtype can hold it
     for name, x in arrays_a.items():
         y = arrays_b[name]
         if x.dtype != y.dtype or x.shape != y.shape:
@@ -94,11 +98,19 @@ def same_arrays(a, b):
     return "same"
 
 
+def as_colours(image):
+    """A palette image as the colours it shows (RGBA); any other image as it is."""
+    if image.mode == "P":
+        return image.convert("RGBA")
+    return image
+
+
 def same_image(a, b, render_tolerance):
     """Same pixels on every frame of two images.
 
-    With `render_tolerance`, "same render" when at most 1 grey level differs,
-    on under 0.1% of the pixels of a frame.
+    A palette image is compared by the colours it shows, not by its indices, so
+    a changed palette is a difference. With `render_tolerance`, "same render"
+    when at most 1 grey level differs, on under 0.1% of the pixels of a frame.
     """
     status = "same"
     with Image.open(a) as image_a, Image.open(b) as image_b:
@@ -110,8 +122,8 @@ def same_image(a, b, render_tolerance):
         for index in range(n_frames):
             image_a.seek(index)
             image_b.seek(index)
-            pixels_a = np.asarray(image_a).astype(np.int64)
-            pixels_b = np.asarray(image_b).astype(np.int64)
+            pixels_a = np.asarray(as_colours(image_a)).astype(np.int64)
+            pixels_b = np.asarray(as_colours(image_b)).astype(np.int64)
             if pixels_a.shape != pixels_b.shape:
                 return "DIFFERENT"
             diff = np.abs(pixels_a - pixels_b)
@@ -135,6 +147,8 @@ def compare(a, b, replacements):
     """Status of one pair of files."""
     if filecmp.cmp(a, b, shallow=False):
         return "same"
+
+    # bytes that differ: compare by type, as the module docstring lists
     suffix = a.suffix.lower()
     if suffix in (".csv", ".tsv"):
         return same_table(a, b, replacements)
@@ -171,6 +185,7 @@ def relative_files(root, skip):
 
 def main(old_dir, new_dir, ignore, replacements, newer_than=None):
     """Compare the two folders, print the result, return the exit code."""
+    # the files on both sides, without the ignored ones
     old_dir = Path(old_dir)
     new_dir = Path(new_dir)
     skip = [re.compile(pattern) for pattern in ignore]
@@ -181,6 +196,8 @@ def main(old_dir, new_dir, ignore, replacements, newer_than=None):
     if not old_files and not new_files:
         raise FileNotFoundError(f"no files to compare in {old_dir} and {new_dir}")
 
+    # each file of either folder, in one folder only or compared by type; a line
+    # for each file that is not the same
     counts = {}
     for rel in sorted(old_files | new_files):
         detail = ""
@@ -191,7 +208,7 @@ def main(old_dir, new_dir, ignore, replacements, newer_than=None):
         else:
             try:
                 status = compare(old_dir / rel, new_dir / rel, replacements)
-            except (OSError, ValueError) as err:
+            except (OSError, ValueError, EOFError, zipfile.BadZipFile) as err:
                 # a file that cannot be read is reported, and the others still compared
                 status = "compare failed"
                 detail = f"  ({err})"
@@ -200,14 +217,16 @@ def main(old_dir, new_dir, ignore, replacements, newer_than=None):
             if newer_than is not None:
                 written = datetime.fromtimestamp((new_dir / rel).stat().st_mtime)
                 if written < newer_than:
-                    detail = (f"  (written {written:%Y-%m-%d %H:%M:%S}, "
-                              f"compared: {status})")
+                    detail = (
+                        f"  (written {written:%Y-%m-%d %H:%M:%S}, compared: {status})"
+                    )
                     status = "NOT REWRITTEN"
 
         counts[status] = counts.get(status, 0) + 1
         if status != "same":
             print(f"{status:14s} {rel}{detail}")
 
+    # the count of each status; exit code 1 if any file is not the same
     print("\n" + ", ".join(f"{n} {status}" for status, n in sorted(counts.items())))
     n_bad = sum(n for status, n in counts.items() if status not in SAME)
     if n_bad:
@@ -216,15 +235,29 @@ def main(old_dir, new_dir, ignore, replacements, newer_than=None):
 
 
 if __name__ == "__main__":
+    # the two folders and the options; the exit code is main's
     parser = argparse.ArgumentParser(description="compare two output folders")
     parser.add_argument("old_dir", help="outputs of the reference run")
     parser.add_argument("new_dir", help="outputs of the run after the change")
-    parser.add_argument("--ignore", nargs="*", default=[r"\.log$"],
-                        help="regular expressions of relative paths to skip")
-    parser.add_argument("--replace", nargs=2, action="append", default=[],
-                        metavar=("OLD", "NEW"),
-                        help="text replaced in the old run's tables and text files")
-    parser.add_argument("--newer-than", type=datetime.fromisoformat, default=None,
-                        help="files of NEW_DIR written before this are NOT REWRITTEN")
+    parser.add_argument(
+        "--ignore",
+        nargs="*",
+        default=[r"\.log$"],
+        help="regular expressions of relative paths to skip",
+    )
+    parser.add_argument(
+        "--replace",
+        nargs=2,
+        action="append",
+        default=[],
+        metavar=("OLD", "NEW"),
+        help="text replaced in the old run's tables and text files",
+    )
+    parser.add_argument(
+        "--newer-than",
+        type=datetime.fromisoformat,
+        default=None,
+        help="files of NEW_DIR written before this are NOT REWRITTEN",
+    )
     args = parser.parse_args()
     sys.exit(main(args.old_dir, args.new_dir, args.ignore, args.replace, args.newer_than))

@@ -22,7 +22,8 @@ on both sides.
 
 Prints one line per file, then a summary. Statuses: "same code", and
 "added (listed)" or "removed (listed)" for files the map lists; the failures
-are "CODE CHANGED", "NO COUNTERPART", "ONLY IN REF" and "SYNTAX ERROR".
+are "CODE CHANGED", "NO COUNTERPART", "ONLY IN REF" and "SYNTAX ERROR" (a file
+that does not parse, or is not UTF-8 text).
 Exit code 1 if there is any failure.
 
     python check_code_identity.py NEW_DIR REF_DIR [--map NAME_MAP.csv]
@@ -73,8 +74,9 @@ def read_name_map(path):
         if not any(cell.strip() for cell in row):
             continue
         if len(row) != 2:
-            raise ValueError(f"line {line_number} of {path} is not old_path,new_path: "
-                             f"{row}")
+            raise ValueError(
+                f"line {line_number} of {path} is not old_path,new_path: {row}"
+            )
         old, new = (cell.strip().replace("\\", "/") for cell in row)
 
         # one table can serve every language: keep the rows about .py files
@@ -86,13 +88,19 @@ def read_name_map(path):
 def strip_docstrings(tree):
     """Remove the docstring of the module and of every function and class."""
     for node in ast.walk(tree):
-        if not isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef,
-                                 ast.ClassDef)):
+        if not isinstance(
+            node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+        ):
             continue
+
+        # a docstring is a string constant as the first statement
         body = node.body
-        has_docstring = (body and isinstance(body[0], ast.Expr)
-                         and isinstance(body[0].value, ast.Constant)
-                         and isinstance(body[0].value.value, str))
+        has_docstring = (
+            body
+            and isinstance(body[0], ast.Expr)
+            and isinstance(body[0].value, ast.Constant)
+            and isinstance(body[0].value.value, str)
+        )
         if has_docstring:
             # keep the body valid when the docstring was its only statement
             node.body = body[1:] or [ast.Pass()]
@@ -107,9 +115,10 @@ def code_of(path):
 
 def compare_pair(new_path, ref_path):
     """Status of one new file against its reference file."""
+    # a file that is not UTF-8, or holds a null byte, does not parse either
     try:
         same = code_of(new_path) == code_of(ref_path)
-    except SyntaxError:
+    except (SyntaxError, ValueError):
         return "SYNTAX ERROR"
     if same:
         return "same code"
@@ -118,6 +127,7 @@ def compare_pair(new_path, ref_path):
 
 def main(new_dir, ref_dir, map_file=None):
     """Compare the two folders, print the result, return the exit code."""
+    # the files on both sides, and the name map
     new_dir = Path(new_dir)
     ref_dir = Path(ref_dir)
     new_files = python_files(new_dir)
@@ -132,21 +142,28 @@ def main(new_dir, ref_dir, map_file=None):
     # the file it meant uncompared
     for old, new in name_map:
         if old and old not in ref_files:
-            raise FileNotFoundError(f"the name map lists {old}, which is not in "
-                                    f"{ref_dir}")
+            raise FileNotFoundError(
+                f"the name map lists {old}, which is not in {ref_dir}"
+            )
         if new and new not in new_files:
-            raise FileNotFoundError(f"the name map lists {new}, which is not in "
-                                    f"{new_dir}")
+            raise FileNotFoundError(
+                f"the name map lists {new}, which is not in {new_dir}"
+            )
+
+    # each new file can come from one old file only
     listed_new = [new for old, new in name_map if new]
     if len(set(listed_new)) < len(listed_new):
         raise ValueError("a new path appears twice in the name map")
+
+    # the old path of each new path in the map, and the files removed on purpose
     old_of = {new: old for old, new in name_map if new}
     listed_removed = {old for old, new in name_map if not new}
 
-    # each new file against its reference: from the map, or at the same path
+    # each new file against its reference file
     rows = []
     compared = set()
     for rel in new_files:
+        # the reference file: from the map, or at the same path
         if rel in old_of:
             ref_rel = old_of[rel]
         elif rel in ref_files:
@@ -154,6 +171,7 @@ def main(new_dir, ref_dir, map_file=None):
         else:
             ref_rel = ""
 
+        # added on purpose, no reference file, or compared
         if not ref_rel and rel in old_of:
             status = "added (listed)"
         elif not ref_rel:
@@ -180,6 +198,8 @@ def main(new_dir, ref_dir, map_file=None):
             print(f"{status:17s} {rel}")
         else:
             print(f"{status:17s} {rel or '-'}  (ref {ref_rel or '-'})")
+
+    # the count of each status; exit code 1 on any failure
     summary = ", ".join(f"{n} {status}" for status, n in counts.items())
     print(f"\n{len(new_files)} new and {len(ref_files)} reference files: {summary}")
     failed = sum(counts.get(status, 0) for status in FAILURES)
@@ -189,10 +209,15 @@ def main(new_dir, ref_dir, map_file=None):
 
 
 if __name__ == "__main__":
+    # the two folders and the name map; the exit code is main's
     parser = argparse.ArgumentParser(description="code identity of two .py folders")
     parser.add_argument("new_dir", help="the code after the edit")
     parser.add_argument("ref_dir", help="the code before the edit")
-    parser.add_argument("--map", dest="map_file", default=None,
-                        help="CSV old_path,new_path of moved, added and removed files")
+    parser.add_argument(
+        "--map",
+        dest="map_file",
+        default=None,
+        help="CSV old_path,new_path of moved, added and removed files",
+    )
     args = parser.parse_args()
     sys.exit(main(args.new_dir, args.ref_dir, args.map_file))

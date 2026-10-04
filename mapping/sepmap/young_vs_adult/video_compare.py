@@ -1,0 +1,240 @@
+"""Young and adult side by side, plane by plane, in the adult CCF.
+
+Three panels per frame: the young cohort mean, the adult cohort mean on the same
+colour scale, and their comparison, so a pattern can be compared where it sits
+rather than by flicking between two windows. Atlas outlines and acronyms on all
+three; the header gives the CCF plane and how many brains are behind each side
+there.
+
+Everything comes from the cohort volumes volumes.cohort built in the CCF, the ones
+young_vs_adult.compare draws its figures from, and every reading is available. The
+colour scale of the two means is fixed and shared. For ratio, sepratio, cref and
+subref it is linear and the third panel is a log2 ratio of the means, each floored
+at 0.02; for zref the means are a signed position within each brain's range and
+the third panel is their difference.
+
+One plane can be drawn on its own instead, as a still for a talk or a message, and
+the colour range can be tightened for that run only: the cortex occupies a
+fraction of the range the hippocampus needs, so saturating the extremes is often
+the only way to see it. A tightened range of the means goes into the file name.
+
+Writes video_side_by_side_<reading>.mp4, or plane<P>_side_by_side_<reading>.png
+for one plane, into comparisons_v2/young_vs_adult/.
+
+Run by run_video_compare.py.
+"""
+
+import time
+from pathlib import Path
+
+import imageio_ffmpeg
+import matplotlib.pyplot as plt
+import nibabel as nib
+import numpy as np
+from matplotlib.colors import Colormap
+
+from sepmap.config import SETTINGS
+from sepmap.plotting import coronal_figure, coronal_frame, hot_cut, transparent_bad
+from sepmap.volumes.cohort import COHORTS, SIGNED_READINGS
+from sepmap.volumes.cohort import OUT_ROOT as CCF_ROOT
+from sepmap.volumes.per_mouse import DATA, structure_terms
+from sepmap.young_vs_adult.compare import YOUNG
+from sepmap.young_vs_adult.hemispheres import fold, fold_count
+
+# the brains a voxel needs, as in young_vs_adult.compare; the log2 floor of
+# volumes.cohort; the fixed colour ranges of the means and of the comparison, the
+# same as the cohort videos', and the frame rate
+YOUNG_VS_ADULT = SETTINGS["young_vs_adult"]
+READINGS = SETTINGS["readings"]
+VIDEOS = SETTINGS["videos"]
+
+OUT = DATA / "comparisons_v2" / "young_vs_adult"
+
+
+def side_by_side(
+    reading: str, y_n: np.ndarray, a_n: np.ndarray, ann_h: np.ndarray
+) -> tuple[np.ndarray, ...]:
+    """Folded means, the voxels where both have enough brains, and the comparison.
+
+    Returns (young mean, adult mean, young voxels, adult voxels, both, signed,
+    comparison); the comparison is a difference for a signed reading, else a
+    floored log2 ratio, NaN outside both.
+    """
+    y = fold(np.load(CCF_ROOT / YOUNG / f"{reading}_mean.npy"))
+    a = fold(np.load(CCF_ROOT / "adult" / f"{reading}_mean.npy"))
+    ok_y = (y_n >= YOUNG_VS_ADULT["min_n_young"]) & np.isfinite(y)
+    ok_a = (a_n >= YOUNG_VS_ADULT["min_n_adult"]) & np.isfinite(a)
+    both = ok_y & ok_a & (ann_h > 0)
+    signed = reading in SIGNED_READINGS
+    floor = READINGS["log2_floor"]
+    log2 = np.where(
+        both,
+        (y - a) if signed else np.log2(np.maximum(y, floor) / np.maximum(a, floor)),
+        np.nan,
+    )
+    return y, a, ok_y, ok_a, both, signed, log2
+
+
+def open_output(
+    reading: str,
+    plane: int | None,
+    vmax: float | None,
+    v_mean: float,
+    both: np.ndarray,
+    ann_h: np.ndarray,
+) -> tuple[list[int], Path, object]:
+    """The frames to draw, the output file, and the video writer (None for a still).
+
+    A still of one plane, or a video of the planes with more than 200 compared
+    voxels; a CCF plane is quoted at 10 um in every caption, the volumes are 20 um.
+    """
+    if plane is not None:
+        frames = [plane // 2]
+    else:
+        frames = [k for k in range(ann_h.shape[0]) if both[k].sum() > 200]
+    tag = "" if vmax is None else f"_vmax{v_mean:g}"
+    if plane is None:
+        out = OUT / f"video_side_by_side_{reading}{tag}.mp4"
+        writer = imageio_ffmpeg.write_frames(
+            out, (1920, 760), fps=VIDEOS["fps"], quality=7, macro_block_size=8
+        )
+        writer.send(None)
+    else:
+        out = OUT / f"plane{plane}_side_by_side_{reading}{tag}.png"
+        writer = None
+    return frames, out, writer
+
+
+def frame_panels(
+    k: int,
+    reading: str,
+    maps: tuple[np.ndarray, ...],
+    cmaps: tuple[Colormap, Colormap, Colormap],
+    v_mean: float,
+    v_diff: float,
+) -> tuple:
+    """The three panels of plane `k`: young, adult and their comparison.
+
+    `maps` is what side_by_side returns, `cmaps` hot, purple-orange and red-blue.
+    """
+    y, a, ok_y, ok_a, both, signed, log2 = maps
+    hot, puor, rdbu = cmaps
+    cmap_mean = puor if signed else hot
+    lim_mean = (-v_mean, v_mean) if signed else (0, v_mean)
+    panels = (
+        (
+            np.where(ok_y[k], y[k], np.nan),
+            cmap_mean,
+            lim_mean,
+            f"young (n = {len(COHORTS[YOUNG])})   {reading}",
+        ),
+        (
+            np.where(ok_a[k], a[k], np.nan),
+            cmap_mean,
+            lim_mean,
+            f"adult (n = {len(COHORTS['adult'])})   {reading}",
+        ),
+        (
+            log2[k],
+            rdbu,
+            (-v_diff, v_diff),
+            "young - adult" if signed else "log2( young / adult )",
+        ),
+    )
+    return panels
+
+
+def frame_header(
+    k: int,
+    signed: bool,
+    ok_y: np.ndarray,
+    ok_a: np.ndarray,
+    y_n: np.ndarray,
+    a_n: np.ndarray,
+) -> str:
+    """The header of plane `k`: the brains behind each side, what the panels show."""
+    if signed:
+        note = (
+            "(means are a position within each brain's own range; "
+            "right panel is their difference)"
+        )
+    else:
+        note = "(means on a linear scale, shared range; only the right panel is log2)"
+    header = (
+        f"CCF plane {2 * k} / 10 um    "
+        f"young: {int(np.nanmax(np.where(ok_y[k], y_n[k], 0)))} brains   "
+        f"adult: {int(np.nanmax(np.where(ok_a[k], a_n[k], 0)))} brains   " + note
+    )
+    return header
+
+
+def main(
+    readings: list[str],
+    plane: int | None = None,
+    vmax: float | None = None,
+    dlim: float | None = None,
+) -> None:
+    """Young beside adult for each of `readings`: a video, or a still of CCF `plane`.
+
+    `plane` is numbered at 10 um; `vmax` and `dlim` replace videos.mean_vmax and
+    videos.log2_lim for this run.
+    """
+    # acronyms by parcellation index
+    _, acro, _ = structure_terms()
+
+    # hot up to 0.82 of its range, and red-blue for the comparison; masked voxels
+    # transparent, so the grey or black ground shows
+    hot = hot_cut()
+    rdbu = transparent_bad("RdBu_r")
+
+    # purple-orange for zref, which is a position rather than an intensity, so
+    # red-blue means one thing only: the young-adult difference
+    puor = transparent_bad("PuOr_r")
+
+    # the annotation, the half that the folded volumes cover, and the brains with
+    # tissue behind each voxel
+    ann = np.asarray(nib.load(DATA / "atlas" / "annotation_10.nii.gz").dataobj)[
+        ::2, ::2, ::2
+    ]
+    ann_h = ann[:, :, : ann.shape[2] // 2]
+    y_n = fold_count(np.load(CCF_ROOT / YOUNG / "cref_n.npy"))
+    a_n = fold_count(np.load(CCF_ROOT / "adult" / "cref_n.npy"))
+
+    for reading in readings:
+        t0 = time.time()
+
+        # folded means, the voxels where both have enough brains, and the comparison
+        maps = side_by_side(reading, y_n, a_n, ann_h)
+        _, _, ok_y, ok_a, both, signed, _ = maps
+
+        # colour ranges of this run
+        v_mean = VIDEOS["mean_vmax"][reading] if vmax is None else vmax
+        v_diff = VIDEOS["log2_lim"] if dlim is None else dlim
+
+        # a still of one plane, or a video, drawn into one 1920 x 760 figure, three
+        # panels with their colour bars
+        frames, out, writer = open_output(reading, plane, vmax, v_mean, both, ann_h)
+        fig, axes, caxes = coronal_figure()
+        for k in frames:
+            panels = frame_panels(k, reading, maps, (hot, puor, rdbu), v_mean, v_diff)
+            header = frame_header(k, signed, ok_y, ok_a, y_n, a_n)
+
+            # the atlas in dark grey under the data, black outside it, the area
+            # borders and the acronyms of the structures large enough
+            coronal_frame(fig, axes, caxes, k, panels, ann_h, acro, header)
+
+            # into the video, or the still
+            fig.canvas.draw()
+            if writer is not None:
+                writer.send(
+                    np.ascontiguousarray(np.asarray(fig.canvas.buffer_rgba())[:, :, :3])
+                )
+            else:
+                fig.savefig(out, dpi=100, facecolor="k")
+        if writer is not None:
+            writer.close()
+        plt.close(fig)
+        print(
+            f"{reading:8s} {len(frames)} frame(s) -> {out}   {time.time() - t0:.0f} s",
+            flush=True,
+        )

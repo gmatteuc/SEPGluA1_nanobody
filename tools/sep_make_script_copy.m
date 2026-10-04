@@ -9,7 +9,9 @@ function out = sep_make_script_copy(src, out, assign, rewrites)
 %               line, e.g.
 %               {'produce_videos\s*=\s*true;', 'produce_videos = false;'}
 %   Every assignment and pattern must match, or it errors: a silent miss would
-%   run the driver with its real settings.
+%   run the driver with its real settings. A setting the driver assigns more
+%   than once (an environment variable's override) is refused too: change the
+%   assignment meant with a rewrite.
 %
 %   Used to run a driver on a copy of the data tree without touching the
 %   driver itself. Field names cannot contain a dot, so settings like
@@ -18,14 +20,18 @@ function out = sep_make_script_copy(src, out, assign, rewrites)
 %
 %   See also SEP_RUN_DRIVER_COPY.
 
+% no settings and no rewrites when left out
 if nargin < 3 || isempty(assign)
     assign = struct();
 end
 if nargin < 4
     rewrites = cell(0, 2);
 end
+
+% the driver as text, in its encoding
 txt = fileread(src, 'Encoding', 'UTF-8');
 
+% replace the assignment to each setting given
 names = fieldnames(assign);
 for k = 1:numel(names)
     name = names{k};
@@ -41,18 +47,23 @@ for k = 1:numel(names)
         options = {'once', 'lineanchors'};
     end
 
-    % replace it, or stop if there is none
+    % replace it, or stop if there is none, or more than one: only the first would
+    % be replaced, and a later one (such as an override from an environment
+    % variable) would still run
     assert(~isempty(regexp(txt, pattern, options{:})), ...
         'sep_make_script_copy: no assignment to %s in %s', name, src);
+    n_found = numel(regexp(txt, ['^[ \t]*' name '\s*=[^=]'], 'start', 'lineanchors'));
+    assert(n_found == 1, ['sep_make_script_copy: %d assignments to %s in %s; ' ...
+        'change the one meant with a rewrite'], n_found, name, src);
     replacement = sprintf('%s = %s;', name, assign.(name));
     txt = regexprep(txt, pattern, regexptranslate('escape', replacement), options{:});
 end
 
 % apply the other rewrites, each of which must match
 for k = 1:size(rewrites, 1)
-    assert(~isempty(regexp(txt, rewrites{k,1}, 'once')), ...
-        'sep_make_script_copy: rewrite "%s" not found in %s', rewrites{k,1}, src);
-    txt = regexprep(txt, rewrites{k,1}, regexptranslate('escape', rewrites{k,2}));
+    assert(~isempty(regexp(txt, rewrites{k, 1}, 'once')), ...
+        'sep_make_script_copy: rewrite "%s" not found in %s', rewrites{k, 1}, src);
+    txt = regexprep(txt, rewrites{k, 1}, regexptranslate('escape', rewrites{k, 2}));
 end
 
 % write the copy, in the source's encoding

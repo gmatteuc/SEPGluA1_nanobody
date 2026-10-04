@@ -55,17 +55,15 @@ codegen/
 # =============================================================
 #  Exceptions: vendored third-party deps ship legitimate
 #  resources (colormaps, example volumes, mex binaries) that
-#  the pipeline needs at runtime. Re-include their whole trees.
+#  the pipeline needs at runtime. Re-include their whole trees
+#  (all in third_party/), the images the documentation shows,
+#  the documents with their tables, and the cohort table that
+#  MATLAB and Python read.
 # =============================================================
-!LightSuite-main/**
-!matlab_elastix-master/**
-!yamlmatlab/**
-!BioformatsImage/**
-# the same trees once the refactor moves them (docs/REFACTOR_PLAN.md), and the
-# images the documentation shows
 !third_party/**
 !assets/**
 !docs/**
+!common/cohort.csv
 
 # ---- Re-apply junk rules inside the vendored trees ----
 **/*.asv
@@ -78,10 +76,16 @@ codegen/
 #  copies on the MATLAB path, shadowing transformix.m et al.
 #  Safe to delete from disk.
 # =============================================================
-matlab_elastix-master/matlab_elastix-master/
+third_party/matlab_elastix/matlab_elastix-master/
 
 # Python environments (tools/requirements_*.txt recreates them)
 tools/venv_atlas/
 tools/venv_flat/
 tools/venv_dev/
 __pycache__/
+
+# Left at the code root by the refactor, since git moves only tracked files:
+# the engine's environment until it is moved by hand to
+# registration/auto_annotation/.venv, and the retired matcher's (archive/).
+/auto_annotation/.venv/
+/landmark_refine/.venv/

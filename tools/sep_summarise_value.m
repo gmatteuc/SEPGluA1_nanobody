@@ -13,6 +13,7 @@ function s = sep_summarise_value(v)
 %   properties. Other handle objects are summarised by their class only.
 
 if isstruct(v)
+    % field by field, the fields sorted, for each element
     fields = sort(fieldnames(v))';
     s = struct('fields', {fields}, 'size', size(v), 'items', {{}});
     for i = 1:numel(v)
@@ -76,14 +77,14 @@ end
 % ===== Local functions =====
 
 function s = summarise_object(v)
-% Class and public properties of each element of a value object array. A
-% class with no public properties is read through struct(), which also
-% shows the private ones, so its values still count.
+% Class and public properties of each element of a value object array; a class with
+% none is read through struct(), which shows the private ones too, so its values count.
 
 names = properties(v);
 items = cell(1, numel(v));
 for i = 1:numel(v)
     if isempty(names)
+        % struct() on an object warns that it shows private properties: on purpose
         warning('off', 'MATLAB:structOnObject');
         items{i} = sep_summarise_value(struct(v(i)));
         warning('on', 'MATLAB:structOnObject');

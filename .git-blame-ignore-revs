@@ -1,0 +1,36 @@
+# Commits that change only comments and layout (kind A of the style pass,
+# docs/STYLE_PASS.md while step 7 runs), so that git blame skips them.
+# To use them: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Restyle the four reference examples: comments and layout only
+743f1854c7de48e27a73a976f6c9cb2c1d56fb83
+
+# Style pass, g1: comments and layout
+cfeb6379b945cc495243e4e5b876e87584a36150
+
+# Style pass, preprocessing: comments and layout
+7055275f70ac2c3fd2dbcf1f1cacda9e43a1972a
+
+# Style pass, registration: comments and layout
+e8f415af3052b1567da6bb86ceb9e8cb3efa087c
+
+# Style pass, plasticity comparison: comments and layout
+43739ea284b169eee826f9dda753fdcd71faf41f
+
+# Style pass, Python core: comments and layout
+825e47f5b13b463a545b6856525346bdffcd5c18
+
+# Style pass, young vs adult (g6): comments and layout
+e5aded5b92c9b3071629a58ebb6f893e0a6779eb
+
+# Style pass, g7: comments and layout
+12a261274abf443283c8be83c7263a90584f3c89
+
+# Style pass, g8: comments and layout
+f2cfc5b5b351f7edc8919077ac8304da2fb7841f
+
+# Style pass, g9: comments and layout
+30383ea828d7e0576308e9e4861e1fda9fb3ae81
+
+# Style pass: consistency across groups
+657beb7c58c1c099fca677c1b9e44097ee4c588b

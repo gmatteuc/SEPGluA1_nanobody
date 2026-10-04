@@ -1,4 +1,4 @@
-# tools/venv_flat: v2_inspect.py, the cortical flatmaps.
+# tools/venv_flat: mapping/run_closeup.py, the cortical flatmaps.
 # Python 3.12.7 (Anaconda, C:\ProgramData\anaconda3). Frozen on 30 Sep 2026 as the
 # environment stood when the results were produced. Recreate it from the repository
 # root with

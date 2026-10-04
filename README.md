@@ -1,94 +1,138 @@
-# sep_histology
+# SEP-GluA1 whole-brain maps: analysis code
 
-Whole-brain mapping of SEP-GluA1 (nanobody-labelled AMPA receptor subunit) surface
-expression in coronal mouse brain sections, registered to the Allen CCF.
+![Slice-order montage of a P16 brain](assets/slice_order_montage.png)
 
-**This repository contains code only.** No data, at any stage.
+*A P16 brain (MG911) in the slice-order editor of `run_order_slices`, six of
+its eight columns: each section labelled with its place in the curated order,
+its index as extracted in brackets, F if flipped; red = DAPI, green =
+nanobody, blue = autofluorescence.*
 
-## Data locations (not in this repo)
+Analysis code for whole-brain maps of surface GluA1, an AMPA receptor
+subunit, in SEP-GluA1 knock-in mice. Coronal sections are stained without
+detergent, or with very little, with a GFP-booster nanobody that binds the
+SEP tag, so in principle only receptors at the surface are labelled; no
+control has tested this on these brains yet. Each section is imaged in four
+channels (DAPI, the nanobody, autofluorescence, and the green of SEP itself)
+and registered to an atlas of the mouse's age: the Allen CCF for adults, the
+DeMBA atlas of their age (Carey 2025) for young mice.
 
-| What | Where | Access |
-|------|-------|--------|
-| Raw acquisition (`.czi`) | `S:\ElboustaniLab\#SHARE\Data\<mouse>\` | **READ-ONLY — never write or modify** |
-| Derived / processed | `D:\sep_histology\data\` | read-write |
-| Allen atlas | `D:\sep_histology\data\atlas\` | read-only in practice |
+The project serves Aim 2.1 of the SNSF Weave grant *Dendritic plasticity
+rules shaping the emergence of multisensory integration in the developing
+cortex*: surface GluA1 as a proxy for synaptic plasticity potential across
+development. The dendritic imaging of the same grant is in the two-photon
+imaging repository (`D:\dendrites\code`). See
+[`docs/SCIENTIFIC_CONTEXT.md`](docs/SCIENTIFIC_CONTEXT.md) for the questions,
+the results and the papers, and [`docs/ROADMAP.md`](docs/ROADMAP.md) for
+what is open.
 
-> **Raw data safety.** Nothing in this pipeline may write to `S:`. Raw microscopy data
-> is irreplaceable — reacquisition means re-perfusing and re-sectioning animals.
-> Note that some *vendored* scripts (`LightSuite-main/compare_mice.m`,
-> `LightSuite-main/scripts/protocol_manuscript_generate_plots.m`,
-> `BioformatsImage/extractAxioscanImages.m`) contain hard-coded save paths into `S:`.
-> They are third-party and **must not be run as-is**.
+## The four lines of work
 
-## Pipeline
+1. **Where an experience changes the map.** Naive mice against mice after
+   rhythmic whisker stimulation or after a detection task. Paused, not
+   closed. MATLAB, `group_comparison/`.
+2. **How the signal is distributed in the adult brain**, and how
+   reproducibly across mice. Python, `mapping/`; the MATLAB `P8` and `P10`
+   until the Python route answers their questions.
+3. **What the map measures**, against the Allen in situ hybridisation maps
+   and the green SEP channel. Python, `mapping/`; `P9` until replaced.
+4. **How young brains differ from adult ones**, for the grant. Python,
+   `mapping/`.
 
-Scripts run in order; each stage writes into `D:\sep_histology\data\`.
+Preprocessing and registration (MATLAB, with LightSuite and an automatic
+annotation of control points) serve all four.
 
-| Stage | Script | Purpose |
-|-------|--------|---------|
-| P1 | `P1_extract_and_center_data.m` | Extract slices from raw `.czi`, centre volumes |
-| P2 | `P2_residual_correction_analysis.m` | Residual / tiling correction |
-| P2bis | `P2bis_nano_correction_analysis.m` | Nano-channel correction |
-| P3 | `P3_annotate_artifacts.m` | **Manual** artifact annotation (`ArtifactAnnotator.m`) |
-| P4 | `P4_register_to_atlas.m` | Register to Allen CCF (elastix, affine + B-spline) |
-| P4bis | `P4bis_add_sep_channel.m` | Carry the SEP (green) channel into registered space by **re-applying** the saved transforms — adds `volume_registered_sep\`, changes nothing that exists |
-| P5 | `P5_collect_data_by_group.m` | Assemble per-group 4D volumes across mice |
-| P6bis | `P6bis_analyze_group_averages_and_normalize.m` | Per-mouse equalisation + normalisation |
-| P7bis | `P7bis_analyze_group_differences.m` | Group-difference analyses |
-| P8 | `P8_characterize_merged_distribution.m` | Region-wise distribution over Allen ontology |
-| P9 | `P9_compare_nano_vs_allen_ish.m` | Correlate against Allen ISH (100-gene panel) |
-| P10 | `P10_compare_nano_vs_auto.m` | Nano vs autofluorescence control (paired) |
+## Setup
 
-`P6bis` / `P7bis` / `P8` / `P9` take a `channel` parameter (`'nano'` | `'auto'`) at the
-top of the script; the channel is rolled into output folder names so runs never collide.
+- **MATLAB** R2024b on Windows (R2022b at least), with the Image Processing,
+  Computer Vision, Optimization, Statistics and Machine Learning, and
+  Parallel Computing toolboxes. Once per session, in a fresh MATLAB:
+  `restoredefaultpath; cd('D:\sep_histology\code'); sep_setup_paths`.
+- **Paths.** The code and data folders sit side by side, `<root>\code` and
+  `<root>\data` (here `D:\sep_histology\`). `get_paths.m` and
+  `mapping/sepmap/config.py` work the data root out from where the code
+  sits. The environment variable `SEP_DATA_ROOT` moves the whole data tree,
+  inputs and outputs, for a check on a copy; a copy of the code is refused
+  the production data.
+- **elastix 5.1.0** on the PATH (LightSuite calls it): `elastix --version`
+  must answer in a new terminal before MATLAB starts.
+- **Python**: Anaconda's Python 3.12, one environment per job, each made
+  from a pinned file whose top lines give the commands:
 
-## The v2 route (young vs adult)
+  | environment | runs | made from |
+  |---|---|---|
+  | `tools\venv_atlas` | every `mapping\run_*.py` but `run_closeup`; `atlas\build_demba_atlas.py`; the Python check tools | `tools\requirements_atlas.txt` |
+  | `tools\venv_flat` | `mapping\run_closeup.py`, the cortical flatmaps | `tools\requirements_flat.txt` |
+  | `registration\auto_annotation\.venv` | the automatic annotation's engine | `registration\auto_annotation\setup.ps1`; versions pinned in `tools\requirements_auto_annotation.txt` |
+  | `tools\venv_dev` | pytest and ruff | `tools\requirements_dev.txt` |
 
-P5–P8 were built for adults on one atlas, and reused across ages they answer the
-wrong question (details in `data\comparisons_v2\README.md`). The cross-age
-comparison runs on a separate chain of Python scripts, which reads the registered
-volumes directly and writes only under `data\comparisons_v2\`:
+  The engine's `setup.ps1`, run once per machine, installs torch and ends
+  with a self-test; without it the control-point GUI has no automatic keys.
+- **Atlases**, under the data root: `atlas\` (Allen CCFv3, 10 µm),
+  `atlas_demba_p<age>\` (built by `atlas\build_demba_atlas.py <age>`),
+  `atlas_flatmap\` and `atlas_ish\`; see [`atlas/README.md`](atlas/README.md).
 
-| Script | Purpose |
-|---|---|
-| `v2_per_mouse.py` | per brain, on the atlas of **its own age**: tissue mask, background-subtracted nano, auto and SEP |
-| `v2_to_ccf.py` | each young brain carried DeMBA → CCF at its own age; adults are placed, not warped |
-| `v2_cohort.py` | per-voxel cohort mean, SD and n, in the adult CCF |
-| `v2_compare.py` | young against adult: maps, the per-structure table |
-| `v2_region_plot.py` | the statistics, per-mouse region means with **no warping anywhere** |
-| `v2_region_groups.py` | the same by system (primary vs higher sensory, frontal…) and by cortical layer |
-| `v2_video.py`, `v2_video_compare.py` | plane-by-plane videos, per cohort and young beside adult |
-| `v2_inspect.py` | one reading looked at closely: a coronal plane, its video and the cortical flatmaps (whole depth and by layer), all from one set of volumes. Runs in `tools\venv_flat` — see its docstring |
-| `v2_diagnostics.py` | the sheets that make each step checkable by eye |
+## Pipelines
 
-Five readings run through all of it, and none of them replaces another: `ratio`
-(nano per unit autofluorescence), `sepratio` (nano per unit SEP — intended as
-surface receptor per unit receptor expressed, but see `v2_sep_channel_check.py`:
-the green channel is mostly autofluorescence here, so it is not), `cref` and `subref` (relative to the
-brain's own isocortex / subcortex) and `zref` (range-matched).
+| folder | what | start with |
+|---|---|---|
+| `preprocessing/` | raw `.czi` files to centred, ordered, corrected sections (MATLAB) | [`preprocessing/README.md`](preprocessing/README.md) |
+| `registration/` | sections to the atlas of the mouse's age, control points by hand or proposed and reviewed; the SEP channel (MATLAB, Python engine) | [`registration/README.md`](registration/README.md) |
+| `group_comparison/` | line 1: naive against RWS or behaviour (MATLAB) | [`group_comparison/README.md`](group_comparison/README.md) |
+| `mapping/` | lines 2 to 4: per-brain volumes, the adult map, the ISH comparison, young against adult (Python) | [`mapping/README.md`](mapping/README.md) |
+| root: `P8_*.m`, `P9_*.m`, `P10_*.m` | the earlier adult, ISH and autofluorescence analyses (MATLAB) | the header of each script |
 
-Run them with the project venv:
-`tools\venv_atlas\Scripts\python.exe v2_per_mouse.py`
+A new brain end to end, with the manual steps and the traps:
+[`docs/ADDING_DATA.md`](docs/ADDING_DATA.md). Each driver (`run_*.m`,
+`mapping\run_*.py`) lists its pipeline's run order in its header. MATLAB
+settings sit under `%% Settings` in each driver, the Python route's in
+`mapping/settings.toml`; long MATLAB stages run detached, with a log, through
+`tools\run_matlab_detached.ps1`.
 
-### Important caveat on what the pipeline measures
+Shared code:
 
-`P6bis` equalises **per mouse** and `P8` z-scores **within brain**. Both deliberately
-destroy absolute scale. Results describe the **relative spatial distribution** of
-GluA1, not absolute expression level. Any claim of the form "GluA1 increases/decreases"
-is *not* supported by this pipeline as configured.
+- `get_paths.m` and `sep_setup_paths.m`: the data root, the MATLAB path
+- `common/`: the cohort table (`cohort.csv`), volume reading, left-right
+  statistics, the palette; `atlas/`: `get_atlas`, the DeMBA builder, checks
+- `tests/`, `tools/` (output and code-identity checks, the detached runner,
+  the Python requirements) and `third_party/` (LightSuite with our patches,
+  and three smaller packages), each with its README
+- `archive/`: retired code, kept until checked; `docs/`: the documents;
+  `assets/`: images for this page
 
-## Vendored dependencies
+## Where outputs go
 
-Committed in-tree for reproducibility rather than pinned as submodules:
+Under the data root; none is tracked in git.
 
-- `matlab_elastix-master/` — elastix/transformix MATLAB wrapper (registration)
-- `LightSuite-main/` — slice handling, Allen CCF helpers
-- `yamlmatlab/` — YAML parsing (MIT; bundles snakeyaml, Apache-2.0)
-- `BioformatsImage/` — Bio-Formats reader for `.czi`
+- `<group>\<mouse>\` (groups `naive`, `rws`, `behavior`, `young`): the
+  copied `.czi` files and `lightsuite\`, every stage up to the registered
+  volumes.
+- `<group>\` and `comparisons\`: the plasticity comparison (the approved
+  run: `comparisons\naive_vs_rws\`, `naive_vs_behavior\`), and P8 to P10.
+- `comparisons_v2\`: per-brain and cohort volumes, young against adult, the
+  diagnostic sheets, and a README on reading their numbers.
+- `adult_v2\`: the beyond-abundance analysis, the channels, the ISH tests.
 
-Each retains its upstream `LICENSE`.
+## Status
 
-## Requirements
+The code was reorganised in September and October 2026
+([`docs/REFACTOR_PLAN.md`](docs/REFACTOR_PLAN.md)); each step was checked
+against the code before it on a reference set of brains. Next: six young
+brains of P28 to P36, and one declared set of structures for the adult and
+ISH analyses (A1 to A5), after which `P8` to `P10` retire. Before reading a
+result, see the limits in [`docs/ROADMAP.md`](docs/ROADMAP.md): above all,
+no reading is an absolute level, since young and adult brains were imaged in
+different sessions, and the surface claim rests on the staining protocol
+alone.
 
-MATLAB (Image Processing + Statistics toolboxes), plus `elastix`/`transformix` binaries
-available to the elastix wrapper. Java is required for the Bio-Formats reader.
+## Conventions
+
+- Code style: [`docs/STYLE.md`](docs/STYLE.md). Raw data is only read,
+  outputs go under the data root, and a step overwrites only its own outputs.
+- A mouse's age is the one in the name of its raw folder: `MG904_SepGluA_P22`
+  is P22. Adult folders end in `_Gria1`; the adults were well above P60,
+  their exact ages not recorded.
+- `P<n>` in an age, a cohort tag or an atlas key is postnatal day n
+  (`young_P20`, `demba_p20`); as script names, P8, P9 and P10 are the last
+  of the old pipeline steps.
+- `main` is the working branch. Tag `grant-2026-09` is the code behind the
+  grant figures, `refactor-start` the code before the reorganisation.

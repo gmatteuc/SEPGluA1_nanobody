@@ -1,0 +1,218 @@
+"""The palette, the colormaps, the save function and the drawing the figures share.
+
+The colours are those of docs/STYLE.md (Figures), so the young against adult
+figures, the adult figures and the ISH figures read as one set: red for the
+young group and for what a figure is about, dark and mid grey for the two adult
+groups and for comparison and context, dark blue for the receptor subunits, and a
+flat grey for no data, which no data colormap produces.
+
+Intensity maps use hot cut at 0.82 of its range, so the brightest values read as
+yellow and never as the white of an empty page; masked values are transparent, so
+the ground under an image (the atlas in grey, the black of the video frames)
+shows where there is no value.
+
+The coronal frames of the videos and of the close-up still share one drawing
+function: the atlas in dark grey under the data, the area borders on top, and
+the acronym of every structure large enough to name.
+
+Only numpy, scipy, matplotlib and config are imported, so the flatmap
+environment (young_vs_adult.closeup) can import this module too. Imported by
+the modules that draw.
+"""
+
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.colors import Colormap, LinearSegmentedColormap
+from scipy.ndimage import center_of_mass
+
+from sepmap.config import SETTINGS
+
+# the 20 um voxels a structure needs in a coronal plane to get its acronym drawn
+VIDEOS = SETTINGS["videos"]
+
+# the palette: red for the young group and for what a figure shows, dark and mid
+# grey for the naive and rws adults and for comparison and context, dark blue for
+# the receptor subunits
+RED = "#c0392b"
+DARK_GREY = "#555555"
+MID_GREY = "#9a9a9a"
+DARK_BLUE = "#1f3b73"
+
+# no data, drawn flat under the data
+NO_DATA_GREY = "#bfbfbf"
+
+# the groups of the young against adult figures
+GROUP_COLOURS = {"young": RED, "naive": DARK_GREY, "rws": MID_GREY}
+
+
+def hot_cut() -> LinearSegmentedColormap:
+    """hot up to 0.82 of its range, transparent where there is no value."""
+    hot = plt.get_cmap("hot")
+    cmap = LinearSegmentedColormap.from_list("hot_cut", hot(np.linspace(0, 0.82, 256)))
+    cmap.set_bad((0, 0, 0, 0))
+    return cmap
+
+
+def transparent_bad(name: str) -> Colormap:
+    """A copy of the colormap `name`, transparent where there is no value."""
+    cmap = plt.get_cmap(name).copy()
+    cmap.set_bad((0, 0, 0, 0))
+    return cmap
+
+
+def save_figure(
+    fig: plt.Figure,
+    path: Path,
+    dpi: int,
+    facecolor: str | None = None,
+    eps: bool = True,
+) -> None:
+    """Save `fig` as a PNG at `path`, and with `eps` as an EPS beside it.
+
+    `facecolor` is the PNG's background, the figure's default when None. The
+    figure is not closed: a caller may draw into it again (a video after its
+    still).
+
+    Windows refuses to overwrite a PNG that an image viewer holds open. The
+    figure then goes to <name>_new.png, with a note, so a run that writes
+    several figures does not lose the rest because one of them was being
+    looked at.
+
+    The EPS is what goes into a figure for a paper. PostScript has no
+    transparency, so the image layers are rasterised and composited by Agg
+    first; otherwise a no-data region, transparent here, would come out opaque
+    black instead of showing the ground beneath it. Text, lines and axes stay
+    vector, the part that has to be editable.
+    """
+    try:
+        fig.savefig(path, dpi=dpi, facecolor=facecolor)
+    except OSError:
+        alt = path.with_name(path.name.replace(".png", "_new.png"))
+        fig.savefig(alt, dpi=dpi, facecolor=facecolor)
+        print(
+            f"  NOTE: {path.name} is open elsewhere; wrote {alt.name} instead",
+            flush=True,
+        )
+    if not eps:
+        return
+
+    # the EPS, with the image layers rasterised
+    eps_path = path.with_suffix(".eps")
+    for ax in fig.axes:
+        for im in ax.images:
+            im.set_rasterized(True)
+    try:
+        fig.savefig(eps_path, dpi=dpi, facecolor=fig.get_facecolor(), format="eps")
+    except OSError:
+        print(
+            f"  NOTE: {eps_path.name} is open elsewhere; the PNG was still written",
+            flush=True,
+        )
+
+
+def tidy(ax: plt.Axes) -> None:
+    """Small tick labels, no top or right spine."""
+    ax.tick_params(labelsize=7)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+
+
+# ===== Coronal frames =====
+
+
+def boundaries(lab: np.ndarray) -> np.ndarray:
+    """Pixels of the label image `lab` that border another label, inside the atlas."""
+    b = np.zeros(lab.shape, bool)
+    b[1:, :] |= lab[1:, :] != lab[:-1, :]
+    b[:, 1:] |= lab[:, 1:] != lab[:, :-1]
+    return b & (lab > 0)
+
+
+def coronal_figure() -> tuple[plt.Figure, list[plt.Axes], list[plt.Axes]]:
+    """One 1920 x 760 figure on black: three panels and their colour bars."""
+    fig = plt.figure(figsize=(19.2, 7.6), dpi=100, facecolor="k")
+    axes = [fig.add_axes([0.02 + i * 0.325, 0.05, 0.27, 0.82]) for i in range(3)]
+    caxes = [fig.add_axes([0.295 + i * 0.325, 0.12, 0.009, 0.68]) for i in range(3)]
+    return fig, axes, caxes
+
+
+def coronal_frame(
+    fig: plt.Figure,
+    axes: list[plt.Axes],
+    caxes: list[plt.Axes],
+    k: int,
+    panels: tuple,
+    ann_h: np.ndarray,
+    acro: dict[int, str],
+    header: str,
+    vector_outline: bool = False,
+) -> None:
+    """Draw plane `k` into the panels of `fig`, and the header above them.
+
+    `panels` holds (image, colormap, limits, title) per panel. The atlas is dark
+    grey under the data and its borders lie on top: as lines with
+    `vector_outline`, otherwise as a pixel overlay. Structures with at least
+    videos.min_label_area voxels in the plane get their acronym.
+    """
+    lab = ann_h[k]
+    inside = lab > 0
+    bnd = boundaries(lab)
+    for ax, cax, (im, cmap, lim, ttl) in zip(axes, caxes, panels):
+        ax.clear()
+        cax.clear()
+
+        # the atlas in dark grey under the data, black outside it
+        bg = np.zeros(lab.shape + (4,))
+        bg[inside] = (0.23, 0.23, 0.23, 1.0)
+        ax.imshow(bg, origin="upper", interpolation="nearest", aspect="equal")
+        h = ax.imshow(
+            np.ma.masked_invalid(np.where(inside, im, np.nan)),
+            cmap=cmap,
+            vmin=lim[0],
+            vmax=lim[1],
+            origin="upper",
+            interpolation="nearest",
+            aspect="equal",
+        )
+
+        # area borders
+        if vector_outline:
+            # lines keep the atlas an editable layer of its own in the EPS; at about a
+            # second per panel they suit a still, not the hundreds of frames of a video
+            ax.contour(bnd.astype(float), levels=[0.5], colors="#bfbfbf", linewidths=0.3)
+        else:
+            ov = np.zeros(lab.shape + (4,))
+            ov[bnd] = (0.75, 0.75, 0.75, 0.9)
+            ax.imshow(ov, origin="upper", interpolation="nearest", aspect="equal")
+
+        # acronyms of the structures large enough to name
+        for idx in np.unique(lab):
+            if idx == 0:
+                continue
+            m = lab == idx
+            if m.sum() < VIDEOS["min_label_area"]:
+                continue
+            cy, cx = center_of_mass(m)
+            ax.text(
+                cx,
+                cy,
+                acro.get(int(idx), ""),
+                color="w",
+                fontsize=5.5,
+                ha="center",
+                va="center",
+            )
+
+        # a black panel without ticks or frame, white title and colour bar labels
+        ax.set_facecolor("k")
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for s in ax.spines.values():
+            s.set_visible(False)
+        ax.set_title(ttl, color="w", fontsize=12)
+        cb = fig.colorbar(h, cax=cax)
+        cb.ax.yaxis.set_tick_params(color="w", labelcolor="w")
+    fig.texts.clear()
+    fig.text(0.5, 0.93, header, color="w", fontsize=12, ha="center")

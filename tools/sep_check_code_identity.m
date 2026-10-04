@@ -35,10 +35,13 @@ function [T, ok] = sep_check_code_identity(new_dir, ref_dir, name_map)
 %   ok is true when there is no failure. A summary is printed, then every
 %   file that is not 'same code'.
 
+% no name map: every file is compared at its own path
 if nargin < 3
     name_map = cell(0, 2);
 end
 name_map = read_name_map(name_map);
+
+%% List the files
 
 % relative paths with forward slashes
 new_files = list_m_files(new_dir);
@@ -49,6 +52,8 @@ if isempty(new_files) && isempty(ref_files)
     error('sep_check_code_identity: no .m files to compare in\n  %s\n  %s', ...
         new_dir, ref_dir);
 end
+
+%% Check the name map
 
 % every map entry must name a file that exists: a typo would otherwise leave
 % the file it meant uncompared
@@ -62,11 +67,16 @@ for i = 1:size(name_map, 1)
             name_map{i, 2}, new_dir);
     end
 end
+
+% each new file can come from one old file only
 listed_new = name_map(~cellfun(@isempty, name_map(:, 2)), 2);
 if numel(unique(listed_new)) < numel(listed_new)
     error('sep_check_code_identity: a new path appears twice in the name map');
 end
 
+%% Compare each file
+
+% one row per new file
 n = numel(new_files);
 file = new_files(:);
 ref_file = cell(n, 1);
@@ -110,7 +120,9 @@ for k = 1:n
     end
 end
 
-% reference files no new file was compared with
+%% Reference files left over
+
+% reference files no new file was compared with: removed on purpose, or a failure
 listed_removed = name_map(cellfun(@isempty, name_map(:, 2)), 1);
 unused = setdiff(ref_files, ref_file);
 for i = 1:numel(unused)
@@ -123,14 +135,18 @@ for i = 1:numel(unused)
     end
 end
 
+%% Summary
+
+% the table, and ok when no file failed
 T = table(file, ref_file, status);
 failures = {'CODE CHANGED', 'NO COUNTERPART', 'ONLY IN REF', 'SYNTAX ERROR'};
 ok = ~any(ismember(status, failures));
 
-% summary
-fprintf(['%d new and %d reference files: %d same code, %d changed, %d with no ' ...
-    'counterpart, %d only in ref, %d with syntax errors, %d added and %d removed ' ...
-    'as listed\n'], numel(new_files), numel(ref_files), ...
+% the count of each status
+fprintf( ...
+    ['%d new and %d reference files: %d same code, %d changed, %d with no ' ...
+     'counterpart, %d only in ref, %d with syntax errors, %d added and %d removed ' ...
+     'as listed\n'], numel(new_files), numel(ref_files), ...
     sum(strcmp(status, 'same code')), sum(strcmp(status, 'CODE CHANGED')), ...
     sum(strcmp(status, 'NO COUNTERPART')), sum(strcmp(status, 'ONLY IN REF')), ...
     sum(strcmp(status, 'SYNTAX ERROR')), sum(strcmp(status, 'added (listed)')), ...
@@ -157,7 +173,7 @@ if ischar(map) || isstring(map)
     lines{1} = strrep(lines{1}, char(65279), '');
     if ~strcmp(strtrim(lines{1}), 'old_path,new_path')
         error(['sep_check_code_identity: the first line of %s must be ' ...
-            'old_path,new_path'], csv_file);
+               'old_path,new_path'], csv_file);
     end
 
     % one old,new pair per line; blank lines are skipped
@@ -170,18 +186,21 @@ if ischar(map) || isstring(map)
         parts = strsplit(line, ',', 'CollapseDelimiters', false);
         if numel(parts) ~= 2
             error(['sep_check_code_identity: line %d of %s is not ' ...
-                'old_path,new_path: %s'], i, csv_file, line);
+                   'old_path,new_path: %s'], i, csv_file, line);
         end
         map(end+1, :) = strtrim(parts); %#ok<AGROW>
     end
 end
 
+% an empty map of any shape becomes 0 x 2; anything else must have two columns
 if isempty(map)
     map = cell(0, 2);
 end
 if ~iscell(map) || size(map, 2) ~= 2
     error('sep_check_code_identity: the name map must be {old_path, new_path; ...}');
 end
+
+% forward slashes, as in the file lists
 map = strrep(map, '\', '/');
 
 % one table can serve every language: keep the rows about .m files
@@ -193,6 +212,7 @@ function [code, ok] = code_of(path)
 % Code of a file without comments and layout; ok is false if it does not
 % parse (mtree then returns a single error node).
 
+% parse, then print the tree back as code, without comments
 tree = mtree(fileread(path));
 ok = ~(tree.count == 1 && strcmp(tree.root.kind, 'ERR'));
 code = '';
@@ -208,6 +228,8 @@ function files = list_m_files(folder)
 if ~isfolder(folder)
     error('sep_check_code_identity: folder not found: %s', folder);
 end
+
+% walk the tree, keeping a list of the folders still to read
 files = {};
 pending = {''};
 while ~isempty(pending)
@@ -227,9 +249,8 @@ files = sort(files)';
 end
 
 function skip = is_skipped(name)
-% Folders that hold no code of ours: every hidden folder (this folder and
-% its parent, git's folder, worktrees, environments), Python caches and
-% environments.
+% Folders that hold no code of ours: hidden ones (. and .., git's folder, worktrees,
+% environments), Python caches and environments (venv*).
 
 skip = startsWith(name, '.') || strcmp(name, '__pycache__') || startsWith(name, 'venv');
 end

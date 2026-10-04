@@ -1,0 +1,47 @@
+function key = cohort_atlas_key(group, ages)
+%COHORT_ATLAS_KEY  Which atlas a cohort is registered to.
+%   key = COHORT_ATLAS_KEY('naive', []) returns 'ccf'.
+%   key = COHORT_ATLAS_KEY('young', 20) returns 'demba_p20'.
+%
+%   The adults stay on the Allen CCF, the young brains go to the DeMBA atlas
+%   of their own age (the decision is recorded in get_atlas and in the
+%   project notes). An age whose atlas folder has not been built is an error
+%   here rather than a silent fall-back onto a neighbouring age or an adult
+%   atlas: registering a P16 brain to a P20 (or adult) template would be a
+%   quiet way to manufacture a developmental difference.
+
+if nargin < 2
+    ages = [];
+end
+
+switch lower(group)
+    case {'naive', 'rws', 'behavior'}
+        key = 'ccf';
+    case 'young'
+
+        % one age, one atlas
+        if isempty(ages)
+            error(['cohort_atlas_key: the young group spans several ages, each on ' ...
+                   'its own atlas. Give an age, e.g. ''young_P20''.']);
+        end
+        age_days = unique(ages(:))';
+        if numel(age_days) > 1
+            error(['cohort_atlas_key: ages P%s would need one atlas each. ' ...
+                   'Analyse one age at a time.'], ...
+                   strjoin(arrayfun(@num2str, age_days, 'UniformOutput', false), ...
+                   ' and P'));
+        end
+        key = sprintf('demba_p%d', age_days);
+
+        % the atlas of that age must have been built
+        paths = get_paths();
+        if ~exist(fullfile(paths.data, sprintf('atlas_demba_p%d', age_days)), 'dir')
+            error(['cohort_atlas_key: no DeMBA atlas has been built for P%d yet.\n' ...
+                   'Build it:  tools\\venv_atlas\\Scripts\\python.exe atlas\\build_demba_atlas.py %d'], ...
+                   age_days, age_days);
+        end
+    otherwise
+        error('cohort_atlas_key: unknown group ''%s''.', group);
+end
+
+end
