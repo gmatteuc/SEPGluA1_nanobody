@@ -152,7 +152,7 @@ specs = cell(1, numel(groups_to_merge));
 for gi = 1:numel(groups_to_merge), specs{gi} = get_cohort_spec(groups_to_merge{gi}); end
 atlas_keys = unique(cellfun(@(c) c.atlas_key, specs, 'UniformOutput', false));
 if numel(atlas_keys) > 1
-    error('P8: cohorts on different atlases cannot be merged (%s).', strjoin(atlas_keys, ', '));
+    error('run_characterize_distribution: cohorts on different atlases cannot be merged (%s).', strjoin(atlas_keys, ', '));
 end
 A = get_atlas_crop(atlas_keys{1});
 allenDir = A.csv_dir;
@@ -1074,8 +1074,8 @@ if compute_per_mouse_sem && generate_region_barchart && ~isempty(roi_list)
     if recompute_pm
         if ~exist(masks_cache_path, 'file')
             error(['Sparse ROI mask cache not found at %s. ' ...
-                   'Run P9 once to build it (or set force_recompute_masks=true ' ...
-                   'so P8 builds the t-score path).'], masks_cache_path);
+                   'Run run_compare_with_allen_ish once to build it (or set force_recompute_masks=true ' ...
+                   'so run_characterize_distribution builds the t-score path).'], masks_cache_path);
         end
         fprintf('  Loading sparse ROI masks: %s\n', masks_cache_path);
         Mpm = load(masks_cache_path);
@@ -1424,7 +1424,7 @@ if generate_zscore_video
         label_centroids, label_acronyms, label_fontsize, label_color, label_enriched_z);
 end
 
-fprintf('P8 done. Outputs in: %s\n', out_dir);
+fprintf('run_characterize_distribution done. Outputs in: %s\n', out_dir);
 
 %% Diagnostic: visualize distance weights on a specific slice
 

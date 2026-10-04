@@ -129,7 +129,8 @@ def old_ranking() -> dict[str, float]:
     """
     if not OLD.exists():
         raise FileNotFoundError(
-            f"P9's gene ranking, which the new one is compared with, is missing: {OLD}"
+            "The gene ranking of run_compare_with_allen_ish, which the new one is "
+            f"compared with, is missing: {OLD}"
         )
     with open(OLD, newline="", encoding="utf-8") as fh:
         return {

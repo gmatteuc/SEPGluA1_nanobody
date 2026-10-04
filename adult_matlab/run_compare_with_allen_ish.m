@@ -124,9 +124,9 @@ clear AllenVol
 cache_path = fullfile(p8_out_dir, ...
     ['mean_lr_sum_' p8_merged_tag p8_smooth_suffix '.mat']);
 if ~exist(cache_path, 'file')
-    error('P8 cache not found: %s\nRun P8 first.', cache_path);
+    error('run_compare_with_allen_ish: the cache of run_characterize_distribution was not found: %s\nRun run_characterize_distribution first.', cache_path);
 end
-fprintf('Loading P8 cache...\n');
+fprintf('Loading the cache of run_characterize_distribution...\n');
 S = load(cache_path);
 mean_lr_sum      = S.mean_lr_sum;
 brainMask_merged = S.brainMask_merged;
@@ -454,7 +454,7 @@ for gi = 1:n_genes
         imagesc(squeeze(ish_vol_10um(mid,:,:))); axis image off;
         title([gene_sym ' + atlas']); colormap(gca,hot);
         hold on; plot(bc,br,'.','Color',[0.5 0.5 0.5],'MarkerSize',0.5);
-        sgtitle(['P9 ISH orientation — ' gene_sym]);
+        sgtitle(['ISH orientation — ' gene_sym]);
         exportgraphics(fh, fullfile(out_dir,['Diagnostic_ISH_Orientation_' gene_sym '.png']),'Resolution',200);
         close(fh);
     end
@@ -932,7 +932,7 @@ for mi = 1:numel(metrics)
     close(fig_vio);
 end
 
-fprintf('\nP9 batch complete. Summary in: %s\n', summary_dir);
+fprintf('\nrun_compare_with_allen_ish complete. Summary in: %s\n', summary_dir);
 fprintf('Per-gene results in: %s_vs_ish_<gene>%s/\n', ...
     fullfile(base_root,'comparisons',p8_merged_tag), p8_smooth_suffix);
 

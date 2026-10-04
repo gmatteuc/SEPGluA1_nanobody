@@ -88,10 +88,10 @@ nano_pm_path = fullfile(nano_dir, ['per_mouse_region_means_' nano_tag smooth_suf
 auto_pm_path = fullfile(auto_dir, ['per_mouse_region_means_' auto_tag smooth_suffix '.mat']);
 
 if ~exist(nano_pm_path, 'file')
-    error('Nano per-mouse cache not found:\n  %s\nRerun P8 with channel=''nano'' and compute_per_mouse_sem=true.', nano_pm_path);
+    error('Nano per-mouse cache not found:\n  %s\nRerun run_characterize_distribution with channel=''nano'' and compute_per_mouse_sem=true.', nano_pm_path);
 end
 if ~exist(auto_pm_path, 'file')
-    error('Auto per-mouse cache not found:\n  %s\nRerun P8 with channel=''auto'' and compute_per_mouse_sem=true.', auto_pm_path);
+    error('Auto per-mouse cache not found:\n  %s\nRerun run_characterize_distribution with channel=''auto'' and compute_per_mouse_sem=true.', auto_pm_path);
 end
 
 fprintf('Loading nano cache: %s\n', nano_pm_path);
@@ -760,7 +760,7 @@ close(vidObj);
 fprintf('Saved video: %s\n', vid_path);
 end   % end of if produce_contrast_video
 
-fprintf('P10 done. Outputs in: %s\n', out_dir);
+fprintf('run_compare_nano_with_autofluorescence done. Outputs in: %s\n', out_dir);
 
 %% Local function: highlight significant region labels in orange-bold
 % Mirrors highlight_enriched_labels of run_characterize_distribution but takes an
