@@ -136,6 +136,7 @@ function [slice_data, bg_mask_vol] = fit_reference_pixels(selectedVol, selectedV
 % Fit nano on autofluorescence over each slice's reference pixels, with one
 % figure per slice saved; the fits, and the background mask of the volume.
 
+% the background of every slice, filled in the loop
 bg_mask_vol = false(H, W, Z);
 fprintf('Starting within-slice correction analysis on %d slices for %s...\n', Z, ...
     mouse_name);
@@ -169,6 +170,8 @@ for z = 1:Z
             sprintf('reference_pix_selection_slice_J_%03d.png', z)));
         close(h_diag_J);
     end
+
+    % the reference pixels and the background found on the nano serve both channels
     ref_pix_mask = ref_pix_mask_J;
     bg_mask_vol(:, :, z) = bg_mask;
 
@@ -185,6 +188,8 @@ for z = 1:Z
     hold on;
     if numel(basepix) > 1
 
+        % nano on autofluorescence, a robust (bisquare) line, so that stray bright
+        % pixels weigh less than in least squares
         [b, slope, intercept, delta] = draw_robust_fit(basepix, sigpix);
 
     end
@@ -203,7 +208,8 @@ for z = 1:Z
     grid on;
     axis square;
 
-    % the two images with the reference pixels, then save the figure
+    % the two images with the reference pixels, then save the figure; a slice with
+    % no fit is drawn with the previous slice's slope (ROADMAP, question 22)
     plot_reference_overlays(I, J, ref_pix_mask, used_clim, slope);
 
     sgtitle('Reference pixels regression')
@@ -227,6 +233,8 @@ for z = 1:Z
         slice_data(z).intercept = intercept;
         slice_data(z).used_clim = used_clim;
     else
+
+        % no fit: NaN, which the mean fit of the global correction leaves out
         slice_data(z).p = NaN(2, 1);
         slice_data(z).delta = NaN(size(basepix));
         slice_data(z).ratio = NaN;
@@ -244,6 +252,7 @@ function [b, slope, intercept, delta] = draw_robust_fit(basepix, sigpix)
 % Robust (bisquare) fit of sigpix on basepix, drawn on the current axes with its
 % 95% band (half-width delta) and its equation; returns the fit.
 
+% the robust fit; b is [intercept, slope]
 [b, stats] = robustfit(basepix, sigpix, 'bisquare');
 slope = b(2);
 intercept = b(1);
@@ -255,6 +264,8 @@ resid_std = sqrt(sum(resid.^2) / (length(basepix) - 2));
 df = length(basepix) - 2;
 t_crit = tinv(0.975, df);
 mean_x = mean(basepix);
+
+% half-width at each pixel: t times the residual SD, wider away from the mean
 delta = t_crit * resid_std * sqrt(1 + 1/length(basepix) + (basepix - mean_x).^2 / ...
     sum((basepix - mean_x).^2));
 
@@ -297,6 +308,9 @@ imagesc(I);
 axis image off;
 colormap(sep_palette('anatomy'));
 title('Base image (I)');
+
+% the nano's limits divided by the slope, so the autofluorescence shows on the
+% scale of the nano it is fitted to
 clim(used_clim*1/slope);
 hold on;
 draw_reference_squares(ref_pix_mask);
@@ -322,6 +336,8 @@ function draw_reference_squares(ref_pix_mask)
 
 [rows, cols] = find(ref_pix_mask);
 if ~isempty(rows)
+
+    % the four corners of each pixel, all squares in one patch object
     x = [cols-0.5, cols+0.5, cols+0.5, cols-0.5]';
     y = [rows-0.5, rows-0.5, rows+0.5, rows+0.5]';
     faces = reshape(1:numel(cols)*4, 4, [])';
@@ -344,6 +360,8 @@ figure('Name', 'Jittered Scatter Plots and Curves of Regression Metrics', ...
 % left: the three metrics of the slices with a fit, jittered
 subplot(1, 2, 1);
 categories = {'Ratio', 'Slope', 'Intercept'};
+
+% one row per slice: ratio, slope, intercept
 values = nan(Z, 3);
 for z = 1:Z
     if isfield(slice_data(z), 'ratio')
@@ -352,6 +370,8 @@ for z = 1:Z
         values(z, 3) = slice_data(z).intercept;
     end
 end
+
+% only the slices with a fit (two reference pixels or more)
 valid_idx = ~isnan(values(:, 1));
 values = values(valid_idx, :);
 Z_valid = sum(valid_idx);
@@ -396,6 +416,9 @@ hold on;
 medians = median(values, 1, 'omitnan');
 iqr_vals = iqr(values, 1);
 for i = 1:3
+
+    % the intercept on the right axis (0 to 10), the ratio and slope on the left
+    % (0 to 2), both in black
     if i == 3
         yyaxis right
         ylabel('Intercept');
@@ -408,10 +431,13 @@ for i = 1:3
         ax = gca;
         ax.YColor = [0 0 0];
     end
+
+    % the median, and a band one inter-quartile range wide centred on it
     y = medians(i);
     y_min = y - iqr_vals(i) / 2;
     y_max = y + iqr_vals(i) / 2;
 
+    % the ratio in magenta, the slope in red, the intercept in blue
     if i == 3
         colline = [0, 0, 1];
     elseif i == 2
@@ -419,6 +445,8 @@ for i = 1:3
     elseif i == 1
         colline = [1, 0, 1];
     end
+
+    % the median as a bar, the band where it is finite
     plot([i-0.2 i+0.2], [y y], '-', 'LineWidth', 2, 'Color', colline);
     if ~isnan(y_min) && ~isnan(y_max) && isfinite(y_min) && isfinite(y_max)
         patch([i-0.2 i-0.2 i+0.2 i+0.2], [y_min y_max y_max y_min], colline, ...
@@ -438,6 +466,7 @@ end
 function plot_metric_curves(values, slice_indices)
 % Ratio, slope and intercept against the slice index, on the current axes.
 
+% the ratio (magenta) and the slope (red) on the left axis, 0 to 2
 hold on;
 yyaxis left
 plot(slice_indices, values(:, 1), '-', 'LineWidth', 1.5, 'DisplayName', 'Ratio', ...
@@ -448,6 +477,8 @@ ylabel('Slope / Ratio');
 ylim([0, 2])
 ax = gca;
 ax.YColor = [0 0 0];
+
+% the intercept (blue) on the right axis, 0 to 10
 yyaxis right
 plot(slice_indices, values(:, 3), '-', 'LineWidth', 1.5, 'DisplayName', 'Intercept', ...
     'Color', [0, 0, 1]);
@@ -472,6 +503,7 @@ function correct_and_save(selectedVol, selectedVolSig, slice_data, bg_mask_vol, 
 % or the mean fit; writes corrected_volume_<type>.mat and
 % scaled_auto_volume_<type>.mat in output_dir.
 
+% the corrected nano, the scaled autofluorescence and the nano, filled slice by slice
 correctedVol = zeros(H, W, Z, 'single');
 scaledautoVol = zeros(H, W, Z, 'single');
 nanoVol = zeros(H, W, Z, 'single');
@@ -480,9 +512,11 @@ fprintf('Applying %s correction for %s...\n', correction_type, mouse_name);
 t0 = tic;
 for z = 1:Z
 
+    % the slice of each channel, as single
     I = im2single(selectedVol(:, :, z));
     J = im2single(selectedVolSig(:, :, z));
 
+    % the slice's own fit, or the mean fit over the slices
     if use_per_slice
         slope = slice_data(z).slope;
         intercept = slice_data(z).intercept;
@@ -491,7 +525,8 @@ for z = 1:Z
         intercept = average_intercept;
     end
 
-    % scale the autofluorescence and subtract it, negative values set to 0
+    % scale the autofluorescence and subtract it, negative values set to 0; a slice
+    % with no fit (NaN slope) comes out all NaN in the slicewise correction
     scaled_I = slope * I + intercept;
     corrected = J - scaled_I;
     corrected(corrected < 0) = 0;
@@ -519,6 +554,7 @@ function write_difference_video(selectedVol, selectedVolSig, slice_data, bg_mask
 % Video of (nano - scaled auto) / scaled auto, one frame per slice, the background
 % in black; writes scaled_difference_video_<type>.mp4 in output_dir.
 
+% one frame per slice, a slice a second
 videoFile_diff = fullfile(output_dir, sprintf('scaled_difference_video_%s.mp4', ...
     correction_type));
 vidObj_diff = VideoWriter(videoFile_diff, 'MPEG-4');
@@ -531,6 +567,8 @@ clim_min_diff = -1;
 clim_max_diff = 1;
 
 for z = 1:Z
+
+    % the slice of each channel, and the fit of this correction
     I = im2single(selectedVol(:, :, z));
     J = im2single(selectedVolSig(:, :, z));
 
@@ -554,6 +592,7 @@ for z = 1:Z
     colorbar;
     colormap(sep_palette('difference'));
 
+    % the background (NaN) transparent over the black axes
     ax = gca;
     ax.Color = 'k';
     alpha_mask = ~isnan(diff_map);
@@ -562,6 +601,8 @@ for z = 1:Z
     grid on;
     ylim([0, size(I, 1)]);
     xlim([0, size(I, 2)]);
+
+    % the slice and the slope used in the title
     if use_per_slice
         title(sprintf( ...
             'Scaled difference map (relative) - Slice # %d (slicewise %0.2f)', z, slope));
@@ -584,6 +625,7 @@ function write_ratio_video(selectedVol, selectedVolSig, bg_mask_vol, Z, output_d
 % Video of nano / autofluorescence, one frame per slice, the background in black;
 % writes ratio_map_video.mp4 in output_dir.
 
+% one frame per slice, a slice a second
 videoFile_ratio = fullfile(output_dir, 'ratio_map_video.mp4');
 vidObj_ratio = VideoWriter(videoFile_ratio, 'MPEG-4');
 vidObj_ratio.FrameRate = 1;
@@ -595,6 +637,8 @@ clim_min_ratio = 0;
 clim_max_ratio = 2;
 
 for z = 1:Z
+
+    % the slice of each channel, as single
     I = im2single(selectedVol(:, :, z));
     J = im2single(selectedVolSig(:, :, z));
 
@@ -612,6 +656,8 @@ for z = 1:Z
     clim(gca, [clim_min_ratio, clim_max_ratio]);
     colorbar;
     colormap(sep_palette('difference'));
+
+    % the background (NaN) transparent over the black axes
     ax = gca;
     ax.Color = 'k';
     alpha_mask = ~isnan(ratio_map);
