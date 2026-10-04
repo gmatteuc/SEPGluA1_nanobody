@@ -2232,9 +2232,10 @@ end
 
 function [T_regions, valid_pixels, region_of_voxel] = surprise_regions(AllenCrop, ...
     allenDir)
-% The regions of the surprise bars, one row each (acronym, name, label, voxels in
-% the left hemisphere, the regions of the list taken out of it), the atlas voxels
-% of the left hemisphere, and the region each of them falls in (0 for none).
+% The regions of the surprise bars, one row each (acronym, name, group, label,
+% voxels in the left hemisphere, the regions of the list taken out of it), the
+% atlas voxels of the left hemisphere, and the region each of them falls in (0
+% for none).
 
 % the ontology: every term with its parent, and each atlas value's term at the
 % atlas's five levels (organ, category, division, structure, substructure)
@@ -2254,11 +2255,14 @@ acronyms = [isocortical_areas(T_members); surprise_subcortical_list()];
 % counts in two bars
 [region_values, removed_idx] = remove_nested_regions(acronyms, region_values);
 
+% each region's group: its division in the atlas
+groups = region_divisions(region_values, T_members);
+
 % the left hemisphere's atlas voxels, and the region of each
 [valid_pixels, region_of_voxel] = label_left_hemisphere(AllenCrop, region_values);
 
 % the table of the regions, printed
-T_regions = region_table(acronyms, names, removed_idx, region_of_voxel);
+T_regions = region_table(acronyms, names, groups, removed_idx, region_of_voxel);
 print_region_table(T_regions);
 end
 
@@ -2280,13 +2284,39 @@ iso_acronyms = unique(T_members.parcellation_term_acronym(is_iso_area), 'stable'
 end
 
 function sub_acronyms = surprise_subcortical_list()
-% The regions of the surprise bars outside the isocortex, by atlas acronym.
+% The regions of the surprise bars outside the isocortex, by atlas acronym,
+% grouped by their atlas division in the atlas's order.
 
-% the regions outside the isocortex: hippocampal formation, olfactory areas,
-% cortical subplate, striatum, pallidum, thalamus, hypothalamus and midbrain
-sub_acronyms = {'OT'; 'PIR'; 'SUB'; 'CLA'; 'ACB'; 'CP'; 'GPe'; 'STN'; 'VPM'; ...
-    'VPL'; 'VM'; 'ZI'; 'PO'; 'LP'; 'LD'; 'VAL'; 'MD'; 'PF'; 'RE'; 'CL'; 'RT'; ...
-    'GENd'; 'MBmot'; 'SCm'; 'SCs'; 'HPF'; 'BLA'; 'HY'};
+% olfactory areas: piriform cortex
+olfactory = {'PIR'};
+
+% hippocampal formation, without the subiculum, which has its own bar
+hippocampal = {'HPF'; 'SUB'};
+
+% cortical subplate: claustrum, basolateral amygdala
+subplate = {'CLA'; 'BLA'};
+
+% striatum: olfactory tubercle, nucleus accumbens, caudoputamen
+striatum = {'OT'; 'ACB'; 'CP'};
+
+% pallidum: external globus pallidus
+pallidum = {'GPe'};
+
+% thalamus: the whisker relays VPM and PO, the other sensory-motor and
+% higher-order nuclei, the reticular nucleus and the dorsal geniculate group
+thalamus = {'VPM'; 'VPL'; 'VM'; 'PO'; 'LP'; 'LD'; 'VAL'; 'MD'; 'PF'; 'RE'; 'CL'; ...
+    'RT'; 'GENd'};
+
+% hypothalamus, without the subthalamic nucleus and the zona incerta, which have
+% their own bars
+hypothalamus = {'HY'; 'STN'; 'ZI'};
+
+% midbrain: its motor part, without the motor superior colliculus, which has its
+% own bar, and the sensory superior colliculus
+midbrain = {'MBmot'; 'SCm'; 'SCs'};
+
+sub_acronyms = [olfactory; hippocampal; subplate; striatum; pallidum; thalamus; ...
+    hypothalamus; midbrain];
 end
 
 function [names, region_values] = region_atlas_values(acronyms, T_terms, T_members, ...
@@ -2373,6 +2403,23 @@ for r = 1:n_regions
 end
 end
 
+function groups = region_divisions(region_values, T_members)
+% Each region's division in the atlas (Isocortex, OLF, HPF, CTXsp, STR, PAL, TH,
+% HY, MB, ...), from its atlas values; the divisions joined if it spans several.
+
+% each atlas value's division
+is_division = strcmp(T_members.parcellation_term_set_name, 'division');
+division_values = T_members.parcellation_index(is_division);
+division_acronyms = T_members.parcellation_term_acronym(is_division);
+
+% the divisions of each region's values
+groups = cell(numel(region_values), 1);
+for r = 1:numel(region_values)
+    in_region = ismember(division_values, region_values{r});
+    groups{r} = strjoin(unique(division_acronyms(in_region)), ', ');
+end
+end
+
 function [valid_pixels, region_of_voxel] = label_left_hemisphere(AllenCrop, ...
     region_values)
 % The atlas voxels of the left hemisphere (the width of the folded maps), and the
@@ -2397,10 +2444,11 @@ end
 region_of_voxel = value_to_region(pixel_ids + 1);
 end
 
-function T_regions = region_table(acronyms, names, removed_idx, region_of_voxel)
-% One row per region: acronym, name, the label of its bar (the name, and the
-% regions taken out of it), its voxels in the left hemisphere, and the regions
-% taken out of it with their voxels.
+function T_regions = region_table(acronyms, names, groups, removed_idx, ...
+    region_of_voxel)
+% One row per region: acronym, name, group (its atlas division), the label of its
+% bar (the name, and the regions taken out of it), its voxels in the left
+% hemisphere, and the regions taken out of it with their voxels.
 
 n_regions = numel(acronyms);
 
@@ -2423,19 +2471,19 @@ for r = 1:n_regions
     end
 end
 
-T_regions = table(acronyms, names, labels, n_voxels, removed, n_voxels_removed, ...
-    'VariableNames', {'acronym', 'name', 'label', 'n_voxels', 'removed', ...
-    'n_voxels_removed'});
+T_regions = table(acronyms, names, groups, labels, n_voxels, removed, ...
+    n_voxels_removed, 'VariableNames', {'acronym', 'name', 'group', 'label', ...
+    'n_voxels', 'removed', 'n_voxels_removed'});
 end
 
 function print_region_table(T_regions)
-% The regions, one line each: acronym, voxels, name, and the regions taken out
-% of it; a warning for the regions with no voxel.
+% The regions, one line each: acronym, group, voxels, name, and the regions taken
+% out of it; a warning for the regions with no voxel.
 
 fprintf('  %d regions, voxels in the left hemisphere:\n', height(T_regions));
 for r = 1:height(T_regions)
-    fprintf('    %-8s %10d  %s', T_regions.acronym{r}, T_regions.n_voxels(r), ...
-        T_regions.name{r});
+    fprintf('    %-8s %-9s %10d  %s', T_regions.acronym{r}, T_regions.group{r}, ...
+        T_regions.n_voxels(r), T_regions.name{r});
     if ~isempty(T_regions.removed{r})
         fprintf(' (without %s: %d voxels)', T_regions.removed{r}, ...
             T_regions.n_voxels_removed(r));

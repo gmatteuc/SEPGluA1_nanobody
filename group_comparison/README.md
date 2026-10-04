@@ -47,10 +47,10 @@ P20 stack and its background masks, which sheet 08 of
   surprise, individual mice), the regional surprise bars and the videos, each
   figure as `.fig` and `.png`. No `.mat`: the values are in the `.fig` files,
   and the regional bars' in `Region_Surprise_DiffSum_<comp>.csv` (per region:
-  its voxels in the left hemisphere, the regions of the list taken out of it,
-  and for L - R and L + R its voxels with a t, those at p < 0.01, their
-  fraction, which is the bar, and their summed surprise, the bar before
-  4 October 2026).
+  its atlas division, its voxels in the left hemisphere, the regions of the
+  list taken out of it, and for L - R and L + R its voxels with a t, those at
+  p < 0.01, their fraction, which is the bar, and their summed surprise, the
+  bar before 4 October 2026).
 
 The approved outputs are in `<data>\comparisons\naive_vs_rws\` and
 `naive_vs_behavior\`, named before the channel joined the comparison tag;
