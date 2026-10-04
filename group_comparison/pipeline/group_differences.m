@@ -246,10 +246,11 @@ end
 
 %% Regional surprise bars
 
-% the surprise summed over each region of a fixed list, for L - R and L + R, over
-% the voxels with a t
-regional_surprise_bars(surp_diff, surp_sum, has_t, AllenCrop, allenDir, brainMask, ...
-    exp_type, comp_tag, comp_out_dir);
+% the surprise summed over each region of the list (the isocortical areas of the
+% atlas and a declared set of subcortical regions, none counted twice), for L - R
+% and L + R, over the voxels with a t
+regional_surprise_bars(surp_diff, surp_sum, has_t, AllenCrop, allenDir, exp_type, ...
+    comp_tag, comp_out_dir);
 
 end
 
@@ -2203,8 +2204,8 @@ fprintf('Individual rolling videos generation complete.\n');
 end
 
 function regional_surprise_bars(surp_diff, surp_sum, has_t, AllenCrop, allenDir, ...
-    brainMask, exp_type, comp_tag, comp_out_dir)
-% Bar charts of the surprise summed over each region of a fixed list, after a
+    exp_type, comp_tag, comp_out_dir)
+% Bar charts of the surprise summed over each region of the list, after a
 % rolling median over planes, over the voxels with a t, for the difference and
 % the sum.
 
@@ -2215,64 +2216,237 @@ slab_range = 10;
 p_thresh_agg = 0.01;
 surp_thresh_val = -log10(p_thresh_agg);
 
-% the regions, and their voxels in the left hemisphere
-[roi_list_surp, n_rois_surp, valid_pixels, roi_masks_surp, roi_pixel_counts_surp] = ...
-    surprise_roi_masks(AllenCrop, allenDir, brainMask);
+% the regions, and the region of each atlas voxel of the left hemisphere
+[T_regions, valid_pixels, region_of_voxel] = surprise_regions(AllenCrop, allenDir);
 
 % the bars of the difference and the sum, as one figure
-plot_regional_surprise(surp_diff, surp_sum, has_t, roi_list_surp, n_rois_surp, ...
-    valid_pixels, roi_masks_surp, roi_pixel_counts_surp, slab_range, surp_thresh_val, ...
-    exp_type, comp_tag, comp_out_dir);
+plot_regional_surprise(surp_diff, surp_sum, has_t, T_regions, valid_pixels, ...
+    region_of_voxel, slab_range, surp_thresh_val, exp_type, comp_tag, comp_out_dir);
 end
 
-function [roi_list_surp, n_rois_surp, valid_pixels, roi_masks_surp, ...
-    roi_pixel_counts_surp] = surprise_roi_masks(AllenCrop, allenDir, brainMask)
-% The regions of the surprise bars, the atlas voxels of the left hemisphere,
-% and which of them fall in each region.
+function [T_regions, valid_pixels, region_of_voxel] = surprise_regions(AllenCrop, ...
+    allenDir)
+% The regions of the surprise bars, one row each (acronym, name, label, voxels in
+% the left hemisphere, the regions of the list taken out of it), the atlas voxels
+% of the left hemisphere, and the region each of them falls in (0 for none).
 
-% the regions, as in the coarse analysis
-roi_list_surp = coarse_roi_list();
-n_rois_surp = length(roi_list_surp);
+% the ontology: every term with its parent, and each atlas value's term at the
+% atlas's five levels (organ, category, division, structure, substructure)
+term_file = fullfile(allenDir, 'parcellation_term.csv');
+T_terms = readtable(term_file);
+T_members = readtable(fullfile(allenDir, ...
+    'parcellation_to_parcellation_term_membership.csv'));
+
+% the isocortical areas, taken from the atlas, then the subcortical regions,
+% declared
+acronyms = [isocortical_areas(T_members); surprise_subcortical_list()];
+
+% each region's name and atlas values, its own and those of every term below it
+[names, region_values] = region_atlas_values(acronyms, T_terms, T_members, term_file);
+
+% a region of the list that holds another gives up that one's values, so no voxel
+% counts in two bars
+[region_values, removed_idx] = remove_nested_regions(acronyms, region_values);
+
+% the left hemisphere's atlas voxels, and the region of each
+[valid_pixels, region_of_voxel] = label_left_hemisphere(AllenCrop, region_values);
+
+% the table of the regions, printed
+T_regions = region_table(acronyms, names, removed_idx, region_of_voxel);
+print_region_table(T_regions);
+end
+
+function iso_acronyms = isocortical_areas(T_members)
+% The acronyms of the atlas's structure-level terms in the isocortex, in the
+% atlas's order: the cortical areas, each with its layers below it.
+
+% the atlas values of the isocortex division
+is_iso = strcmp(T_members.parcellation_term_set_name, 'division') & ...
+    strcmp(T_members.parcellation_term_acronym, 'Isocortex');
+iso_values = T_members.parcellation_index(is_iso);
+
+% their terms at the structure level: one level for every area, so S1 comes as
+% its seven subfields (SSp-n to SSp-un) and the anterior cingulate as ACAd and
+% ACAv, where a deeper or shallower level of the ontology would mix the two
+is_iso_area = strcmp(T_members.parcellation_term_set_name, 'structure') & ...
+    ismember(T_members.parcellation_index, iso_values);
+iso_acronyms = unique(T_members.parcellation_term_acronym(is_iso_area), 'stable');
+end
+
+function sub_acronyms = surprise_subcortical_list()
+% The regions of the surprise bars outside the isocortex, by atlas acronym.
+
+% the regions outside the isocortex: hippocampal formation, olfactory areas,
+% cortical subplate, striatum, pallidum, thalamus, hypothalamus and midbrain
+sub_acronyms = {'OT'; 'PIR'; 'SUB'; 'CLA'; 'ACB'; 'CP'; 'GPe'; 'STN'; 'VPM'; ...
+    'VPL'; 'VM'; 'ZI'; 'PO'; 'LP'; 'LD'; 'VAL'; 'MD'; 'PF'; 'RE'; 'CL'; 'RT'; ...
+    'GENd'; 'MBmot'; 'SCm'; 'SCs'; 'HPF'; 'BLA'; 'HY'};
+end
+
+function [names, region_values] = region_atlas_values(acronyms, T_terms, T_members, ...
+    term_file)
+% Each region's name, and its atlas values (parcellation_index): those of its term
+% and of every term below it in the ontology (T_terms, read from term_file).
+
+n_regions = numel(acronyms);
+names = cell(n_regions, 1);
+region_values = cell(n_regions, 1);
+for r = 1:n_regions
+
+    % the term, by its exact acronym: an acronym the atlas lacks stops the run,
+    % rather than resolving to another region
+    term_row = find(strcmp(T_terms.acronym, acronyms{r}), 1);
+    if isempty(term_row)
+        error(['run_group_differences: the surprise-bar region %s is not an ' ...
+               'acronym of %s. Spell it as the atlas does.'], acronyms{r}, term_file);
+    end
+    names{r} = T_terms.name{term_row};
+
+    % the term and every term below it, one level at a time
+    term_ids = T_terms.identifier(term_row);
+    parent_ids = term_ids;
+    while ~isempty(parent_ids)
+        is_child = ismember(T_terms.parent_identifier, parent_ids);
+        child_ids = setdiff(unique(T_terms.identifier(is_child)), term_ids);
+        term_ids = [term_ids; child_ids(:)]; %#ok<AGROW>
+        parent_ids = child_ids;
+    end
+
+    % the atlas values whose term, at any level, is one of these
+    term_acronyms = unique(T_terms.acronym(ismember(T_terms.identifier, term_ids)));
+    is_member = ismember(T_members.parcellation_term_acronym, term_acronyms);
+    region_values{r} = unique(T_members.parcellation_index(is_member));
+
+    % a region with no atlas value would have no voxel
+    if isempty(region_values{r})
+        error(['run_group_differences: the surprise-bar region %s has no value in ' ...
+               'the atlas annotation. Take it out of the list.'], acronyms{r});
+    end
+end
+end
+
+function [own_values, removed_idx] = remove_nested_regions(acronyms, region_values)
+% Each region's atlas values without those of the regions of the list inside it
+% (HPF without SUB), and the positions of those regions in the list. Stops if a
+% region has no value left, or if two regions still share one.
+
+n_regions = numel(acronyms);
+own_values = region_values;
+removed_idx = cell(n_regions, 1);
+for r = 1:n_regions
+    for k = 1:n_regions
+
+        % region k inside region r: every value of k is one of r's, and r has more
+        is_inside = k ~= r && all(ismember(region_values{k}, region_values{r})) && ...
+            numel(region_values{k}) < numel(region_values{r});
+        if is_inside
+            own_values{r} = setdiff(own_values{r}, region_values{k});
+            removed_idx{r} = [removed_idx{r} k];
+        end
+    end
+
+    % a region the regions inside it cover entirely would have no voxel of its own
+    if isempty(own_values{r})
+        error(['run_group_differences: the surprise-bar region %s is covered by the ' ...
+               'regions of the list inside it (%s). Take it out of the list.'], ...
+              acronyms{r}, strjoin(acronyms(removed_idx{r}), ', '));
+    end
+end
+
+% no value in two regions: two that overlap without one holding the other, or
+% that have the same values, would count voxels in two bars
+for r = 1:n_regions
+    for k = r + 1:n_regions
+        shared_values = intersect(own_values{r}, own_values{k});
+        if ~isempty(shared_values)
+            error(['run_group_differences: the surprise-bar regions %s and %s share ' ...
+                   '%d atlas values, and neither holds the other. Keep one of them.'], ...
+                  acronyms{r}, acronyms{k}, numel(shared_values));
+        end
+    end
+end
+end
+
+function [valid_pixels, region_of_voxel] = label_left_hemisphere(AllenCrop, ...
+    region_values)
+% The atlas voxels of the left hemisphere (the width of the folded maps), and the
+% region each falls in (uint16, 0 for none), from regions that do not overlap.
 
 % the left hemisphere's atlas voxels, as a vector
-fprintf('  Mapping Atlas Volume...\n');
 [~, ~, n_width] = size(AllenCrop);
 half_width = floor(n_width / 2);
 atlas_left = AllenCrop(:, :, 1:half_width);
 valid_pixels = atlas_left > 0;
 pixel_ids = atlas_left(valid_pixels);
 
-% for each region, which of those voxels carry one of its ids
-fprintf('  Building masks for %d regions...\n', n_rois_surp);
-roi_masks_surp = false(length(pixel_ids), n_rois_surp);
-roi_pixel_counts_surp = zeros(n_rois_surp, 1);
+% a table from atlas value to region, value v at row v + 1, then looked up for
+% every voxel (with the annotation's integer values as indices, which spares a
+% copy of the voxels in double)
+all_values = vertcat(region_values{:});
+n_table = max(double(max(pixel_ids)), max(all_values)) + 1;
+value_to_region = zeros(n_table, 1, 'uint16');
+for r = 1:numel(region_values)
+    value_to_region(region_values{r} + 1) = r;
+end
+region_of_voxel = value_to_region(pixel_ids + 1);
+end
 
-for r = 1:n_rois_surp
-    region_name = roi_list_surp{r};
-    try
-        % the region and its descendants, in the left hemisphere
-        mask_temp = get_allen_region_mask(allenDir, AllenCrop, {region_name}, ...
-            brainMask, '');
-        if size(mask_temp, 3) >= half_width
-            mask_temp = mask_temp(:, :, 1:half_width);
-        end
+function T_regions = region_table(acronyms, names, removed_idx, region_of_voxel)
+% One row per region: acronym, name, the label of its bar (the name, and the
+% regions taken out of it), its voxels in the left hemisphere, and the regions
+% taken out of it with their voxels.
 
-        % the atlas ids inside it, and the voxels that carry them
-        ids_in_region = unique(atlas_left(mask_temp));
-        ids_in_region(ids_in_region == 0) = [];
-        roi_masks_surp(:, r) = ismember(pixel_ids, ids_in_region);
-        roi_pixel_counts_surp(r) = sum(roi_masks_surp(:, r));
-    catch
+n_regions = numel(acronyms);
 
-        % a region get_allen_region_mask cannot map stays empty, with a warning
-        warning('Could not map region: %s', region_name);
+% each region's voxels
+n_voxels = zeros(n_regions, 1);
+for r = 1:n_regions
+    n_voxels(r) = nnz(region_of_voxel == r);
+end
+
+% the regions taken out of each, and their voxels: those regions' own voxels,
+% which hold any region inside them in turn
+removed = repmat({''}, n_regions, 1);
+n_voxels_removed = zeros(n_regions, 1);
+labels = names;
+for r = 1:n_regions
+    if ~isempty(removed_idx{r})
+        removed{r} = strjoin(acronyms(removed_idx{r}), ', ');
+        n_voxels_removed(r) = sum(n_voxels(removed_idx{r}));
+        labels{r} = [names{r} ' (without ' removed{r} ')'];
     end
 end
+
+T_regions = table(acronyms, names, labels, n_voxels, removed, n_voxels_removed, ...
+    'VariableNames', {'acronym', 'name', 'label', 'n_voxels', 'removed', ...
+    'n_voxels_removed'});
 end
 
-function plot_regional_surprise(surp_diff, surp_sum, has_t, roi_list_surp, ...
-    n_rois_surp, valid_pixels, roi_masks_surp, roi_pixel_counts_surp, slab_range, ...
-    surp_thresh_val, exp_type, comp_tag, comp_out_dir)
+function print_region_table(T_regions)
+% The regions, one line each: acronym, voxels, name, and the regions taken out
+% of it; a warning for the regions with no voxel.
+
+fprintf('  %d regions, voxels in the left hemisphere:\n', height(T_regions));
+for r = 1:height(T_regions)
+    fprintf('    %-8s %10d  %s', T_regions.acronym{r}, T_regions.n_voxels(r), ...
+        T_regions.name{r});
+    if ~isempty(T_regions.removed{r})
+        fprintf(' (without %s: %d voxels)', T_regions.removed{r}, ...
+            T_regions.n_voxels_removed(r));
+    end
+    fprintf('\n');
+end
+
+% a region outside the volumes' AP range has no voxel, and no bar
+has_no_voxel = T_regions.n_voxels == 0;
+if any(has_no_voxel)
+    warning('run_group_differences: no voxel in the volumes for %s; no bar.', ...
+        strjoin(T_regions.acronym(has_no_voxel), ', '));
+end
+end
+
+function plot_regional_surprise(surp_diff, surp_sum, has_t, T_regions, valid_pixels, ...
+    region_of_voxel, slab_range, surp_thresh_val, exp_type, comp_tag, comp_out_dir)
 % The surprise bar charts, difference and sum side by side.
 
 fig_surp = figure('Visible', 'off', 'Name', ...
@@ -2303,13 +2477,14 @@ for m_idx = 1:2
     vol_surp = rolling_surprise_median(raw_surp_vol, slab_range, has_t, mode_name);
 
     % each region's sum of the surprise above the threshold
-    roi_surp_agg = summed_surprise(vol_surp, valid_pixels, n_rois_surp, ...
-        roi_pixel_counts_surp, roi_masks_surp, surp_thresh_val);
+    roi_surp_agg = summed_surprise(vol_surp, valid_pixels, region_of_voxel, ...
+        T_regions.n_voxels, surp_thresh_val);
 
-    % sorted, and only the regions with a sum above zero
+    % sorted, and only the regions with a sum above zero, labelled with the
+    % regions taken out of them
     sort_metric = roi_surp_agg;
     [sorted_surp, sort_idx] = sort(sort_metric, 'ascend');
-    sorted_rois_surp = roi_list_surp(sort_idx);
+    sorted_rois_surp = T_regions.label(sort_idx);
 
     valid_k = sorted_surp > 0 & ~isnan(sorted_surp);
     sorted_surp = sorted_surp(valid_k);
@@ -2340,8 +2515,8 @@ fprintf('Regional surprise analysis (Diff & Sum) saved to: %s\n', comp_out_dir);
 % clear roi_masks_surp surp_vec valid_pixels pixel_ids vol_surp
 end
 
-function roi_surp_agg = summed_surprise(vol_surp, valid_pixels, n_rois_surp, ...
-    roi_pixel_counts_surp, roi_masks_surp, surp_thresh_val)
+function roi_surp_agg = summed_surprise(vol_surp, valid_pixels, region_of_voxel, ...
+    n_voxels, surp_thresh_val)
 % Each region's sum of the surprise above surp_thresh_val (a voxel without a t,
 % NaN, adds nothing); NaN for a region with no voxel.
 
@@ -2350,19 +2525,18 @@ function roi_surp_agg = summed_surprise(vol_surp, valid_pixels, n_rois_surp, ...
 % surprise
 surp_vec = vol_surp(valid_pixels);
 surp_vec(isnan(surp_vec)) = 0;
-roi_surp_agg = nan(n_rois_surp, 1);
-for r = 1:n_rois_surp
+n_regions = numel(n_voxels);
+roi_surp_agg = nan(n_regions, 1);
+for r = 1:n_regions
 
     % a region with no voxel keeps NaN
-    if roi_pixel_counts_surp(r) == 0
+    if n_voxels(r) == 0
         continue;
     end
 
     % the region's voxels, summed over those above the threshold
-    vals = surp_vec(roi_masks_surp(:, r));
-    if ~isempty(vals)
-        roi_surp_agg(r) = sum(vals(vals > surp_thresh_val));
-    end
+    vals = surp_vec(region_of_voxel == r);
+    roi_surp_agg(r) = sum(vals(vals > surp_thresh_val));
 end
 end
 
