@@ -140,8 +140,9 @@ end
 %% Group t and surprise maps
 
 % Welch t of experimental minus control at every voxel with at least
-% min_mice_per_group mice with a value in each group, and its surprise -log10 p
-[t_lr_diff_groupdiff, t_lr_sum_groupdiff, n_ctrl, n_exp, surp_diff, surp_sum] = ...
+% min_mice_per_group mice with a value in each group (has_t), and its surprise
+% -log10 p
+[t_lr_diff_groupdiff, t_lr_sum_groupdiff, n_ctrl, n_exp, surp_diff, surp_sum, has_t] = ...
     group_t_and_surprise(lr_diff_ctrl, lr_sum_ctrl, lr_diff_exp, lr_sum_exp, ...
     avg_lr_diff_ctrl, avg_lr_sum_ctrl, avg_lr_diff_exp, avg_lr_sum_exp, ...
     avg_lr_diff_groupdiff, avg_lr_sum_groupdiff, half_atlas, brainMask_group_diff, ...
@@ -198,10 +199,10 @@ end
 
 %% Slab figure of the group t-maps
 
-% median over the planes around plane 565, shown where the surprise is high: the
-% comparison's main figure
+% median over the planes around plane 565, shown where the surprise is high and
+% plane 565 has a t: the comparison's main figure
 plot_group_slab(t_lr_diff_groupdiff, t_lr_sum_groupdiff, surp_diff, surp_sum, ...
-    brainMask_group_diff, half_atlas, exp_type, ctrl_type, comp_out_dir, comp_tag);
+    has_t, half_atlas, exp_type, ctrl_type, comp_out_dir, comp_tag);
 
 %% Slab figures of every mouse
 
@@ -216,8 +217,8 @@ if generate_rolling_videos
 
     % the slab figure, with the slab moved through every plane
     write_rolling_tscore_video(t_lr_diff_groupdiff, t_lr_sum_groupdiff, half_atlas, ...
-        brainMask_group_diff, surp_diff, surp_sum, comp_out_dir, channel, comp_tag, ...
-        exp_type, ctrl_type);
+        has_t, surp_diff, surp_sum, comp_out_dir, channel, comp_tag, exp_type, ...
+        ctrl_type);
 
 end
 
@@ -245,9 +246,10 @@ end
 
 %% Regional surprise bars
 
-% the surprise summed over each region of a fixed list, for L - R and L + R
-regional_surprise_bars(surp_diff, surp_sum, brainMask_group_diff, AllenCrop, allenDir, ...
-    brainMask, exp_type, comp_tag, comp_out_dir);
+% the surprise summed over each region of a fixed list, for L - R and L + R, over
+% the voxels with a t
+regional_surprise_bars(surp_diff, surp_sum, has_t, AllenCrop, allenDir, brainMask, ...
+    exp_type, comp_tag, comp_out_dir);
 
 end
 
@@ -755,14 +757,15 @@ fprintf('Individual directional videos generation complete.\n');
 end
 
 function [t_lr_diff_groupdiff, t_lr_sum_groupdiff, n_ctrl, n_exp, surp_diff, ...
-    surp_sum] = group_t_and_surprise(lr_diff_ctrl, lr_sum_ctrl, lr_diff_exp, ...
+    surp_sum, has_t] = group_t_and_surprise(lr_diff_ctrl, lr_sum_ctrl, lr_diff_exp, ...
     lr_sum_exp, avg_lr_diff_ctrl, avg_lr_sum_ctrl, avg_lr_diff_exp, avg_lr_sum_exp, ...
     avg_lr_diff_groupdiff, avg_lr_sum_groupdiff, half_atlas, brainMask_group_diff, ...
     min_mice_per_group, comp_out_dir, channel, comp_tag, ctrl_type, exp_type, ...
     generate_t_scored_videos, generate_surprise_videos)
 % Welch t and surprise (-log10 p) maps of the group difference, NaN where a group
-% has fewer than min_mice_per_group mice with a value, and their videos. One
-% function, since the surprise video also draws the t maps, within t_lim.
+% has fewer than min_mice_per_group mice with a value, the voxels that have a t
+% (has_t), and their videos. One function, since the surprise video also draws
+% the t maps, within t_lim.
 
 % the number of mice of each group, for the region analyses
 n_ctrl = size(lr_diff_ctrl, 4);
@@ -1836,9 +1839,9 @@ end
 % ===== Local functions: slab figures, rolling videos, regional surprise =====
 
 function plot_group_slab(t_lr_diff_groupdiff, t_lr_sum_groupdiff, surp_diff, surp_sum, ...
-    brainMask_group_diff, half_atlas, exp_type, ctrl_type, comp_out_dir, comp_tag)
-% The group t-maps around plane 565, median over the slab, shown where the
-% surprise reaches p < 0.01.
+    has_t, half_atlas, exp_type, ctrl_type, comp_out_dir, comp_tag)
+% The group t-maps around plane 565, median over the slab's voxels with a t,
+% shown where plane 565 has a t and the surprise reaches p < 0.01.
 
 % the slab: plane 565 and 10 planes on each side, through the barrel field (S1),
 % where an effect of whisker stimulation was expected
@@ -1856,7 +1859,7 @@ fprintf('Averaging signal across slices %d to %d (Target: %d)...\n', z_start, z_
 
 % the medians over the slab, and the opacities
 [slab_diff, slab_sum, p_thresh, alpha_mask_diff, alpha_mask_sum] = group_slab_medians( ...
-    brainMask_group_diff, z_indices, t_lr_diff_groupdiff, t_lr_sum_groupdiff, ...
+    has_t, z_indices, target_slice, t_lr_diff_groupdiff, t_lr_sum_groupdiff, ...
     surp_diff, surp_sum);
 
 % the atlas boundaries of the central plane: the voxels where the region id
@@ -1885,14 +1888,15 @@ end
 end
 
 function [slab_diff, slab_sum, p_thresh, alpha_mask_diff, alpha_mask_sum] = ...
-    group_slab_medians(brainMask_group_diff, z_indices, t_lr_diff_groupdiff, ...
+    group_slab_medians(has_t, z_indices, target_slice, t_lr_diff_groupdiff, ...
     t_lr_sum_groupdiff, surp_diff, surp_sum)
 % The medians over the slab of the t maps and their surprise, and each panel's
-% opacity: the surprise over -log10(0.01), clipped, where the slab has voxels.
+% opacity: the surprise over -log10(0.01), clipped, on the central plane's voxels
+% with a t.
 
-% the medians over the slab, inside the voxels both groups have: the t of the
-% difference and of the sum, and their surprise
-mask_slab_3d = brainMask_group_diff(z_indices, :, :);
+% the medians over the slab's voxels with a t: the t of the difference and of the
+% sum, and their surprise
+mask_slab_3d = has_t(z_indices, :, :);
 
 raw_diff = t_lr_diff_groupdiff(z_indices, :, :);
 raw_diff(~mask_slab_3d) = NaN;
@@ -1921,10 +1925,11 @@ alpha_diff(isnan(alpha_diff)) = 0;
 alpha_sum = calc_alpha(slab_surp_sum);
 alpha_sum(isnan(alpha_sum)) = 0;
 
-% and only where some plane of the slab has the voxel
-slab_mask_2d = squeeze(max(mask_slab_3d, [], 1));
-alpha_mask_diff = alpha_diff .* double(slab_mask_2d);
-alpha_mask_sum = alpha_sum .* double(slab_mask_2d);
+% and only where the central plane has a t of its own: the median smooths along AP,
+% but does not fill a voxel without a t from the planes around it
+central_has_t = squeeze(has_t(target_slice, :, :));
+alpha_mask_diff = alpha_diff .* double(central_has_t);
+alpha_mask_sum = alpha_sum .* double(central_has_t);
 end
 
 function fig_slab = draw_group_slab(target_slice, slab_diff, alpha_mask_diff, b_col, ...
@@ -2123,9 +2128,10 @@ end
 end
 
 function write_rolling_tscore_video(t_lr_diff_groupdiff, t_lr_sum_groupdiff, ...
-    half_atlas, brainMask_group_diff, surp_diff, surp_sum, comp_out_dir, channel, ...
-    comp_tag, exp_type, ctrl_type)
-% Video of the group t-maps, median over a rolling slab, masked by surprise.
+    half_atlas, has_t, surp_diff, surp_sum, comp_out_dir, channel, comp_tag, ...
+    exp_type, ctrl_type)
+% Video of the group t-maps, median over a rolling slab of the voxels with a t,
+% masked by surprise, each frame on its central plane's voxels with a t.
 
 % median over +/- 10 planes, opaque from p < 0.01, t limits of +/- 6
 slab_range = 10;
@@ -2142,7 +2148,7 @@ write_lr_video_surpmask_rolling( ...
     t_lr_diff_groupdiff, ...
     t_lr_sum_groupdiff, ...
     half_atlas, ...
-    brainMask_group_diff, ...
+    has_t, ...
     comp_out_dir, ...
     vid_name, ...
     t_lim, ...
@@ -2196,10 +2202,11 @@ write_lr_indiv_rolling_video( ...
 fprintf('Individual rolling videos generation complete.\n');
 end
 
-function regional_surprise_bars(surp_diff, surp_sum, brainMask_group_diff, AllenCrop, ...
-    allenDir, brainMask, exp_type, comp_tag, comp_out_dir)
+function regional_surprise_bars(surp_diff, surp_sum, has_t, AllenCrop, allenDir, ...
+    brainMask, exp_type, comp_tag, comp_out_dir)
 % Bar charts of the surprise summed over each region of a fixed list, after a
-% rolling median over planes, for the difference and the sum.
+% rolling median over planes, over the voxels with a t, for the difference and
+% the sum.
 
 fprintf('Starting Regional Surprise Analysis (Rolling Median - Diff & Sum)...\n');
 
@@ -2213,9 +2220,9 @@ surp_thresh_val = -log10(p_thresh_agg);
     surprise_roi_masks(AllenCrop, allenDir, brainMask);
 
 % the bars of the difference and the sum, as one figure
-plot_regional_surprise(surp_diff, surp_sum, brainMask_group_diff, roi_list_surp, ...
-    n_rois_surp, valid_pixels, roi_masks_surp, roi_pixel_counts_surp, slab_range, ...
-    surp_thresh_val, exp_type, comp_tag, comp_out_dir);
+plot_regional_surprise(surp_diff, surp_sum, has_t, roi_list_surp, n_rois_surp, ...
+    valid_pixels, roi_masks_surp, roi_pixel_counts_surp, slab_range, surp_thresh_val, ...
+    exp_type, comp_tag, comp_out_dir);
 end
 
 function [roi_list_surp, n_rois_surp, valid_pixels, roi_masks_surp, ...
@@ -2263,9 +2270,9 @@ for r = 1:n_rois_surp
 end
 end
 
-function plot_regional_surprise(surp_diff, surp_sum, brainMask_group_diff, ...
-    roi_list_surp, n_rois_surp, valid_pixels, roi_masks_surp, roi_pixel_counts_surp, ...
-    slab_range, surp_thresh_val, exp_type, comp_tag, comp_out_dir)
+function plot_regional_surprise(surp_diff, surp_sum, has_t, roi_list_surp, ...
+    n_rois_surp, valid_pixels, roi_masks_surp, roi_pixel_counts_surp, slab_range, ...
+    surp_thresh_val, exp_type, comp_tag, comp_out_dir)
 % The surprise bar charts, difference and sum side by side.
 
 fig_surp = figure('Visible', 'off', 'Name', ...
@@ -2291,10 +2298,9 @@ for m_idx = 1:2
         raw_surp_vol = surp_sum;
     end
 
-    % its median over +/- slab_range planes around each plane, inside the voxels
-    % both groups have
-    vol_surp = rolling_surprise_median(raw_surp_vol, slab_range, brainMask_group_diff, ...
-        mode_name);
+    % its median over +/- slab_range planes around each plane, over the voxels with
+    % a t, kept on the voxels with a t
+    vol_surp = rolling_surprise_median(raw_surp_vol, slab_range, has_t, mode_name);
 
     % each region's sum of the surprise above the threshold
     roi_surp_agg = summed_surprise(vol_surp, valid_pixels, n_rois_surp, ...
@@ -2336,11 +2342,12 @@ end
 
 function roi_surp_agg = summed_surprise(vol_surp, valid_pixels, n_rois_surp, ...
     roi_pixel_counts_surp, roi_masks_surp, surp_thresh_val)
-% Each region's sum of the surprise above surp_thresh_val (NaN counts as 0); NaN
-% for a region with no voxel.
+% Each region's sum of the surprise above surp_thresh_val (a voxel without a t,
+% NaN, adds nothing); NaN for a region with no voxel.
 
-% each region's sum of the surprise above the threshold (NaN counts as 0); a sum,
-% so a large region gathers more than a small nucleus at the same surprise
+% each region's sum of the surprise above the threshold (a voxel without a t adds
+% nothing); a sum, so a large region gathers more than a small nucleus at the same
+% surprise
 surp_vec = vol_surp(valid_pixels);
 surp_vec(isnan(surp_vec)) = 0;
 roi_surp_agg = nan(n_rois_surp, 1);
@@ -2416,10 +2423,10 @@ end
 ax.YTickLabel = colored_labels;
 end
 
-function vol_surp = rolling_surprise_median(raw_surp_vol, slab_range, ...
-    brainMask_group_diff, mode_name)
-% The surprise, median over a rolling slab of planes, inside the tissue of both
-% groups.
+function vol_surp = rolling_surprise_median(raw_surp_vol, slab_range, has_t, ...
+    mode_name)
+% The surprise, median over a rolling slab of planes, over the voxels with a t;
+% NaN on a voxel without a t of its own.
 
 fprintf('  [%s] Calculating rolling median (slab +/- %d)...\n', mode_name, slab_range);
 vol_surp = zeros(size(raw_surp_vol), 'single');
@@ -2431,14 +2438,14 @@ for z = 1:n_slices
     z_end = min(n_slices, z + slab_range);
     slab_data = raw_surp_vol(z_start:z_end, :, :);
 
-    % NaN outside the voxels both groups have
-    if exist('brainMask_group_diff', 'var')
-        slab_mask = brainMask_group_diff(z_start:z_end, :, :);
-        slab_data(~slab_mask) = NaN;
-    end
+    % NaN outside the voxels with a t
+    slab_mask = has_t(z_start:z_end, :, :);
+    slab_data(~slab_mask) = NaN;
 
-    % the median over the slab, NaN left out: a voxel without a surprise of its own
-    % (too few mice) takes the median of its neighbours in the slab
-    vol_surp(z, :, :) = nanmedian(slab_data, 1);
+    % the median over the slab, NaN left out, kept only where plane z has a t: a
+    % voxel without one (too few mice) is not filled from its neighbours
+    slab_median = nanmedian(slab_data, 1);
+    slab_median(~has_t(z, :, :)) = NaN;
+    vol_surp(z, :, :) = slab_median;
 end
 end

@@ -243,10 +243,10 @@ Fixed in code, unchanged:
 | group videos | LR diff and sum `[0 2.5]`, group difference `[-2.5 2.5]` |
 | individual videos | `[0 1.5]` and `[0 10]`; signed `[-0.75 0.75]` |
 | t videos | `[-6 6]`; surprise video `[0 8]`; surprise-masked video at p < 0.05 |
-| slab figure | plane 565 +/- 10, median over the slab, alpha rising to full at p < 0.01, t `[-6 6]` |
+| slab figure | plane 565 +/- 10, median over the slab, alpha rising to full at p < 0.01, t `[-6 6]`; since 4 Oct 2026 the median is over the voxels with a t and a pixel is shown only where plane 565 has a t (before, wherever a plane of the slab had tissue of both groups) |
 | individual slab figure | plane 565 +/- 10, `[0 1.5]` and `[0 10]`, no atlas overlay |
-| rolling videos | +/- 10 planes, p < 0.01; individual `[0 2]` and `[0 10]` |
-| regional surprise bars | rolling median +/- 10 planes, surprise summed above p < 0.01, left hemisphere, 56 listed regions ("Parafascicular nucleus" twice, and "Mediodorsal nucleus of the thalamus" resolving to the intermediodorsal nucleus); 55 since fix 9 of step 8, the second parafascicular removed and the mediodorsal nucleus measured |
+| rolling videos | +/- 10 planes, p < 0.01; individual `[0 2]` and `[0 10]`; since 4 Oct 2026 the t video shows each frame on its central plane's voxels with a t, as the slab figure |
+| regional surprise bars | rolling median +/- 10 planes, surprise summed above p < 0.01, left hemisphere, 56 listed regions ("Parafascicular nucleus" twice, and "Mediodorsal nucleus of the thalamus" resolving to the intermediodorsal nucleus); 55 since fix 9 of step 8, the second parafascicular removed and the mediodorsal nucleus measured; since 4 Oct 2026 over the voxels with a t only (the rolling median no longer fills a voxel without one from its neighbours) |
 
 - Reads: `naive\` and `<exp>\` `nano_4d_normalized.mat` and
   `nano_4d_normalized_bkgmask.mat` (this run's `run_normalise_groups`);

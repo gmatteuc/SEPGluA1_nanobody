@@ -9,9 +9,12 @@ function write_lr_video_surpmask_rolling(lr_diff_vol, lr_sum_vol, atlas_vol, ...
 %   surp_thresh, slab_range) writes save_dir\video_filename (MPEG-4, 15 frames
 %   per second) as WRITE_LR_VIDEO_SURPMASK does, but each frame shows the
 %   median over the planes j - slab_range to j + slab_range, inside brain_mask,
-%   of the maps and of their surprise, and each panel takes its opacity from
-%   its own surprise volume (surp_diff_vol on the left, surp_sum_vol on the
-%   right). The median smooths the maps along AP before the threshold.
+%   of the maps and of their surprise, on the voxels of plane j in brain_mask,
+%   and each panel takes its opacity from its own surprise volume (surp_diff_vol
+%   on the left, surp_sum_vol on the right). The median smooths the maps along
+%   AP before the threshold, without filling a voxel of plane j outside
+%   brain_mask from the planes around it. Planes with no voxel in brain_mask
+%   are skipped.
 %
 %   Run by group_differences.
 %
@@ -36,14 +39,14 @@ for j = 1:n_slices
     z_end = min(n_slices, j + slab_range);
     z_indices = z_start:z_end;
 
-    % skip the planes with no brain
+    % skip the planes with no voxel in the mask
     if sum(sum(brain_mask(j, :, :))) == 0
         continue;
     end
 
     % the medians over the slab, and the opacities
     [slab_diff, slab_sum, alpha_mask_diff, alpha_mask_sum] = slab_medians(brain_mask, ...
-        z_indices, lr_diff_vol, lr_sum_vol, surp_diff_vol, surp_sum_vol, surp_thresh);
+        z_indices, j, lr_diff_vol, lr_sum_vol, surp_diff_vol, surp_sum_vol, surp_thresh);
 
     % the frame: the difference and the sum
     draw_rolling_frame(atlas_vol, j, slab_diff, clim_values, alpha_mask_diff, n_width, ...
@@ -68,14 +71,16 @@ end
 % ===== Local functions =====
 
 function [slab_diff, slab_sum, alpha_mask_diff, alpha_mask_sum] = slab_medians( ...
-    brain_mask, z_indices, lr_diff_vol, lr_sum_vol, surp_diff_vol, surp_sum_vol, ...
+    brain_mask, z_indices, j, lr_diff_vol, lr_sum_vol, surp_diff_vol, surp_sum_vol, ...
     surp_thresh)
 % The medians over the slab of the difference, the sum and their surprise, and
-% each panel's opacity: surprise over surp_thresh, clipped, in the slab's brain.
+% each panel's opacity: surprise over surp_thresh, clipped, on plane j's voxels
+% in brain_mask.
 
-% the slab's mask, and its projection: a voxel shown if any plane has brain
+% the slab's mask, and the voxels shown: those of the central plane j in the mask,
+% so the median does not fill a voxel outside it from the planes around it
 mask_slab_3d = logical(brain_mask(z_indices, :, :));
-slab_mask_2d = squeeze(max(mask_slab_3d, [], 1));
+central_mask_2d = squeeze(logical(brain_mask(j, :, :)));
 
 % median of the difference over the slab
 raw_diff = lr_diff_vol(z_indices, :, :);
@@ -95,14 +100,14 @@ raw_surp_s = surp_sum_vol(z_indices, :, :);
 raw_surp_s(~mask_slab_3d) = NaN;
 slab_surp_sum = squeeze(nanmedian(raw_surp_s, 1));
 
-% opacity: surprise over the threshold, clipped to 0-1, inside the slab's brain
+% opacity: surprise over the threshold, clipped to 0-1, on the voxels shown
 calc_alpha = @(vol) min(1, max(0, vol ./ surp_thresh));
 alpha_diff = calc_alpha(slab_surp_diff);
 alpha_diff(isnan(alpha_diff)) = 0;
-alpha_mask_diff = alpha_diff .* double(slab_mask_2d);
+alpha_mask_diff = alpha_diff .* double(central_mask_2d);
 alpha_sum = calc_alpha(slab_surp_sum);
 alpha_sum(isnan(alpha_sum)) = 0;
-alpha_mask_sum = alpha_sum .* double(slab_mask_2d);
+alpha_mask_sum = alpha_sum .* double(central_mask_2d);
 end
 
 function draw_rolling_frame(atlas_vol, j, slab_diff, clim_values, alpha_mask_diff, ...
