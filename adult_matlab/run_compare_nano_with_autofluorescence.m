@@ -79,7 +79,7 @@ nano_color      = [0.95 0.55 0.10];   % strong orange (nano bar fill)
 auto_color      = [0.95 0.85 0.20];   % yellow (auto bar fill)
 nano_dot_color  = [0.65 0.30 0.00];   % darker orange (per-mouse dots)
 auto_dot_color  = [0.70 0.60 0.00];   % darker yellow (per-mouse dots)
-sig_label_color = [0.85 0.50 0.00];   % orange of run_characterize_distribution's enriched labels
+sig_label_color = [0.85 0.50 0.00];   % orange of step 1's enriched labels
 paired_line_color = [0.6 0.6 0.6];    % gray for paired-mouse connectors
 
 %% Load per-mouse caches
@@ -363,8 +363,8 @@ for pi = 1:n_macros_present
     auto_sem_v  = std(sub_auto_pm, 0, 1, 'omitnan') ./ sqrt(max(auto_n, 1));
 
     % Drop regions with no data in either channel (matches the keep filter of
-    % run_characterize_distribution,
-    % so empty rows don't clutter the panel with bare labels).
+    % run_characterize_distribution, so empty rows don't clutter the panel with
+    % bare labels).
     keep = ~isnan(nano_mean_v) & ~isnan(auto_mean_v);
     sub_acro    = sub_acro(keep);
     sub_nano_pm = sub_nano_pm(:, keep);
@@ -692,8 +692,7 @@ if produce_contrast_video
 fprintf('Generating voxelwise z-contrast video...\n');
 
 % Use the cohort z-scored volumes already cached by run_characterize_distribution
-% (zscore_in_mask).
-% Each is z-scored within its own channel's brain mask, so the
+% (zscore_in_mask). Each is z-scored within its own channel's brain mask, so the
 % subtraction is a delta-z per voxel.
 z_nano = S_nano_c.zscore_lr_sum;
 z_auto = S_auto_c.zscore_lr_sum;

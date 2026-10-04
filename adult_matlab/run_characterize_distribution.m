@@ -324,9 +324,8 @@ brainMask_merged  = brainMask_cropped & tissue_3d_merged;  % 3D cohort hemi mask
 
 %% Whole-volume z-scoring
 % Compute z-score of the mean LR-sum across all brain voxels within the
-% analysis slice range (consistent with run_compare_with_allen_ish). This gives
-% a principled scale
-% where zscore_threshold (default 2) = "N SD above brain-wide mean".
+% analysis slice range (consistent with run_compare_with_allen_ish), so that
+% zscore_threshold = N means "N SD above the brain-wide mean" (0, the mean, here).
 
 brainMask_analysis = brainMask_merged;
 brainMask_analysis(1:analysis_slice_range(1)-1, :, :) = false;
@@ -667,9 +666,9 @@ if generate_region_barchart && ~isempty(roi_list)
     % A cohort analysed for the first time has no sparse mask cache yet --
     % run_compare_with_allen_ish used to be the only thing that built it, and the
     % per-mouse block below cannot run without it. Build it here, in exactly the
-    % form run_compare_with_allen_ish writes, so
-    % either script can be first. A cohort that already has one (the adults,
-    % since May) never enters this branch and is unaffected.
+    % form run_compare_with_allen_ish writes, so either script can be first. A
+    % cohort that already has one (the adults, since May) never enters this
+    % branch and is unaffected.
     if ~exist(masks_cache_path, 'file')
         fprintf('  Building sparse ROI masks + distance weights for %d regions (first run for this cohort)...\n', n_rois);
         if roi_erode_radius > 0
@@ -774,7 +773,7 @@ if generate_region_barchart && ~isempty(roi_list)
 
     % Shared colormap for reliability: grayscale (darker = more reliable)
     c_map_rel = flipud(gray(256));
-    c_map_rel = c_map_rel(1:200, :);  % avoid pure white at the low end
+    c_map_rel = c_map_rel(1:200, :);  % stop short of black; the low end stays white
     t_max_clamp = 20;  % clamp range for colormap
 
     % ---- Multi-panel figure: one subplot per DIVI, bars = STRU leaves ----
@@ -1040,9 +1039,8 @@ end
 %% Per-mouse + SEM barplots (additive, gated by compute_per_mouse_sem)
 % Loops the per-mouse 4D LR-sum already in memory (lr_sum_merged), uses the
 % cached sparse ROI masks (built above, or by run_compare_with_allen_ish), and
-% produces _withSEM variants of
-% all four barplots (BarByMacro raw/z, BarAcrossDivi raw/z) with mean +/-
-% SEM errorbars and optional per-mouse dots. The small per-mouse-per-region
+% produces _withSEM variants of all four barplots (BarByMacro raw/z,
+% BarAcrossDivi raw/z) with mean +/- SEM errorbars and optional per-mouse dots. The small per-mouse-per-region
 % matrix is cached so figure tweaks don't re-loop the 4D.
 
 if compute_per_mouse_sem && generate_region_barchart && ~isempty(roi_list)

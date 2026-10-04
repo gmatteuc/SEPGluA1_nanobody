@@ -53,8 +53,8 @@ paths = get_paths();
 channel = 'nano';
 
 % Which cache of run_characterize_distribution to load (must exist: run it
-% first). The channel is appended
-% so this points to the matching nano or auto cohort cache.
+% first). The channel is appended so this points to the matching nano or auto
+% cohort cache.
 p8_merged_tag    = ['merged_naive_rws_' channel];
 p8_smooth_suffix = '_nosmooth';
 
@@ -85,7 +85,7 @@ label_min_px_per_slice  = 150;
 % Region analysis
 macro_divi_list = {'Isocortex','OLF','HPF','CTXsp','STR','PAL','TH','HY','MB'};
 roi_erode_radius    = 3;
-dist_weight_power   = 4;  % exponent for distance weighting (must match run_characterize_distribution)
+dist_weight_power   = 4;  % exponent for distance weighting (must match step 1)
 analysis_slice_range = [100, 700];
 
 % Video clim for difference panel
