@@ -230,8 +230,8 @@ function [pmax_val, pmin_val] = background_window(z)
 % The percentile window of the background search in slice z: the 15th to the
 % 75th percentile in the first nine slices, the 15th to the 50th after.
 
-% the windows of the reference pixels in residual_correction; why the first nine
-% slices get a wider one is not recorded
+% the same windows as residual_correction's search for reference pixels; why the
+% first nine slices get a wider one is not recorded
 if z < 10
     pmax_val = 75;
     pmin_val = 15;

@@ -89,7 +89,7 @@ n_adult = area_adult / max(area_adult);
 n_young = area_young / max(area_young);
 
 % the young profile resampled onto the adult axis; the RMS of their difference is
-% 0 for two crops holding the same anatomy
+% near 0 for two crops holding the same anatomy
 young_on_adult = interp1(x_young, n_young, x_adult, 'linear', 'extrap');
 profile_rms = sqrt(mean((n_adult(:) - young_on_adult(:)).^2));
 
@@ -270,7 +270,7 @@ end
 
 %% Write the note
 
-% ATLAS_PARAMETERS.md, every number in it measured above
+% ATLAS_PARAMETERS.md, from the measurements above
 write_note(note_file, info_adult, info_young, ...
            adult_groups, young_groups, slicethickness_um, profile_rms, reg, per_brain);
 fprintf('wrote %s\n', note_file);
