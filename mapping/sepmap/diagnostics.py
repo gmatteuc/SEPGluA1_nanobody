@@ -60,7 +60,7 @@ ADULT = [m for m, v in MICE.items() if v[1] == "ccf"]
 def show(
     ax: plt.Axes, img: np.ndarray, mask: np.ndarray | None = None, p: float = 99.5
 ) -> None:
-    """A plane, dorsal up and ventral down, scaled to its own tissue.
+    """A plane, dorsal up and ventral down, scaled to its own brightness.
 
     A plane of these volumes is (DV, ML), so it is drawn as it comes: rows run
     dorsal to ventral, columns left to right. The slice figures elsewhere use

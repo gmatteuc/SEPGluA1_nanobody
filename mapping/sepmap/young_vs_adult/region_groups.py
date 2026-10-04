@@ -391,8 +391,8 @@ def group_stats(
     """Per group and reading the young-against-adult tests, as rows of group_stats.csv.
 
     A group is tested when at least region_groups.min_young young and min_adult
-    adult brains have a value. The
-    Mann-Whitney BH q is taken within each reading and grouping.
+    adult brains have a value. The Mann-Whitney BH q is taken within each reading
+    and grouping.
     """
     rows = []
     for key in groups:
