@@ -258,13 +258,37 @@ def backgrounds(
     """The off-tissue voxels, and the nano and auto backgrounds and auto MAD there.
 
     Off tissue is off the atlas brain but imaged, in a plane a section reached;
-    1.4826 turns a median absolute deviation into an SD.
+    each channel's median is over the off-tissue voxels it has a value in. 1.4826
+    turns a median absolute deviation into an SD.
     """
     off = (~brain) & (nz > 0) & reached[:, None, None]
-    bg_n = float(np.median(sig[off]))
-    bg_a = float(np.median(aut[off]))
-    mad_a = float(np.median(np.abs(aut[off] - bg_a))) * 1.4826
+
+    # NaN left out: off tissue is where nano was imaged, and the auto channel was
+    # not imaged in some of those blocks (CGF027: 1,862 of 27.0M, MG911: 223,131
+    # of 24.5M), where one NaN would make the median NaN and the tissue mask empty
+    bg_n = float(np.nanmedian(sig[off]))
+    bg_a = float(np.nanmedian(aut[off]))
+    mad_a = float(np.nanmedian(np.abs(aut[off] - bg_a))) * 1.4826
     return off, bg_n, bg_a, mad_a
+
+
+def check_sep_in_tissue(
+    mouse: str, group: str, sp: np.ndarray, tissue: np.ndarray
+) -> None:
+    """Stop if SEP has no value in a tissue voxel, where nano and auto both have one.
+
+    The tissue rule needs nano and auto imaged, but not SEP; the readings smooth
+    and warp the channels over the tissue, where one NaN would spread to its
+    neighbours (none of the 17 brains of 4 October 2026 has such a voxel).
+    """
+    n_missing = int(np.isnan(sp[tissue]).sum())
+    if n_missing:
+        raise ValueError(
+            f"{mouse}: SEP was not imaged in {n_missing} tissue voxels at 20 um, where "
+            "nano and auto were. Check its registered SEP tiff "
+            f"({channel_path(mouse, group, 'sep')}) against run_add_sep_channel.m's "
+            "output."
+        )
 
 
 def write_mouse(
@@ -324,7 +348,10 @@ def main(mice: list[str]) -> None:
         lo, hi = atlas_grid(atlas_key)[1]
         extra = {}
         if sp is not None:
-            bg_s = float(np.median(sp[off]))
+            check_sep_in_tissue(mouse, group, sp, tissue)
+
+            # over the off-tissue voxels with SEP imaged, as the other backgrounds
+            bg_s = float(np.nanmedian(sp[off]))
             sp -= bg_s
             extra = dict(sep=sp.astype(np.float16), bg_sep=bg_s)
         if extra:
