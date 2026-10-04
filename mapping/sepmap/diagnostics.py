@@ -66,9 +66,13 @@ def show(
     dorsal to ventral, columns left to right. The slice figures elsewhere use
     the same convention.
     """
+    # grey up to the p-th percentile of the plane's positive values (1.0 if it has
+    # none), so each plane fills the grey range whatever its brightness
     im = np.asarray(img, float)
     hi = np.percentile(im[im > 0], p) if (im > 0).any() else 1.0
     ax.imshow(np.clip(im / hi, 0, 1), cmap="gray", origin="upper")
+
+    # the mask, if given, as a red outline
     if mask is not None:
         ax.contour(
             np.asarray(mask, float), levels=[0.5], colors="#e74c3c", linewidths=0.9
@@ -81,6 +85,7 @@ def sheet_tissue(mouse: str, ann: np.ndarray, z: np.lib.npyio.NpzFile) -> None:
 
     `ann` is the brain's own atlas at 20 um and `z` its per-mouse file.
     """
+    # the background-subtracted nano, the tissue mask and the atlas brain
     sig, tissue = z["sig"].astype(np.float32), z["tissue"]
     brain = ann > 0
 
@@ -99,14 +104,19 @@ def sheet_tissue(mouse: str, ann: np.ndarray, z: np.lib.npyio.NpzFile) -> None:
     )
     fig, axes = plt.subplots(1, 4, figsize=(19, 5.2))
     for ax, k in zip(axes, planes):
+        # the plane with the mask in red and the atlas brain outlined in blue
         show(ax, sig[k], tissue[k])
         ax.contour(
             (ann[k] > 0).astype(float), levels=[0.5], colors="#3498db", linewidths=0.6
         )
+
+        # the share of the atlas brain the mask covers on this plane
         ax.set_title(
             f"plane {k}   tissue {100 * tissue[k][brain[k]].mean():.0f}% of atlas brain",
             fontsize=10,
         )
+
+    # the mask's rule and the two backgrounds subtracted
     fig.suptitle(
         f"{mouse}: red = tissue mask (auto channel above background "
         f"+ {TISSUE['mad_k']:g} MAD, "
@@ -116,6 +126,8 @@ def sheet_tissue(mouse: str, ann: np.ndarray, z: np.lib.npyio.NpzFile) -> None:
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.94))
+
+    # PNG only, as for every sheet: the EPS beside a figure is for a paper
     save_figure(fig, OUT / f"01_tissue_{mouse}.png", dpi=95, eps=False)
     plt.close(fig)
 
@@ -133,6 +145,8 @@ def draw_levels(
 
     The auto channel also gets the mask threshold.
     """
+    # off tissue in grey and tissue in red, the background added back to give raw
+    # counts, up to four times the background; a subsample is plenty for a histogram
     ax.hist(
         arr[off][::17] + bg,
         bins=200,
@@ -150,6 +164,8 @@ def draw_levels(
         label="tissue",
         density=True,
     )
+
+    # the background, and for auto the mask threshold, tissue.mad_k MADs above it
     ax.axvline(bg, color="k", lw=1.2, label=f"background {bg:.0f}")
     if name == "auto":
         threshold = bg + TISSUE["mad_k"] * mad
@@ -174,6 +190,7 @@ def draw_cortex_scaling(
     z: np.lib.npyio.NpzFile,
 ) -> None:
     """Draw the isocortex after scaling by its mean, which should centre on 1."""
+    # the isocortex tissue voxels over the brain's isocortex mean, every 37th
     iso = tissue & np.isin(ann, ISO)
     ax.hist(
         (sig[iso] / float(z["cortex_mean"]))[::37],
@@ -182,6 +199,8 @@ def draw_cortex_scaling(
         color=RED,
         density=True,
     )
+
+    # a line at 1, where the scaled cortex should centre
     ax.axvline(1, color="k", lw=1.2)
     ax.set_xlabel("sig / isocortex mean")
     ax.set_ylabel("density")
@@ -197,6 +216,8 @@ def sheet_levels(mouse: str, ann: np.ndarray, z: np.lib.npyio.NpzFile) -> None:
     `ann` is the brain's own atlas at 20 um and `z` its per-mouse file; the
     histograms take every 17th off-tissue and every 37th tissue voxel.
     """
+    # the background-subtracted channels, the mask, and the scalars run_per_mouse
+    # measured: the two backgrounds and the auto MAD
     sig, auto, tissue = (
         z["sig"].astype(np.float32),
         z["auto"].astype(np.float32),
@@ -215,6 +236,7 @@ def sheet_levels(mouse: str, ann: np.ndarray, z: np.lib.npyio.NpzFile) -> None:
 
     # the isocortex after scaling by its mean, which should centre on 1
     draw_cortex_scaling(axes[2], sig, tissue, ann, z)
+
     fig.suptitle(
         f"{mouse}: what the background subtraction and the mask threshold "
         "actually separate",
@@ -232,6 +254,7 @@ def line_colours(n: int) -> np.ndarray:
 
 def sheet_coverage() -> None:
     """Sheet 03: per brain, the fraction of the atlas brain with tissue, per plane."""
+    # the young above, the adults below, each brain on the atlas it was measured on
     fig, axes = plt.subplots(2, 1, figsize=(14, 8))
     for ax, group, label in (
         (axes[0], YOUNG, "young, on each brain's own atlas"),
@@ -239,6 +262,8 @@ def sheet_coverage() -> None:
     ):
         cols = line_colours(len(group))
         for ci, mouse in enumerate(group):
+            # the fraction of the atlas brain with tissue, plane by plane (NaN where
+            # the atlas has no brain)
             ann = ANN[MICE[mouse][1]]
             brain = ann > 0
             t = np.load(PER_MOUSE / (mouse + ".npz"))["tissue"]
@@ -248,6 +273,8 @@ def sheet_coverage() -> None:
                     for k in range(t.shape[0])
                 ]
             )
+
+            # a line per brain, its legend counting the planes over 20% covered
             ax.plot(
                 np.arange(len(cov)),
                 100 * cov,
@@ -260,6 +287,7 @@ def sheet_coverage() -> None:
         ax.set_title(label, fontsize=10)
         ax.grid(lw=0.3, alpha=0.6)
         ax.legend(fontsize=7, ncol=2)
+
     fig.suptitle(
         "Coverage: where a cohort mean rests on every brain, "
         "and where it rests on one or two",
@@ -277,13 +305,15 @@ def sheet_warp(mouse: str) -> None:
     the mean of every third region before against after, for the regions with
     more than 300 tissue voxels on both sides.
     """
+    # the brain on its own atlas (n), and carried into the CCF (c)
     ann_n = ANN[MICE[mouse][1]]
     zn = np.load(PER_MOUSE / (mouse + ".npz"))
     zc = np.load(PER_MOUSE_CCF / (mouse + ".npz"))
     sig_n, t_n = zn["sig"].astype(np.float32), zn["tissue"]
     sig_c, t_c = zc["sig"].astype(np.float32), zc["tissue"]
 
-    # the same anatomy: match by the fraction of the covered range
+    # the same anatomy: match by the fraction of the covered range (planes with more
+    # than 2000 tissue voxels), 30% and 60% of the way through
     cov_n = np.flatnonzero([t_n[k].sum() > 2000 for k in range(t_n.shape[0])])
     cov_c = np.flatnonzero([t_c[k].sum() > 2000 for k in range(t_c.shape[0])])
     fig = plt.figure(figsize=(17, 5.0))
@@ -308,6 +338,9 @@ def sheet_warp(mouse: str) -> None:
     ax = fig.add_subplot(1, 3, 3)
     ccf_full = np.zeros(sig_c.shape, ANN["ccf"].dtype)
     ccf_full[90:540] = ANN["ccf"]
+
+    # every third label of the own atlas, 0 (outside the brain) skipped, where both
+    # sides have more than 300 tissue voxels
     a, b = [], []
     for idx in np.unique(ANN[MICE[mouse][1]])[1:][::3]:
         m1 = t_n & (ann_n == idx)
@@ -315,12 +348,17 @@ def sheet_warp(mouse: str) -> None:
         if m1.sum() > 300 and m2.sum() > 300:
             a.append(sig_n[m1].mean())
             b.append(sig_c[m2].mean())
+
+    # after against before on log axes, with the identity line a perfect transform
+    # would put every region on
     a, b = np.array(a), np.array(b)
     ax.loglog(a, b, "o", ms=3, color=RED, alpha=0.6)
     lim = [min(a.min(), b.min()) * 0.9, max(a.max(), b.max()) * 1.1]
     ax.plot(lim, lim, "k-", lw=0.8)
     ax.set_xlabel("region mean, own atlas")
     ax.set_ylabel("region mean, in CCF")
+
+    # the median change in log2, 0 for a transform that moves no signal between regions
     ax.set_title(
         f"{len(a)} regions, median |log2 change| {np.median(np.abs(np.log2(b / a))):.3f}",
         fontsize=10,
@@ -336,12 +374,14 @@ def sheet_warp(mouse: str) -> None:
 
 def sheet_cohort_n() -> None:
     """Sheet 05: how many brains support each voxel, per cohort, on four CCF planes."""
+    # the cohorts the comparison uses, a row each, on four planes of the 20 um CCF grid
     cohorts = ["young", "young_P20", "adult"]
     planes = [150, 250, 350, 450]
     fig, axes = plt.subplots(
         len(cohorts), len(planes), figsize=(4.2 * len(planes), 3.6 * len(cohorts))
     )
     for r, cohort in enumerate(cohorts):
+        # brains with a value at each voxel, on a scale up to the cohort's size
         n = np.load(CCF_ROOT / cohort / "cref_n.npy")
         for c, k in enumerate(planes):
             ax = axes[r, c]
@@ -353,9 +393,11 @@ def sheet_cohort_n() -> None:
                 origin="upper",
                 interpolation="nearest",
             )
+            # the plane numbered on the 10 um CCF grid, twice its 20 um index
             ax.set_title(f"{cohort}  CCF plane {2 * k} / 10 um", fontsize=9)
             ax.axis("off")
             plt.colorbar(h, ax=ax, fraction=0.03, pad=0.01)
+
     fig.suptitle(
         "How many brains contribute at each voxel (the n map the comparison thresholds)",
         fontsize=11,
@@ -383,6 +425,8 @@ def sheet_scaling() -> None:
                 cortex_auto=float(z["auto"].astype(np.float32)[iso].mean()),
             )
         )
+
+    # the young and the adult brains, and both in that order along the x axis
     young = [r for r in rows if r["cohort"].startswith("young")]
     adult = [r for r in rows if not r["cohort"].startswith("young")]
     order = young + adult
@@ -396,9 +440,12 @@ def sheet_scaling() -> None:
             ("cortex_nano", "isocortex mean, nano (bg-subtracted)"),
         ),
     ):
+        # a dot per brain, red for the young, grey for the adults
         for i, r in enumerate(order):
             colour = RED if r["cohort"].startswith("young") else DARK_GREY
             ax.plot(i, r[column], "o", color=colour)
+
+        # the brains by mouse ID, a dotted line between the young and the adults
         ax.set_xticks(range(len(order)))
         ax.set_xticklabels(
             [r["mouse"].split("_")[0] for r in order], rotation=70, fontsize=7
@@ -420,6 +467,8 @@ def sheet_scaling() -> None:
         )
     ax.set_xlabel("isocortex mean, nano")
     ax.set_ylabel("isocortex mean, auto")
+
+    # their correlation over every brain, young and adult together
     corr = np.corrcoef(
         [row["cortex_nano"] for row in rows], [row["cortex_auto"] for row in rows]
     )[0, 1]
@@ -476,6 +525,9 @@ def sheet_route_agreement() -> None:
             for r in csv.DictReader(fh)
             if r["reading"] == "cref"
         }
+
+    # the structures in both tables with at least 500 compared voxels, the isocortex
+    # marked
     keys = [a for a in vox if a in reg and vox[a][2] >= 500]
     x = np.array([vox[a][0] for a in keys])
     y = np.array([reg[a] for a in keys])
@@ -491,6 +543,9 @@ def sheet_route_agreement() -> None:
     ax.set_ylim(lim)
     ax.set_xlabel("log2 young/adult -- voxelwise, every brain warped into CCF")
     ax.set_ylabel("log2 young/adult -- region-wise, no warping")
+
+    # the agreement, correlation and median absolute difference, over every structure
+    # and over the isocortex alone
     ax.set_title(
         f"r = {np.corrcoef(x, y)[0, 1]:.3f} over {len(keys)} structures, "
         f"median |difference| {np.median(np.abs(x - y)):.3f} log2\n"
@@ -511,8 +566,11 @@ def old_mask_plane(mask_4d, idx: int, k: int, mine: np.ndarray) -> np.ndarray:
     The fraction of tissue in each 2x2x2 block of the 10 um mask, (DV, ML) like the
     per-mouse volumes.
     """
+    # h5py reads the MATLAB array with its axes reversed, (mouse, ML, DV, AP) at 10 um;
+    # 0 in the background mask is tissue
     old = np.zeros((mine.shape[1], mine.shape[2]), np.float32)
     for j in range(mine.shape[2]):
+        # the tissue fraction over the block's two ML and two AP planes, along DV
         q = (
             sum(
                 (np.asarray(mask_4d[idx, 2 * j + dj, :, 2 * k + dk]) == 0).astype(
@@ -523,6 +581,8 @@ def old_mask_plane(mask_4d, idx: int, k: int, mine: np.ndarray) -> np.ndarray:
             )
             / 4
         )
+
+        # then over each pair of DV voxels, to the 20 um column
         old[:, j] = q.reshape(mine.shape[1], 2).mean(axis=1)
     return old
 
@@ -537,9 +597,11 @@ def draw_mask_plane(
     ann: np.ndarray,
 ) -> float:
     """Draw plane `k` with both masks and the atlas brain; return the masks' Dice."""
+    # the nano plane with this route's mask in red
     show(ax, sig[k], mine[k])
 
-    # both are (DV, ML) like the plane underneath, so neither is transposed
+    # the old mask dashed blue, more than half tissue, and the atlas brain grey; both
+    # are (DV, ML) like the plane underneath, so neither is transposed
     ax.contour(
         (old > 0.5).astype(float),
         levels=[0.5],
@@ -554,7 +616,7 @@ def draw_mask_plane(
         linewidths=0.6,
     )
 
-    # the Dice coefficient of the two masks on this plane
+    # the Dice coefficient of the two masks on this plane, 0 when both are empty
     agree = 2 * (mine[k] & (old > 0.5)).sum() / max(mine[k].sum() + (old > 0.5).sum(), 1)
     ax.set_title(f"{mouse}  plane {k}   Dice {agree:.3f}", fontsize=10)
     return float(agree)
@@ -589,15 +651,21 @@ def sheet_mask_vs_p6bis() -> None:
     fig, axes = plt.subplots(2, 3, figsize=(18, 10.5))
     dice = []
     for row, (mouse, mask_file, idx, planes) in enumerate(cases):
+        # this route's mask and nano for the brain, a row of the sheet
         ann = ANN[MICE[mouse][1]]
         z = np.load(PER_MOUSE / (mouse + ".npz"))
         mine, sig = z["tissue"], z["sig"].astype(np.float32)
+
+        # the old mask from the HDF5 (version 7.3) .mat file, read piece by piece
+        # rather than loaded whole
         with h5py.File(mask_file, "r") as f:
             mask_4d = f["recomputed_bkg_mask_4d"]
             for col, k in enumerate(planes):
                 old = old_mask_plane(mask_4d, idx, k, mine)
                 ax = axes[row, col]
                 dice.append(draw_mask_plane(ax, mouse, k, sig, mine, old, ann))
+
+    # the range of the Dice over the planes shown
     fig.suptitle(
         "red = v2 mask (auto channel), "
         "blue dashed = run_normalise_groups mask (nano channel), grey = atlas brain.\n"
@@ -614,9 +682,13 @@ def denominator_rows() -> list[dict]:
     """Per brain with a SEP channel: mouse, cohort, isocortex nano, auto and SEP."""
     rows = []
     for mouse in list(MICE):
+        # only the brains whose per-mouse file carries a SEP channel
         z = np.load(PER_MOUSE / (mouse + ".npz"))
         if "sep" not in z.files:
             continue
+
+        # each channel's mean over the isocortex tissue, nano's as run_per_mouse
+        # stored it
         ann = ANN[MICE[mouse][1]]
         iso = z["tissue"] & np.isin(ann, ISO)
         rows.append(
@@ -633,6 +705,8 @@ def denominator_rows() -> list[dict]:
 
 def panel_denominators(ax: plt.Axes, order: list[dict], young: list[dict]) -> None:
     """Draw what each denominator does with age, in the cortex, per brain."""
+    # per brain, auto as an open circle and SEP as a filled square, red for the
+    # young; labelled on the first brain only, so the legend has one entry each
     for i, r in enumerate(order):
         col = RED if r["cohort"].startswith("young") else DARK_GREY
         ax.plot(
@@ -644,6 +718,8 @@ def panel_denominators(ax: plt.Axes, order: list[dict], young: list[dict]) -> No
             label="auto" if i == 0 else None,
         )
         ax.plot(i, r["cortex_sep"], "s", color=col, label="SEP" if i == 0 else None)
+
+    # the brains by mouse ID, a dotted line between the young and the adults
     ax.set_xticks(range(len(order)))
     ax.set_xticklabels([r["mouse"].split("_")[0] for r in order], rotation=70, fontsize=7)
     ax.axvline(len(young) - 0.5, color="k", lw=0.6, ls=":")
@@ -655,6 +731,7 @@ def panel_denominators(ax: plt.Axes, order: list[dict], young: list[dict]) -> No
 
 def panel_nano_sep(ax: plt.Axes, young: list[dict], adult: list[dict]) -> None:
     """Draw how much of the nano difference SEP would absorb, across brains."""
+    # a dot per brain, the young in red and the adults in grey
     for grp, col, lbl in ((young, RED, "young"), (adult, DARK_GREY, "adult")):
         ax.plot(
             [r["cortex_nano"] for r in grp],
@@ -672,6 +749,8 @@ def panel_nano_sep(ax: plt.Axes, young: list[dict], adult: list[dict]) -> None:
 
 def panel_swap(ax: plt.Axes) -> None:
     """Draw whether the young-adult difference survives the swap of denominator."""
+    # each structure's young-adult log2 difference with each denominator, from
+    # run_region_plot's region_stats.csv when it exists
     stats = DATA / "comparisons_v2" / "young_vs_adult" / "region_stats.csv"
     pairs = {}
     if stats.exists():
@@ -681,11 +760,16 @@ def panel_swap(ax: plt.Axes) -> None:
                     pairs.setdefault(r["acronym"], {})[r["reading"]] = float(
                         r["diff_log2"]
                     )
+
+    # the structures with both, on square axes symmetric about zero, at least
+    # 0.1 log2 each way
     keys = [k for k, v in pairs.items() if len(v) == 2]
     if keys:
         x = np.array([pairs[k]["ratio"] for k in keys])
         y = np.array([pairs[k]["sepratio"] for k in keys])
         lim = float(max(np.abs(np.concatenate([x, y])).max(), 0.1)) * 1.1
+
+        # the identity line and the zero axes light, under the points
         ax.plot([-lim, lim], [-lim, lim], "-", color="#bbbbbb", lw=1)
         ax.axhline(0, color="#dddddd", lw=0.8)
         ax.axvline(0, color="#dddddd", lw=0.8)
@@ -697,6 +781,7 @@ def panel_swap(ax: plt.Axes) -> None:
             fontsize=10,
         )
     else:
+        # without the table, the step to run instead
         ax.text(
             0.5,
             0.5,
