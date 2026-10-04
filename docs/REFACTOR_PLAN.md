@@ -1162,6 +1162,20 @@ The style pass will add to this list.
   the old `landmark_refine/.venv` and the nested `matlab_elastix-master`
   duplicate go; `sep_test_path` and the Python imports on the production
   code; push.
+- **4 Oct, step 11, merged** (`03e1ca0` on `main`, with Giulio): `step10-docs`
+  (the refactor and its documents) merged into `main`; conflicts as the dry
+  run said (the plan kept from `main`, the runner from the branch). Giulio's
+  three uncommitted settings set again in `registration/run_register_to_atlas.m`
+  (MG914, annotate, demba_p28; still uncommitted, patch in
+  `G:\sep_refactor\merge\`). The engine's `.venv` moved to
+  `registration\auto_annotation\` (self-test: models loaded on cuda); the old
+  landmark_refine worker stopped by Giulio; the leftovers deleted (the old
+  `landmark_refine` and `auto_annotation` folders, the nested
+  `matlab_elastix-master`, identical to `third_party/matlab_elastix` apart
+  from line endings). On the production code: `sep_test_path` 0 failures,
+  `get_cohort('verify')` passes, data root `D:\sep_histology\data`, 32
+  sepmap modules import, 26 run scripts answer `--help`. Next: the
+  production reruns the fixes call for, the open decisions, A1 to A5.
 - **New order** (Giulio, 2 Oct): merge first, new science after. Step 7's
   kind C and the step 8 fixes go in one batch with one set of reruns (a fix
   that changes production numbers still waits for Giulio); then step 10's
