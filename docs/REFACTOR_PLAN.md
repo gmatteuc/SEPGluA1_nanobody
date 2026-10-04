@@ -1131,6 +1131,21 @@ The style pass will add to this list.
   existing data). MG904 is P22 (the age in a raw folder's name is the
   mouse's age); the grant figure only grouped it with the P20 brains, as
   Sami asked.
+- **3-4 Oct, step 8 done** (refactor `cfb7cd9`; report
+  `G:\sep_refactor\STEP8_REPORT.md`): the accepted held fixes and the new
+  fixes 23 to 27, every check passed with each output difference traced to
+  its fix (plasticity, P2/P2bis, two Python runs, MG914's registration rerun
+  on 4 Oct after C: had filled on 3 Oct with MATLAB and elastix temporary
+  folders: stacks, elastix folders and `transform_params.mat` identical, the
+  proposal in the GPU spread). Fix 23 on the December 2025 inputs: the RWS
+  S1 increase holds (L-R map the same 292 pixels; barrel field first in the
+  L-R bars, 13th to 5th in L+R; per mouse +26%, p 0.12, unchanged);
+  naive vs behavior changes most, because MG709 has no tissue at slab 565
+  but was counted as a fourth mouse of zeros. Open decisions after the
+  merge: a minimum number of mice per voxel for P7bis's t (edge voxels with
+  2 per group reach |t| 73), the surprise-bar region list (nesting, sums),
+  the video mean panel, two more NaN issues (per-brain backgrounds, the young
+  brains' warp over zeros). Documents (step 10) on `step10-docs`, synced.
 - **New order** (Giulio, 2 Oct): merge first, new science after. Step 7's
   kind C and the step 8 fixes go in one batch with one set of reruns (a fix
   that changes production numbers still waits for Giulio); then step 10's
