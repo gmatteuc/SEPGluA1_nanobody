@@ -16,7 +16,7 @@ function write_lr_video(lr_diff_vol, lr_sum_vol, atlas_vol, brain_mask, save_dir
 %   label_string_diff, label_string_sum
 %                             the end of each panel's title, and its colorbar label
 %
-%   Run by group_differences, and by P8.
+%   Run by group_differences, and by run_characterize_distribution.
 
 % open the video, in a folder made if needed
 [vidObj, full_video_path] = open_lr_video(save_dir, video_filename);

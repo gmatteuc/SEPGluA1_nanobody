@@ -31,10 +31,12 @@ what is open.
    rhythmic whisker stimulation or after a detection task. Paused, not
    closed. MATLAB, `group_comparison/`.
 2. **How the signal is distributed in the adult brain**, and how
-   reproducibly across mice. Python, `mapping/`; the MATLAB `P8` and `P10`
-   until the Python route answers their questions.
+   reproducibly across mice. Python, `mapping/`; in MATLAB,
+   `run_characterize_distribution` and `run_compare_nano_with_autofluorescence`
+   (`adult_matlab/`) until the Python route answers their questions.
 3. **What the map measures**, against the Allen in situ hybridisation maps
-   and the green SEP channel. Python, `mapping/`; `P9` until replaced.
+   and the green SEP channel. Python, `mapping/`; in MATLAB,
+   `run_compare_with_allen_ish` (`adult_matlab/`) until replaced.
 4. **How young brains differ from adult ones**, for the grant. Python,
    `mapping/`.
 
@@ -79,7 +81,7 @@ annotation of control points) serve all four.
 | `registration/` | sections to the atlas of the mouse's age, control points by hand or proposed and reviewed; the SEP channel (MATLAB, Python engine) | [`registration/README.md`](registration/README.md) |
 | `group_comparison/` | line 1: naive against RWS or behaviour (MATLAB) | [`group_comparison/README.md`](group_comparison/README.md) |
 | `mapping/` | lines 2 to 4: per-brain volumes, the adult map, the ISH comparison, young against adult (Python) | [`mapping/README.md`](mapping/README.md) |
-| root: `P8_*.m`, `P9_*.m`, `P10_*.m` | the earlier adult, ISH and autofluorescence analyses (MATLAB) | the header of each script |
+| `adult_matlab/` | lines 2 and 3: the earlier adult, ISH and autofluorescence analyses, until the Python route replaces them (MATLAB) | [`adult_matlab/README.md`](adult_matlab/README.md) |
 
 A new brain end to end, with the manual steps and the traps:
 [`docs/ADDING_DATA.md`](docs/ADDING_DATA.md). Each driver (`run_*.m`,
@@ -90,7 +92,8 @@ settings sit under `%% Settings` in each driver, the Python route's in
 
 Shared code:
 
-- `get_paths.m` and `sep_setup_paths.m`: the data root, the MATLAB path
+- `get_paths.m` and `sep_setup_paths.m`: the data root, the MATLAB path;
+  `plot_violinplot.m`, the violins of `adult_matlab/run_compare_with_allen_ish`
 - `common/`: the cohort table (`cohort.csv`), volume reading, left-right
   statistics, the palette; `atlas/`: `get_atlas`, the DeMBA builder, checks
 - `tests/`, `tools/` (output and code-identity checks, the detached runner,
@@ -107,7 +110,8 @@ Under the data root; none is tracked in git.
   copied `.czi` files and `lightsuite\`, every stage up to the registered
   volumes.
 - `<group>\` and `comparisons\`: the plasticity comparison (the approved
-  run: `comparisons\naive_vs_rws\`, `naive_vs_behavior\`), and P8 to P10.
+  run: `comparisons\naive_vs_rws\`, `naive_vs_behavior\`), and the analyses
+  of `adult_matlab/`.
 - `comparisons_v2\`: per-brain and cohort volumes, young against adult, the
   diagnostic sheets, and a README on reading their numbers.
 - `adult_v2\`: the beyond-abundance analysis, the channels, the ISH tests.
@@ -118,7 +122,7 @@ The code was reorganised in September and October 2026
 ([`docs/REFACTOR_PLAN.md`](docs/REFACTOR_PLAN.md)); each step was checked
 against the code before it on a reference set of brains. Next: six young
 brains of P28 to P36, and one declared set of structures for the adult and
-ISH analyses (A1 to A5), after which `P8` to `P10` retire. Before reading a
+ISH analyses (A1 to A5), after which `adult_matlab/` retires. Before reading a
 result, see the limits in [`docs/ROADMAP.md`](docs/ROADMAP.md): above all,
 no reading is an absolute level, since young and adult brains were imaged in
 different sessions, and the surface claim rests on the staining protocol
@@ -132,7 +136,8 @@ alone.
   is P22. Adult folders end in `_Gria1`; the adults were well above P60,
   their exact ages not recorded.
 - `P<n>` in an age, a cohort tag or an atlas key is postnatal day n
-  (`young_P20`, `demba_p20`); as script names, P8, P9 and P10 are the last
-  of the old pipeline steps.
+  (`young_P20`, `demba_p20`). The scripts were once named by pipeline step,
+  P0 to P10; every one now has a `run_...` name (the table of old and new
+  names: [`docs/ADDING_DATA.md`](docs/ADDING_DATA.md)).
 - `main` is the working branch. Tag `grant-2026-09` is the code behind the
   grant figures, `refactor-start` the code before the reorganisation.

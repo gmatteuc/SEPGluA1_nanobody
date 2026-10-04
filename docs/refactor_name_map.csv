@@ -50,6 +50,9 @@ write_lr_indiv_video_signed.m,group_comparison/pipeline/write_lr_indiv_video_sig
 write_lr_video.m,group_comparison/pipeline/write_lr_video.m
 write_lr_video_surpmask.m,group_comparison/pipeline/write_lr_video_surpmask.m
 write_lr_video_surpmask_rolling.m,group_comparison/pipeline/write_lr_video_surpmask_rolling.m
+P8_characterize_merged_distribution.m,adult_matlab/run_characterize_distribution.m
+P9_compare_nano_vs_allen_ish.m,adult_matlab/run_compare_with_allen_ish.m
+P10_compare_nano_vs_auto.m,adult_matlab/run_compare_nano_with_autofluorescence.m
 test_backward_compat.m,tests/test_backward_compat.m
 BioformatsImage/extractAxioscanImages.m,archive/extractAxioscanImages.m
 LightSuite-main/.gitattributes,third_party/LightSuite/.gitattributes

@@ -385,11 +385,14 @@ P8, P9 and P10 stay where they are, untouched (not rerun, moved or restyled),
 until the additions (step 9) are done; then they go to `archive/`. Their frozen
 outputs in `data\comparisons\` (and on the G: snapshot) are what the additions
 are compared with. The path guard checks only for the scripts the branch has
-moved.
+moved. Since 4 October, after the merge, they are in `adult_matlab/` as
+`run_characterize_distribution`, `run_compare_with_allen_ish` and
+`run_compare_nano_with_autofluorescence`, their computations unchanged, and
+the path guard covers their old names too.
 
 | now | why |
 |---|---|
-| P8, P9, P10, plot_violinplot.m (P9 only) | once A1 to A5 are in the Python route |
+| P8, P9, P10 (in `adult_matlab/` since 4 October), plot_violinplot.m (P9 only) | once A1 to A5 are in the Python route |
 | P6_analyze_group_averages_and_normalize.m, P7_analyze_group_differences.m, plot_abs_slice.m, plot_diff_slice.m, write_diff_video.m | replaced by P6bis/P7bis; to archive in step 4 |
 | compare_young_vs_adult_lrsum.py, replot_young_vs_adult_lrsum.py, region_means_raw_per_mouse.py, region_ratio_young_vs_adult.py, plot_region_ratio_young_vs_adult.py | the first young-against-adult attempt; to archive in step 4 (they still write `D:\sep_histology\data` literally, with no guard: never run from a check tree) |
 | lr_sum_and_diff.m, scratch.m, bk/ | not called; to archive in step 4 (the elastix recipe of bk/LightSuite.txt is copied into the README in the same step) |
@@ -706,8 +709,8 @@ decision.
 
 A1, A2, A3, A4, A5 in that order (A10 if wanted), each with its before and
 after; the
-quoted numbers in the documents are corrected. Then P8 to P10 go to
-`archive/`.
+quoted numbers in the documents are corrected. Then P8 to P10
+(`adult_matlab/`) go to `archive/`.
 
 ### 10. Tests and documents
 

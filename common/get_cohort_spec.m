@@ -20,9 +20,10 @@ function S = get_cohort_spec(spec)
 %     label      the spec string, for titles and folder names
 %
 %   This is the one place that knows how a cohort spec maps onto files, so the
-%   analysis scripts (run_normalise_groups, P8) take 'young_P20' and 'naive'
-%   alike and never open an atlas or list mice themselves. An adult spec
-%   resolves to exactly the names and files those scripts used before.
+%   analysis scripts (run_normalise_groups, run_characterize_distribution) take
+%   'young_P20' and 'naive' alike and never open an atlas or list mice
+%   themselves. An adult spec resolves to exactly the names and files those
+%   scripts used before.
 
 % split the spec into the group and the age tag
 spec = char(spec);

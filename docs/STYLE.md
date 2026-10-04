@@ -7,8 +7,9 @@ step 7 of [REFACTOR_PLAN.md](REFACTOR_PLAN.md).
 Shared rules come first. The MATLAB half is the imaging repository's guide
 (`D:\dendrites\code\docs\STYLE.md`) adapted (Y6); the Python half quotes two
 reference projects wherever a rule comes from them, so this file is enough to
-work from (Y7). Where the earlier P8/P10 conventions differ, the imaging guide
-wins unless a project rule applies (table at the end of the MATLAB half).
+work from (Y7). Where the earlier conventions differ (those of the scripts in
+`adult_matlab/`, which keep them until they retire), the imaging guide wins
+unless a project rule applies (table at the end of the MATLAB half).
 
 ## Reference examples
 
@@ -242,7 +243,7 @@ Every file has one, local functions included: sentence case, short.
 
 ### Where the earlier conventions differ
 
-| topic | earlier (P8, P10) | here |
+| topic | earlier (`adult_matlab/`) | here |
 |---|---|---|
 | driver | `clear all`, `close all`, `clc` on three lines; `% /// Pipeline script #N ///` header; `%% User-defined parameters` | imaging: `clear; clc; close all;`, banner header, `%% Settings` |
 | settings | `snake_case` (imaging: `UPPER_CASE`), units at the line's end | earlier names (project rule); units in a comment above (imaging) |

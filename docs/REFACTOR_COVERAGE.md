@@ -1,6 +1,6 @@
 # Coverage of the retiring MATLAB analyses by the Python route
 
-This file describes the code before step 7 of the refactor (`v2_*.py` modules, constants in the code); the current names are in [refactor_name_map.csv](refactor_name_map.csv), the run order in the headers of `mapping/run_*.py`, and the constants in `mapping/settings.toml`.
+This file describes the code before step 7 of the refactor (`v2_*.py` modules, constants in the code); the current names are in [refactor_name_map.csv](refactor_name_map.csv), the run order in the headers of `mapping/run_*.py`, and the constants in `mapping/settings.toml`. P8, P9 and P10 are, since 4 October, `adult_matlab/run_characterize_distribution.m`, `run_compare_with_allen_ish.m` and `run_compare_nano_with_autofluorescence.m`.
 
 Evidence behind the section "Python route: what it must gain before P8, P9 and P10 retire" of [REFACTOR_PLAN.md](REFACTOR_PLAN.md). Every scientific output, test and option of P8, P9 and P10 was listed from the code and matched to the Python code that answers the same question (in spirit, not necessarily the same output). A second, independent check then read both sides of every item again, tried to refute each match, and looked for anything missed. Read-only throughout: nothing was run except small scripts reading existing tables (30 Sep 2026, code at 04c0484).
 

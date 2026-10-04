@@ -30,7 +30,7 @@ function inputaxh = plot_violinplot(inputadata, inputpars)
 %     ks_bandwidth        kernel bandwidth, in data units
 %     inputaxh            the axes to draw on
 %
-%   Used by P9_compare_nano_vs_allen_ish. Giulio, 2021.
+%   Used by run_compare_with_allen_ish. Giulio, 2021.
 
 % unpack the inputs
 inputdistrs = inputadata.inputdistrs;

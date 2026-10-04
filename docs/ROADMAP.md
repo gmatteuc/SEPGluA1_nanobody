@@ -20,7 +20,7 @@ data root, for checks on a copy only.
 1.  Merge the refactor (step 11)                       [next]
 2.  Rerun the production outputs with the merged code  [after 1]
 3.  A1 to A5 in the Python route (step 9)              [after 1; A1 first]
-4.  P8, P9 and P10 to archive/                         [once A1 to A5 answer their questions]
+4.  adult_matlab/ to archive/                          [once A1 to A5 answer its questions]
 5.  The remaining young brains                         [beside 3; into the Python route after A1]
       MG914's SEP channel, then MG896, MG906, MG895, then MG907, MG908
 6.  Young against adult across ages, P16 to P36        [once 5 is done]
@@ -175,20 +175,21 @@ production data:
 
 ## 3. The scientific additions A1 to A5 (step 9)
 
-The Python route does not yet answer everything P8, P9 and P10 answer. Of
-their 88 outputs and tests, 28 are covered (usually more rigorously), 26
-partly, 19 not at all; 4 were dropped by decision and 11 are file handling
+The Python route does not yet answer everything the three MATLAB analyses of
+`adult_matlab/` answer (P8, P9 and P10 in the plan). Of their 88 outputs and
+tests, 28 are covered (usually more rigorously), 26 partly, 19 not at all; 4
+were dropped by decision and 11 are file handling
 ([REFACTOR_COVERAGE.md](REFACTOR_COVERAGE.md), which also holds the
 specification of each addition; where it differs from the plan, the plan
 applies).
 
 | | addition | the question | replaces | what it moves |
 |---|---|---|---|---|
-| A1 | one declared structure set, written once to a table every analysis reads, and the `zref` reference taken from it | which structures enter, and a `zref` that depends only on the brain and a fixed list | P8's z-score and region set | every `zref` value, the young-against-adult differences of the grant figures included; the enrichment calls |
-| A2 | ISH quality control per section: failed sections flagged and set to missing, never interpolated; a reviewed list of genuine regional absence; the effect on the ranking reported | are the ISH structure means corrupted by failed or dim sections | P9's section repair | the gene ranks (an unreviewed scan flags 14 of 95 genes; Gria1 is clean) |
-| A3 | the gene ranking on A1's set and A2's tables, through one shared adult profile with a minimum-mice rule; ranking, roles, panel test, arms and words rerun; robustness to the statistic and to borders; a sensitivity table under three structure sets | which genes predict the adult map, on structures the cohort actually measures | P9's region set, metric comparison and headline ranking | Gria1's rank and the ISH numbers held back under S5 |
-| A4 | the adult distribution: every structure by division, per-mouse mean and SEM, reliability, the enrichment call, an eroded mean beside the plain one; for the young cohort on its own too | how the signal is distributed across the adult brain, and how reproducibly | P8's bar charts, tables and enrichment | the enrichment list (zero becomes the brain's median structure) |
-| A5 | autofluorescence as a parallel control per structure and division, and its own distribution | is the nano pattern its own signal, structure by structure | P10, and P8's `auto` run | P10's lists (the question is kept, not the output) |
+| A1 | one declared structure set, written once to a table every analysis reads, and the `zref` reference taken from it | which structures enter, and a `zref` that depends only on the brain and a fixed list | `run_characterize_distribution`'s z-score and region set | every `zref` value, the young-against-adult differences of the grant figures included; the enrichment calls |
+| A2 | ISH quality control per section: failed sections flagged and set to missing, never interpolated; a reviewed list of genuine regional absence; the effect on the ranking reported | are the ISH structure means corrupted by failed or dim sections | `run_compare_with_allen_ish`'s section repair | the gene ranks (an unreviewed scan flags 14 of 95 genes; Gria1 is clean) |
+| A3 | the gene ranking on A1's set and A2's tables, through one shared adult profile with a minimum-mice rule; ranking, roles, panel test, arms and words rerun; robustness to the statistic and to borders; a sensitivity table under three structure sets | which genes predict the adult map, on structures the cohort actually measures | `run_compare_with_allen_ish`'s region set, metric comparison and headline ranking | Gria1's rank and the ISH numbers held back under S5 |
+| A4 | the adult distribution: every structure by division, per-mouse mean and SEM, reliability, the enrichment call, an eroded mean beside the plain one; for the young cohort on its own too | how the signal is distributed across the adult brain, and how reproducibly | `run_characterize_distribution`'s bar charts, tables and enrichment | the enrichment list (zero becomes the brain's median structure) |
+| A5 | autofluorescence as a parallel control per structure and division, and its own distribution | is the nano pattern its own signal, structure by structure | `run_compare_nano_with_autofluorescence`, and the `auto` run of `run_characterize_distribution` | the lists of `run_compare_nano_with_autofluorescence` (the question is kept, not the output) |
 
 The decisions they rest on (S1 to S5 in the plan):
 
@@ -196,16 +197,18 @@ The decisions they rest on (S1 to S5 in the plan):
   with every dropped structure and the reason. The rule keeps 234 of 280
   structures; today 22 structures of the adult table are seen in fewer than
   five adults, mostly pons, medulla and midbrain, and their values do not
-  replicate across mice. P9's nine-division set is reported alongside.
+  replicate across mice. The nine-division set of
+  `run_compare_with_allen_ish` is reported alongside.
 - **S2, what "enriched" means.** Per structure, an exact signed-rank test of
   `zref` against the brain's median structure across mice, with
   Benjamini-Hochberg across structures beside the uncorrected p; the spatial
   null (A7) is the stronger version. At n = 10 the smallest two-sided exact p
-  is 1/512. Zero now means the median structure, not the voxel mean as in P8:
-  to agree with Sami El-Boustani before the figures are shown. If BH leaves
-  nothing standing, the correction is reconsidered together (a declared set
-  of structures from the grant: V1, S1, RL, AL, LI and the control regions;
-  tests at division level; the spatial null), not applied blindly.
+  is 1/512. Zero now means the median structure, not the voxel mean as in
+  `run_characterize_distribution`: to agree with Sami El-Boustani before the
+  figures are shown. If BH leaves nothing standing, the correction is
+  reconsidered together (a declared set of structures from the grant: V1, S1,
+  RL, AL, LI and the control regions; tests at division level; the spatial
+  null), not applied blindly.
 - **S3, nano against autofluorescence.** Two-sided tests on centred
   contrasts of the per-mouse log2 nano and autofluorescence structure means,
   never the stored `ratio` reading, whose level depends on exposure; each
@@ -226,39 +229,47 @@ numbers marked provisional in [SCIENTIFIC_CONTEXT.md](SCIENTIFIC_CONTEXT.md)
 and [adult_ish_design.md](adult_ish_design.md) are corrected in the same
 step.
 
-## 4. Retiring P8, P9 and P10
+## 4. Retiring the MATLAB adult analyses
 
 A MATLAB analysis retires when the Python route answers the same scientific
 question, not necessarily with the same output. Once A1 to A5 are in:
 
-- `P8_characterize_merged_distribution.m`, `P9_compare_nano_vs_allen_ish.m`,
-  `P10_compare_nano_vs_auto.m` and `plot_violinplot.m` (used by P9 only) move
-  to `archive/`; the override `SEP_MERGE_SPECS` goes with P8.
+- The three scripts of `adult_matlab/`, P8 to P10 until 4 October
+  (`run_characterize_distribution`, `run_compare_with_allen_ish` and
+  `run_compare_nano_with_autofluorescence`), and `plot_violinplot.m` (used by
+  `run_compare_with_allen_ish` only) move to `archive/`; the override
+  `SEP_MERGE_SPECS` goes with `run_characterize_distribution`.
 - Their outputs in `comparisons\` stay where they are, frozen, as what the
   additions were compared with (`merged_naive_rws_nano\`,
   `merged_naive_rws_auto\`, the `merged_naive_rws_vs_ish_*` folders,
-  `nano_vs_auto\`). P9's `gene_panel_summary.csv` stays an input of
-  `run_ish_compare` (the old-against-new ranking check).
+  `nano_vs_auto\`). The `gene_panel_summary.csv` of
+  `run_compare_with_allen_ish` stays an input of `run_ish_compare` (the
+  old-against-new ranking check).
 - Giulio checks the Python route against the old code, run from the tag
   `refactor-start` in its own check tree; then `archive/` is deleted (L2), the
   tag keeping the files.
 
-Differences from P8 to P10 caused by their own defects are expected, not
-errors of the additions:
+Differences from the three scripts caused by their own defects are expected,
+not errors of the additions:
 
-- P8's adult outputs carry an artefact of the `abs()` over slabs: P6bis was
-  not rerun after the raw-zero fix.
-- P9 stretched the 200 um ISH grid onto the atlas box (a 1.5 to 2.5% scale
-  error); its missing-data value was interpolated and clamped to 0; the
-  off-reference Olig2 and Calb2 grids were stretched.
-- P9's section repair "repaired" a true absence of expression (Slc17a6) and
+- The adult outputs of `run_characterize_distribution` carry an artefact of
+  the `abs()` over slabs: `run_normalise_groups` was not rerun after the
+  raw-zero fix.
+- `run_compare_with_allen_ish` stretched the 200 um ISH grid onto the atlas
+  box (a 1.5 to 2.5% scale error); its missing-data value was interpolated
+  and clamped to 0; the off-reference Olig2 and Calb2 grids were stretched.
+- Its section repair "repaired" a true absence of expression (Slc17a6) and
   copied the last good section over posterior planes (Cacng8).
-- P8's and P10's autofluorescence came from a stale `auto_4d.mat` that the
-  collect step no longer writes; P10's inputs mix caches of two dates.
-- P10's Bonferroni over structures cannot reject at n = 10; P9's category
-  ANOVA was anticonservative.
-- P8's reliability bars run from white, so the least reliable structures are
-  white bars on white; A4 does not copy the scale.
+- The autofluorescence of `run_characterize_distribution` and
+  `run_compare_nano_with_autofluorescence` came from a stale `auto_4d.mat`
+  that the collect step no longer writes; the inputs of
+  `run_compare_nano_with_autofluorescence` mix caches of two dates.
+- The Bonferroni of `run_compare_nano_with_autofluorescence` over structures
+  cannot reject at n = 10; the category ANOVA of `run_compare_with_allen_ish`
+  was anticonservative.
+- The reliability bars of `run_characterize_distribution` run from white, so
+  the least reliable structures are white bars on white; A4 does not copy the
+  scale.
 
 ## 5. The remaining young brains
 
@@ -349,7 +360,7 @@ P36 added, the question becomes a trajectory:
   computed: staining batch and section quality are not recorded in the
   cohort table.
 
-## 7. A6 to A10, after P8 to P10 retire
+## 7. A6 to A10, after the MATLAB adult analyses retire
 
 | | addition | priority |
 |---|---|---|
@@ -666,8 +677,9 @@ For the reasons, see the plan and the documents named.
 
 - [REFACTOR_PLAN.md](REFACTOR_PLAN.md): the refactor, its decisions, bug list
   and progress.
-- [REFACTOR_COVERAGE.md](REFACTOR_COVERAGE.md): P8 to P10 item by item, and
-  the specification of A1 to A10.
+- [REFACTOR_COVERAGE.md](REFACTOR_COVERAGE.md): the MATLAB adult analyses (P8
+  to P10, now `adult_matlab/`) item by item, and the specification of A1 to
+  A10.
 - [SCIENTIFIC_CONTEXT.md](SCIENTIFIC_CONTEXT.md): the questions, the results,
   the grant, the papers.
 - [FIGURES.md](FIGURES.md): which script makes each figure.

@@ -1,16 +1,39 @@
+%% run_compare_nano_with_autofluorescence
+% ===== Nano against autofluorescence, structure by structure =====
+%
+% Adult analyses in MATLAB, 3 scripts:
+%   1. run_characterize_distribution           pooled map and region bars
+%   2. run_compare_with_allen_ish              nano map against Allen ISH
+%   3. run_compare_nano_with_autofluorescence  nano against autofluorescence  <- this script
+% Step 1 runs once per channel, 'nano' and 'auto'; steps 2 and 3 read its outputs,
+% in either order. Kept until A5 of the Python route replaces it
+% (docs/ROADMAP.md, sections 3 and 4).
+%
+% Pairs the structure means of the two channels in each mouse (step 1's per-mouse
+% means, distance-weighted or eroded) and asks, per structure, whether nano is
+% higher than autofluorescence across mice: a one-sided paired signed-rank test on
+% the means, and one on the contrast after z-scoring each channel over its own
+% brain (nano z minus autofluorescence z). The same per division, its structures
+% pooled with weights by their eroded size. Bonferroni over the structures tested
+% is optional; the labels of the structures that pass are orange. The bars show
+% each mouse as a dot, the two channels of a mouse joined by a line.
+%
+% Reads, from comparisons\merged_naive_rws_nano\ and merged_naive_rws_auto\,
+% per_mouse_region_means_*.mat, mean_lr_sum_*.mat and the region masks
+% roi_masks_r3_pw4_slices100-700.mat. Writes to comparisons\nano_vs_auto\: the
+% p values per structure and per division (NanoVsAuto_*_signrank_*.csv), the paired
+% and the delta-z bars per structure and per division (Region_NanoVsAuto_*,
+% Macro_NanoVsAuto_*), and a video of the voxelwise z contrast
+% (Contrast_video_NanoMinusAuto_z_*.mp4).
+%
+% Setup: the adults, naive and rws pooled, no smoothing, uncorrected, as in May
+% 2026 (docs/FIGURES.md). Its autofluorescence is a stack of an earlier
+% registration (docs/ROADMAP.md, section 4). Run sep_setup_paths first, once per
+% MATLAB session.
+
 clear all
 close all
 clc
-
-% /// Pipeline script #10: side-by-side nano vs autofluorescence comparison ///
-% Loads the per-mouse-per-region matrices that P8 cached for each channel and:
-%   (1) Plots grouped horizontal bars (nano + auto) per region, by DIVI macro
-%   (2) Overlays per-mouse dots and connects paired (same-mouse) dots
-%       with thin gray lines so the paired structure is visible
-%   (3) Runs paired Wilcoxon signed-rank test (signrank) per region
-%   (4) Optionally applies Bonferroni correction across regions tested
-%   (5) Highlights region labels in bright orange when the test passes
-%   (6) Saves a CSV with per-region p-values for inspection
 
 %% User-defined parameters
 
@@ -40,7 +63,8 @@ alpha            = 0.05;     % significance threshold (per-region or family-wise
 show_per_mouse_dots = true;
 show_paired_lines   = true;
 sort_regions_by     = 'nano';   % 'nano' | 'auto' | 'diff' (nano - auto)
-% Macros (DIVI list) — drives panel grid, must match P8's order.
+% Macros (DIVI list) — drives panel grid, must match the order of
+% run_characterize_distribution.
 macro_divi_list = {'Isocortex','OLF','HPF','CTXsp','STR','PAL','TH','HY','MB'};
 
 % Which figures / outputs to produce (turn any off to skip)
@@ -55,7 +79,7 @@ nano_color      = [0.95 0.55 0.10];   % strong orange (nano bar fill)
 auto_color      = [0.95 0.85 0.20];   % yellow (auto bar fill)
 nano_dot_color  = [0.65 0.30 0.00];   % darker orange (per-mouse dots)
 auto_dot_color  = [0.70 0.60 0.00];   % darker yellow (per-mouse dots)
-sig_label_color = [0.85 0.50 0.00];   % orange used in P8 enriched-label highlight
+sig_label_color = [0.85 0.50 0.00];   % orange of run_characterize_distribution's enriched labels
 paired_line_color = [0.6 0.6 0.6];    % gray for paired-mouse connectors
 
 %% Load per-mouse caches
@@ -224,7 +248,7 @@ fprintf('Saved delta-z table: %s\n', fullfile(out_dir, [csv_name_dz '.csv']));
 
 %% Load ROI mask cache for region pixel counts (used to weight macro pooling)
 
-masks_filename = 'roi_masks_r3_pw4_slices100-700.mat';   % default geometry tag from P8/P9
+masks_filename = 'roi_masks_r3_pw4_slices100-700.mat';   % default geometry tag of steps 1 and 2
 masks_path = fullfile(nano_dir, masks_filename);
 if ~exist(masks_path, 'file')
     masks_path = fullfile(auto_dir, masks_filename);
@@ -338,7 +362,8 @@ for pi = 1:n_macros_present
     auto_n      = sum(~isnan(sub_auto_pm), 1);
     auto_sem_v  = std(sub_auto_pm, 0, 1, 'omitnan') ./ sqrt(max(auto_n, 1));
 
-    % Drop regions with no data in either channel (matches P8's keep filter
+    % Drop regions with no data in either channel (matches the keep filter of
+    % run_characterize_distribution,
     % so empty rows don't clutter the panel with bare labels).
     keep = ~isnan(nano_mean_v) & ~isnan(auto_mean_v);
     sub_acro    = sub_acro(keep);
@@ -666,7 +691,8 @@ end   % end of if produce_deltaz_per_macro
 if produce_contrast_video
 fprintf('Generating voxelwise z-contrast video...\n');
 
-% Use the cohort z-scored volumes already cached by P8 (zscore_in_mask).
+% Use the cohort z-scored volumes already cached by run_characterize_distribution
+% (zscore_in_mask).
 % Each is z-scored within its own channel's brain mask, so the
 % subtraction is a delta-z per voxel.
 z_nano = S_nano_c.zscore_lr_sum;
@@ -737,9 +763,9 @@ end   % end of if produce_contrast_video
 fprintf('P10 done. Outputs in: %s\n', out_dir);
 
 %% Local function: highlight significant region labels in orange-bold
-% Mirrors P8's highlight_enriched_labels but takes an explicit color so the
-% intent (significant test result) is decoupled from the threshold-based
-% enrichment used in P8.
+% Mirrors highlight_enriched_labels of run_characterize_distribution but takes an
+% explicit color so the intent (significant test result) is decoupled from the
+% threshold-based enrichment used there.
 
 function highlight_significant_labels(ax_handle, acro_list, sig_mask, fontsize, sig_color)
     yticklabels(ax_handle, acro_list);

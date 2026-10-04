@@ -198,7 +198,7 @@ The absolute t rises in 89 to 96% of the voxels shown, by a median factor of
 unchanged. The `subref` volumes and video change with the `subref` fix. A1
 changes every `zref` value.
 
-### P8 and P10, until A4 and A5 replace them
+### The MATLAB distribution and autofluorescence control, until A4 and A5 replace them
 
 The bar charts shown to Sami El-Boustani in April and May 2026, rerun on
 4 September 2026, are in `<data>\comparisons\merged_naive_rws_nano\`:
@@ -210,8 +210,9 @@ The bar charts shown to Sami El-Boustani in April and May 2026, rerun on
 - `lr_sum_nano_*.mp4`, `lr_sum_zscore_*.mp4`, `lr_sum_threshold_*.mp4`: the
   pooled map plane by plane, raw, z-scored, and with the enrichment contour.
 
-Made by `P8_characterize_merged_distribution.m` from the normalised volumes
-of naive and rws (`run_normalise_groups`). Settings: `groups_to_merge =
+Made by `adult_matlab/run_characterize_distribution.m`
+(`P8_characterize_merged_distribution.m`) from the normalised volumes of
+naive and rws (`run_normalise_groups`). Settings: `groups_to_merge =
 {'naive', 'rws'}`, `channel`, `apply_smoothing = false`, `region_agg_method =
 'distweight'` with `dist_weight_power = 4`, planes 100 to 700, the enrichment
 thresholds (`raw_threshold = 1.5`, `zscore_threshold = 0`),
@@ -222,14 +223,17 @@ The autofluorescence control, `<data>\comparisons\nano_vs_auto\` (May 2026):
 `Region_NanoVsAuto_BarByMacro_*`, `Region_NanoVsAuto_DeltaZ_BarByMacro_*`,
 `Macro_NanoVsAuto_Paired_*`, `Macro_NanoVsAuto_DeltaZ_*`, their signed-rank
 tables, and `Contrast_video_NanoMinusAuto_z_nosmooth.mp4`. Made by
-`P10_compare_nano_vs_auto.m` from P8's per-mouse caches of both channels.
+`adult_matlab/run_compare_nano_with_autofluorescence.m`
+(`P10_compare_nano_vs_auto.m`) from the per-mouse caches of both channels
+that `run_characterize_distribution` wrote.
 Settings: `agg_method = 'distweight'`, `apply_bonferroni = false`,
 `alpha = 0.05`, one-sided paired signed-rank tests.
 
 These outputs carry the known defects of the retiring route
-([ROADMAP.md](ROADMAP.md), section 4): the slab artefact of P8's `abs()`, the
-stale autofluorescence of P8's `auto` run and of P10, reliability bars that
-start at white. They are not quoted.
+([ROADMAP.md](ROADMAP.md), section 4): the slab artefact of the `abs()` in
+`run_characterize_distribution`, the stale autofluorescence of its `auto` run
+and of `run_compare_nano_with_autofluorescence`, reliability bars that start
+at white. They are not quoted.
 
 ## What the map measures
 
@@ -280,29 +284,30 @@ A3 do not move this result.
 ### The ISH comparison
 
 No presentation of the ISH work exists. The outputs of record are those of
-P9's final run, and the Python route's.
+the final run of the MATLAB comparison, and the Python route's.
 
-**P9 (21 and 22 April 2026), until A1 to A3 replace it.**
+**`adult_matlab/run_compare_with_allen_ish.m` (`P9_compare_nano_vs_allen_ish.m`;
+21 and 22 April 2026), until A1 to A3 replace it.**
 `<data>\comparisons\merged_naive_rws_vs_ish_summary_nosmooth\`:
 `correlation_barchart_4metrics.png`, `violin_spearman_dw.png`,
 `violin_spearman_ero.png`, `violin_voxel_pearson.png`,
 `correlation_eroded_vs_distweight.png`, and the ranking `gene_panel_summary.csv`;
 one folder per gene, `merged_naive_rws_vs_ish_<gene>_nosmooth\`, with
 `Scatter_NanoVsISH_<gene>.png`, the paired bars, the comparison video and
-two diagnostic sheets. Made by `P9_compare_nano_vs_allen_ish.m` from P8's
-cohort cache, `<data>\gene_targets.csv` (the 100-gene panel) and the Allen
-grids in `<data>\atlas_ish\`. Settings: the nine divisions, erosion radius 3,
-distance-weight power 4, planes 100 to 700. These folders have no channel in
-their names: they predate it, and today's P9 would write
-`merged_naive_rws_nano_vs_ish_*`. They carry P9's defects (the stretched
-grid, the section repair).
+two diagnostic sheets. Made from the cohort cache of
+`run_characterize_distribution`, `<data>\gene_targets.csv` (the 100-gene
+panel) and the Allen grids in `<data>\atlas_ish\`. Settings: the nine
+divisions, erosion radius 3, distance-weight power 4, planes 100 to 700.
+These folders have no channel in their names: they predate it, and a rerun
+writes `merged_naive_rws_nano_vs_ish_*`. They carry the script's defects
+(the stretched grid, the section repair).
 
 **Python route (25 and 26 September 2026).** In `<data>\adult_v2\ish\`
 unless stated:
 
 | figure | made by | what it shows |
 |---|---|---|
-| `ish_old_vs_new.png` | `mapping/run_ish_compare.py` | each gene's rho against P9's (reads P9's `gene_panel_summary.csv`) |
+| `ish_old_vs_new.png` | `mapping/run_ish_compare.py` | each gene's rho against the MATLAB one (reads the `gene_panel_summary.csv` of `run_compare_with_allen_ish`) |
 | `ish_word_enrichment.png` | `mapping/run_ish_words.py` | annotation words and GO terms at the top of the ranking |
 | `ish_roles.png` | `mapping/run_ish_roles.py` | subunit against localisation genes, with the exact permutation |
 | `ish_reliability.png` | `mapping/run_ish_reliability.py --panel ontology` | how reliable one Allen ISH map is, from genes measured twice |
@@ -496,10 +501,12 @@ Across brains:
   attempt (4 September 2026, three P20 brains), made by five Python scripts now
   in `archive/` (`compare_young_vs_adult_lrsum.py` and the others); replaced by
   the Python route.
-- `<data>\comparisons\merged_young_P20_nano\`: P8 run on the P20 brains
-  (`SEP_MERGE_SPECS=young_P20`); replaced by the Python route, and later by
-  A4's young cohort.
-- `<data>\comparisons\merged_naive_rws\`: P8's earlier nano run, before the
-  channel entered its folder names; `merged_naive_rws_nano\` is the later one.
-- The `Diagnostic_DistWeight_*` sheets in P8's folders: dropped by decision
-  (29 September), not rebuilt.
+- `<data>\comparisons\merged_young_P20_nano\`: `run_characterize_distribution`
+  (P8) run on the P20 brains (`SEP_MERGE_SPECS=young_P20`); replaced by the
+  Python route, and later by A4's young cohort.
+- `<data>\comparisons\merged_naive_rws\`: the earlier nano run of
+  `run_characterize_distribution`, before the channel entered its folder
+  names; `merged_naive_rws_nano\` is the later one.
+- The `Diagnostic_DistWeight_*` sheets in the folders of
+  `run_characterize_distribution`: dropped by decision (29 September), not
+  rebuilt.

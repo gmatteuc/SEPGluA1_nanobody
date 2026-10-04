@@ -10,8 +10,9 @@ indexes. Three things still have to happen before MATLAB can use one:
                although they hold 20 um data. The real resolution lives in
                get_atlas (res_um) and in each mouse's local_settings.txt.
     ID space   BrainGlobe ships Allen structure ids; everything downstream here
-               (get_allen_region_mask, run_collect_by_group, P8) resolves regions
-               through parcellation_index. The two collide numerically without
+               (get_allen_region_mask, run_collect_by_group,
+               run_characterize_distribution) resolves regions through
+               parcellation_index. The two collide numerically without
                meaning the same thing, so the annotation is remapped. The
                original is kept beside it as annotation_structureids_original.nii.gz.
     AP crop    the adult brains are cropped to CCF planes [180 1079]; the same

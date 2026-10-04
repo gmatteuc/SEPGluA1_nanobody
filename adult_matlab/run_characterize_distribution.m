@@ -1,16 +1,44 @@
+%% run_characterize_distribution
+% ===== Where the signal of one channel lies across the pooled adult brain =====
+%
+% Adult analyses in MATLAB, 3 scripts:
+%   1. run_characterize_distribution           pooled map and region bars  <- this script
+%   2. run_compare_with_allen_ish              nano map against Allen ISH
+%   3. run_compare_nano_with_autofluorescence  nano against autofluorescence
+% Step 1 runs once per channel, 'nano' and 'auto'; steps 2 and 3 read its outputs,
+% in either order. Kept until A1 and A4 of the Python route replace it
+% (docs/ROADMAP.md, sections 3 and 4).
+%
+% Pools the normalised volumes of some cohorts (run_normalise_groups) into one:
+% each cohort after the first is aligned onto the first with a line fitted to the
+% mean tissue intensity of each plane, then all are divided by one common factor.
+% Each mouse is folded onto the left hemisphere (left plus mirrored right); per
+% voxel, the cohort mean of the sum, its reliability t (mean / SEM) and its
+% z-score over the brain in planes 100 to 700. Per structure (the finest
+% structures of nine divisions of the Allen ontology), a distance-weighted or
+% eroded mean, the enrichment call against raw_threshold and zscore_threshold,
+% and with compute_per_mouse_sem the mean of each mouse and the SEM.
+%
+% Reads <group>\<channel>_4d_normalized<tag>.mat and its _bkgmask file for each
+% cohort. Writes to comparisons\merged_<cohorts>_<channel>\: mean_lr_sum_*.mat
+% (the cohort map, read by steps 2 and 3), Region_MeanSum_Table_* (.csv, .mat),
+% per_mouse_region_means_*.mat (read by step 3), the region masks roi_masks_*.mat,
+% the bar charts by division and across divisions (raw and z-scored, with and
+% without the SEM), the videos of the map (mean and t; raw and z-scored, with the
+% enrichment contour) and the distance-weight sheets of adult plane 620. Caches
+% are reused when present; force_recompute_masks recomputes the label positions,
+% the region table and the per-mouse means.
+%
+% Setup: the adults, naive and rws pooled (behavior left out, its data being
+% noisy), nano, no smoothing, as in the bar charts of April and May 2026
+% (docs/FIGURES.md). channel = 'auto' gives the control step 3 reads, from an
+% autofluorescence stack of an earlier registration (docs/ROADMAP.md, section 4).
+% SEP_MERGE_SPECS in the environment replaces groups_to_merge (young_P20 for the
+% P20 brains). Run sep_setup_paths first, once per MATLAB session.
+
 clear all
 close all
 clc
-
-% /// Pipeline script #8: characterize pooled distribution of a signal channel ///
-% Channel is configurable via the `channel` parameter ('nano' = surface GluA1,
-% 'auto' = autofluorescence control). Pools mice across groups (default:
-% naive + rws) into one merged cohort, computes the hemispheric SUM of the
-% chosen channel, and produces:
-%   (1) a merged-group LR-sum video (+ reliability t-score panel)
-%   (2) per-mouse LR-sum videos
-%   (3) a regional bar chart ranked by MEAN sum intensity per Allen region
-% behavior mice are excluded (noisy data).
 
 %% User-defined parameters
 
@@ -21,7 +49,7 @@ paths = get_paths();
 % Cohorts to pool, as specs (see get_cohort_spec): adult groups by name, or
 % the young group with an age, e.g. {'young_P20'}. The first is the reference
 % -- the others get linearly aligned to it via per-slice profile polyfit, as
-% in P7bis. All must share one atlas; a single cohort is fine.
+% in run_group_differences. All must share one atlas; a single cohort is fine.
 groups_to_merge = {'naive', 'rws'};
 % Batch runs can pick the cohorts without editing this file:
 %   set SEP_MERGE_SPECS=young_P20   (comma-separated for several)
@@ -29,7 +57,7 @@ if ~isempty(getenv('SEP_MERGE_SPECS'))
     groups_to_merge = strtrim(strsplit(getenv('SEP_MERGE_SPECS'), ','));
 end
 
-% Smoothing (match P7bis)
+% Smoothing (match run_group_differences)
 apply_smoothing = false;
 smooth_sigma    = 5.0;
 
@@ -115,7 +143,7 @@ else
     smooth_suffix = '_nosmooth';
 end
 
-%% Allen atlas setup (identical to P7bis lines 66-77)
+%% Allen atlas setup (as in run_group_differences)
 
 % Resolve the cohorts, and take the atlas from them: the adults are on the
 % CCF, the P20 brains on DeMBA, each on the grid of its registered volumes.
@@ -156,7 +184,8 @@ for gi = 1:G
     gdir  = specs{gi}.base_dir;
     fprintf('Loading cohort %s (channel=%s) ...\n', gname, channel);
 
-    % P6bis writes an age-filtered cohort with the same tag P5 used
+    % run_normalise_groups writes an age-filtered cohort with the same tag
+    % run_collect_by_group used
     norm_filename    = [channel '_4d_normalized' specs{gi}.tag '.mat'];
     bkgmask_filename = [channel '_4d_normalized_bkgmask' specs{gi}.tag '.mat'];
     S_vol  = load(fullfile(gdir, norm_filename), norm_var_name, 'current_mice');
@@ -168,7 +197,7 @@ for gi = 1:G
     if isfield(S_vol, 'current_mice') && ~isempty(S_vol.current_mice)
         mouse_names_per_group{gi} = S_vol.current_mice;
     else
-        % Fallback: synthetic names if P6bis didn't save current_mice
+        % Fallback: synthetic names if run_normalise_groups didn't save current_mice
         n_m = size(raw_vols{gi}, 4);
         mouse_names_per_group{gi} = arrayfun( ...
             @(k) sprintf('%s_m%d', gname, k), 1:n_m, 'UniformOutput', false);
@@ -196,7 +225,7 @@ for gi = 1:G
     med_profiles{gi} = med_prof;
 end
 
-%% NaN-tolerant 3D Gaussian smoothing (per-mouse, match P7bis)
+%% NaN-tolerant 3D Gaussian smoothing (per-mouse, match run_group_differences)
 
 if apply_smoothing
     fprintf('Applying NaN-robust 3D Gaussian smoothing (sigma = %.1f)...\n', smooth_sigma);
@@ -248,7 +277,7 @@ for gi = 1:G
     norm_profiles{gi} = med_profiles{gi} .* slope + intercept;
 end
 
-%% Compute a common median factor (unit scaling, match P7bis lines 206-211)
+%% Compute a common median factor (unit scaling, as in run_group_differences)
 
 interest_region_bis = unique(round((300:500) * ap_scale));
 fact_list = zeros(G, 1);
@@ -280,7 +309,7 @@ sem_lr_sum = nanstd(abs(lr_sum_merged), [], 4) ./ ...
 sem_lr_sum(sem_lr_sum == 0) = NaN;
 t_lr_sum = mean_lr_sum ./ sem_lr_sum;
 
-%% Build hemisphere masks (match P7bis lines 281-295)
+%% Build hemisphere masks (as in run_group_differences)
 
 n_half = size(lr_sum_merged, 3);
 n_full = size(raw_mask_4d_merged, 3);
@@ -295,7 +324,8 @@ brainMask_merged  = brainMask_cropped & tissue_3d_merged;  % 3D cohort hemi mask
 
 %% Whole-volume z-scoring
 % Compute z-score of the mean LR-sum across all brain voxels within the
-% analysis slice range (consistent with P9). This gives a principled scale
+% analysis slice range (consistent with run_compare_with_allen_ish). This gives
+% a principled scale
 % where zscore_threshold (default 2) = "N SD above brain-wide mean".
 
 brainMask_analysis = brainMask_merged;
@@ -312,10 +342,10 @@ fprintf('  Voxels above z=%g threshold: %d (%.1f%%)\n', ...
     nnz(zscore_lr_sum > zscore_threshold & brainMask_analysis), ...
     100 * nnz(zscore_lr_sum > zscore_threshold & brainMask_analysis) / nnz(brainMask_analysis));
 
-%% Cache merged nano outputs for downstream scripts (P9 ISH comparison, ...)
+%% Cache merged nano outputs for downstream scripts (run_compare_with_allen_ish, ...)
 % Persist the merged half-width mean LR-sum, the reliability t-score, and
 % the cohort brain mask so scripts downstream can load them in <1 s instead
-% of rerunning the full P8 pipeline. Saved in out_dir with the merged tag
+% of rerunning this script. Saved in out_dir with the merged tag
 % + smooth suffix in the filename so nosmooth and smoothed runs coexist.
 
 half_width = n_half;  % alias — downstream scripts expect this name
@@ -634,9 +664,10 @@ if generate_region_barchart && ~isempty(roi_list)
         roi_erode_radius, dist_weight_power, ...
         analysis_slice_range(1), analysis_slice_range(2)));
 
-    % A cohort analysed for the first time has no sparse mask cache yet -- P9
-    % used to be the only thing that built it, and the per-mouse block below
-    % cannot run without it. Build it here, in exactly the form P9 writes, so
+    % A cohort analysed for the first time has no sparse mask cache yet --
+    % run_compare_with_allen_ish used to be the only thing that built it, and the
+    % per-mouse block below cannot run without it. Build it here, in exactly the
+    % form run_compare_with_allen_ish writes, so
     % either script can be first. A cohort that already has one (the adults,
     % since May) never enters this branch and is unaffected.
     if ~exist(masks_cache_path, 'file')
@@ -680,7 +711,7 @@ if generate_region_barchart && ~isempty(roi_list)
             end
             if mod(r, 50) == 0, fprintf('    %d/%d masks done\n', r, n_rois); end
         end
-        roi_px_raw = roi_px_raw_c; roi_px_ero = roi_px_ero_c;   %#ok<NASGU>  the names P9 saves
+        roi_px_raw = roi_px_raw_c; roi_px_ero = roi_px_ero_c;   %#ok<NASGU>  the names run_compare_with_allen_ish saves
         save(masks_cache_path, 'roi_indices', 'roi_weights_dw', 'roi_indices_ero', ...
             'roi_px_raw', 'roi_px_ero', 'roi_list', 'roi_acronyms', 'roi_macro', '-v7.3');
         fprintf('  ROI masks cached: %s\n', masks_cache_path);
@@ -1008,7 +1039,8 @@ end
 
 %% Per-mouse + SEM barplots (additive, gated by compute_per_mouse_sem)
 % Loops the per-mouse 4D LR-sum already in memory (lr_sum_merged), uses the
-% cached sparse ROI masks built by P9, and produces _withSEM variants of
+% cached sparse ROI masks (built above, or by run_compare_with_allen_ish), and
+% produces _withSEM variants of
 % all four barplots (BarByMacro raw/z, BarAcrossDivi raw/z) with mean +/-
 % SEM errorbars and optional per-mouse dots. The small per-mouse-per-region
 % matrix is cached so figure tweaks don't re-loop the 4D.
@@ -1363,7 +1395,7 @@ if generate_zscore_video
         label_enriched_z   = false(numel(label_acronyms), 1);
     end
 
-    % Adaptive clim for raw volume (P9 style)
+    % Adaptive clim for raw volume (as in run_compare_with_allen_ish)
     data_bv = mean_lr_sum(brainMask_merged & ~isnan(mean_lr_sum));
     raw_clim = [prctile(data_bv, 5), prctile(data_bv, 90)];
     fprintf('Raw video clim (p5-p90): [%.2f, %.2f]\n', raw_clim(1), raw_clim(2));
@@ -1960,7 +1992,7 @@ function write_volume_threshold_video(display_vol, threshold_vol, atlas_vol, bra
 %   show_threshold — true = cyan contour around above-threshold voxels
 %   label_enriched — logical vector (n_rois x 1): true = show label in cyan
 %
-% Uses percentile-based clim (computed by caller, matching P9 style).
+% Uses percentile-based clim (computed by caller, as in run_compare_with_allen_ish).
 
     if ~exist(save_dir, 'dir'), mkdir(save_dir); end
     full_video_path = fullfile(save_dir, video_filename);

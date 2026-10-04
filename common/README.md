@@ -10,12 +10,12 @@ once per session).
 |---|---|---|
 | `cohort.csv` | the cohort table: one row per mouse, with its group, age in days, the subfolder of its raw files on the share, and its cohort and order in the Python route | `get_cohort`; `mapping/sepmap/config.py` |
 | `get_cohort.m` | every mouse of the table, or the mice of some groups, or named mice, each with its folder under the data root; `get_cohort('verify')` checks the adults' order | every MATLAB driver that takes mice |
-| `get_cohort_spec.m` | a cohort name (`'naive'`, `'young_P20'`) into its mice, its stack files and its atlas | `run_normalise_groups`, `collect_by_group`, P8 |
+| `get_cohort_spec.m` | a cohort name (`'naive'`, `'young_P20'`) into its mice, its stack files and its atlas | `run_normalise_groups`, `collect_by_group`, `run_characterize_distribution` |
 | `loadVolume.m` | read a multi-page TIFF, or a folder of TIFFs, into an H x W x n array | `run_residual_correction`, `run_register_to_atlas`, `run_collect_by_group` |
-| `compute_lr_stats.m` | left minus mirrored right, and left plus mirrored right, of a volume | `run_group_differences`, P8, P9 |
+| `compute_lr_stats.m` | left minus mirrored right, and left plus mirrored right, of a volume | `run_group_differences`, `run_characterize_distribution`, `run_compare_with_allen_ish` |
 | `select_background_pixels.m` | the background pixels of one slice image, at the knee of its percentile curve | `run_nano_equalisation`, `run_normalise_groups`, `select_reference_pixels` |
 | `sep_palette.m` | the project's colours and colormaps, by name (what each is for: `docs/STYLE.md`, Figures) | the figures of every MATLAB pipeline |
-| `get_color2color_colormap.m` | a diverging colormap from one colour through white to another | `sep_palette`, the difference maps, P8, P9 |
+| `get_color2color_colormap.m` | a diverging colormap from one colour through white to another | `sep_palette`, the difference maps, `run_characterize_distribution`, `run_compare_with_allen_ish` |
 
 ## The cohort table
 

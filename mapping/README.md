@@ -170,7 +170,8 @@ the ISH tables, the API answers and the grids.
   (`mapping_cohort` `young_P28` and so on) goes through the per-brain steps,
   but no cohort takes it until one is added (see `../docs/ADDING_DATA.md`,
   step 4).
-- The route does not yet answer everything P8, P9 and P10 answer (enrichment
-  calls per structure, the autofluorescence control per structure: A4, A5),
-  so those three stay at the code root until it does.
+- The route does not yet answer everything the MATLAB scripts of
+  `../adult_matlab/` answer (enrichment calls per structure, the
+  autofluorescence control per structure: A4, A5), so they keep running
+  until it does.
 - There are no tests of this package yet.

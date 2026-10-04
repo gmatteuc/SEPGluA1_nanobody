@@ -1,17 +1,45 @@
+%% run_compare_with_allen_ish
+% ===== The pooled nano map against the Allen ISH maps, gene by gene =====
+%
+% Adult analyses in MATLAB, 3 scripts:
+%   1. run_characterize_distribution           pooled map and region bars
+%   2. run_compare_with_allen_ish              nano map against Allen ISH  <- this script
+%   3. run_compare_nano_with_autofluorescence  nano against autofluorescence
+% Step 1 runs once per channel, 'nano' and 'auto'; steps 2 and 3 read its outputs,
+% in either order. Kept until A1 to A3 of the Python route replace it
+% (docs/ROADMAP.md, sections 3 and 4).
+%
+% For each gene of gene_targets.csv: the Allen ISH energy grid (200 um), downloaded
+% once into atlas_ish\; the sections whose median falls below 0.3 of the gene's
+% median section, or that are empty, repaired from their neighbours; the grid
+% resized onto the 10 um CCF and folded onto the left hemisphere (left plus
+% mirrored right), as the map was; map and gene each z-scored over the brain in
+% planes 100 to 700. Per structure (the finest structures of nine divisions),
+% eroded and distance-weighted means of both, and their Spearman and Pearson
+% correlations across structures, with a voxel Pearson beside them. After the
+% loop, the genes ranked by the distance-weighted Spearman, with summary figures.
+% Its known defects (the resized grid, the section repair): docs/ROADMAP.md,
+% section 4.
+%
+% Reads step 1's map, comparisons\merged_naive_rws_<channel>\mean_lr_sum_*.mat,
+% and builds the region masks and label positions there when they are missing.
+% Writes per gene, to comparisons\merged_naive_rws_<channel>_vs_ish_<gene>_nosmooth\:
+% gene_result_<gene>.mat, ish_lr_sum_<gene>.mat, Region_NanoVsISH_Table_<gene>.csv,
+% the scatter, the paired bars, the comparison video and two diagnostic sheets; a
+% gene whose two .mat files exist is skipped. The summary, to
+% comparisons\merged_naive_rws_<channel>_vs_ish_summary_nosmooth\:
+% gene_panel_summary.csv and .mat, the correlation bars and the violins.
+%
+% Setup: the adults, naive and rws pooled, nano, no smoothing, the 100-gene panel;
+% runs unattended, overnight for about 50 genes. Its run of 21 and 22 April 2026,
+% from before the channel entered the folder names, is in
+% comparisons\merged_naive_rws_vs_ish_*; mapping/run_ish_compare.py reads its
+% gene_panel_summary.csv. Run sep_setup_paths first, once per MATLAB session; the
+% violins are drawn by plot_violinplot, at the code root.
+
 clear all
 close all
 clc
-
-% /// Pipeline script #9: batch comparison of LR-sum (nano or auto) vs Allen ISH ///
-% Reads gene_targets.csv, loops over all genes, and for each:
-%   - Downloads/caches the ISH grid from the Allen API
-%   - Repairs bad ISH sections at native 200um resolution
-%   - Upsamples to 10um, computes L+R, z-scores
-%   - Computes 3 correlation metrics (region Spearman, region Pearson, voxel Pearson)
-%   - Generates diagnostic video, scatter, paired bar charts
-%   - Saves gene_result_<symbol>.mat (light) + ish_lr_sum_<symbol>.mat (heavy)
-% After the loop, produces cross-gene summary figures.
-% Designed to run unattended overnight on ~50 genes.
 
 %% User-defined parameters
 
@@ -20,10 +48,12 @@ clc
 paths = get_paths();
 
 % Channel to compare against ISH: 'nano' (default, surface GluA1) or 'auto'
-% (autofluorescence control). Must match the channel used in the P8 cache.
+% (autofluorescence control). Must match the channel of the cache of
+% run_characterize_distribution.
 channel = 'nano';
 
-% Which P8 cache to load (must exist — run P8 first). The channel is appended
+% Which cache of run_characterize_distribution to load (must exist: run it
+% first). The channel is appended
 % so this points to the matching nano or auto cohort cache.
 p8_merged_tag    = ['merged_naive_rws_' channel];
 p8_smooth_suffix = '_nosmooth';
@@ -55,7 +85,7 @@ label_min_px_per_slice  = 150;
 % Region analysis
 macro_divi_list = {'Isocortex','OLF','HPF','CTXsp','STR','PAL','TH','HY','MB'};
 roi_erode_radius    = 3;
-dist_weight_power   = 4;  % exponent for distance weighting (must match P8)
+dist_weight_power   = 4;  % exponent for distance weighting (must match run_characterize_distribution)
 analysis_slice_range = [100, 700];
 
 % Video clim for difference panel
@@ -89,7 +119,7 @@ brainMask  = AllenCrop > 0;
 half_atlas = AllenCrop(:, :, 1:end);
 clear AllenVol
 
-%% Load P8 nano cache (once)
+%% Load the nano cache of run_characterize_distribution (once)
 
 cache_path = fullfile(p8_out_dir, ...
     ['mean_lr_sum_' p8_merged_tag p8_smooth_suffix '.mat']);

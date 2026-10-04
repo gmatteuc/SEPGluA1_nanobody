@@ -34,8 +34,9 @@ Spearman over structures per gene and reading, from region_means_per_mouse.csv
 sepmap/ish/compare.py. Writes, in adult_v2/ish/ under the data root:
 
     gene_correlations.csv    one row per gene and reading
-    ish_old_vs_new.png       each gene's rho against the old MATLAB route's
-                             (P9's frozen gene_panel_summary.csv), which must be there
+    ish_old_vs_new.png       each gene's rho against the old MATLAB route's: the
+                             frozen gene_panel_summary.csv of
+                             run_compare_with_allen_ish, which must be there
 
     python run_ish_compare.py
 """

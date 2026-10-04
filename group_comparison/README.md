@@ -93,5 +93,6 @@ outlines (`lr_atlas_boundaries`) sit beside them. Shared: `../common/`
   from an earlier registration: not to be read (`collect_by_group`'s help).
   The autofluorescence per brain is in the registered tiffs, which the
   Python route reads.
-- P8, still at the code root until the Python route replaces it, reads the
-  normalised stacks of step 2; P9 and P10 read P8's outputs.
+- `../adult_matlab/run_characterize_distribution`, kept until the Python
+  route replaces it, reads the normalised stacks of step 2; the other two
+  scripts of `../adult_matlab/` read its outputs.

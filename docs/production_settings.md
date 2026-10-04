@@ -51,7 +51,7 @@ names. A copy of the code is refused the production data.
 | `SEP_DATA_ROOT` | `get_paths.m`, `mapping/sepmap/config.py`, `atlas/build_demba_atlas.py` (from step 0) | `<code>\..\data` | the check tree's data folder, in every run |
 | `SEP_COHORT_SPECS` | `run_normalise_groups` (P6bis) | `{'rws','naive'}` | `rws,naive,behavior` (S6) |
 | `P4BIS_MICE` | `run_add_sep_channel` (P4bis) | groups young, naive, rws | `MG914_SepGluA_P28`, then `CGF027_Gria1` (registration tree only) |
-| `SEP_MERGE_SPECS` | P8 | P8's own list | unset: P8 is not run |
+| `SEP_MERGE_SPECS` | `run_characterize_distribution` (P8) | its own list | unset: it is not run |
 | `V2_READINGS` | `sepmap/volumes/cohort.py`, and through it every step that draws or tabulates | `readings.in_force`, all five readings | unset |
 | `V2_ISH_PANEL` | old `v2_ish_regions` only; refused since step 5 | `data\gene_targets.csv` (100 genes) | pass 1 unset; pass 2 `adult_v2\panel\panel_v2.csv` (relative, inside the tree's data) |
 | `V2_ISH_TABLE` | old `v2_ish_regions`, `v2_ish_reliability` only; refused since step 5 | `gene_region_table.csv` in `v2_ish_regions`, `gene_region_table_panel.csv` in `v2_ish_reliability` | pass 1 unset; pass 2 `gene_region_table_panel.csv` |
@@ -440,7 +440,7 @@ no option except `run_closeup` and the `--panel` of the two ISH passes.
 | run script | pass | settings in force | reads | writes (under `adult_v2\`) |
 |---|---|---|---|---|
 | `run_ish_regions --panel targets` | 1 | `ish_regions.min_voxels` 3; in code: 200 um grid, missing = -1, reference box 67 x 41 x 58, one-voxel erosion | `data\gene_targets.csv`, `data\atlas_ish\` | `ish\gene_region_table.csv`, `ish\gene_region_table_drops.csv` |
-| `run_ish_compare` | 1 | `ish.min_voxels` 10, `ish.min_structures` 50, `ish.min_genes_ranking` 20, five readings | pass-1 table, `region_means_per_mouse.csv`, P9's frozen `comparisons\merged_naive_rws_vs_ish_summary_nosmooth\gene_panel_summary.csv` | `ish\gene_correlations.csv`, `ish_old_vs_new.png` |
+| `run_ish_compare` | 1 | `ish.min_voxels` 10, `ish.min_structures` 50, `ish.min_genes_ranking` 20, five readings | pass-1 table, `region_means_per_mouse.csv`, the frozen `comparisons\merged_naive_rws_vs_ish_summary_nosmooth\gene_panel_summary.csv` of `run_compare_with_allen_ish` (P9) | `ish\gene_correlations.csv`, `ish_old_vs_new.png` |
 | `run_ish_words` | 1 | `ish_words.min_genes` 5, `.max_share` 0.8, `.n_boot` 2000, seed 0 | `gene_correlations.csv`, the mygene cache `ish\annotation\` (95 files) | `feature_enrichment.csv`, `ish_word_enrichment.png` |
 | `run_ish_roles` | 1 | `ish.reading` zref, the curated roles (in code), seed 0; since step 8 `ish_roles.evidence_p` 0.05 (the figure title's wording only) | pass-1 table, `region_means_per_mouse.csv` | `gene_roles.csv`, `role_summary.csv`, `ish_roles.png` |
 | `run_panel_build` | 2 | `ish_panel_build.max_hits` and `.allen_rows`; the GO terms and the Grid1/Grid2 override in code | `gene_targets.csv`, the API cache `panel\cache\` (436 files) | `panel\panel_v2.csv`, `panel_genes.csv` |
@@ -478,7 +478,8 @@ no option except `run_closeup` and the `--panel` of the two ISH passes.
   the two that failed in production (Gria1 526 and Negr1 695, "no energy.mhd in
   the zip"), so it always calls the network. TO CONFIRM.
 - The old `v2_ish_compare` skipped the old-against-new check without a word
-  when P9's summary was missing; `run_ish_compare` stops instead (step 8).
+  when the summary of `run_compare_with_allen_ish` (P9) was missing;
+  `run_ish_compare` stops instead (step 8).
   `run_adult_arms` skips its consistency check when
   `region_means_per_mouse.csv` is missing.
 - `run_diagnostics` sheet 08 reads `young\nano_4d_normalized_bkgmask_P20.mat`

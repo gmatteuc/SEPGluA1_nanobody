@@ -53,7 +53,7 @@ plot_verification_video = false;
 
 % channel to normalise ('nano', surface GluA1, or 'auto', the autofluorescence
 % control): loads <channel>_4d.mat and saves <channel>_4d_normalized.mat in each
-% cohort folder, for run_group_differences, P8 and P9
+% cohort folder, for run_group_differences and run_characterize_distribution
 channel = 'nano';
 
 % cohorts to normalise, as specs: an adult group by name ('rws', 'naive',

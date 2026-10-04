@@ -144,13 +144,14 @@ questions of the map:
   brains explains none of the map (cross-validated R² -0.04,
   `adult_v2\beyond\variance_partition.csv`).
 - **Being rebuilt.** Which structures stand out, and with what confidence, is
-  being redone. P8 called a structure enriched above a threshold on its own
-  scale, and Sami El-Boustani asked (28 April) for a stricter threshold and a
-  permutation null. The plan replaces both with a test per structure against
-  the brain's median structure (S2), on a declared set of structures (S1,
-  A1, A4). Today 22 structures of the adult table are seen in fewer than five
-  of the ten adults (REFACTOR_PLAN.md, S1). P8's outputs carry known defects
-  (listed in the plan) and are not quoted here.
+  being redone. The MATLAB route (`run_characterize_distribution`) called a
+  structure enriched above a threshold on its own scale, and Sami El-Boustani
+  asked (28 April) for a stricter threshold and a permutation null. The plan
+  replaces both with a test per structure against the brain's median
+  structure (S2), on a declared set of structures (S1, A1, A4). Today 22
+  structures of the adult table are seen in fewer than five of the ten adults
+  (REFACTOR_PLAN.md, S1). Its outputs carry known defects (listed in the plan)
+  and are not quoted here.
 
 ### 3. What the map measures
 
@@ -210,9 +211,10 @@ reliability (the ceiling, 97.4% of the variance). From
 
 **The ISH gene ranking is descriptive.**
 
-- The first comparison (P9, April 2026) correlated the map with 100
-  hand-picked genes (`data\gene_targets.csv`) and found AMPA receptor
-  trafficking and anchoring genes, Cacng8 first, above Gria1 itself
+- The first comparison (`run_compare_with_allen_ish`, April 2026) correlated
+  the map with 100 hand-picked genes (`data\gene_targets.csv`) and found
+  AMPA receptor trafficking and anchoring genes, Cacng8 first, above Gria1
+  itself
   (`data\comparisons\merged_naive_rws_vs_ish_summary_nosmooth\gene_panel_summary.csv`).
 - The Python route reproduces that ranking: rho 0.910 against the old
   ordering under `zref` (`adult_v2\ish\ish_old_vs_new.png`). Cacng8 (TARP γ-8)
@@ -626,10 +628,10 @@ anatomical labeling for a common mouse brain atlas. *Nat Commun* 10:5067.
 | raw sections to registered volumes | `preprocessing/run_copy_raw_data.m` to `run_annotate_artifacts.m`, `registration/run_register_to_atlas.m`, `run_add_sep_channel.m`; atlases in `atlas/` | `<group>\<mouse>\lightsuite\volume_registered\`, `volume_registered_sep\` |
 | where an experience changes the map (line 1) | `group_comparison/run_collect_by_group.m`, `run_normalise_groups.m`, `run_group_differences.m` | `comparisons\<ctrl>_vs_<exp>_<channel>\` |
 | per-brain volumes and the readings (lines 2 to 4) | `mapping/run_per_mouse.py`, `run_to_ccf.py`, `run_cohort.py` (`sepmap/volumes/`) | `comparisons_v2\per_mouse\`, `per_mouse_ccf\`, `ccf\<cohort>\` |
-| the adult distribution (line 2) | `mapping/run_region_plot.py` (the per-mouse region table); `P8_characterize_merged_distribution.m` and `P10_compare_nano_vs_auto.m` until A4 and A5 replace them | `comparisons_v2\young_vs_adult\region_means_per_mouse.csv` |
+| the adult distribution (line 2) | `mapping/run_region_plot.py` (the per-mouse region table); `adult_matlab/run_characterize_distribution.m` and `run_compare_nano_with_autofluorescence.m` until A4 and A5 replace them | `comparisons_v2\young_vs_adult\region_means_per_mouse.csv` |
 | more than abundance or density (line 3) | `mapping/run_beyond_density.py`, `run_beyond_controls.py`, `run_beyond_figures.py`, `run_beyond_regression.py` (`sepmap/adult/`) | `adult_v2\beyond\` |
 | what the green channel reports (line 3) | `mapping/run_sep_channel_check.py`, `run_adult_arms.py`, `run_ish_arms.py` | `adult_v2\arms\` |
-| the ISH gene comparison (line 3) | 100-gene panel: `mapping/run_ish_regions.py --panel targets`, `run_ish_compare.py`, `run_ish_words.py`, `run_ish_roles.py`; 390-gene panel: `run_panel_build.py`, `run_panel_fetch.py`, `run_ish_regions.py --panel ontology`, `run_ish_reliability.py`, `run_ish_panel_test.py` (`sepmap/ish/`); `P9_compare_nano_vs_allen_ish.m` until A1 to A3 replace it | `adult_v2\ish\`, `adult_v2\panel\` |
+| the ISH gene comparison (line 3) | 100-gene panel: `mapping/run_ish_regions.py --panel targets`, `run_ish_compare.py`, `run_ish_words.py`, `run_ish_roles.py`; 390-gene panel: `run_panel_build.py`, `run_panel_fetch.py`, `run_ish_regions.py --panel ontology`, `run_ish_reliability.py`, `run_ish_panel_test.py` (`sepmap/ish/`); `adult_matlab/run_compare_with_allen_ish.m` until A1 to A3 replace it | `adult_v2\ish\`, `adult_v2\panel\` |
 | young against adult (line 4) | `mapping/run_compare.py`, `run_region_plot.py`, `run_region_groups.py`, `run_video.py`, `run_video_compare.py`, `run_closeup.py` (flatmaps, in `tools\venv_flat`), `run_replot.py` (`sepmap/young_vs_adult/`) | `comparisons_v2\young_vs_adult\` |
 | checking each step by eye | `mapping/run_diagnostics.py` | `comparisons_v2\processing_diagnostics\` |
 
@@ -640,9 +642,9 @@ its parameters in `mapping/settings.toml`.
 
 - **P-numbers.** In an age, a cohort tag or an atlas key, `P<n>` is
   postnatal day n (P20, `young_P20`, `demba_p20`). The old script names P0 to
-  P10 (P4, P6bis, P7bis) were pipeline steps. The refactor renames the
-  drivers `run_...`; P8, P9 and P10 keep their names until A1 to A5 replace
-  them. The table of old and new names is
+  P10 (P4, P6bis, P7bis) were pipeline steps. The refactor renamed every
+  driver `run_...`, P8, P9 and P10 included, which are in `adult_matlab/`
+  until A1 to A5 replace them. The table of old and new names is
   [refactor_name_map.csv](refactor_name_map.csv).
 - **Channels.** At acquisition the files carry dye names (`chan02_Cy5` for
   nano, `chan03_Cy3` for auto); after registration, role names

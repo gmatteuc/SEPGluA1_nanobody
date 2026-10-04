@@ -353,9 +353,11 @@ the code behind the grant figures of September 2026 at `grant-2026-09`.
 Every file the reorganisation moved, helpers and vendored folders included,
 is in [`refactor_name_map.csv`](refactor_name_map.csv), one row per file.
 Since then the body of each MATLAB driver has moved into a function in its
-folder's `pipeline/`, and `landmark_refine` into `archive/`.
-`sep_setup_paths` refuses to run when a driver is back at the code root under
-its old name (an editor tab saved after the move does that).
+folder's `pipeline/`, and `landmark_refine` into `archive/`; after the merge
+(4 October), P8, P9 and P10 moved into `adult_matlab/` under `run_...` names,
+with new headers and their computations unchanged. `sep_setup_paths` refuses
+to run when a driver is back at the code root under its old name (an editor
+tab saved after the move does that).
 
 | before | now |
 |---|---|
@@ -371,7 +373,9 @@ its old name (an editor tab saved after the move does that).
 | `P6bis_analyze_group_averages_and_normalize.m` | `group_comparison/run_normalise_groups.m` |
 | `P7bis_analyze_group_differences.m` | `group_comparison/run_group_differences.m` |
 | `P6_analyze_group_averages_and_normalize.m`, `P7_analyze_group_differences.m` | `archive/` (replaced by P6bis and P7bis before the refactor) |
-| `P8_characterize_merged_distribution.m`, `P9_compare_nano_vs_allen_ish.m`, `P10_compare_nano_vs_auto.m` | unchanged at the code root, until the Python route answers their questions (A1 to A5 of `REFACTOR_PLAN.md`) |
+| `P8_characterize_merged_distribution.m` | `adult_matlab/run_characterize_distribution.m`, until A1 and A4 replace it |
+| `P9_compare_nano_vs_allen_ish.m` | `adult_matlab/run_compare_with_allen_ish.m`, until A1 to A3 replace it |
+| `P10_compare_nano_vs_auto.m` | `adult_matlab/run_compare_nano_with_autofluorescence.m`, until A5 replaces it (A1 to A5: `ROADMAP.md`, section 3) |
 | `v2_per_mouse.py`, `v2_to_ccf.py`, `v2_cohort.py` | `mapping/run_per_mouse.py`, `run_to_ccf.py`, `run_cohort.py`; the code in `mapping/sepmap/volumes/` |
 | `v2_compare.py`, `v2_replot.py`, `v2_region_plot.py`, `v2_region_groups.py`, `v2_video.py`, `v2_video_compare.py` | `mapping/run_compare.py` and so on, each `run_` plus its old name; the code in `mapping/sepmap/young_vs_adult/` |
 | `v2_inspect.py` | `mapping/run_closeup.py`; the code in `sepmap/young_vs_adult/closeup.py` |

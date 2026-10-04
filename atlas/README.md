@@ -12,8 +12,8 @@ parcellation index, so a region means the same in either.
 |---|---|---|
 | `get_atlas.m` | an atlas by key (`'ccf'`, `'demba_p<age>'`): its folder, files, resolution, age and AP crop; puts that folder on the path and takes every other atlas folder off | the preprocessing and registration drivers, the QC scripts |
 | `cohort_atlas_key.m` | the atlas key of a group and age (`'ccf'` for the adults); an error for an age whose atlas is not built | `get_cohort_spec`, `verify_demba_setup` |
-| `get_atlas_crop.m` | the annotation on the grid of the registered volumes of a cohort (900 AP planes for the adults, 994 for P20) | `run_collect_by_group`, `run_normalise_groups`, P8 |
-| `get_allen_region_mask.m` | the voxels of named regions and all their descendants, through the ontology tables | the plasticity comparison, the QC scripts, P8, P9 |
+| `get_atlas_crop.m` | the annotation on the grid of the registered volumes of a cohort (900 AP planes for the adults, 994 for P20) | `run_collect_by_group`, `run_normalise_groups`, `run_characterize_distribution` |
+| `get_allen_region_mask.m` | the voxels of named regions and all their descendants, through the ontology tables | the plasticity comparison, the QC scripts, `run_characterize_distribution`, `run_compare_with_allen_ish` |
 | `build_demba_atlas.py` | builds `<data>\atlas_demba_p<age>\` from BrainGlobe's DeMBA at that age | by hand, once per age |
 
 To build the atlas of a new age, from the code root:

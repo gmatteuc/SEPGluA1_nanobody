@@ -21,8 +21,9 @@ the channels.
 These are correlations, not tests: two brain maps agree partly because everything
 is high in cortex and hippocampus, and the usual null is inflated about 875-fold in
 mouse (Fulcher 2021, docs/adult_ish_design.md). The ranking is descriptive, and the
-figure says so. The old ranking (P9's frozen gene_panel_summary.csv) is compared
-with the new one, and the run stops before writing anything when it is missing.
+figure says so. The old ranking (the frozen gene_panel_summary.csv of the MATLAB
+run_compare_with_allen_ish) is compared with the new one, and the run stops
+before writing anything when it is missing.
 
 Run by run_ish_compare.py.
 """
@@ -122,8 +123,9 @@ def correlate(
 def old_ranking() -> dict[str, float]:
     """The MATLAB route's distance-weighted Spearman, {gene: rho}.
 
-    Raises FileNotFoundError when P9's summary is missing, rather than leave the
-    comparison with the old route out without a word.
+    Raises FileNotFoundError when the summary of run_compare_with_allen_ish is
+    missing, rather than leave the comparison with the old route out without a
+    word.
     """
     if not OLD.exists():
         raise FileNotFoundError(
