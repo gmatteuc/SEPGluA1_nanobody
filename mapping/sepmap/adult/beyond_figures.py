@@ -89,6 +89,8 @@ def percentile_interval(values: Sequence[float] | np.ndarray) -> tuple[float, fl
 def p_text(p: float) -> str:
     """The noise null's p as written: a bound when no permutation reached the observed."""
     n_perm = BEYOND_FIGURES["n_perm"]
+
+    # 1 / (n_perm + 1) is the smallest p the permutations can give, so it is a bound
     if p <= 1 / (n_perm + 1):
         return f"p < {1 / n_perm:.0e}"
     return f"p = {p:.2g}"
@@ -106,14 +108,21 @@ def bootstrap_models(
     again over the
     structures it drew. Returns the point values and the (low, high) intervals.
     """
+    # the point values, on every structure
     point = [cv_r2(y, xs) for _, xs in models]
     n = len(y)
     draws = np.empty((BEYOND_FIGURES["n_boot"], len(models)))
     for b in range(BEYOND_FIGURES["n_boot"]):
+        # structures drawn with replacement; ranks are relative to the structures
+        # present, so the map and every predictor are ranked again over the draw
         take = rng.integers(0, n, n)
         yb = rankdata(y[take])
+
+        # every model scored on the same draw
         for j, (_, xs) in enumerate(models):
             draws[b, j] = cv_r2(yb, [rankdata(x[take]) for x in xs])
+
+    # the 95% interval of each model over the replicates
     return point, [percentile_interval(draws[:, j]) for j in range(len(models))]
 
 
@@ -132,6 +141,8 @@ def bootstrap_replication(
 
     def agreement(idx, use_splits):
         """Mean agreement of the two leftovers over `use_splits`, on structures `idx`."""
+        # each half's ranked map over the picked structures, fitted to the
+        # predictors over the same structures; the leftovers' Spearman, averaged
         picked = [structures[i] for i in idx]
         return float(
             np.mean(
@@ -145,12 +156,18 @@ def bootstrap_replication(
             )
         )
 
+    # the point value: every structure, every split
     full = np.arange(len(structures))
     point = agreement(full, splits)
+
+    # boot_splits splits drawn once and used in every replicate, which keeps the
+    # bootstrap affordable (each split is two fits)
     few = [
         splits[i]
         for i in rng.choice(len(splits), BEYOND_FIGURES["boot_splits"], replace=False)
     ]
+
+    # each replicate draws the structures with replacement
     draws = [
         agreement(rng.integers(0, len(structures), len(structures)), few)
         for _ in range(BEYOND_FIGURES["n_boot_halves"])
@@ -174,13 +191,19 @@ def noise_null(
     the
     two-sided p.
     """
+    # the two leftovers of the first split, and how well they agree
     a, b = splits[0]
     ra = residual(half_map(nano, a, structures), predictors)
     rb = residual(half_map(nano, b, structures), predictors)
     observed = float(spearmanr(ra, rb).statistic)
+
+    # the null: the same agreement with the structures of one half shuffled
     null = np.empty(BEYOND_FIGURES["n_perm"])
     for i in range(BEYOND_FIGURES["n_perm"]):
         null[i] = spearmanr(ra, rng.permutation(rb)).statistic
+
+    # two-sided, the observed counted as one of the permutations, so p is never
+    # zero (Phipson and Smyth 2010)
     p = float(
         (np.sum(np.abs(null) >= abs(observed)) + 1) / (BEYOND_FIGURES["n_perm"] + 1)
     )
@@ -199,6 +222,9 @@ def panel_a(
 ) -> None:
     """Draw panel A: each explanation's cross-validated R2 against the ceiling."""
     fig, ax = plt.subplots(figsize=(7.8, 4.4))
+
+    # a bar per explanation, the four together last and in red, each with its
+    # interval as the distances below and above the bar's end
     y = np.arange(len(labels))
     lo = [p - i[0] for p, i in zip(point, intervals)]
     hi = [i[1] - p for p, i in zip(point, intervals)]
@@ -207,6 +233,8 @@ def panel_a(
     ax.errorbar(
         point, y, xerr=[lo, hi], fmt="none", ecolor="0.2", elinewidth=0.9, capsize=2.5
     )
+
+    # the ceiling, the most any explanation could reach
     ax.axvline(ceiling, color=DARK_GREY, lw=1.8)
 
     # the ceiling's interval in the grey that 15% of DARK_GREY gives on white, opaque
@@ -223,6 +251,8 @@ def panel_a(
         ha="right",
         va="top",
     )
+
+    # an explanation per row, and the variance explained from 0 to all of it
     ax.set_yticks(y)
     ax.set_yticklabels(labels, fontsize=8.5)
     ax.set_xlim(0, 1.02)
@@ -231,6 +261,7 @@ def panel_a(
         "(cross-validated, 95% bootstrap interval over structures)",
         fontsize=8.5,
     )
+
     # the title follows the numbers: the four together against the ceiling
     if point[-1] >= ceiling:
         share = "all of the map that is explainable"
@@ -258,12 +289,17 @@ def panel_b(
 ) -> None:
     """Draw panel B: the agreement of the map, of the leftover and of the noise null."""
     fig, ax = plt.subplots(figsize=(7.4, 4.4))
+
+    # one set of bins for the three, from below the null's spread around zero up to
+    # perfect agreement
     bins = np.linspace(-0.45, 1.0, 120)
     for values, colour, label in (
         (null, MID_GREY, "if the leftover were noise"),
         (map_agreement, DARK_GREY, "the map itself"),
         (leftover_agreement, RED, "what is left of it"),
     ):
+        # each scaled to its own peak, since the null holds n_perm values and the
+        # two agreements one per split
         counts, edges = np.histogram(values, bins=bins)
         ax.bar(
             edges[:-1],
@@ -281,6 +317,9 @@ def panel_b(
     ax.set_ylabel("how often, each curve scaled to its own peak", fontsize=8.5)
     ax.set_ylim(0, 1.15)
     ax.legend(fontsize=8, frameon=False, loc="upper left")
+
+    # the title gives the verdict, the leftover's replication with its interval
+    # and the p against noise
     verdict = "replicates" if replicates(rep_point) else "does not replicate"
     ax.set_title(
         f"B.  What is left over {verdict} across animals\n"
@@ -296,8 +335,11 @@ def panel_b(
 
 def panel_c(res: np.ndarray, structures: list[str], n_show: int = 9) -> None:
     """Draw panel C: the `n_show` largest residuals of each sign."""
+    # the structures most above prediction, then those most below, in order
     order = np.argsort(-res)
     show = list(order[:n_show]) + list(order[-n_show:])
+
+    # a bar each, red above prediction and blue below
     fig, ax = plt.subplots(figsize=(7.6, 5.6))
     pos = np.arange(len(show))
     ax.barh(
@@ -307,6 +349,8 @@ def panel_c(res: np.ndarray, structures: list[str], n_show: int = 9) -> None:
         edgecolor="0.25",
         linewidth=0.4,
     )
+
+    # names cut to 42 characters, the largest positive leftover at the top
     ax.set_yticks(pos)
     ax.set_yticklabels([structures[i][:42] for i in show], fontsize=8)
     ax.invert_yaxis()
@@ -322,6 +366,7 @@ def panel_c(res: np.ndarray, structures: list[str], n_show: int = 9) -> None:
 
 def panel_d(controls: list[dict[str, str]]) -> None:
     """Draw panel D: the rows of controls.csv as a table of verdicts."""
+    # a table drawn as text, no axes
     fig, ax = plt.subplots(figsize=(9.4, 4.0))
     ax.axis("off")
     ax.set_title(
@@ -331,8 +376,11 @@ def panel_d(controls: list[dict[str, str]]) -> None:
         loc="left",
     )
     for i, row in enumerate(controls):
+        # the rows spaced evenly down the panel
         y = 1 - (i + 1) / (len(controls) + 1)
         ok = row["verdict"] == "pass"
+
+        # the control, its number cut to fit, and its verdict; red when it failed
         ax.text(
             0.0, y, row["control"], fontsize=9, va="center", color="0.15" if ok else RED
         )
@@ -361,6 +409,8 @@ def ceiling_with_interval(
     Returns the half-cohort agreement of every split, the ceiling and its interval
     from beyond_figures.n_boot_halves replicates, each drawn from `rng`.
     """
+    # the two half-cohort maps' agreement for every split; Spearman-Brown of the
+    # mean, squared, so the ceiling is a share of variance like the R2 it bounds
     map_agreement = [
         spearmanr(half_map(nano, a, structures), half_map(nano, b, structures)).statistic
         for a, b in splits
@@ -368,12 +418,16 @@ def ceiling_with_interval(
     ceiling = spearman_brown(float(np.mean(map_agreement))) ** 2
     boot_ceiling = []
     for _ in range(BEYOND_FIGURES["n_boot_halves"]):
+        # structures drawn with replacement, and boot_splits splits drawn anew for
+        # each replicate
         take = rng.integers(0, len(structures), len(structures))
         picked = [structures[i] for i in take]
         few = [
             splits[i]
             for i in rng.choice(len(splits), BEYOND_FIGURES["boot_splits"], replace=False)
         ]
+
+        # the ceiling of this replicate, computed as above
         boot_ceiling.append(
             spearman_brown(
                 float(
@@ -389,6 +443,8 @@ def ceiling_with_interval(
             )
             ** 2
         )
+
+    # the 95% interval over the replicates
     ceiling_ci = percentile_interval(boot_ceiling)
     print(f"ceiling {ceiling:.3f} [{ceiling_ci[0]:.3f}, {ceiling_ci[1]:.3f}]")
     return map_agreement, ceiling, ceiling_ci
@@ -406,6 +462,8 @@ def explanations(
     Returns the models as (label, predictors), their cross-validated R2 and
     intervals.
     """
+    # each explanation alone as a straight line, then the quoted model: all four,
+    # each allowed to bend
     c = covariates
     models = [
         ("receptor abundance\n(Gria1-4)", [c["abundance"]]),
@@ -414,6 +472,7 @@ def explanations(
         ("tissue autofluorescence\n(the same brains)", [c["autofluo"]]),
         ("all four together", model),
     ]
+    # held-out R2 of each, with its interval and its share of the ceiling
     point, intervals = bootstrap_models(y, models, ceiling, rng)
     for (label, _), pt, iv in zip(models, point, intervals):
         print(
@@ -435,6 +494,7 @@ def leftover_replication(
     Returns the agreement of every split, the replication and its interval, the
     null values and the p.
     """
+    # the two leftovers' agreement for every split, the histogram of panel B
     leftover_agreement = [
         spearmanr(
             residual(half_map(nano, a, structures), model),
@@ -442,6 +502,8 @@ def leftover_replication(
         ).statistic
         for a, b in splits
     ]
+
+    # its mean with a bootstrap interval, and the same agreement under the noise null
     rep_point, rep_ci = bootstrap_replication(nano, structures, model, splits, rng)
     observed, null, p = noise_null(nano, structures, model, splits, rng)
     print(
@@ -453,6 +515,7 @@ def leftover_replication(
 
 def load_controls() -> list[dict[str, str]]:
     """The rows of run_beyond_controls' controls.csv, which panel D needs, if any."""
+    # none when run_beyond_controls has not run; panel D is then left out
     controls = []
     path = OUT / "controls.csv"
     if path.exists():
@@ -489,10 +552,14 @@ def write_caption_numbers(
             f"D. {len(controls)} controls, each ruling out a way the leftover could "
             "be an artefact."
         )
+
+    # a sentence per panel
     lines = [
         f"Numbers for the captions (all on {n_structures} grey-matter structures, "
         f"{len(ADULTS)} adult mice).",
         "",
+        # A: each explanation as a share of the explainable variance; a negative
+        # held-out R2 (worse than the mean) is quoted as 0%
         f"A. The map is reproducible enough that {ceiling:.1%} of its variance is",
         f"   explainable in principle (95% CI {ceiling_ci[0]:.1%} "
         f"to {ceiling_ci[1]:.1%}).",
@@ -505,6 +572,7 @@ def write_caption_numbers(
         f"   allowed a non-linear relationship, predict {point[-1] / ceiling:.0%},",
         f"   leaving {unexplained:.0%} unexplained.",
         "",
+        # B: the map's and the leftover's half-cohort agreement, and the p
         f"B. Splitting the ten animals into two fives every possible way "
         f"({len(splits)} splits),",
         f"   the two half-cohort maps agree at {np.mean(map_agreement):.3f}. "
@@ -521,6 +589,8 @@ def write_caption_numbers(
         "What this does NOT show: that the leftover is the surface fraction. A residual",
         "is only ever what the model left out.",
     ]
+
+    # one text file beside the panels
     with open(FIGS / "numbers_for_the_caption.txt", "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
     print(f"  -> {FIGS / 'numbers_for_the_caption.txt'}")
@@ -532,6 +602,8 @@ def main() -> None:
     One generator feeds every interval and the null, in this order: the ceiling,
     the explanations, the leftover's replication, the noise null.
     """
+    # the output folder, and one seeded generator so the intervals and the p come
+    # out the same every run
     FIGS.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(0)
 
@@ -550,12 +622,15 @@ def main() -> None:
         nano, structures, splits, rng
     )
     models, point, intervals = explanations(covariates, model, y, ceiling, rng)
+
+    # the share of the explainable variance the quoted model leaves, the "about 40%"
     unexplained = 1 - point[-1] / ceiling
     print(f"  unexplained share of the ceiling: {unexplained:.1%}")
     leftover_agreement, rep_point, rep_ci, null, p = leftover_replication(
         nano, structures, model, splits, rng
     )
 
+    # each structure's leftover after the quoted model, for panel C
     res = residual(y, model)
 
     # the panels; panel D needs run_beyond_controls' table
