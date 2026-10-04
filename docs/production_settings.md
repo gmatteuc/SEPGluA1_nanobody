@@ -150,8 +150,10 @@ another's outputs.
 3. MG914_SepGluA_P28: `run_register_to_atlas` mode `autoannotate`.
 
 The restore matters most between stages 1 and 2: `run_extract_and_center`
-rewrites `sliceinfo.mat`, and `register` and `run_add_sep_channel` read the
-`px_atlas` inside it to size the registered volume (see below).
+rewrites `sliceinfo.mat`, and in the old code `register` and
+`run_add_sep_channel` read the `px_atlas` inside it to size the registered
+volume (see below; since fix 26 of step 8 they set the 10 um grid
+themselves).
 
 ## Plasticity comparison (MATLAB)
 
@@ -217,7 +219,7 @@ Run twice, with only `exp_type` changed.
 | `ctrl_type` | `'naive'` | `'naive'` | |
 | `exp_type` | `'behavior'` | run 1 `'rws'`, run 2 `'behavior'` | both comparisons Sami approved (S6) |
 | `selected_mice_idx_list` | as `run_normalise_groups` | unchanged | used only for the mouse names in figures; the data are whatever `run_normalise_groups` saved |
-| `behavior_subset` (inline in the old script) | `[1,2,3,4]` of the saved volume | unchanged | `run_normalise_groups` saves four, so all four; the old comment naming three is corrected |
+| `behavior_subset` (inline in the old script; `behavior_mice` since fix 11 of step 8) | `[1,2,3,4]` of the saved volume | unchanged | `run_normalise_groups` saves four, so all four; the old comment naming three is corrected. Since step 8 the setting names the mice, `behavior_mice = {'MG705_Gria1', 'MG709_Gria1', 'MG716_Gria1', 'MG718_Gria1'}`, matched to the names saved with the volume; a name not saved stops the run |
 | `generate_diff_videos` | `true` | `true` | the approved folders hold every video |
 | `generate_individual_diff_videos` | `true` | `true` | |
 | `generate_t_scored_videos` | `true` | `true` | |
@@ -227,7 +229,7 @@ Run twice, with only `exp_type` changed.
 | `perform_area_based_analysis_fine` | `false` | `false` | |
 | `perform_area_based_analysis_coarse` | `false` | `false` | |
 | `apply_smoothing` | `true` | `true` | |
-| `smooth_sigma` | `5.0` | `5.0` | voxels, 3D Gaussian over each mouse's tissue; the voxels outside the tissue are set to 0 after it (fix 23 of step 8 leaves them out instead) |
+| `smooth_sigma` | `5.0` | `5.0` | voxels, 3D Gaussian over each mouse's tissue; the old code set the voxels outside the tissue to 0 after it. Since fix 23 of step 8 the Gaussian is normalised by the smoothed tissue mask and the voxels outside the tissue stay NaN, left out of every mean, SEM and t |
 | `channel` | `'nano'` | `'nano'` | |
 
 Fixed in code, unchanged:
@@ -243,7 +245,7 @@ Fixed in code, unchanged:
 | slab figure | plane 565 +/- 10, median over the slab, alpha rising to full at p < 0.01, t `[-6 6]` |
 | individual slab figure | plane 565 +/- 10, `[0 1.5]` and `[0 10]`, no atlas overlay |
 | rolling videos | +/- 10 planes, p < 0.01; individual `[0 2]` and `[0 10]` |
-| regional surprise bars | rolling median +/- 10 planes, surprise summed above p < 0.01, left hemisphere, 56 listed regions ("Parafascicular nucleus" twice; fix 9 of step 8 removes the second) |
+| regional surprise bars | rolling median +/- 10 planes, surprise summed above p < 0.01, left hemisphere, 56 listed regions ("Parafascicular nucleus" twice, and "Mediodorsal nucleus of the thalamus" resolving to the intermediodorsal nucleus); 55 since fix 9 of step 8, the second parafascicular removed and the mediodorsal nucleus measured |
 
 - Reads: `naive\` and `<exp>\` `nano_4d_normalized.mat` and
   `nano_4d_normalized_bkgmask.mat` (this run's `run_normalise_groups`);
@@ -308,13 +310,16 @@ The working copy differs from the commit in its run settings (MG914,
   `auto_proposal_controlpoints.mat` and `auto_proposal_info.mat` (with date,
   device and model version).
 - Hidden state: the three globs pick up any stray file with a matching name
-  (today each folder holds exactly one). The registered grid comes from
-  `sliceinfo.mat`'s `px_atlas`, not from the atlas: MG914's still says 10,
-  written by `run_extract_and_center` on 12 Aug under the pre-DeMBA settings,
-  and that is how every young brain was registered (fix 26 of step 8 sets the
-  grid explicitly). Elastix's sampler is unseeded, so tolerances come from
-  the old-against-old pair. The saved proposal ran on `cuda`; its anchors and
-  planes are the ones in `plane_anchors.mat` today.
+  (today each folder holds exactly one). In the old code the registered grid
+  came from `sliceinfo.mat`'s `px_atlas`, not from the atlas: MG914's still
+  says 10, written by `run_extract_and_center` on 12 Aug under the pre-DeMBA
+  settings, and that is how every young brain was registered. Since fix 26 of
+  step 8, 'register' sets the 10 um grid itself
+  (`registration/pipeline/registered_grid_um.m`), stops before registering
+  when a brain's `px_register` is not 20, and only prints a line for a
+  `px_atlas` other than 10. Elastix's sampler is unseeded, so tolerances come
+  from the old-against-old pair. The saved proposal ran on `cuda`; its anchors
+  and planes are the ones in `plane_anchors.mat` today.
 
 ### run_add_sep_channel.m (P4bis_add_sep_channel.m)
 
@@ -421,11 +426,11 @@ no option except `run_closeup` and the `--panel` of the two ISH passes.
 |---|---|---|---|---|
 | `run_per_mouse` | none (all 17 in `MICE`) | `tissue.mad_k` 4; 10 adults on `ccf`, 5 P20 on `demba_p20`, MG911 `demba_p16`, MG904 `demba_p22` | `volume_registered\` nano and auto, `volume_registered_sep\chan02_SEP.tiff`, the atlases | `comparisons_v2\per_mouse\<mouse>.npz` |
 | `run_to_ccf` | none | in code: DeMBA canvas 705 x 400 x 570, CCF 660 x 400 x 570, adult crop planes 90 to 540 | per-mouse files | `per_mouse_ccf\<mouse>.npz` |
-| `run_cohort` | none | `readings.ratio_clip` 20, `readings.log2_floor` 0.02, `readings.in_force` (five readings), `readings.signed` zref; cohorts young, young_P20, young_P16, young_P22, naive, rws, adult | both per-mouse folders | `ccf\<cohort>\*_{mean,sd,n}.npy`, `mice.txt`; the cache `per_mouse\<mouse>_scalars.npz` |
+| `run_cohort` | none | `readings.ratio_clip` 20, `readings.log2_floor` 0.02, `readings.in_force` (five readings), `readings.signed` zref; cohorts young, young_P20, young_P16, young_P22, naive, rws, adult | both per-mouse folders | `ccf\<cohort>\*_{mean,sd,n}.npy`, `mice.txt`; the cache `per_mouse\<mouse>_scalars.npz`; since fix 24 of step 8 also `ccf\<cohort>\*_folded_{mean,sd,n}.npy` (each brain's hemispheres averaged first) |
 | `run_compare` | none | `young_vs_adult.smooth` 1 voxel (log2 map only), `.min_n_young` 2, `.min_n_adult` 5, `.min_table_vox20` 100; young and young_P20 | cohort volumes | `young_vs_adult\volumes_ccf20.npz`, `region_table.csv`, `cortex_table.txt`, `slices_<reading>.png/.eps` |
 | `run_region_plot` | none | `region_tables.min_vox20` 250, `region_plot.min_young` 2 and `.min_adult` 4, zref over the structures shared by all 17 brains, BH within each reading | per-mouse files | `region_means_per_mouse.csv`, `region_stats.csv`, `region_plot.png/.eps` |
 | `run_region_groups` | none | `region_groups.min_young` 3 and `.min_adult` 5; systems, divisions and layers in code | per-mouse files | `group_stats.csv`, `group_plot`, `laminar_plot` |
-| `run_video` | none: young, adult, young_P20, naive, rws | `videos.mean_vmax` per reading, `videos.t_pct` 95, `videos.min_n` per cohort, `videos.fps` 12 | cohort volumes | `ccf\<cohort>\video_<reading>_<cohort>.mp4` (25 videos) |
+| `run_video` | none: young, adult, young_P20, naive, rws | `videos.mean_vmax` per reading, `videos.t_pct` 95, `videos.min_n` per cohort, `videos.fps` 12 | cohort volumes; since fix 24 the t from the `_folded` ones | `ccf\<cohort>\video_<reading>_<cohort>.mp4` (25 videos) |
 | `run_video_compare` | none: all five readings, no still | `videos.mean_vmax`, `videos.log2_lim` 1.5, `videos.fps` 12 | cohort volumes | `young_vs_adult\video_side_by_side_<reading>.mp4` |
 | `run_closeup` (venv_flat) | none, then `--cmap jet`, then `--cmap turbo`. TO CONFIRM | zref, `closeup.plane` 790, `closeup.vmax` 0.9, `closeup.dlim` 0.5, `closeup.smooth` 3 x 1 x 1 voxels, video and flatmaps | cohort volumes, `data\atlas_flatmap\` | `young_vs_adult\detail_*_zref.*`, and `jet\`, `turbo\` |
 | `run_diagnostics` | none (the cohort sheets and the index need no options) | `tissue.mad_k` (sheets 01 and 02); the rest in code | per-mouse files, cohort volumes, `region_table.csv`, `region_stats.csv`, `naive\nano_4d_normalized_bkgmask.mat` (CGF027), `young\nano_4d_normalized_bkgmask_P20.mat` (MG903) | `processing_diagnostics\` sheets 01 to 09 and `README.md` |
@@ -437,7 +442,7 @@ no option except `run_closeup` and the `--panel` of the two ISH passes.
 | `run_ish_regions --panel targets` | 1 | `ish_regions.min_voxels` 3; in code: 200 um grid, missing = -1, reference box 67 x 41 x 58, one-voxel erosion | `data\gene_targets.csv`, `data\atlas_ish\` | `ish\gene_region_table.csv`, `ish\gene_region_table_drops.csv` |
 | `run_ish_compare` | 1 | `ish.min_voxels` 10, `ish.min_structures` 50, `ish.min_genes_ranking` 20, five readings | pass-1 table, `region_means_per_mouse.csv`, P9's frozen `comparisons\merged_naive_rws_vs_ish_summary_nosmooth\gene_panel_summary.csv` | `ish\gene_correlations.csv`, `ish_old_vs_new.png` |
 | `run_ish_words` | 1 | `ish_words.min_genes` 5, `.max_share` 0.8, `.n_boot` 2000, seed 0 | `gene_correlations.csv`, the mygene cache `ish\annotation\` (95 files) | `feature_enrichment.csv`, `ish_word_enrichment.png` |
-| `run_ish_roles` | 1 | `ish.reading` zref, the curated roles (in code), seed 0 | pass-1 table, `region_means_per_mouse.csv` | `gene_roles.csv`, `role_summary.csv`, `ish_roles.png` |
+| `run_ish_roles` | 1 | `ish.reading` zref, the curated roles (in code), seed 0; since step 8 `ish_roles.evidence_p` 0.05 (the figure title's wording only) | pass-1 table, `region_means_per_mouse.csv` | `gene_roles.csv`, `role_summary.csv`, `ish_roles.png` |
 | `run_panel_build` | 2 | `ish_panel_build.max_hits` and `.allen_rows`; the GO terms and the Grid1/Grid2 override in code | `gene_targets.csv`, the API cache `panel\cache\` (436 files) | `panel\panel_v2.csv`, `panel_genes.csv` |
 | `run_panel_fetch` | 2 | in code: reference box 67 x 41 x 58, timeout 180 s, 2 retries | `panel_v2.csv`, `data\atlas_ish\` | missing grids; `panel\fetch_failures.csv` |
 | `run_ish_regions --panel ontology` | 2 | as pass 1 | `adult_v2\panel\panel_v2.csv`, `data\atlas_ish\` | `ish\gene_region_table_panel.csv`, `gene_region_table_panel_drops.csv` |
@@ -451,16 +456,20 @@ no option except `run_closeup` and the `--panel` of the two ISH passes.
 | `run_adult_arms` | `region_tables.min_vox20` 250; arms sepauto, ratio, sepratio | per-mouse files, `region_means_per_mouse.csv` | `arms\region_means_arms.csv`, `arms_consistency.png` |
 | `run_ish_arms` | `ish.control_gene` Gria1, `ish.min_structures` 50, seed 0 | `region_means_arms.csv`, pass-1 table | `arms\arm_gene_correlations.csv`, `arms_vs_genes.png` |
 | `run_sep_channel_check` | `region_tables.min_vox20` 250, seed 0 | per-mouse files, pass-1 table | `arms\sep_channel_check.csv/.png` |
-| `run_beyond_density` | `beyond.reading` zref, `region_tables.min_vox20` 250, `beyond.half` 5, `beyond.grey` (the grey-matter rule), seed 0 | `region_means_per_mouse.csv`, `gene_region_table_merged.csv` | `beyond\structures_used.csv`, `variance_partition.csv`, `residual_by_structure.csv`, `fig0` to `fig3` |
+| `run_beyond_density` | `beyond.reading` zref, `region_tables.min_vox20` 250, `beyond.half` 5, `beyond.grey` (the grey-matter rule), seed 0; since step 8 `beyond_controls.replication` 0.5 also decides whether its titles and printed lines say the map and the leftover replicate (so does `run_beyond_figures`) | `region_means_per_mouse.csv`, `gene_region_table_merged.csv` | `beyond\structures_used.csv`, `variance_partition.csv`, `residual_by_structure.csv`, `fig0` to `fig3` |
 | `run_beyond_controls` | 5 folds, `beyond_controls.max_pcs` 25, the controls' bounds in `[beyond_controls]`, seed 0 | as above | `beyond\controls.csv`, `fig4` to `fig6` |
 | `run_beyond_figures` | `beyond_figures.n_boot` 2000, `.n_perm` 10000, `.boot_splits` 20, seed 0 | as above, `controls.csv` | `beyond\for_sami\A` to `D`, `numbers_for_the_caption.txt` |
-| `run_beyond_regression` | `beyond_regression.planes` 215, 265, 315; `.floor` 0.12 | as above, per-mouse files | `beyond\for_sami\E_regression`, `F_maps`, `regression_table.csv` |
+| `run_beyond_regression` | `beyond_regression.planes` 215, 265, 315; `.floor` 0.12; since step 8 `.diagnostic_p` 0.05 (panel E's wording only) | as above, per-mouse files | `beyond\for_sami\E_regression`, `F_maps`, `regression_table.csv` |
 
 ### Hidden state in the Python route
 
 - `run_cohort` reuses `per_mouse\<mouse>_scalars.npz` when its recorded
   modification time matches the per-mouse file. A copy that keeps modification
-  times would reuse it: the caches are deleted before each run (plan).
+  times would reuse it: the caches are deleted before each run (plan), and
+  before the first production run after step 8, whose `subref` fix changes
+  the subcortex mean they hold.
+- Since fix 24 of step 8, `run_video` stops, naming `run_cohort.py`, when a
+  cohort has no `_folded` files.
 - `run_per_mouse` includes SEP only where
   `volume_registered_sep\chan02_SEP.tiff` exists; with it missing,
   `run_cohort` stops (sepratio needs it). All 17 have it (23 and 24 Sep 2026).

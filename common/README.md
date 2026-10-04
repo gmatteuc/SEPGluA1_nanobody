@@ -23,9 +23,11 @@ once per session).
   folder under the data root (`<data>\<group>\<name>\`). A young mouse's age
   is the one in that name (MG904_SepGluA_P22 is P22); the adults' ages are not
   recorded and stay empty (NaN in MATLAB).
-- The first 17 rows, the adults, keep their order. Some drivers select adults
-  by position, and `get_cohort('verify')` stops a run when the order has
-  changed. New mice go at the end.
+- The first 17 rows, the adults, keep their order. `run_normalise_groups`
+  and `run_group_differences` select adults by position within their group
+  (the behaviour mice of `run_group_differences` by name, `behavior_mice`),
+  and `get_cohort('verify')` stops a run when the order has changed. New mice
+  go at the end.
 - `share_subdir` is used only by `run_copy_raw_data`: the local copy always
   puts the `.czi` files at the root of the mouse's folder.
 - `mapping_cohort` and `mapping_order` are read only by the Python route: the
@@ -33,7 +35,9 @@ once per session).
   brains in, which is not the MATLAB order. Each route keeps the order its
   results were produced in: a cohort mean summed in another order changes in
   its last bits.
-- `../tests/test_backward_compat` checks the adults' order and folders, and
+- `../tests/test_backward_compat` checks the adults' order and folders, that
+  the young cohort `get_cohort` returns is the table's young rows in their
+  order (the test reads the table, so a new row needs no change to it), and
   that each young brain's age matches its name.
 
 ## Notes

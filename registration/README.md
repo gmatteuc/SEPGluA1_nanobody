@@ -57,8 +57,9 @@ Per brain, in `<data>\<group>\<mouse>\lightsuite\`:
 ## Where the code is
 
 - `pipeline/`: `register_to_atlas` (the five modes, with the checks before
-  each), `add_sep_channel`, `auto_annotate` (the MATLAB side of the
-  automatic annotation), `recompute_backvalues`
+  each), `registered_grid_um` (the 10 um grid of every registered volume),
+  `add_sep_channel`, `auto_annotate` (the MATLAB side of the automatic
+  annotation), `recompute_backvalues`
 - `annotation_gui/`: the automatic annotation's part of LightSuite's
   control-point GUI, a plugin (`auto_annotation_plugin`), and its settings
   (`annotation_settings`: the suggested anchor count, the outlier rule shared
@@ -78,8 +79,12 @@ Per brain, in `<data>\<group>\<mouse>\lightsuite\`:
   10 um for the CCF. 'align' itself takes `px_atlas` and the AP crop from the
   atlas.
 - The grid: 'register' writes every brain on the same 10 um-sampled grid,
-  twice the 20 um registration grid, which the Python route expects. It takes
-  it from `px_atlas` in `sliceinfo.mat` and stops when that is not 10.
+  twice the 20 um registration grid, which the Python route expects. It sets
+  the grid itself (`registered_grid_um`), whatever `px_atlas` the brain's
+  `sliceinfo.mat` holds, and so does `run_add_sep_channel`. Before
+  registering any brain it stops when a `px_register` in `sliceinfo.mat` is
+  not 20 (LightSuite places the slices on a grid of half `px_register`), and
+  prints a line for a `px_atlas` there other than 10.
 - 'align' refuses a mouse with control points, anchors or a proposal: a new
   alignment rewrites the atlas block they are counted in. Control points are
   stored by slice position, so a change of order after annotating needs

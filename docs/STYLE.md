@@ -93,9 +93,10 @@ Each is defined in one place; never copy a value into a script.
 
 - Paths: `get_paths.m` and `mapping/sepmap/config.py`, worked out from where
   the code sits. The MATLAB path: `sep_setup_paths`, once per session.
-- The cohort: `get_cohort` (`get_cohort_spec` for the mice a stack holds) and
-  `COHORTS` in `sepmap/volumes/cohort.py`, one table for both from step 8
-  (Y4). New code takes its mice from these, never from a list of its own.
+- The cohort: one table for both languages, `common/cohort.csv` (Y4), read by
+  `get_cohort` (`get_cohort_spec` for the mice a stack holds) and by
+  `sepmap.config.mapping_mice`, which `COHORTS` in `sepmap/volumes/cohort.py`
+  groups. New code takes its mice from these, never from a list of its own.
 - The atlases: `get_atlas(key)`, `cohort_atlas_key`, `get_atlas_crop`. Only
   `get_atlas` adds an atlas folder to the path, the one a run needs.
 - Parameters: a MATLAB driver's `%% Settings`; in Python `mapping/settings.toml`.

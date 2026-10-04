@@ -12,7 +12,7 @@ with more animals ([`../docs/ADDING_DATA.md`](../docs/ADDING_DATA.md), step 5).
 |---|---|---|
 | 1 | `run_collect_by_group` | stack the registered nano volumes of a group's mice into one 4D array (AP x DV x ML x mouse), in cohort-table order |
 | 2 | `run_normalise_groups` | per mouse and plane, a background mask; each mouse fitted onto the group's median cortex with a robust line, then applied to the whole volume |
-| 3 | `run_group_differences` | each mouse folded onto the left hemisphere (L - R and L + R; the group means take \|L - R\|); the experimental group aligned onto the control group's profile; tissue smoothed in 3D; group means, Welch t and surprise (-log10 p) maps, slab figures, regional bars, videos |
+| 3 | `run_group_differences` | each mouse folded onto the left hemisphere (L - R and L + R; the group means take \|L - R\|); the experimental group aligned onto the control group's profile; tissue smoothed in 3D, each mouse NaN outside its tissue; group means, Welch t and surprise (-log10 p) maps over the mice with tissue at each voxel, slab figures, regional bars, videos |
 
 The comparison as it was approved (5 December 2025) runs:
 
@@ -25,8 +25,9 @@ The comparison as it was approved (5 December 2025) runs:
 
 Its mice: naive CGF027, CGF028, CGF033, CGF034, CGF035; RWS MG691, MG692,
 MG693, MG736, MG737; behavior MG705, MG709, MG716, MG718, four of the seven
-registered. The selection is written at the top of steps 2 and 3, by position
-within each group.
+registered. The selection is written at the top of steps 2 and 3: by position
+within each group (`selected_mice_idx_list`), and in step 3 the behavior mice
+to analyse by name (`behavior_mice`).
 
 Steps 1 and 2 also serve the young brains: with `mousetypes_list = {'young'}`
 and `age_filter = [20]`, then `SEP_COHORT_SPECS=young_P20`, they give the
@@ -71,9 +72,19 @@ outlines (`lr_atlas_boundaries`) sit beside them. Shared: `../common/`
   0.997 to 0.998 for RWS and 0.988 to 0.999 for behavior
   (`../docs/REFACTOR_PLAN.md`, Progress). This checks the computation on the
   same mice; it is not a replication in new animals.
-- The adults are selected by position: step 1 stacks a group in table order,
-  and steps 2 and 3 pick mice by their place in that stack. The adults' rows
-  of the cohort table keep their order (`get_cohort('verify')`).
+- Step 3 used to smooth each mouse's tissue and then set the voxels outside
+  it to 0, so those zeros entered the group means and the SEM's n. Since
+  fix 23 of step 8 they are left out. On the same inputs the RWS S1 increase
+  holds (the difference map unchanged in S1, the sum map's significant area
+  there a third smaller), while naive against behavior changes over the
+  whole slab: MG709 has no tissue in the slab around plane 565 and no longer
+  counts there as a fourth mouse (`../docs/ROADMAP.md`, section 1, with the open question of
+  voxels left with two or three mice).
+- Step 2 selects the adults by position: step 1 stacks a group in table
+  order, and step 2 picks mice by their place in that stack; step 3 names
+  them by the same positions, except the behavior mice it analyses, which it
+  takes by name from those step 2 saved (a name not saved stops the run). The
+  adults' rows of the cohort table keep their order (`get_cohort('verify')`).
 - This route normalises each mouse onto its group and the experimental group
   onto the control group; the Python route (`../mapping/`) scales each brain
   on its own. A result that uses both must make them comparable first.

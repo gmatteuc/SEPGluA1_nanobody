@@ -36,10 +36,12 @@ P32 and P36 are built.
 | `atlas_diagnostics` | measures both atlases (resolution, grid, crop, label space, the AP coverage of each brain) and writes `ATLAS_PARAMETERS.md` and `atlas_crop_and_ap_mapping.png`; after changing an atlas, a crop or the section thickness |
 | `compare_atlas_regions` | per region, volume fraction, centroid and label overlap between DeMBA P20 and the CCF; the measurement behind registering the young brains to an age-matched atlas |
 | `compare_atlases_montage` | the two atlases side by side, coronal, at matched levels |
-| `check_demba_to_allen` | the DeMBA P20 annotation carried to the CCF by CCF Translator, against the CCF annotation |
+| `demba_to_allen.py` | carries the DeMBA P20 annotation to the CCF with CCF Translator and writes `annotation_in_allen_space_20um.nii.gz` in `<data>\atlas_demba_p20\` (in `tools\venv_atlas`, from the code root); rerun when the atlas or its crop changes |
+| `check_demba_to_allen` | that annotation against the CCF annotation, after `demba_to_allen.py` |
 
-They write to `<data>\young\registration_qc\`. `draw_overlap_matrix`,
-`region_overlap_matrix` and `pad_to_canvas` are their helpers.
+The MATLAB checks write to `<data>\young\registration_qc\`.
+`draw_overlap_matrix`, `region_overlap_matrix` and `pad_to_canvas` are their
+helpers.
 
 ## Data
 
@@ -58,9 +60,12 @@ They write to `<data>\young\registration_qc\`. `draw_overlap_matrix`,
   every atlas folder holds files of that name, and only one may be on the
   path. Never `addpath` an atlas folder: `get_atlas` does it.
 - The DeMBA files hold 20 um data under the `_10` names that LightSuite
-  needs. The real resolution is `res_um` in `get_atlas` and `px_atlas` in a
-  young brain's `local_settings.txt`; both must say 20, or the AP scale of the
-  registration halves without an error.
+  needs. The real resolution is `res_um` in `get_atlas`; 'align' takes
+  `px_atlas` from it, and `run_register_to_atlas` stops when a young brain's
+  `local_settings.txt` says otherwise, since a `px_atlas` of 10 against this
+  atlas would halve the AP scale of the alignment without an error. The
+  registered volumes are on the 10 um grid whatever the atlas
+  (`registered_grid_um`).
 - BrainGlobe ships DeMBA in Allen structure ids, which collide numerically
   with the parcellation index without meaning the same region; the build
   remaps every id.
@@ -68,7 +73,8 @@ They write to `<data>\young\registration_qc\`. `draw_overlap_matrix`,
   slope of the region-centroid regression, `get_atlas`'s help), so the adult
   crop does not map to the young atlas by dividing by two; the crop is
   measured.
-- `check_demba_to_allen` reads a transformed annotation made by a script that
-  is not in the repository (`tmp/demba_to_allen.py`); the numbers in
-  `get_atlas`'s help came from two more such scripts, and
-  `atlas_diagnostics` measures them again.
+- Every script these checks need is in `qc/`: `check_demba_to_allen` reads
+  the annotation `demba_to_allen.py` writes, nothing comes from a temporary
+  folder. The AP numbers in `get_atlas`'s help (the remap, the crops, the
+  slope) are measured by `build_demba_atlas.py` for each age it builds, in
+  that folder's `source.txt`, and again by `atlas_diagnostics`.

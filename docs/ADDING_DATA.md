@@ -81,10 +81,14 @@ Add one row to `common/cohort.csv`, which `get_cohort` (MATLAB) and
   until step 4, which gives the values.
 
 The first 17 rows, the adults of the plasticity comparison, keep their order:
-some drivers select adults by position, and `get_cohort('verify')` stops a
-run when that order has changed. Add new rows at the end.
-`tests/test_backward_compat` checks the adults' order and that each young
-brain's age matches its name.
+`run_normalise_groups` and `run_group_differences` select adults by position
+(`selected_mice_idx_list`), and `get_cohort('verify')` stops a run when that
+order has changed; `run_group_differences` picks the behaviour mice it
+analyses by name (`behavior_mice`).
+Add new rows at the end. `tests/test_backward_compat` checks the adults'
+order, that the young cohort `get_cohort` returns is the table's young rows
+in their order (so a new row needs no change to the test), and that each
+young brain's age matches its name.
 
 ## 2. Preprocessing (MATLAB, `preprocessing/`)
 
@@ -108,9 +112,10 @@ the four channels must come in the same order as before (traps below).
 `local_settings.txt`, the mouse folder's first, then `lightsuite\`'s; without
 either, LightSuite's defaults, which are the adults' values (150 um sections,
 `px_process = 5`, `px_register = 20`, `px_atlas = 10`, DAPI for the
-registration). A young brain is extracted with `px_atlas = 10`, and the value
-is changed to 20 before 'align': see "The registration grid" below. A brain
-that fails is reported and the others go on.
+registration). A young brain's file says `px_atlas = 20`, with the DeMBA
+crop, by 'align' at the latest; `px_register` stays 20 for every brain: see
+"The registration grid" below. A brain that fails is reported and the others
+go on.
 
 **Order, manual.** `'edit'` opens SliceOrderEditor on
 `volume_for_ordering.tiff`: reorder, flip, mark slices for removal, save, close
@@ -258,8 +263,9 @@ LightSuite's defaults are the adults' values. Then, in `group_comparison/`
 2. `run_normalise_groups`: its mouse lists and the selection of each group
    are written at its top; extend them. `SEP_COHORT_SPECS=rws,naive,behavior`
    normalises the three groups in one run.
-3. `run_group_differences`: the same lists; `exp_type` picks `'rws'` or
-   `'behavior'`.
+3. `run_group_differences`: the same lists, and the behaviour mice to
+   analyse by name in `behavior_mice` (among those step 2 saved); `exp_type`
+   picks `'rws'` or `'behavior'`.
 
 The comparison approved on 5 December 2025 is in
 `<data>\comparisons\naive_vs_rws\` and `naive_vs_behavior\`; a rerun writes
@@ -275,16 +281,21 @@ Python route's adult cohort once its `mapping_cohort` is set.
   `chan05_MASK`), and `chan02_SEP` in `volume_registered_sep\`.
 - **The registration grid.** Every registered brain, young and adult, is on
   one grid: 10 um sampling, twice the 20 um registration grid. The Python
-  route expects it (it averages 2 x 2 x 2 blocks to 20 um). 'register' takes
-  the grid from `px_atlas` in `sliceinfo.mat`, which extraction copies from
-  `local_settings.txt`, and stops when it is not 10. 'align' takes `px_atlas`
-  and the AP crop from the atlas itself, whatever the settings file says; the
-  check before every mode stops only when a `local_settings.txt` exists and
-  gives another `px_atlas` than the atlas's resolution (20 for DeMBA). So a
-  young brain is extracted with `px_atlas = 10` (no `local_settings.txt`, or
-  one that says 10, like the `local_settings_before_demba.txt` kept in the
-  young folders), and its `local_settings.txt` then says 20 (with the DeMBA
-  crop) before 'align'. Every young brain so far was extracted that way.
+  route expects it (it averages 2 x 2 x 2 blocks to 20 um). 'register' sets
+  it itself (`registration/pipeline/registered_grid_um.m`, 10 um), whatever
+  `px_atlas` extraction copied into `sliceinfo.mat` from
+  `local_settings.txt`, and so does `run_add_sep_channel`. Before registering
+  any brain, 'register' stops when a brain's `px_register` in `sliceinfo.mat`
+  is not 20 (LightSuite places the slices on a grid of half `px_register`),
+  and prints a line for a `px_atlas` there other than 10. 'align' takes
+  `px_atlas` and the AP crop from the atlas itself, whatever the settings
+  file says; the check before every mode stops only when a
+  `local_settings.txt` exists and gives another `px_atlas` than the atlas's
+  resolution (20 for DeMBA). So a young brain's `local_settings.txt` may say
+  20, with the DeMBA crop, from extraction on: 'register' prints its line and
+  registers on the 10 um grid. The young brains so far were extracted with 10
+  (like the `local_settings_before_demba.txt` kept in the young folders) and
+  their file changed to 20 before 'align'.
 - **One atlas on the path.** LightSuite finds the atlas with
   `which('average_template_10.nii.gz')`, and every atlas folder holds a file
   of that name; the DeMBA folders hold 20 um data under it. `get_atlas` puts

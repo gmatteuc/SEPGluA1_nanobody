@@ -66,9 +66,10 @@ LightSuite in `../third_party/`.
 
 - The extraction settings come from `local_settings.txt`, the mouse folder's
   first, then `lightsuite\`'s; without either, LightSuite's defaults, which
-  are the adults' values. Its `px_atlas` ends up in `sliceinfo.mat` and sets
-  the grid of the registered volumes: see "The registration grid" in
-  `ADDING_DATA.md`.
+  are the adults' values. Its `px_atlas` ends up in `sliceinfo.mat` but no
+  longer sets the grid of the registered volumes: 'register' puts every brain
+  on the 10 um grid (`registered_grid_um`) and checks that `px_register` is
+  20; see "The registration grid" in `ADDING_DATA.md`.
 - The slice order is applied by the registration's 'align' mode, which reads
   the decisions file; steps 4 to 6 work in the extraction order.
 - Step 4 writes two variants, `slicewise` and `global`; every later step

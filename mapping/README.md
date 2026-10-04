@@ -53,7 +53,7 @@ mapping/
 
 | stage | steps | what |
 |---|---|---|
-| volumes | 1 `run_per_mouse`, 2 `run_to_ccf`, 3 `run_cohort` | per brain, the tissue mask and the background-subtracted channels; every brain on the adult CCF grid; per voxel, the cohort mean, SD and n of every reading |
+| volumes | 1 `run_per_mouse`, 2 `run_to_ccf`, 3 `run_cohort` | per brain, the tissue mask and the background-subtracted channels; every brain on the adult CCF grid; per voxel, the cohort mean, SD and n of every reading, over the whole brain and with each brain's hemispheres averaged first (for the videos' t) |
 | young against adult | 4 `run_compare`, 5 `run_region_plot`, 6 `run_region_groups`, 7 `run_video`, 8 `run_video_compare`, 9 `run_closeup` | maps and the per-structure table; the region statistics, measured on each brain's own atlas, which are the numbers to quote; systems and layers; videos; a coronal plane and the cortical flatmaps (`run_replot` redraws step 4's maps) |
 | diagnostics | 10 `run_diagnostics` | one sheet per question, so each step can be checked by eye |
 | ISH, 100-gene panel | 11 `run_ish_regions --panel targets`, 12 `run_ish_compare`, 13 `run_ish_words`, 14 `run_ish_roles` | Allen ISH energy per gene and structure; each gene against the adult map; the annotation words and the curated roles of the ranking |
@@ -115,7 +115,9 @@ Under `<data>\comparisons_v2\`:
 
 - `per_mouse\<mouse>.npz` and the cache `<mouse>_scalars.npz`;
   `per_mouse_ccf\<mouse>.npz`
-- `ccf\<cohort>\<reading>_{mean,sd,n}.npy`, `mice.txt`, the cohort videos
+- `ccf\<cohort>\<reading>_{mean,sd,n}.npy`, `<reading>_folded_{mean,sd,n}.npy`
+  (each brain's hemispheres averaged first, the left half; `run_video` stops
+  without them), `mice.txt`, the cohort videos
 - `young_vs_adult\`: `volumes_ccf20.npz`, `region_table.csv`,
   `cortex_table.txt`, `region_means_per_mouse.csv`, `region_stats.csv`,
   `group_stats.csv`, the slice, region, group and laminar figures, the
@@ -148,9 +150,10 @@ the ISH tables, the API answers and the grids.
   of `registration/run_add_sep_channel.m`; per mouse in
   `adult_v2\arms\sep_channel_check.csv`), so nano/SEP behaves as a second
   nano over autofluorescence.
-- The level of `ratio` depends on exposure. Its zero carries no meaning of
-  nano equal to autofluorescence; only the order of structures within a
-  brain does.
+- The level of `ratio` depends on exposure. Its zero is a structure as bright
+  in nano as in autofluorescence (`region_plot`'s title: "0 = equally
+  bright"), but only at the two channels' exposures, so it is no biological
+  null; only the order of structures within a brain carries meaning.
 - Young and adult brains were imaged in different sessions, and the
   autofluorescence rises with age, so only patterns compare across ages, not
   levels.
