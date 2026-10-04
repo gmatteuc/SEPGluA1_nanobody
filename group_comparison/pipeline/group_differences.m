@@ -52,10 +52,13 @@ comp_out_dir = run_settings.comp_out_dir;
 
 %% Atlas
 
+% the 10 um Allen annotation on the volumes' AP crop, and its brain mask
 [allenDir, AllenCrop, brainMask, half_atlas] = load_allen_atlas(paths);
 
 %% Load both groups
 
+% each group's normalised volumes and background masks, and each mouse's mean
+% tissue intensity per plane, which the alignment below uses
 [data_4d_new_ctrl, data_4d_new_exp, med_data_4d_ctrl, recomputed_bkg_mask_4d_ctrl, ...
     med_data_4d_exp, recomputed_bkg_mask_4d_exp, exp_mousenames] = load_groups(channel, ...
     ctrl_type, exp_type, ctrl_dir, exp_dir, behavior_mice, exp_mousenames);
@@ -70,17 +73,28 @@ comp_out_dir = run_settings.comp_out_dir;
 
 %% Align the experimental group onto the control group
 
+% run_normalise_groups put each group on its own median mouse, so the two scales
+% differ: a line between the groups' mean plane profiles brings the experimental
+% group onto the control's; a change common to the whole brain goes with it, so
+% the maps below show changes relative to the brain as a whole
 [interest_region, norm_ctrl, norm_exp, slope, intercept, norm_ctrl_med_fact, ...
     norm_exp_med_fact] = align_exp_to_ctrl(med_data_4d_ctrl, med_data_4d_exp);
+
+% the profiles before and after the alignment, as a figure
 plot_alignment_profiles(med_data_4d_ctrl, med_data_4d_exp, norm_ctrl, norm_exp, ...
     interest_region, slope, intercept, ctrl_type, exp_type, comp_tag, comp_out_dir);
 
 %% Left-right maps of each mouse and group
 
+% each mouse folded onto the left hemisphere, L - R and L + R on the common
+% scale, and the group means of their absolute values
 [lr_diff_ctrl, lr_sum_ctrl, lr_diff_exp, lr_sum_exp, avg_lr_diff_ctrl, ...
     avg_lr_sum_ctrl, avg_lr_diff_exp, avg_lr_sum_exp, avg_lr_diff_groupdiff, ...
     avg_lr_sum_groupdiff] = compute_group_lr(data_4d_new_ctrl, data_4d_new_exp, ...
     norm_ctrl_med_fact, norm_exp_med_fact, slope, intercept);
+
+% the folded voxels without a value, per mouse, and the voxels each group's maps
+% and the group difference show
 [mask_bg_ctrl, mask_bg_exp, brainMask_cropped_no_bkg_ctrl, ...
     brainMask_cropped_no_bkg_exp, brainMask_group_diff] = hemisphere_masks(brainMask, ...
     lr_diff_ctrl, lr_diff_exp);
@@ -92,11 +106,14 @@ if generate_diff_videos
         brainMask_cropped_no_bkg_ctrl, brainMask_cropped_no_bkg_exp, ...
         brainMask_group_diff, comp_out_dir, channel, ctrl_type, exp_type, comp_tag);
 end
+
+% free the unfolded volumes and masks: only the folded maps are used from here on
 clear data_4d_new_ctrl data_4d_new_exp recomputed_bkg_mask_4d_ctrl ...
     recomputed_bkg_mask_4d_exp
 
 %% Videos of every mouse
 
+% each mouse's |L - R| and L + R, plane by plane, one video per group
 if generate_individual_diff_videos
     write_individual_videos(lr_diff_ctrl, lr_sum_ctrl, mask_bg_ctrl, lr_diff_exp, ...
         lr_sum_exp, mask_bg_exp, AllenCrop, comp_out_dir, ctrl_type, exp_type, ...
@@ -105,6 +122,7 @@ end
 
 %% Videos of every mouse, signed
 
+% the same with the sign of L - R, which side is higher
 if generate_signed_diff_videos
     write_signed_videos(lr_diff_ctrl, lr_sum_ctrl, mask_bg_ctrl, lr_diff_exp, ...
         lr_sum_exp, mask_bg_exp, AllenCrop, comp_out_dir, ctrl_type, exp_type, ...
@@ -113,6 +131,8 @@ end
 
 %% Group t and surprise maps
 
+% Welch t of experimental minus control at every voxel, over the mice with a
+% value there, and its surprise -log10 p
 [t_lr_diff_groupdiff, t_lr_sum_groupdiff, n_ctrl, n_exp, surp_diff, surp_sum] = ...
     group_t_and_surprise(lr_diff_ctrl, lr_sum_ctrl, lr_diff_exp, lr_sum_exp, ...
     avg_lr_diff_ctrl, avg_lr_sum_ctrl, avg_lr_diff_exp, avg_lr_sum_exp, ...
@@ -126,6 +146,8 @@ fprintf('All comparison results saved to: %s\n', comp_out_dir);
 %% Region t-scores, every leaf region (off in production)
 
 if perform_area_based_analysis_fine
+
+    % five statistics per leaf region and mouse, and montages of their group t
     [atlas_left, half_width] = wholebrain_tmaps(AllenCrop, mask_bg_ctrl, mask_bg_exp, ...
         lr_diff_ctrl, lr_diff_exp, lr_sum_ctrl, lr_sum_exp, n_ctrl, n_exp, comp_tag, ...
         comp_out_dir);
@@ -142,6 +164,7 @@ if perform_area_based_analysis_coarse
         half_width = floor(n_width / 2);
     end
 
+    % the same statistics in each region of the list, as bar charts of group t
     coarse_region_tstats(AllenCrop, allenDir, brainMask, half_width, lr_diff_ctrl, ...
         lr_diff_exp, lr_sum_ctrl, lr_sum_exp, mask_bg_ctrl, mask_bg_exp, n_ctrl, ...
         n_exp, ctrl_mousenames, exp_mousenames, ctrl_type, exp_type, comp_tag, ...
@@ -159,18 +182,22 @@ end
 
 if perform_area_based_analysis_fine
 
+    % the P99 t-score volumes the fine analysis saved, every plane with its
+    % region acronyms
     write_annotated_tmap_video(AllenCrop, allenDir, comp_out_dir, comp_tag);
 
 end
 
 %% Slab figure of the group t-maps
 
-% median over the planes around plane 565, shown where the surprise is high
+% median over the planes around plane 565, shown where the surprise is high: the
+% comparison's main figure
 plot_group_slab(t_lr_diff_groupdiff, t_lr_sum_groupdiff, surp_diff, surp_sum, ...
     brainMask_group_diff, half_atlas, exp_type, ctrl_type, comp_out_dir, comp_tag);
 
 %% Slab figures of every mouse
 
+% the same slab for every mouse, |L - R| and L + R, one figure per group
 plot_individual_slabs(lr_diff_ctrl, lr_diff_exp, lr_sum_ctrl, lr_sum_exp, ...
     mask_bg_ctrl, mask_bg_exp, ctrl_mousenames, exp_mousenames, ctrl_type, exp_type, ...
     half_atlas, comp_out_dir);
@@ -179,6 +206,7 @@ plot_individual_slabs(lr_diff_ctrl, lr_diff_exp, lr_sum_ctrl, lr_sum_exp, ...
 
 if generate_rolling_videos
 
+    % the slab figure, with the slab moved through every plane
     write_rolling_tscore_video(t_lr_diff_groupdiff, t_lr_sum_groupdiff, half_atlas, ...
         brainMask_group_diff, surp_diff, surp_sum, comp_out_dir, channel, comp_tag, ...
         exp_type, ctrl_type);
@@ -200,6 +228,7 @@ if generate_rolling_videos
         atlas_left = double(AllenCrop(:, :, 1:size(lr_diff_ctrl, 3)));
     end
 
+    % every mouse's slab medians, plane by plane, one video per group
     write_individual_rolling_videos(lr_diff_ctrl, lr_sum_ctrl, mask_bg_ctrl, ...
         lr_diff_exp, lr_sum_exp, mask_bg_exp, atlas_left, comp_out_dir, ctrl_type, ...
         exp_type, ctrl_mousenames, exp_mousenames, slab_range, clim_diff, clim_sum);
@@ -208,6 +237,7 @@ end
 
 %% Regional surprise bars
 
+% the surprise summed over each region of a fixed list, for L - R and L + R
 regional_surprise_bars(surp_diff, surp_sum, brainMask_group_diff, AllenCrop, allenDir, ...
     brainMask, exp_type, comp_tag, comp_out_dir);
 
@@ -231,6 +261,8 @@ brainMask = AllenCrop > 0;
 % the atlas the videos draw their boundaries from: the whole width, despite the
 % name (the videos show the left half)
 half_atlas = AllenCrop(:, :, 1:end);
+
+% free the uncropped annotation
 clear bg_L_c bg_R_c bg_L_e bg_R_e AllenVol
 end
 
@@ -267,6 +299,9 @@ if strcmp(exp_type, 'rws')
     data_4d_new_exp = S_exp_vol.(norm_var_name);
     data_4d_new_exp_bkgmask = S_exp_mask.recomputed_bkg_mask_4d;
 elseif strcmp(exp_type, 'behavior')
+
+    % the named mice, found by name among those saved, so a different selection
+    % in run_normalise_groups cannot shift them
     behavior_idx = saved_positions(behavior_mice, fullfile(exp_dir, norm_filename));
     data_4d_new_exp = S_exp_vol.(norm_var_name)(:, :, :, behavior_idx);
     data_4d_new_exp_bkgmask = S_exp_mask.recomputed_bkg_mask_4d(:, :, :, behavior_idx);
@@ -299,8 +334,12 @@ function mouse_idx = saved_positions(mouse_names, norm_file)
 % The positions of the named mice along the fourth dimension of a normalised
 % volume, from the mouse names run_normalise_groups saved with it.
 
+% the mice saved with the volume, in order, and where each named mouse is among
+% them
 S_saved = load(norm_file, 'current_mice');
 [is_saved, mouse_idx] = ismember(mouse_names, S_saved.current_mice);
+
+% every named mouse must be there
 if ~all(is_saved)
     error(['run_group_differences: %s not among the mice run_normalise_groups ' ...
            'saved in %s (%s). Name some of those in behavior_mice, or select the ' ...
@@ -314,11 +353,15 @@ function med_data_4d = plane_tissue_means(data_4d, bkgmask_4d)
 % Each mouse's mean tissue intensity per plane (planes x mice), outside its
 % background mask.
 
+% one value per plane and mouse
 med_data_4d = nan(size(data_4d, 1), size(data_4d, 4));
 total_slices = size(data_4d, 1);
 for iii = 1:size(data_4d, 4)
     fprintf('  Processing Mouse %d ...\n', iii);
     for slice_idx_loop = 1:total_slices
+
+        % the mean outside the background mask, without the NaN of voxels no
+        % section reached; NaN for a plane with no tissue
         img_data = squeeze(data_4d(slice_idx_loop, :, :, iii));
         bg_mask = squeeze(bkgmask_4d(slice_idx_loop, :, :, iii));
         med_data_4d(slice_idx_loop, iii) = nanmean(img_data(~bg_mask));
@@ -387,7 +430,8 @@ function [interest_region, norm_ctrl, norm_exp, slope, intercept, norm_ctrl_med_
 % The line that maps the experimental group's mean plane profile onto the
 % control group's, and the common scale of both groups.
 
-% planes the line is fitted on
+% planes the line is fitted on: 200 to 700 of the 900 (379 to 879 of the 10 um
+% annotation), away from both ends of the brain
 interest_region = 200:700;
 
 % the groups' mean plane profiles
@@ -413,10 +457,15 @@ norm_ctrl = med_data_4d_ctrl;
 norm_exp = (med_data_4d_exp .* slope) + intercept;
 
 % one common scale for both groups: the average of the two groups' mean
-% intensity over planes 300-500, after the alignment
+% intensity over planes 300-500, after the alignment, so every map below is in
+% units of the mid-brain tissue mean
 interest_region_bis = 300:500;
+
+% each group's mean over the planes, then over its mice
 norm_ctrl_med_fact = nanmean(nanmean(med_data_4d_ctrl(interest_region_bis, :), 1));
 norm_exp_med_fact = nanmean(nanmean(norm_exp(interest_region_bis, :), 1));
+
+% one factor for both: it sets the unit of the maps and leaves every t unchanged
 avg_med_fact = (norm_ctrl_med_fact + norm_exp_med_fact)./2;
 norm_ctrl_med_fact = avg_med_fact;
 norm_exp_med_fact = avg_med_fact;
@@ -476,6 +525,8 @@ subplot(1, 2, 1);
 hold on;
 box on;
 grid on;
+
+% each mouse's profile, in its group's shades
 for i = 1:size(med_data_4d_ctrl, 2)
     plot(slices, med_data_4d_ctrl(:, i), 'Color', cmap_ctrl(i, :), 'LineWidth', 1.2);
 end
@@ -488,6 +539,8 @@ mean_c = nanmean(med_data_4d_ctrl, 2);
 sem_c = nanstd(med_data_4d_ctrl, [], 2) ./ sqrt(sum(~isnan(med_data_4d_ctrl), 2));
 mean_e = nanmean(med_data_4d_exp, 2);
 sem_e = nanstd(med_data_4d_exp, [], 2) ./ sqrt(sum(~isnan(med_data_4d_exp), 2));
+
+% the SEM as a band, the mean as a thick line, in the groups' colours
 fill([slices fliplr(slices)], [mean_c-sem_c; flipud(mean_c+sem_c)], ...
     sep_palette('control'), 'FaceAlpha', 0.3, 'EdgeColor', 'none');
 plot(slices, mean_c, 'Color', sep_palette('control_mean'), 'LineWidth', 3.5);
@@ -508,6 +561,8 @@ subplot(1, 2, 2);
 hold on;
 box on;
 grid on;
+
+% each mouse's profile, in its group's shades
 for i = 1:size(norm_ctrl, 2)
     plot(slices, norm_ctrl(:, i), 'Color', cmap_ctrl(i, :), 'LineWidth', 1.2);
 end
@@ -520,6 +575,8 @@ mean_nc = nanmean(norm_ctrl, 2);
 sem_nc = nanstd(norm_ctrl, [], 2) ./ sqrt(sum(~isnan(norm_ctrl), 2));
 mean_ne = nanmean(norm_exp, 2);
 sem_ne = nanstd(norm_exp, [], 2) ./ sqrt(sum(~isnan(norm_exp), 2));
+
+% the SEM as a band, the mean as a thick line, in the groups' colours
 fill([slices fliplr(slices)], [mean_nc-sem_nc; flipud(mean_nc+sem_nc)], ...
     sep_palette('control'), 'FaceAlpha', 0.3, 'EdgeColor', 'none');
 plot(slices, mean_nc, 'Color', sep_palette('control_mean'), 'LineWidth', 3.5);
@@ -740,10 +797,15 @@ end
 % the surprise video, and the t video shown where p < 0.05 (as above, on the
 % voxels with a t)
 if generate_surprise_videos
+
+    % the surprise, on limits 0 to 8
     write_lr_video(surp_diff, surp_sum, half_atlas, has_t, ...
         comp_out_dir, ['surp_lr_diff_sum_' channel '_groupdiff_' comp_tag '.mp4'], ...
         [0 8], ['-log_{10}(p) | ' comp_tag], ...
         ['LR abs diff surprise (' comp_tag ')'], ['LR abs sum surprise (' comp_tag ')']);
+
+    % the t maps, both panels opaque from p < 0.05 of the L - R map (uncorrected,
+    % voxel by voxel) and fading out below it
     surp_thresh = -log10(0.05);
     write_lr_video_surpmask( ...
         t_lr_diff_groupdiff, t_lr_sum_groupdiff, ...
@@ -873,6 +935,7 @@ for a_idx = 1:length(analysis_types)
     res_type = analysis_types{a_idx};
     fprintf('--- Whole-Brain Analysis: Processing %s Data ---\n', res_type);
 
+    % both groups' maps of this kind
     if strcmp(res_type, 'Diff')
         input_4d_ctrl = lr_diff_ctrl;
         input_4d_exp = lr_diff_exp;
@@ -881,6 +944,7 @@ for a_idx = 1:length(analysis_types)
         input_4d_exp = lr_sum_exp;
     end
 
+    % the statistics per region and mouse, then a montage of group t per statistic
     [leaf_stats_ctrl, leaf_stats_exp] = leaf_region_stats(input_4d_ctrl, input_4d_exp, ...
         bg_mask_ctrl_left, bg_mask_exp_left, valid_mask, id_indices, n_unique_regions, ...
         n_ctrl, n_exp, n_metrics, funcs, res_type);
@@ -1009,6 +1073,8 @@ t_scores_vec(isnan(t_scores_vec) | isinf(t_scores_vec)) = 0;
 % colour limits: the 95th percentile of |t|, at least 0.1
 t_vals = t_scores_vec(t_scores_vec ~= 0);
 if isempty(t_vals)
+
+    % no t at all: limits of +/- 1, with a warning
     max_t = 1;
     fprintf('    [Warning] Metric %s yielded all zero T-scores.\n', metric_name);
 else
@@ -1039,6 +1105,8 @@ fig_h = figure('Visible', 'off', 'Name', ...
     'Position', [50 50 1200 900]);
 
 for k = 1:length(slices_to_show)
+
+    % the plane's t-scores, transparent (black) outside the atlas
     s_idx = slices_to_show(k);
     subplot(n_rows, n_cols, k);
     im_slice = squeeze(t_score_vol(s_idx, :, :));
@@ -1049,10 +1117,14 @@ for k = 1:length(slices_to_show)
     axis off;
     set(gca, 'Color', 'k');
     set(findobj(gca, 'Type', 'image'), 'AlphaData', alpha_data);
+
+    % blue-red on the symmetric limits, the plane number as title
     colormap(gca, custom_cmap);
     clim(t_lims);
     title(['Slice ' num2str(s_idx)], 'Color', 'w', 'FontSize', 8);
 end
+
+% one colour bar for all panels, on the right
 c = colorbar;
 c.Position = [0.92 0.1 0.02 0.8];
 c.Color = 'w';
@@ -1170,10 +1242,13 @@ for k = 1:length(inspect_figs)
     if isvalid(inspect_figs(k))
         r_idx = inspect_indices(k);
         r_name = roi_list{r_idx};
+
+        % the region's name as a file name, the legend of the lines in the title
         clean_name = regexprep(r_name, '[^a-zA-Z0-9]', '_');
         sgtitle(inspect_figs(k), ['Distribution: ' r_name ' (' res_type ...
             ') | Solid=Mean, Dash=Med, Purple=P99'], 'Interpreter', 'none');
 
+        % .fig and .png, then close it
         saveas(inspect_figs(k), ...
             fullfile(dist_out_dir, ['Dist_' res_type '_' clean_name '.fig']));
         exportgraphics(inspect_figs(k), ...
@@ -1279,6 +1354,8 @@ for r = 1:n_rois
         roi_masks(:, r) = ismember(pixel_ids, ids_in_region);
         roi_pixel_counts(r) = sum(roi_masks(:, r));
     catch
+
+        % a region get_allen_region_mask cannot map stays empty, with a warning
         warning('Could not map region: %s', region_name);
     end
 end
@@ -1310,6 +1387,8 @@ for m = 1:n_mice
     data_vec(bg_vec) = NaN;
 
     for r = 1:n_rois
+
+        % a region with no voxel keeps NaN
         if roi_pixel_counts(r) == 0
             continue;
         end
@@ -1334,14 +1413,21 @@ for m = 1:n_mice
                 histogram(roi_vals_clean, 100, 'EdgeColor', 'none', 'FaceColor', ...
                     face_color);
                 hold on;
+
+                % the mean (solid), median (dashed) and P99 (magenta) as lines
                 xline(roi_stats(r, m, 1), 'k-', 'LineWidth', 1.5);
                 xline(roi_stats(r, m, 2), 'k--', 'LineWidth', 1.5);
                 xline(roi_stats(r, m, 5), '-', 'LineWidth', 1.5, 'Color', [1, 0, 1]);
                 xlim(hist_xlim);
+
+                % the mean, the P99 and the number of voxels in a box, top right
                 txt_str = [sprintf('Mean: %.2f\nP99: %.2f', roi_stats(r, m, 1), ...
                     roi_stats(r, m, 5)), ' (N=', num2str(numel(roi_vals_clean)), ')'];
                 text(0.95, 0.9, txt_str, 'Units', 'normalized', 'HorizontalAlignment', ...
                     'right', 'FontSize', 8, 'BackgroundColor', 'w', 'EdgeColor', 'k');
+
+                % the mouse's name as title (M1, M2, ... without names), the group
+                % on the first panel's y label
                 if exist('mousenames', 'var')
                     t_str = mousenames{m};
                 else
@@ -1368,7 +1454,8 @@ function plot_coarse_bars(roi_stats_ctrl, roi_stats_exp, metric_names, choosen_m
 [sorted_t, sorted_rois] = coarse_t_scores(metric_names, choosen_metric, ...
     roi_stats_ctrl, roi_stats_exp, roi_list);
 
-% the bars: red above zero, blue below
+% the bars: the experimental group's orange above zero, the control group's blue
+% below
 fig_bars = figure('Visible', 'off', 'Name', ['Region_Analysis_BarChart_' res_type '_' ...
     comp_tag], 'Color', 'w', 'Units', 'Normalized', 'Position', [0 0 0.9 0.9]);
 
@@ -1382,6 +1469,7 @@ for k = 1:length(sorted_t)
     end
 end
 
+% the region names as tick labels, in the bars' order
 yticks(1:length(sorted_rois));
 yticklabels(sorted_rois);
 xlabel(['t-score (' exp_type ' - ' ctrl_type ')']);
@@ -1394,7 +1482,8 @@ ylim([0 length(sorted_rois)+1]);
 % the regions expected to change, labelled in bold magenta
 highlight_coarse_regions(exp_type);
 
-% the Bonferroni thresholds over the regions tested, p < 0.05 two-sided
+% the Bonferroni thresholds over the regions tested, p < 0.05 two-sided, on
+% n_ctrl + n_exp - 2 degrees of freedom
 n_regions_tested = length(sorted_t);
 df = n_ctrl + n_exp - 2;
 t_crit_bonf = tinv(1 - 0.05/(2*n_regions_tested), df);
@@ -1448,7 +1537,8 @@ end
 function highlight_coarse_regions(exp_type)
 % The tick labels of the regions expected to change, in bold magenta.
 
-% the regions expected to change, labelled in bold magenta
+% the regions expected to change, labelled in bold magenta: the whisker system
+% (barrel field, VPM, PO, the supplemental somatosensory area, zona incerta)
 switch exp_type
     case {'rws', 'behavior'}
         highlighted_areas = {'Primary somatosensory area, barrel field', ...
@@ -1459,6 +1549,7 @@ switch exp_type
         highlighted_areas = {};
 end
 
+% each tick label recoloured with TeX markup, underscores as spaces
 ax = gca;
 ytl = ax.YTickLabel;
 colored_labels = repmat({''}, size(ytl));
@@ -1491,6 +1582,7 @@ file_diff = fullfile(comp_out_dir, ...
 file_sum = fullfile(comp_out_dir, ...
     ['WholeBrain_TMap_Sum_' metric_to_plot '_' comp_tag '.mat']);
 
+% both volumes, or a warning and no video if the montage step has not saved them
 if exist(file_diff, 'file') && exist(file_sum, 'file')
     data_diff = load(file_diff, 't_score_vol');
     vol_diff = data_diff.t_score_vol;
@@ -1526,6 +1618,7 @@ if exist(file_diff, 'file') && exist(file_sum, 'file')
     write_annotated_frames(n_slices, atlas_left_hires, id2acronym, vol_diff, vol_sum, ...
         custom_cmap, metric_to_plot, fh, vidObj);
 
+    % finish the file
     close(vidObj);
     close(fh);
     fprintf('Annotated video saved: %s\n', full_video_path);
@@ -1533,6 +1626,8 @@ if exist(file_diff, 'file') && exist(file_sum, 'file')
 else
     warning('T-Map .mat files not found. Run the Whole-Brain Analysis section first.');
 end
+
+% free the atlas copies
 clear atlas_hi_res atlas_left_hires
 end
 
@@ -1548,12 +1643,14 @@ for j = 1:n_slices
         continue;
     end
 
+    % draw the frame and write it
     draw_annotated_frame(mask_slice_hires, id2acronym, vol_diff, vol_sum, j, ...
         custom_cmap, metric_to_plot);
 
     frame = getframe(fh);
     writeVideo(vidObj, frame);
 
+    % progress every 50 planes; the figure cleared for the next frame
     if mod(j, 50) == 0
         fprintf('  Frame %d written...\n', j);
     end
@@ -1565,6 +1662,7 @@ function id2acronym = load_acronym_map(allenDir)
 % Allen region id to acronym, from the parcellation table when it is there
 % (an empty map otherwise).
 
+% the table, and an empty map to return if it is missing or unusable
 map_file = fullfile(allenDir, 'parcellation_to_parcellation_term_membership.csv');
 id2acronym = containers.Map('KeyType', 'double', 'ValueType', 'char');
 
@@ -1581,7 +1679,8 @@ if exist(map_file, 'file')
         raw_pixels = str2double(T_map.parcellation_index);
         raw_acros = T_map.parcellation_term_acronym;
 
-        % keep the structure level of the hierarchy when the table has one
+        % keep the structure level of the hierarchy when the table has one; every
+        % term otherwise, which may give a parent region's acronym
         if ismember('parcellation_term_set_name', T_map.Properties.VariableNames)
             term_sets = lower(T_map.parcellation_term_set_name);
             is_leaf = contains(term_sets, 'structure');
@@ -1592,6 +1691,8 @@ if exist(map_file, 'file')
         else
             is_leaf = true(size(raw_pixels));
         end
+
+        % the ids and acronyms kept
         leaf_pixels = raw_pixels(is_leaf);
         leaf_acros = raw_acros(is_leaf);
 
@@ -1604,6 +1705,7 @@ if exist(map_file, 'file')
         [unique_pixels, idx] = unique(leaf_pixels, 'last');
         unique_acros = leaf_acros(idx);
 
+        % the map, unless nothing is left
         if ~isempty(unique_pixels)
             id2acronym = containers.Map(unique_pixels, unique_acros);
             fprintf('  Mapping created successfully: %d leaf regions mapped.\n', ...
@@ -1612,9 +1714,13 @@ if exist(map_file, 'file')
             warning('Mapping failed. No valid pixel-acronym pairs found.');
         end
     else
+
+        % a table without those columns: the map stays empty, with a warning
         warning('Required columns (parcellation_index, parcellation_term_acronym) missing.');
     end
 else
+
+    % no table: the map stays empty and the video has no labels
     warning('Mapping CSV not found. Labels will be skipped.');
 end
 end
@@ -1623,12 +1729,13 @@ function draw_annotated_frame(mask_slice_hires, id2acronym, vol_diff, vol_sum, j
     custom_cmap, metric_to_plot)
 % One frame of the annotated video, drawn into the current figure.
 
+% transparent (black) outside the atlas
 alpha_data = double(mask_slice_hires > 0);
 
 % a label at the centre of each region of at least 80 voxels
 lbl_data = region_labels(mask_slice_hires, id2acronym);
 
-% left: the difference
+% left: the difference, blue-red on t limits of +/- 4
 subplot(1, 2, 1);
 imagesc(squeeze(vol_diff(j, :, :)));
 clim([-4 4]);
@@ -1642,6 +1749,7 @@ axis off;
 set(gca, 'Color', 'k');
 title(['Diff T-Score (' metric_to_plot ')'], 'Color', 'w', 'FontSize', 12);
 
+% the region labels, black on white boxes
 if ~isempty(lbl_data)
     text([lbl_data.x], [lbl_data.y], {lbl_data.str}, ...
         'Color', 'k', 'FontSize', 6, 'FontWeight', 'bold', ...
@@ -1649,7 +1757,7 @@ if ~isempty(lbl_data)
         'BackgroundColor', 'w', 'Margin', 0.5, 'EdgeColor', 'none');
 end
 
-% right: the sum
+% right: the sum, drawn and labelled as the difference
 subplot(1, 2, 2);
 imagesc(squeeze(vol_sum(j, :, :)));
 clim([-4 4]);
@@ -1663,6 +1771,7 @@ axis off;
 set(gca, 'Color', 'k');
 title(['Sum T-Score (' metric_to_plot ')'], 'Color', 'w', 'FontSize', 12);
 
+% the same region labels
 if ~isempty(lbl_data)
     text([lbl_data.x], [lbl_data.y], {lbl_data.str}, ...
         'Color', 'k', 'FontSize', 6, 'FontWeight', 'bold', ...
@@ -1670,6 +1779,7 @@ if ~isempty(lbl_data)
         'BackgroundColor', 'w', 'Margin', 0.5, 'EdgeColor', 'none');
 end
 
+% the plane number as the frame's title
 sgtitle(['Slice # ' num2str(j)], 'Color', 'w', 'FontSize', 14);
 end
 
@@ -1679,6 +1789,7 @@ function lbl_data = region_labels(mask_slice_hires, id2acronym)
 % a label at the centre of each region of at least 80 voxels with a known acronym
 regions_in_slice = unique(mask_slice_hires(mask_slice_hires > 0));
 
+% one entry per label; none without an acronym map
 lbl_data = struct('x', {}, 'y', {}, 'str', {});
 idx_lbl = 1;
 
@@ -1686,11 +1797,13 @@ if ~isempty(id2acronym)
     for k = 1:length(regions_in_slice)
         r_id = regions_in_slice(k);
 
+        % skip a region under 80 voxels on the plane, too small for a label
         bin_mask = (mask_slice_hires == r_id);
         if sum(bin_mask(:)) < 80
             continue;
         end
 
+        % its acronym at its centre of mass
         if isKey(id2acronym, r_id)
             [py, px] = find(bin_mask);
             lbl_data(idx_lbl).x = mean(px);
@@ -1709,11 +1822,13 @@ function plot_group_slab(t_lr_diff_groupdiff, t_lr_sum_groupdiff, surp_diff, sur
 % The group t-maps around plane 565, median over the slab, shown where the
 % surprise reaches p < 0.01.
 
-% the slab: plane 565 and 10 planes on each side
+% the slab: plane 565 and 10 planes on each side, through the barrel field (S1),
+% where an effect of whisker stimulation was expected
 target_slice = 565;
 slab_range = 10;
 save_fig = true;
 
+% the slab's planes, cut at the ends of the volume
 z_start = max(1, target_slice - slab_range);
 z_end = min(size(t_lr_diff_groupdiff, 1), target_slice + slab_range);
 z_indices = z_start:z_end;
@@ -1726,7 +1841,8 @@ fprintf('Averaging signal across slices %d to %d (Target: %d)...\n', z_start, z_
     brainMask_group_diff, z_indices, t_lr_diff_groupdiff, t_lr_sum_groupdiff, ...
     surp_diff, surp_sum);
 
-% the atlas boundaries of the central plane
+% the atlas boundaries of the central plane: the voxels where the region id
+% changes, inside the brain
 atlas_slice = squeeze(half_atlas(target_slice, :, 1:size(slab_diff, 2)));
 [gy, gx] = gradient(single(atlas_slice));
 boundaries = (abs(gx) + abs(gy)) > 0 & (atlas_slice > 0);
@@ -1736,7 +1852,8 @@ boundaries = (abs(gx) + abs(gy)) > 0 & (atlas_slice > 0);
 fig_slab = draw_group_slab(target_slice, slab_diff, alpha_mask_diff, b_col, b_row, ...
     slab_range, slab_sum, alpha_mask_sum, exp_type, ctrl_type, p_thresh);
 
-% save it
+% save it, as .fig and a 300 dpi .png on its black background, in a folder made
+% if missing
 if save_fig
     if ~exist(comp_out_dir, 'dir')
         mkdir(comp_out_dir);
@@ -1767,6 +1884,7 @@ raw_sum = t_lr_sum_groupdiff(z_indices, :, :);
 raw_sum(~mask_slab_3d) = NaN;
 slab_sum = squeeze(nanmedian(raw_sum, 1));
 
+% the same for the two surprise maps
 raw_surp_d = surp_diff(z_indices, :, :);
 raw_surp_d(~mask_slab_3d) = NaN;
 slab_surp_diff = squeeze(nanmedian(raw_surp_d, 1));
@@ -1775,7 +1893,8 @@ raw_surp_s = surp_sum(z_indices, :, :);
 raw_surp_s(~mask_slab_3d) = NaN;
 slab_surp_sum = squeeze(nanmedian(raw_surp_s, 1));
 
-% opacity: the surprise over -log10(0.01), clipped to 0-1
+% opacity: the surprise over -log10(0.01), clipped to 0-1, so a voxel at p <= 0.01
+% (uncorrected, voxel by voxel) is opaque, and fainter the higher its p
 p_thresh = 0.01;
 surp_thresh = -log10(p_thresh);
 calc_alpha = @(vol) min(1, max(0, vol ./ surp_thresh));
@@ -1806,7 +1925,11 @@ axis image;
 axis off;
 set(gca, 'Color', 'k');
 hold on;
+
+% the atlas boundaries as small grey dots
 plot(b_col, b_row, '.', 'Color', [0.7 0.7 0.7], 'MarkerSize', 0.25);
+
+% blue-red, with a white colour bar on the black figure
 clim([-6 6]);
 colormap(gca, sep_palette('difference'));
 cb1 = colorbar;
@@ -1816,7 +1939,7 @@ cb1.Label.Color = 'w';
 title(['LR Diff (T-Score) - Slab Avg ' num2str(target_slice) '\pm' ...
     num2str(slab_range)], 'Color', 'w');
 
-% right: the t of the sum
+% right: the t of the sum, drawn as the difference
 subplot(1, 2, 2);
 h2 = imagesc(slab_sum);
 set(h2, 'AlphaData', alpha_mask_sum);
@@ -1834,6 +1957,7 @@ cb2.Label.Color = 'w';
 title(['LR Sum (T-Score) - Slab Avg ' num2str(target_slice) '\pm' ...
     num2str(slab_range)], 'Color', 'w');
 
+% the comparison and the threshold in the title
 sgtitle(['Slab average - ', exp_type ' vs ' ctrl_type ' - surprise masked (p<', ...
     num2str(p_thresh), ')'], 'Color', 'w', 'FontSize', 14);
 end
@@ -1846,14 +1970,15 @@ function plot_individual_slabs(lr_diff_ctrl, lr_diff_exp, lr_sum_ctrl, lr_sum_ex
 
 fprintf('Generating Individual Mice Slab Average Plots...\n');
 
-% the slab: plane 565 and 10 planes on each side; colour limits of the
-% difference and the sum; the atlas boundaries off
+% the slab: plane 565 and 10 planes on each side, as in the group figure; colour
+% limits of the difference and the sum; the atlas boundaries off
 target_slice = 565;
 slab_range = 10;
 clim_diff_indiv = [0 1.5];
 clim_sum_indiv = [0 10];
 bool_overlay_atlas = false;
 
+% the slab's planes, cut at the ends of the volume
 z_start = max(1, target_slice - slab_range);
 z_end = min(size(lr_diff_ctrl, 1), target_slice + slab_range);
 z_indices = z_start:z_end;
@@ -1872,6 +1997,8 @@ group_masks = {mask_bg_ctrl, mask_bg_exp};
 group_mice_list = {ctrl_mousenames, exp_mousenames};
 
 for g_idx = 1:2
+
+    % the group's maps, background masks and mice
     curr_grp = group_names{g_idx};
     curr_diff = group_data_diff{g_idx};
     curr_sum = group_data_sum{g_idx};
@@ -1880,6 +2007,7 @@ for g_idx = 1:2
 
     n_mice = size(curr_diff, 4);
 
+    % one figure per group, on black, kept black when saved
     fig_indiv = figure('Visible', 'off', 'Name', ['Individual_Slab_Avg_' curr_grp], ...
         'Color', 'k', 'Units', 'normalized', 'Position', [-0.05 -0.05 0.9 0.9]);
     set(fig_indiv, 'InvertHardcopy', 'off');
@@ -1902,6 +2030,7 @@ for g_idx = 1:2
 
 end
 
+% free the per-group copies
 clear group_names group_data_diff group_data_sum group_masks group_mice_list curr_grp ...
     curr_diff curr_sum curr_mask curr_mice
 end
@@ -1931,7 +2060,7 @@ for k = 1:n_mice
     valid_pixels = (atlas_slice > 0) & (~slab_bg_m);
     alpha_data = double(valid_pixels);
 
-    % top row: the difference
+    % top row: the difference, in hot
     subplot(2, n_mice, k);
     imagesc(slab_diff_m);
     set(findobj(gca, 'Type', 'image'), 'AlphaData', alpha_data);
@@ -1941,17 +2070,20 @@ for k = 1:n_mice
     axis off;
     set(gca, 'Color', 'k');
     hold on;
+
+    % the atlas boundaries as grey dots, when switched on
     if bool_overlay_atlas
         plot(b_col, b_row, '.', 'Color', [0.5 0.5 0.5], 'MarkerSize', 0.1);
     end
 
+    % the mouse's name, and a white colour bar
     title(mouse_name, 'Color', 'w', 'FontSize', 10, 'Interpreter', 'none');
     cb = colorbar;
     cb.Label.String = '|L - R|';
     cb.Color = 'w';
     cb.Label.Color = 'w';
 
-    % bottom row: the sum
+    % bottom row: the sum, drawn as the difference
     subplot(2, n_mice, k + n_mice);
     imagesc(slab_sum_m);
     set(findobj(gca, 'Type', 'image'), 'AlphaData', alpha_data);
@@ -2058,9 +2190,11 @@ slab_range = 10;
 p_thresh_agg = 0.01;
 surp_thresh_val = -log10(p_thresh_agg);
 
+% the regions, and their voxels in the left hemisphere
 [roi_list_surp, n_rois_surp, valid_pixels, roi_masks_surp, roi_pixel_counts_surp] = ...
     surprise_roi_masks(AllenCrop, allenDir, brainMask);
 
+% the bars of the difference and the sum, as one figure
 plot_regional_surprise(surp_diff, surp_sum, brainMask_group_diff, roi_list_surp, ...
     n_rois_surp, valid_pixels, roi_masks_surp, roi_pixel_counts_surp, slab_range, ...
     surp_thresh_val, exp_type, comp_tag, comp_out_dir);
@@ -2091,16 +2225,21 @@ roi_pixel_counts_surp = zeros(n_rois_surp, 1);
 for r = 1:n_rois_surp
     region_name = roi_list_surp{r};
     try
+        % the region and its descendants, in the left hemisphere
         mask_temp = get_allen_region_mask(allenDir, AllenCrop, {region_name}, ...
             brainMask, '');
         if size(mask_temp, 3) >= half_width
             mask_temp = mask_temp(:, :, 1:half_width);
         end
+
+        % the atlas ids inside it, and the voxels that carry them
         ids_in_region = unique(atlas_left(mask_temp));
         ids_in_region(ids_in_region == 0) = [];
         roi_masks_surp(:, r) = ismember(pixel_ids, ids_in_region);
         roi_pixel_counts_surp(r) = sum(roi_masks_surp(:, r));
     catch
+
+        % a region get_allen_region_mask cannot map stays empty, with a warning
         warning('Could not map region: %s', region_name);
     end
 end
@@ -2121,6 +2260,7 @@ modes = {'Diff', 'Sum'};
 for m_idx = 1:2
     mode_name = modes{m_idx};
 
+    % the surprise map of this panel
     if strcmp(mode_name, 'Diff')
         if ~exist('surp_diff', 'var')
             error('surp_diff not found');
@@ -2133,6 +2273,8 @@ for m_idx = 1:2
         raw_surp_vol = surp_sum;
     end
 
+    % its median over +/- slab_range planes around each plane, inside the voxels
+    % both groups have
     vol_surp = rolling_surprise_median(raw_surp_vol, slab_range, brainMask_group_diff, ...
         mode_name);
 
@@ -2149,9 +2291,8 @@ for m_idx = 1:2
     sorted_surp = sorted_surp(valid_k);
     sorted_rois_surp = sorted_rois_surp(valid_k);
 
+    % the bars, in this mode's panel
     subplot(1, 2, m_idx);
-
-    % the bars
     draw_surprise_bars(sorted_surp, sorted_rois_surp, surp_thresh_val, mode_name);
 
     % the regions expected to change, labelled in bold magenta
@@ -2180,14 +2321,19 @@ function roi_surp_agg = summed_surprise(vol_surp, valid_pixels, n_rois_surp, ...
 % Each region's sum of the surprise above surp_thresh_val (NaN counts as 0); NaN
 % for a region with no voxel.
 
-% each region's sum of the surprise above the threshold (NaN counts as 0)
+% each region's sum of the surprise above the threshold (NaN counts as 0); a sum,
+% so a large region gathers more than a small nucleus at the same surprise
 surp_vec = vol_surp(valid_pixels);
 surp_vec(isnan(surp_vec)) = 0;
 roi_surp_agg = nan(n_rois_surp, 1);
 for r = 1:n_rois_surp
+
+    % a region with no voxel keeps NaN
     if roi_pixel_counts_surp(r) == 0
         continue;
     end
+
+    % the region's voxels, summed over those above the threshold
     vals = surp_vec(roi_masks_surp(:, r));
     if ~isempty(vals)
         roi_surp_agg(r) = sum(vals(vals > surp_thresh_val));
@@ -2212,6 +2358,7 @@ if ~isempty(sorted_surp)
     end
 end
 
+% the region names as tick labels, in the bars' order
 yticks(1:length(sorted_rois_surp));
 yticklabels(sorted_rois_surp);
 xlabel(['Aggregated surprise ( > ' num2str(surp_thresh_val, '%.1f') ')']);
@@ -2224,7 +2371,8 @@ end
 function highlight_surprise_regions(exp_type)
 % The tick labels of the regions expected to change, in bold magenta.
 
-% the regions expected to change, labelled in bold magenta
+% the regions expected to change, labelled in bold magenta: the whisker system,
+% as in the coarse bars, and the rostrolateral visual area
 switch exp_type
     case {'rws', 'behavior'}
         highlighted_areas = {'Primary somatosensory area, barrel field', ...
@@ -2236,6 +2384,7 @@ switch exp_type
         highlighted_areas = {};
 end
 
+% each tick label recoloured with TeX markup, underscores as spaces
 ax = gca;
 ytl = ax.YTickLabel;
 colored_labels = repmat({''}, size(ytl));
@@ -2258,6 +2407,8 @@ fprintf('  [%s] Calculating rolling median (slab +/- %d)...\n', mode_name, slab_
 vol_surp = zeros(size(raw_surp_vol), 'single');
 n_slices = size(raw_surp_vol, 1);
 for z = 1:n_slices
+
+    % the slab around plane z, cut at the ends of the volume
     z_start = max(1, z - slab_range);
     z_end = min(n_slices, z + slab_range);
     slab_data = raw_surp_vol(z_start:z_end, :, :);
@@ -2267,6 +2418,9 @@ for z = 1:n_slices
         slab_mask = brainMask_group_diff(z_start:z_end, :, :);
         slab_data(~slab_mask) = NaN;
     end
+
+    % the median over the slab, NaN left out: a voxel without a surprise of its own
+    % (too few mice) takes the median of its neighbours in the slab
     vol_surp(z, :, :) = nanmedian(slab_data, 1);
 end
 end
