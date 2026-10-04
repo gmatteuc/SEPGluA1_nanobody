@@ -69,18 +69,25 @@ def load_cohort(cohort: str) -> tuple[dict[str, np.ndarray], np.ndarray]:
 
     Returns ({reading: map}, n), where n counts the brains with tissue (cref_n).
     """
+    # each reading's cohort mean, the right hemisphere mirrored onto the left and the
+    # two averaged
     maps = {
         reading: fold(np.load(CCF_ROOT / cohort / f"{reading}_mean.npy"))
         for reading in MODES
     }
+
+    # the brains with tissue at each voxel, the larger count of the two sides
     n = fold_count(np.load(CCF_ROOT / cohort / "cref_n.npy"))
     return maps, n
 
 
 def slice_planes(compared: np.ndarray) -> list[int]:
     """Six planes from the first to the last that half the maximum coverage reaches."""
+    # compared voxels per coronal plane, and the planes with half the maximum or more
     coverage = compared.reshape(compared.shape[0], -1).sum(1)
     covered = np.nonzero(coverage > 0.5 * coverage.max())[0]
+
+    # six planes, evenly spaced from the first of those to the last
     planes = [int(v) for v in np.linspace(covered[0], covered[-1], 6).round()]
     return planes
 
@@ -96,6 +103,8 @@ def draw_plane(
         bg = np.zeros(inside[zc].shape + (4,))
         bg[inside[zc]] = matplotlib.colors.to_rgba(NO_DATA_GREY)
         ax.imshow(bg, origin="upper", interpolation="nearest", aspect="equal")
+
+        # the data on top: a NaN is transparent, so the grey shows where there is none
         h = ax.imshow(
             im,
             cmap=cmap,
@@ -105,9 +114,14 @@ def draw_plane(
             interpolation="nearest",
             aspect="equal",
         )
+
+        # the plane numbered on the 10 um CCF grid, twice its 20 um index
         ax.set_title(f"{title}   CCF plane {zc * 2} / 10 um", fontsize=9.5)
         ax.set_xticks([])
         ax.set_yticks([])
+
+        # an arrow on the colour bar where values clip: the two means above their
+        # maximum, the comparison at both ends
         plt.colorbar(
             h, ax=ax, fraction=0.035, pad=0.01, extend="max" if j < 2 else "both"
         )
@@ -115,8 +129,12 @@ def draw_plane(
 
 def slices_title(reading: str, signed: bool, vmax: float) -> str:
     """The title of a slices figure: the reading, the method, what the colours mean."""
+    # the brains a voxel needs in each group, quoted in the no-data note
     min_n_young = YOUNG_VS_ADULT["min_n_young"]
     min_n_adult = YOUNG_VS_ADULT["min_n_adult"]
+
+    # what the colours of the means stand for: a position within each brain for a
+    # signed reading, an intensity otherwise
     if signed:
         scale_note = (
             "purple-orange scale, 0 = that brain's median structure, "
@@ -128,6 +146,8 @@ def slices_title(reading: str, signed: bool, vmax: float) -> str:
             f"colour range 0 to {vmax:.2f} = 99th percentile of adult isocortex; "
             "brighter is yellow, never white"
         )
+
+    # three lines: the reading, the method with its no-data rule, the colour scale
     return "\n".join(
         (
             READING_TITLES[reading] + ".",
@@ -170,10 +190,15 @@ def draw_reading(
     # one row per plane: adult, young, comparison
     fig, axes = plt.subplots(len(planes), 3, figsize=(13.5, 3.9 * len(planes)))
     for i, zc in enumerate(planes):
+        # the compared voxels of this plane; the means on purple-orange around zero
+        # for a signed reading, on hot from zero for an intensity
         shown = compared[zc]
         cmap_mean = puor if signed else hot
         lim_mean = (-vmax, vmax) if signed else (0, vmax)
         diff_name = "young - adult" if signed else "log2( young / adult )"
+
+        # the adult mean wherever it has a value inside the atlas, as the reference;
+        # the young mean and the comparison on the compared voxels only
         panels = (
             (
                 np.where(inside[zc] & np.isfinite(adult_v[zc]), adult_v[zc], np.nan),
@@ -235,6 +260,7 @@ def draw_figures(maps: dict[str, np.ndarray], out: Path) -> None:
     n_young = int(maps["n_young_mice"])
     n_adult = int(maps["n_adult_mice"])
 
+    # one figure per reading in force
     for reading in MODES:
         draw_reading(
             reading,
@@ -262,6 +288,9 @@ def compared_voxels(
     """The voxels where both groups have enough brains with a value; prints the counts."""
     min_n_young = YOUNG_VS_ADULT["min_n_young"]
     min_n_adult = YOUNG_VS_ADULT["min_n_adult"]
+
+    # inside the atlas, enough brains with tissue in each group, and a cref mean in both
+    # (cref has a value wherever there is tissue; contrast_maps handles a missing ratio)
     compared = (
         inside
         & (young_n >= min_n_young)
@@ -269,6 +298,9 @@ def compared_voxels(
         & np.isfinite(young["cref"])
         & np.isfinite(adult["cref"])
     )
+
+    # the count, and what each group's minimum alone would allow, to show which
+    # group limits the comparison
     print(
         f"voxels compared: {compared.sum():,} of {inside.sum():,} inside the atlas "
         f"(young n>={min_n_young}: {(inside & (young_n >= min_n_young)).sum():,}; "
@@ -293,8 +325,11 @@ def contrast_maps(
     """
     floor = READINGS["log2_floor"]
     log2, log2_alt = {}, {}
+
+    # each reading, for the pooled young group and for the P20 brains alone
     for reading in MODES:
         for src, dst in ((young, log2), (young_alt, log2_alt)):
+            # both groups on the compared voxels only
             adult_v = np.where(compared, adult[reading], np.nan)
             young_v = np.where(compared, src[reading], np.nan)
 
@@ -313,6 +348,9 @@ def contrast_maps(
             # of smoothing a contrast of zero into its neighbours
             has = compared & np.isfinite(contrast)
             weights = has.astype(np.float32)
+
+            # the weighted mean of the neighbours that have a value: smoothed contrast
+            # over smoothed weights (the 1e-3 floor only keeps the division finite)
             num = gaussian_filter(
                 np.nan_to_num(contrast) * weights, YOUNG_VS_ADULT["smooth"]
             )
@@ -336,6 +374,8 @@ def write_maps(
     log2_alt: dict[str, np.ndarray],
 ) -> None:
     """Write volumes_ccf20.npz: the folded maps, the comparisons and the counts."""
+    # one file that draw_figures and young_vs_adult.replot draw from alone: the
+    # annotation, the compared mask, the brains per voxel and per group
     np.savez_compressed(
         OUT / "volumes_ccf20.npz",
         annot20=annotation_left,
@@ -345,6 +385,7 @@ def write_maps(
         young_alt_n=young_alt_n,
         n_young_mice=len(COHORTS[YOUNG]),
         n_adult_mice=len(COHORTS["adult"]),
+        # then every reading's folded mean per group, and the two comparisons
         **{f"adult_{reading}": adult[reading].astype(np.float32) for reading in MODES},
         **{f"young_{reading}": young[reading].astype(np.float32) for reading in MODES},
         **{
@@ -376,25 +417,34 @@ def structure_means(
     struct_names = []
     seen = {}
     for idx in np.unique(annotation_left):
+        # skip label 0, outside the brain
         if idx == 0:
             continue
+
+        # a new name is the next structure; an index whose name is already there (a
+        # layer of the same area) joins it, and an index with no name stands alone
         name = names.get(int(idx), f"id{idx}")
         if name not in seen:
             seen[name] = len(struct_names)
             struct_names.append((name, acro.get(int(idx), ""), divi.get(int(idx), "")))
         struct_of[idx] = seen[name]
 
-    # mean per structure of each reading and group, over its voxels with a value
+    # the structure of every compared voxel, and the compared voxels per structure
     structure_of_voxel = struct_of[annotation_left[compared].astype(np.int64)]
     n_struct = len(struct_names)
     n_vox = np.bincount(structure_of_voxel, minlength=n_struct)
+
+    # mean per structure of each reading and group, over its voxels with a value
     means = {}
     for reading in MODES:
         for tag, src in (("adult", adult), ("young", young), ("young_P20", young_alt)):
+            # sum and count the voxels with a value, per structure
             v = src[reading][compared]
             ok = np.isfinite(v)
             total = np.bincount(structure_of_voxel[ok], weights=v[ok], minlength=n_struct)
             count = np.bincount(structure_of_voxel[ok], minlength=n_struct)
+
+            # NaN for a structure where the group has no value at all
             with np.errstate(invalid="ignore", divide="ignore"):
                 means[(tag, reading)] = np.where(
                     count > 0, total / np.maximum(count, 1), np.nan
@@ -410,6 +460,8 @@ def region_rows(
     """One row per structure with enough voxels, compared as the maps are, sorted."""
     floor = READINGS["log2_floor"]
     rows = []
+
+    # one row per structure with enough compared voxels
     for structure in np.nonzero(n_vox >= YOUNG_VS_ADULT["min_table_vox20"])[0]:
         name, acronym, division = struct_names[structure]
         row = {
@@ -418,9 +470,15 @@ def region_rows(
             "division": division,
             "voxels_20um": int(n_vox[structure]),
         }
+
+        # each group's mean, then young against adult as the maps compare it, the
+        # pooled young group and the P20 brains alone
         for reading in MODES:
             for tag in ("adult", "young", "young_P20"):
                 row[f"{tag}_{reading}"] = float(means[(tag, reading)][structure])
+
+            # a difference for a signed reading (its column still named log2_), a
+            # floored log2 ratio otherwise
             if reading in SIGNED_READINGS:
                 row[f"log2_{reading}"] = row[f"young_{reading}"] - row[f"adult_{reading}"]
                 row[f"log2_{reading}_P20only"] = (
@@ -436,6 +494,8 @@ def region_rows(
                     / max(row[f"adult_{reading}"], floor)
                 )
         rows.append(row)
+
+    # by division, then acronym, so the areas of a division sit together
     rows.sort(key=lambda row: (row["division"], row["acronym"]))
     return rows
 
@@ -443,6 +503,7 @@ def region_rows(
 def write_region_table(rows: list[dict]) -> None:
     """Write region_table.csv, floats to four decimals."""
     with open(OUT / "region_table.csv", "w", newline="", encoding="utf-8") as fh:
+        # the columns in the order of the first row, which every row shares
         writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
         writer.writeheader()
         for row in rows:
@@ -456,15 +517,19 @@ def cortex_table(rows: list[dict]) -> None:
 
     Visual and somatosensory areas are marked; written to cortex_table.txt.
     """
+    # the isocortical areas, largest cref difference first
     cortex = sorted(
         [row for row in rows if row["division"] == "Isocortex"],
         key=lambda row: -row["log2_cref"],
     )
+
+    # a header, then one line per area: its young-adult difference in every reading
     lines = [
         f"{'area':9s} {'structure':34s} "
         + " ".join(f"{reading:>10s}" for reading in MODES)
     ]
     for row in cortex:
+        # the visual and somatosensory areas marked, regions named in advance
         if row["acronym"].startswith("VIS"):
             tag = "  <-- visual"
         elif row["acronym"].startswith("SS"):
@@ -476,6 +541,8 @@ def cortex_table(rows: list[dict]) -> None:
             + " ".join(f"{row[f'log2_{reading}']:+10.2f}" for reading in MODES)
             + tag
         )
+
+    # written, and printed into the run's log
     with open(OUT / "cortex_table.txt", "w") as fh:
         fh.write("\n".join(lines) + "\n")
     print("\n".join(lines))
@@ -498,11 +565,13 @@ def main() -> None:
     t0 = time.time()
     OUT.mkdir(parents=True, exist_ok=True)
 
-    # the annotation at 20 um, left half: the young volumes live on the same
-    # 660-plane grid as the adults (planes 90-539 hold the adult registered crop)
+    # the annotation at 20 um: the young volumes live on the same 660-plane grid as
+    # the adults (planes 90-539 hold the adult registered crop)
     annotation = np.asarray(nib.load(DATA / "atlas" / "annotation_10.nii.gz").dataobj)[
         ::2, ::2, ::2
     ]
+
+    # its left half (285 of 570 ML columns), where fold puts both hemispheres
     annotation_left = annotation[:, :, :285]
     inside = annotation_left > 0
 
