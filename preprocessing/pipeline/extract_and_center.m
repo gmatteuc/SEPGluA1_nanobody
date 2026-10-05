@@ -13,10 +13,9 @@ atlas_key = run_settings.atlas_key;
 %% Add paths
 
 % the toolboxes, the reader of the raw .czi files included (BioformatsImage and
-% its bfmatlab), are on the path from sep_setup_paths; only the atlas is added here
-atlas = get_atlas(atlas_key);
-atlas_dir = atlas.dir;
-addpath(atlas_dir)
+% its bfmatlab), are on the path from sep_setup_paths; get_atlas adds the atlas
+% folder
+get_atlas(atlas_key);
 
 %% Resolve cohort
 

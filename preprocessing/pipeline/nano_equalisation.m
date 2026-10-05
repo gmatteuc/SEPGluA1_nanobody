@@ -15,11 +15,9 @@ base_output_dir = run_settings.base_output_dir;
 
 %% Add paths
 
-% the toolboxes are on the path from sep_setup_paths; only the atlas folder is
-% added here, although nothing below reads the atlas
-atlas = get_atlas(atlas_key);
-atlas_dir = atlas.dir;
-addpath(atlas_dir);
+% the toolboxes are on the path from sep_setup_paths; get_atlas adds the atlas
+% folder, although nothing below reads the atlas
+get_atlas(atlas_key);
 
 %% Load the volumes
 

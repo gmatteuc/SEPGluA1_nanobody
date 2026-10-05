@@ -16,11 +16,9 @@ saveRatioMap = run_settings.saveRatioMap;
 
 %% Add paths
 
-% the toolboxes are on the path from sep_setup_paths; only the atlas folder is
-% added here
-atlas = get_atlas(atlas_key);
-atlas_dir = atlas.dir;
-addpath(atlas_dir)
+% the toolboxes are on the path from sep_setup_paths; get_atlas adds the atlas
+% folder
+get_atlas(atlas_key);
 
 %% Resolve cohort
 
