@@ -35,40 +35,23 @@ Run by run_ish_panel_test.py.
 """
 
 import csv
-from collections import defaultdict
 
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import rankdata, spearmanr
 
 from sepmap.config import DATA, SETTINGS
+from sepmap.ish.compare import adult_profile
 from sepmap.ish.reliability import merged_profiles
 from sepmap.plotting import RED, tidy
 
-# the adult groups and the reading; the structures a gene needs, the reliability of
-# the sensitivity run, the permutations and the genes each check needs
+# the reading; the structures a gene needs, the reliability of the sensitivity run,
+# the permutations and the genes each check needs
 ISH = SETTINGS["ish"]
 ISH_PANEL_TEST = SETTINGS["ish_panel_test"]
 
-NANO = DATA / "comparisons_v2" / "young_vs_adult" / "region_means_per_mouse.csv"
 OUT = DATA / "adult_v2" / "ish"
 RELIABILITY = OUT / "gene_reliability.csv"
-
-# the adult groups, pooled, as a tuple
-ADULT_GROUPS = tuple(ISH["adult_groups"])
-
-
-def adult_profile(reading: str) -> dict[str, float]:
-    """{structure: mean over the adults} of one reading, from the per-mouse table.
-
-    A structure's mean is over the adults that have it, however many they are.
-    """
-    per = defaultdict(list)
-    with open(NANO, newline="", encoding="utf-8") as fh:
-        for r in csv.DictReader(fh):
-            if r["group"] in ADULT_GROUPS and r["reading"] == reading:
-                per[r["structure"]].append(float(r["log2_value"]))
-    return {s: float(np.mean(v)) for s, v in per.items()}
 
 
 def reliability_and_level() -> tuple[dict[str, float], dict[str, float]]:

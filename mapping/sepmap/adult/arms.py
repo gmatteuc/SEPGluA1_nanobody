@@ -61,14 +61,12 @@ from sepmap.plotting import RED, tidy
 from sepmap.volumes.cohort import NAIVE, RWS, finite_sums, per_unit
 from sepmap.volumes.per_mouse import DATA, MICE, annotation_20, structure_terms
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
+from sepmap.young_vs_adult.region_plot import REGION_MEANS
 
 # the smallest structure kept, as in young_vs_adult.region_plot
 REGION_TABLES = SETTINGS["region_tables"]
 
 OUT = DATA / "adult_v2" / "arms"
-
-# young_vs_adult.region_plot's per-mouse table, which the shared arms must match
-EXISTING = DATA / "comparisons_v2" / "young_vs_adult" / "region_means_per_mouse.csv"
 
 # the ten adults, naive and rws pooled
 ADULTS = NAIVE + RWS
@@ -148,12 +146,12 @@ def check_against_existing(rows: list[dict]) -> tuple[dict[str, list[float]], bo
     (an empty dict when that table does not exist) and whether every one is
     within BOUND.
     """
-    if not EXISTING.exists():
+    if not REGION_MEANS.exists():
         print("no existing table to check against -- skipped")
         return {}, True
     ours = {(r["arm"], r["mouse"], r["structure"]): float(r["log2_value"]) for r in rows}
     diffs = defaultdict(list)
-    with open(EXISTING, newline="", encoding="utf-8") as fh:
+    with open(REGION_MEANS, newline="", encoding="utf-8") as fh:
         for r in csv.DictReader(fh):
             key = (SHARED.get(r["reading"], ""), r["mouse"], r["structure"])
             if key in ours:

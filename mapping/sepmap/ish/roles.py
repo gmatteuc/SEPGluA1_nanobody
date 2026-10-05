@@ -49,8 +49,7 @@ import numpy as np
 from scipy.stats import rankdata, spearmanr
 
 from sepmap.config import DATA, SETTINGS
-from sepmap.ish.compare import gene_profiles
-from sepmap.ish.panel_test import adult_profile
+from sepmap.ish.compare import adult_profile, gene_profiles
 from sepmap.plotting import DARK_BLUE, RED, tidy
 
 # the adult groups, the reading of the tests and the structures a correlation needs

@@ -82,6 +82,9 @@ from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 
 OUT = DATA / "comparisons_v2" / "young_vs_adult"
 
+# the per-mouse table, which the adult and ish modules read too
+REGION_MEANS = OUT / "region_means_per_mouse.csv"
+
 # the smallest structure kept, and the brains a structure needs to be tested
 REGION_TABLES = SETTINGS["region_tables"]
 REGION_PLOT = SETTINGS["region_plot"]
@@ -578,9 +581,7 @@ def write_tables(rows_pm: list[dict], rows_st: list[dict]) -> None:
 
     Values to four decimals, but the text columns and the two counts.
     """
-    with open(
-        OUT / "region_means_per_mouse.csv", "w", newline="", encoding="utf-8"
-    ) as fh:
+    with open(REGION_MEANS, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=PER_MOUSE_COLUMNS)
         w.writeheader()
         w.writerows([{**r, "log2_value": f"{r['log2_value']:.4f}"} for r in rows_pm])

@@ -106,6 +106,7 @@ from sepmap.plotting import DARK_BLUE, RED, tidy
 from sepmap.volumes.cohort import NAIVE, RWS
 from sepmap.volumes.per_mouse import DATA, MICE, annotation_20, structure_terms
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
+from sepmap.young_vs_adult.region_plot import REGION_MEANS
 
 # the reading, the half-cohorts, the grey-matter divisions and the gene sets; the
 # smallest structure kept, as in young_vs_adult.region_plot; the agreement a
@@ -114,7 +115,6 @@ BEYOND = SETTINGS["beyond"]
 REGION_TABLES = SETTINGS["region_tables"]
 BEYOND_CONTROLS = SETTINGS["beyond_controls"]
 
-NANO = DATA / "comparisons_v2" / "young_vs_adult" / "region_means_per_mouse.csv"
 OUT = DATA / "adult_v2" / "beyond"
 
 # the ten adults, naive and rws pooled
@@ -148,7 +148,7 @@ def keep_structure(name: str, division: str) -> tuple[bool, str]:
 def nano_per_mouse() -> tuple[dict[str, dict[str, float]], dict[str, str]]:
     """{mouse: {structure: zref}} and {structure: division}, for the ten adults."""
     per, division = defaultdict(dict), {}
-    with open(NANO, newline="", encoding="utf-8") as fh:
+    with open(REGION_MEANS, newline="", encoding="utf-8") as fh:
         for r in csv.DictReader(fh):
             if r["reading"] == BEYOND["reading"] and r["mouse"] in ADULTS:
                 per[r["mouse"]][r["structure"]] = float(r["log2_value"])

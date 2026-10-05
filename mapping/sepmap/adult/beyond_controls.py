@@ -49,7 +49,6 @@ from scipy.stats import rankdata, spearmanr
 from sepmap.adult.beyond_density import (
     ADULTS,
     NAIVE,
-    NANO,
     OUT,
     RWS,
     build_covariates,
@@ -67,6 +66,7 @@ from sepmap.adult.beyond_density import (
 from sepmap.config import SETTINGS
 from sepmap.plotting import RED, tidy
 from sepmap.volumes.per_mouse import annotation_20, structure_terms
+from sepmap.young_vs_adult.region_plot import REGION_MEANS
 
 # the largest gene-space model of control F, and the threshold of each verdict
 BEYOND_CONTROLS = SETTINGS["beyond_controls"]
@@ -490,7 +490,7 @@ def control_g_readings(
     for reading in ("zref", "cref", "subref", "ratio", "sepratio"):
         # the reading's log2 value per adult and structure
         per = defaultdict(dict)
-        with open(NANO, newline="", encoding="utf-8") as fh:
+        with open(REGION_MEANS, newline="", encoding="utf-8") as fh:
             for r in csv.DictReader(fh):
                 if r["reading"] == reading and r["mouse"] in ADULTS:
                     per[r["mouse"]][r["structure"]] = float(r["log2_value"])
@@ -807,7 +807,7 @@ def mean_sizes() -> dict[str, float]:
     # each adult's voxel count per structure, from the zref rows, one per mouse
     # and structure (the table holds a row per reading)
     sizes = {}
-    with open(NANO, newline="", encoding="utf-8") as fh:
+    with open(REGION_MEANS, newline="", encoding="utf-8") as fh:
         for r in csv.DictReader(fh):
             if r["reading"] == "zref" and r["mouse"] in ADULTS:
                 sizes.setdefault(r["structure"], []).append(float(r["n_vox20"]))
