@@ -12,7 +12,8 @@ cross-age question wrong, in order of damage:
       where some mice have no tissue at all.
 
 This module instead works per mouse, at 20 um (2x2x2 block mean of the
-registered 10 um-equivalent grid):
+registered 10 um-equivalent grid, over the 10 um voxels a section was imaged at:
+a voxel the registration left at 0 is missing, not dark, and enters no mean):
 
     tissue  auto channel above its off-tissue level (median + 4 MAD), and the
              registered nano non-zero, and inside the atlas brain. The nano
@@ -36,7 +37,8 @@ reached), outside the atlas brain mask, so a degenerate background mask
 cannot pollute them.
 
 Writes comparisons_v2/per_mouse/<mouse>.npz under the data root (sig, auto, sep:
-float16; tissue: bool; scalars). Nothing under comparisons/ is touched.
+float16, NaN where none of a block's 10 um voxels was imaged; tissue: bool;
+scalars). Nothing under comparisons/ is touched.
 
 Run by run_per_mouse.py.
 """
@@ -185,45 +187,53 @@ def block2(a: np.ndarray) -> np.ndarray:
     return a.reshape(a.shape[0] // 2, 2, a.shape[1] // 2, 2).mean(axis=(1, 3))
 
 
+def imaged_mean(total: np.ndarray, imaged: np.ndarray) -> np.ndarray:
+    """`total` over `imaged`, a block's mean over its imaged voxels; NaN where none."""
+    mean = np.full(total.shape, np.nan, np.float32)
+    np.divide(total, imaged, out=mean, where=imaged > 0)
+    return mean
+
+
 def block_means(
     mouse: str, group: str, n_ap: int, n_dv: int, n_ml: int
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, np.ndarray]:
     """The 2x2x2 block mean of nano, auto and SEP, at 20 um, from the registered tiffs.
 
-    Returns (sig, aut, sp, nz): nano, auto, SEP (None without a SEP channel) and the
-    fraction of the 8 fine voxels with nano non-zero. Read two ML pages at a time,
-    each 2x2 block-averaged.
+    Returns (sig, aut, sp, nz): nano, auto and SEP (None without a SEP channel), each
+    the mean over the block's imaged 10 um voxels, NaN where none of the 8 was
+    imaged, and the fraction of the 8 with nano non-zero. Read two ML pages at a
+    time, each 2x2 block-averaged.
     """
-    nano, auto = Source(mouse, group, "nano"), Source(mouse, group, "auto")
-    sep = Source(mouse, group, "sep") if has_sep(mouse) else None
-    sig = np.zeros((n_ap, n_dv, n_ml), np.float32)
-    aut = np.zeros((n_ap, n_dv, n_ml), np.float32)
-    sp = np.zeros((n_ap, n_dv, n_ml), np.float32) if sep is not None else None
+    sources = {"nano": Source(mouse, group, "nano"), "auto": Source(mouse, group, "auto")}
+    if has_sep(mouse):
+        sources["sep"] = Source(mouse, group, "sep")
+    means = {name: np.zeros((n_ap, n_dv, n_ml), np.float32) for name in sources}
 
     # fraction of the 8 fine voxels with nano != 0
     nz = np.zeros((n_ap, n_dv, n_ml), np.float32)
 
-    # 2x2x2 block mean: two ML pages at a time, each 2x2 block-averaged
+    # 2x2x2 block mean over each channel's imaged 10 um voxels. The registration
+    # leaves 0 where no section was imaged; imaged tissue or slide reads about 100
+    # counts or more (1st percentile, MG897 and CGF027). So a voxel exactly 0 in a
+    # channel is missing there, not dark: the channels agree on these voxels to 1 in
+    # 5,000, but the auto channel of MG911 and MG904 is 0 over patches where nano
+    # reads 500 to 2000 counts (1.5% and 4% of nano's imaged voxels). A plain mean
+    # of the 8 would average them in as zeros, darkening the blocks at a section's
+    # edge or a patch's, the off-tissue blocks the backgrounds come from included
     for j in range(n_ml):
-        s = a = z = g = None
-        for i in (2 * j, 2 * j + 1):
-            v = nano.page(i)
-            u = auto.page(i)
-            s = block2(v) if s is None else s + block2(v)
-            a = block2(u) if a is None else a + block2(u)
-            if z is None:
-                z = block2((v != 0).astype(np.float32))
-            else:
-                z = z + block2((v != 0).astype(np.float32))
-            if sep is not None:
-                w = sep.page(i)
-                g = block2(w) if g is None else g + block2(w)
-        sig[:, :, j] = s / 2
-        aut[:, :, j] = a / 2
-        nz[:, :, j] = z / 2
-        if sep is not None:
-            sp[:, :, j] = g / 2
-    return sig, aut, sp, nz
+        for name, source in sources.items():
+            # over the two pages, the sums of the 2x2 block means of the values and
+            # of the imaged voxels; their ratio is the mean over the imaged voxels
+            total = np.zeros((n_ap, n_dv), np.float32)
+            imaged = np.zeros((n_ap, n_dv), np.float32)
+            for i in (2 * j, 2 * j + 1):
+                v = source.page(i)
+                total += block2(v)
+                imaged += block2((v != 0).astype(np.float32))
+            means[name][:, :, j] = imaged_mean(total, imaged)
+            if name == "nano":
+                nz[:, :, j] = imaged / 2
+    return means["nano"], means["auto"], means.get("sep"), nz
 
 
 def reached_planes(nz: np.ndarray, brain: np.ndarray, n_ap: int) -> np.ndarray:
@@ -248,13 +258,37 @@ def backgrounds(
     """The off-tissue voxels, and the nano and auto backgrounds and auto MAD there.
 
     Off tissue is off the atlas brain but imaged, in a plane a section reached;
-    1.4826 turns a median absolute deviation into an SD.
+    each channel's median is over the off-tissue voxels it has a value in. 1.4826
+    turns a median absolute deviation into an SD.
     """
     off = (~brain) & (nz > 0) & reached[:, None, None]
-    bg_n = float(np.median(sig[off]))
-    bg_a = float(np.median(aut[off]))
-    mad_a = float(np.median(np.abs(aut[off] - bg_a))) * 1.4826
+
+    # NaN left out: off tissue is where nano was imaged, and the auto channel was
+    # not imaged in some of those blocks (CGF027: 1,862 of 27.0M, MG911: 223,131
+    # of 24.5M), where one NaN would make the median NaN and the tissue mask empty
+    bg_n = float(np.nanmedian(sig[off]))
+    bg_a = float(np.nanmedian(aut[off]))
+    mad_a = float(np.nanmedian(np.abs(aut[off] - bg_a))) * 1.4826
     return off, bg_n, bg_a, mad_a
+
+
+def check_sep_in_tissue(
+    mouse: str, group: str, sp: np.ndarray, tissue: np.ndarray
+) -> None:
+    """Stop if SEP has no value in a tissue voxel, where nano and auto both have one.
+
+    The tissue rule needs nano and auto imaged, but not SEP; the readings smooth
+    and warp the channels over the tissue, where one NaN would spread to its
+    neighbours (none of the 17 brains of 4 October 2026 has such a voxel).
+    """
+    n_missing = int(np.isnan(sp[tissue]).sum())
+    if n_missing:
+        raise ValueError(
+            f"{mouse}: SEP was not imaged in {n_missing} tissue voxels at 20 um, where "
+            "nano and auto were. Check its registered SEP tiff "
+            f"({channel_path(mouse, group, 'sep')}) against run_add_sep_channel.m's "
+            "output."
+        )
 
 
 def write_mouse(
@@ -314,7 +348,10 @@ def main(mice: list[str]) -> None:
         lo, hi = atlas_grid(atlas_key)[1]
         extra = {}
         if sp is not None:
-            bg_s = float(np.median(sp[off]))
+            check_sep_in_tissue(mouse, group, sp, tissue)
+
+            # over the off-tissue voxels with SEP imaged, as the other backgrounds
+            bg_s = float(np.nanmedian(sp[off]))
             sp -= bg_s
             extra = dict(sep=sp.astype(np.float16), bg_sep=bg_s)
         if extra:

@@ -11,18 +11,22 @@ carried by another age's deformation field.
     young   block-averaged registered volume -> placed back into its age's full
             DeMBA canvas -> brainglobe_ccf_translator from age_PND to P56 in
             allen_mouse -> 660 x 400 x 570 at 20 um. About 2.5 min per volume,
-            four volumes per mouse where SEP is there (sig, auto, sep, tissue).
+            five volumes per mouse where SEP is there (sig, auto, sep, and the
+            tissue mask twice).
     adults  already registered to the CCF crop [180 1079] at 10 um, which is
             exactly planes 90..539 of the same 20 um CCF grid, so they are only
             placed, never warped. Warping them would blur them for nothing.
 
 The tissue mask travels as a mask (nearest neighbour) and is re-thresholded
-after the transform, so a warped voxel is tissue only if it came from tissue.
+after the transform, so a warped voxel is tissue only if it came from tissue. The
+values travel by normalised interpolation: value times mask and the mask itself
+are warped linearly and divided, so a voxel at the tissue's edge is not darkened
+by the empty voxels beside it, as a linear warp of the values alone would do.
 
 Writes comparisons_v2/per_mouse_ccf/<mouse>.npz under the data root, with sig,
-auto and sep (float16) and tissue (bool) on the 660 x 400 x 570 CCF grid at 20 um,
-plus the scalars the per-mouse file carried (backgrounds, cortex mean, cohort,
-age).
+auto and sep (float16, a young brain's NaN off its tissue) and tissue (bool) on the
+660 x 400 x 570 CCF grid at 20 um, plus the scalars the per-mouse file carried
+(backgrounds, cortex mean, cohort, age).
 SEP rides exactly the channels it will be divided into, through the same
 transform in the same call, so nothing can drift between them.
 
@@ -47,6 +51,14 @@ CCF_SHAPE = (660, 400, 570)
 
 # the adult registered crop, 10 um planes 180..1079
 CCF_CROP = (90, 540)
+
+# the warped tissue mask under which a young brain's voxel gets no value. The
+# translator resamples once, trilinear for values and nearest neighbour for a mask,
+# at the same points, and the nearest of the 8 source voxels weighs at least 1/8 in
+# the trilinear sum: wherever the nearest-neighbour mask says tissue, the warped
+# mask is at least 0.125, so 0.05 removes no tissue voxel and keeps the division
+# off a denominator made of round-off
+MIN_WARPED_MASK = 0.05
 
 
 def to_ccf(vol_demba_full: np.ndarray, age: int, is_mask: bool = False) -> np.ndarray:
@@ -96,26 +108,36 @@ def warp_young(
 ) -> dict[str, np.ndarray]:
     """The young: back into the full DeMBA canvas of their age, then warped.
 
-    A warped value only counts where the warped mask says tissue.
+    Normalised interpolation: each channel is warped as value times tissue mask,
+    the mask is warped by the same linear interpolation, and the first divided by
+    the second, so a voxel at the tissue's edge is the weighted mean of the tissue
+    voxels it is interpolated from. Warping the values alone, with zeros outside
+    the tissue, mixes those zeros into every edge voxel and darkens it. The mask
+    is also carried by nearest neighbour, which says what is tissue; a value
+    counts only there, NaN elsewhere.
     """
     out = {}
-    volumes = [(n, a, False) for n, a in chans] + [("tissue", tissue, True)]
-    for name, arr, is_mask in volumes:
+
+    # the tissue mask on the canvas, warped linearly (the weights the values are
+    # divided by) and by nearest neighbour (what is tissue in the CCF)
+    mask = np.zeros(DEMBA_SHAPE, np.float32)
+    mask[lo - 1 : hi] = tissue
+    weight = to_ccf(mask, age)
+    out["tissue"] = to_ccf(mask, age, is_mask=True) > 0.5
+    print(f"  {mouse} tissue warped P{age} -> CCF   {time.time() - t0:.0f} s", flush=True)
+    for name, arr in chans:
+        # value times mask, warped, over the warped mask; NaN where the warped mask
+        # is under MIN_WARPED_MASK or the nearest-neighbour mask says no tissue
         full = np.zeros(DEMBA_SHAPE, np.float32)
-        if name != "tissue":
-            full[lo - 1 : hi] = np.where(tissue, arr, 0)
-        else:
-            full[lo - 1 : hi] = tissue.astype(np.float32)
-        out[name] = to_ccf(full, age, is_mask=is_mask)
+        full[lo - 1 : hi] = np.where(tissue, arr, 0)
+        warped = to_ccf(full, age)
+        value = np.full(warped.shape, np.nan, np.float32)
+        np.divide(warped, weight, out=value, where=weight >= MIN_WARPED_MASK)
+        out[name] = np.where(out["tissue"], value, np.nan)
         print(
             f"  {mouse} {name} warped P{age} -> CCF   {time.time() - t0:.0f} s",
             flush=True,
         )
-    out["tissue"] = out["tissue"] > 0.5
-
-    # a warped value only counts where the warped mask says tissue
-    for name, _ in chans:
-        out[name] = np.where(out["tissue"], out[name], 0.0)
     return out
 
 
