@@ -118,7 +118,7 @@ values (no `.mat` is written).
 `run_collect_by_group.m` (`P5`) and `run_normalise_groups.m` (`P6bis`) for the
 three groups. The code of 5 December 2025 is not tagged; on 1 October 2026
 today's code reproduced these figures from the same inputs (Progress in
-[REFACTOR_PLAN.md](REFACTOR_PLAN.md)).
+[history/REFACTOR_PLAN.md](history/REFACTOR_PLAN.md)).
 
 **Inputs.** `<data>\<group>\nano_4d_normalized.mat` and
 `nano_4d_normalized_bkgmask.mat` of naive and of the experimental group. The

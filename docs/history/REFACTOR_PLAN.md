@@ -2,6 +2,9 @@
 
 Draft 6, 30 Sep 2026, agreed with Giulio (checks made proportionate). Step 0 committed on 30 Sep (6a29c37).
 
+A record since the merge of 4 October 2026 (Progress, at the end); what is
+still open is in [ROADMAP.md](../ROADMAP.md).
+
 The project is to be handed over, and this refactor consolidates it: code
 another scientist can pick up and run, documents that say what it is for, and
 an analysis route whose results can be defended. The grant work is done (last
@@ -13,14 +16,14 @@ and an independent review of the resulting draft, changed several things:
 
 - the Python route does not yet cover everything P8, P9 and P10 answer: five
   additions are required before they retire (item by item, with the
-  specification of each addition, in [REFACTOR_COVERAGE.md](REFACTOR_COVERAGE.md));
+  specification of each addition, in [REFACTOR_COVERAGE.md](../REFACTOR_COVERAGE.md));
 - some quoted ISH results do not hold as quoted (see S5);
 - the first verification design could have written into the production data
   tree and had no clean baseline; this draft replaces it;
 - our LightSuite changes are not GUI-only: two are registration bug fixes;
 - the Python half of the style guide has a full draft
-  ([STYLE_python_draft.md](STYLE_python_draft.md)), derived from the Genedata
-  and MaxWell projects;
+  (`STYLE_python_draft.md`, since merged into [STYLE.md](../STYLE.md)),
+  derived from the Genedata and MaxWell projects;
 - the documents follow the two-photon imaging repository (the dendrites
   repository, `D:\dendrites\code`): README with the science up front,
   scientific context, adding data, roadmap, a README per folder.
@@ -421,7 +424,7 @@ the path guard covers their old names too.
 ## Python route: what it must gain before P8, P9 and P10 retire
 
 Item by item, with the specification of each addition, in
-[REFACTOR_COVERAGE.md](REFACTOR_COVERAGE.md); where a specification there
+[REFACTOR_COVERAGE.md](../REFACTOR_COVERAGE.md); where a specification there
 differs from this plan, the plan applies. Of 88 outputs and tests of P8, P9
 and P10, 28 are covered (usually more rigorously: explicit background, a tissue
 mask from autofluorescence, half-cohort reproducibility, the 390-gene panel,

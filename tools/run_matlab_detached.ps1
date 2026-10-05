@@ -4,7 +4,7 @@
 # Used for the long unattended stages: copying raw data off the share, running
 # extraction over a whole cohort, and so on, and for the refactor's checks,
 # which run the old and the new code on copies of the data
-# (docs/REFACTOR_PLAN.md, Verification design).
+# (docs/history/REFACTOR_PLAN.md, Verification design).
 #
 #   powershell -NonInteractive -File run_matlab_detached.ps1 -Script run_collect_by_group -CodeDir D:\sep_histology\code -DataRoot D:\sep_histology\data -LogDir D:\sep_histology\data\young
 #

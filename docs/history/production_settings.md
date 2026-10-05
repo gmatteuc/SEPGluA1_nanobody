@@ -9,7 +9,7 @@ reference set (Verification design), two mice per adult group, not on the
 whole groups the plasticity tables below assume; everything else is as listed.
 
 Names are those since the refactor, with the old name in parentheses (the full
-table: [refactor_name_map.csv](refactor_name_map.csv)). Three things changed
+table: [refactor_name_map.csv](../refactor_name_map.csv)). Three things changed
 how a setting is given:
 
 - the constants of the Python route are keys of `mapping/settings.toml`, named

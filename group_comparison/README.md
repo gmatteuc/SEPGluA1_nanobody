@@ -75,8 +75,9 @@ outlines (`lr_atlas_boundaries`) sit beside them. Shared: `../common/`
   that time (`nano_4d_normalized_bk.mat` in `naive\` and `rws\`), reproduced
   it: the slab t maps and surprise masks correlate with the approved ones at
   0.997 to 0.998 for RWS and 0.988 to 0.999 for behavior
-  (`../docs/REFACTOR_PLAN.md`, Progress). This checks the computation on the
-  same mice; it is not a replication in new animals.
+  ([`../docs/history/REFACTOR_PLAN.md`](../docs/history/REFACTOR_PLAN.md),
+  Progress). This checks the computation on the same mice; it is not a
+  replication in new animals.
 - Step 3 used to smooth each mouse's tissue and then set the voxels outside
   it to 0, so those zeros entered the group means and the SEM's n. Since
   fix 23 of step 8 they are left out. On the same inputs the RWS S1 increase

@@ -2,7 +2,7 @@
 
 Reference for all code in this repository, MATLAB and Python. New code
 follows it; the code that existed was brought in line by the style pass,
-step 7 of [REFACTOR_PLAN.md](REFACTOR_PLAN.md).
+step 7 of [history/REFACTOR_PLAN.md](history/REFACTOR_PLAN.md).
 
 Shared rules come first. The MATLAB half is the imaging repository's guide
 (`D:\dendrites\code\docs\STYLE.md`) adapted (Y6); the Python half quotes two
@@ -160,7 +160,8 @@ Each is defined in one place; never copy a value into a script.
   `paths = get_paths();`, each with a comment above giving the allowed values
   where useful (`% groups to collect ('rws', 'naive', 'behavior', 'young')`).
 - Settings are lowercase `snake_case`, unlike the imaging guide, because
-  `sep_run_driver_copy` and `docs/production_settings.md` use their names.
+  `sep_run_driver_copy` and `docs/history/production_settings.md` use their
+  names.
 - `%% Run` copies the settings into `run_settings` under the same names
   (`run_settings.mousetypes_list = mousetypes_list;`) and makes one call,
   `collect_by_group(run_settings);`. A driver computes nothing else.

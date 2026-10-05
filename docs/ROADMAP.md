@@ -2,10 +2,10 @@
 
 What comes next, in order, and why. Written on 3 and 4 October 2026 and
 brought up to date on 5 October, once the refactor of
-[REFACTOR_PLAN.md](REFACTOR_PLAN.md) was merged (4 October) and the
-production outputs rerun with the merged code (5 October). What each line of
-work found is in [SCIENTIFIC_CONTEXT.md](SCIENTIFIC_CONTEXT.md); which script
-makes each figure, in [FIGURES.md](FIGURES.md).
+[history/REFACTOR_PLAN.md](history/REFACTOR_PLAN.md) was merged (4 October)
+and the production outputs rerun with the merged code (5 October). What each
+line of work found is in [SCIENTIFIC_CONTEXT.md](SCIENTIFIC_CONTEXT.md);
+which script makes each figure, in [FIGURES.md](FIGURES.md).
 
 Paths below are relative to the code root or to the data root, as
 `get_paths.m` and `mapping/sepmap/config.py` define them: the code folder and
@@ -45,18 +45,18 @@ depend on A1 and can run beside it.
 ## 1. Merge the refactor
 
 Done on 4 October 2026 (`03e1ca0` on `main`; Progress in
-[REFACTOR_PLAN.md](REFACTOR_PLAN.md)). Steps 0 to 8 and the documents of
-step 10 went in together, with the fixes Giulio accepted on 3 October (yes to
-1 to 9 and 11 to 21, no to 10; the new fixes 23 to 27), each in its own
-commit and rechecked against the reference: the plasticity chain, P2 and
-P2bis on MG914, the whole Python route, fix 23 on the inputs of the approved
-run, and MG914's registration, rerun on 4 October after drive C: had filled
-with MATLAB's and elastix's temporary folders. Every output that changed is
-traced to its fix. At the merge, Giulio's uncommitted run settings went to
-`registration/run_register_to_atlas.m`, the engine's environment moved to
-`registration\auto_annotation\.venv` (self-test passed) and the leftovers at
-the old paths were deleted. On the merged code `sep_test_path` gives no
-failure, and every Python module imports.
+[history/REFACTOR_PLAN.md](history/REFACTOR_PLAN.md)). Steps 0 to 8 and the
+documents of step 10 went in together, with the fixes Giulio accepted on
+3 October (yes to 1 to 9 and 11 to 21, no to 10; the new fixes 23 to 27),
+each in its own commit and rechecked against the reference: the plasticity
+chain, P2 and P2bis on MG914, the whole Python route, fix 23 on the inputs of
+the approved run, and MG914's registration, rerun on 4 October after drive C:
+had filled with MATLAB's and elastix's temporary folders. Every output that
+changed is traced to its fix. At the merge, Giulio's uncommitted run
+settings went to `registration/run_register_to_atlas.m`, the engine's
+environment moved to `registration\auto_annotation\.venv` (self-test passed)
+and the leftovers at the old paths were deleted. On the merged code
+`sep_test_path` gives no failure, and every Python module imports.
 
 ### The fixes that change results
 
@@ -628,12 +628,13 @@ other, and the side of the stimulation decides which hemispheric reading fits
 approved figures, and the informative S6 run reproduced the computation on the
 same inputs: slab t maps and surprise masks at 0.997 to 0.998 for RWS (0.988
 to 0.999 for behaviour), individual maps at 1.000000, regional bars at 0.994 to
-0.998 ([REFACTOR_PLAN.md](REFACTOR_PLAN.md), Progress, 1 October). That checks
-the computation, not the effect. With the smoothing fixed (fix 23, section 1)
-the increase is still there, smaller in the sum map, and with a t only where
-each group has three mice (decision 1) it is the only significant spot of the
-difference map in the slab; per mouse the barrel field is 26% higher after
-RWS, p 0.12 with five against five. What would make it convincing:
+0.998 ([history/REFACTOR_PLAN.md](history/REFACTOR_PLAN.md), Progress,
+1 October). That checks the computation, not the effect. With the smoothing
+fixed (fix 23, section 1) the increase is still there, smaller in the sum
+map, and with a t only where each group has three mice (decision 1) it is the
+only significant spot of the difference map in the slab; per mouse the barrel
+field is 26% higher after RWS, p 0.12 with five against five. What would make
+it convincing:
 
 - more animals per group, the number fixed in advance;
 - the protocol written into the cohort table: the RWS mice had one RWS
@@ -745,8 +746,8 @@ For the reasons, see the plan and the documents named.
 
 ## Cross-references
 
-- [REFACTOR_PLAN.md](REFACTOR_PLAN.md): the refactor, its decisions, bug list
-  and progress.
+- [history/REFACTOR_PLAN.md](history/REFACTOR_PLAN.md): the refactor, its
+  decisions, bug list and progress.
 - [REFACTOR_COVERAGE.md](REFACTOR_COVERAGE.md): the MATLAB adult analyses (P8
   to P10, now `adult_matlab/`) item by item, and the specification of A1 to
   A10.

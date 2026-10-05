@@ -14,9 +14,9 @@ the numbers of the papers come from the papers.
 The results are those of the output files on 3 October 2026. Some of them
 will move when the scientific additions A1 to A5 run, after the refactor, on
 one declared set of structures (S1 to S5 and A1 to A5 in
-[REFACTOR_PLAN.md](REFACTOR_PLAN.md)); those are marked provisional. Four
-fixes accepted in step 8 of the refactor change a quoted number; each is
-noted where the number is.
+[history/REFACTOR_PLAN.md](history/REFACTOR_PLAN.md)); those are marked
+provisional. Four fixes accepted in step 8 of the refactor change a quoted
+number; each is noted where the number is.
 
 ## The question
 
@@ -108,10 +108,10 @@ questions of the map:
   approved run. The slab t maps and surprise masks correlate with the
   approved ones at 0.997 to 0.998 for RWS (0.988 to 0.999 for behaviour), the
   regional bars at 0.994 to 0.998, and the S1 increase is there
-  ([REFACTOR_PLAN.md](REFACTOR_PLAN.md), Progress, 1 October). The small
-  residue comes from the background masks, which were regenerated since.
-  This checks the computation on the same mice; it is not a replication in
-  new animals.
+  ([history/REFACTOR_PLAN.md](history/REFACTOR_PLAN.md), Progress,
+  1 October). The small residue comes from the background masks, which were
+  regenerated since. This checks the computation on the same mice; it is not
+  a replication in new animals.
 - **A change to the smoothing.** The smoothing worked over the tissue only,
   but then set the voxels outside it to zero, so the zeros entered the group
   means and the n of the SEM. Fix 23 of step 8 leaves them out, which changes
@@ -150,8 +150,8 @@ questions of the map:
   replaces both with a test per structure against the brain's median
   structure (S2), on a declared set of structures (S1, A1, A4). Today 22
   structures of the adult table are seen in fewer than five of the ten adults
-  (REFACTOR_PLAN.md, S1). Its outputs carry known defects (listed in the plan)
-  and are not quoted here.
+  (history/REFACTOR_PLAN.md, S1). Its outputs carry known defects (listed in
+  the plan) and are not quoted here.
 
 ### 3. What the map measures
 
@@ -221,7 +221,7 @@ reliability (the ceiling, 97.4% of the variance). From
   is first under `zref`, `cref`, `subref` and `ratio`; under `sepratio` it is
   second, 0.002 behind Cnih2 (`adult_v2\ish\gene_correlations.csv`, 95 genes
   with an ISH map). Under `zref` it stays first in every structure set tried,
-  at rho 0.77 to 0.82 (REFACTOR_PLAN.md, S5; computed read-only, in
+  at rho 0.77 to 0.82 (history/REFACTOR_PLAN.md, S5; computed read-only, in
   [REFACTOR_COVERAGE.md](REFACTOR_COVERAGE.md)).
 - Gria1's own rank moves with the structure set. It is not quoted until A1 to
   A3 have run (S5 in the plan).
@@ -731,4 +731,4 @@ its parameters in `mapping/settings.toml`.
   fit.
 - **Expression energy.** The Allen ISH value per voxel of its 200 µm grid.
 - **A1 to A10, S1 to S6.** The scientific additions and decisions of
-  [REFACTOR_PLAN.md](REFACTOR_PLAN.md).
+  [history/REFACTOR_PLAN.md](history/REFACTOR_PLAN.md).
