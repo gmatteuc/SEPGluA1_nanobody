@@ -412,6 +412,8 @@ v2_to_ccf.py,mapping/sepmap/volumes/to_ccf.py
 v2_video.py,mapping/sepmap/young_vs_adult/video.py
 v2_video_compare.py,mapping/sepmap/young_vs_adult/video_compare.py
 ,mapping/sepmap/hemispheres.py
+,mapping/sepmap/plotting.py
+,atlas/qc/demba_to_allen.py
 ,tests/sep_test_path.m
 ,mapping/sepmap/__init__.py
 ,mapping/sepmap/volumes/__init__.py
