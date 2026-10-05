@@ -392,7 +392,7 @@ the path guard covers their old names too.
 
 | now | why |
 |---|---|
-| P8, P9, P10 (in `adult_matlab/` since 4 October), plot_violinplot.m (P9 only) | once A1 to A5 are in the Python route |
+| P8, P9, P10 (in `adult_matlab/` since 4 October), plot_violinplot.m (P9 only, in `adult_matlab/` since 5 October) | once A1 to A5 are in the Python route |
 | P6_analyze_group_averages_and_normalize.m, P7_analyze_group_differences.m, plot_abs_slice.m, plot_diff_slice.m, write_diff_video.m | replaced by P6bis/P7bis; to archive in step 4 |
 | compare_young_vs_adult_lrsum.py, replot_young_vs_adult_lrsum.py, region_means_raw_per_mouse.py, region_ratio_young_vs_adult.py, plot_region_ratio_young_vs_adult.py | the first young-against-adult attempt; to archive in step 4 (they still write `D:\sep_histology\data` literally, with no guard: never run from a check tree) |
 | lr_sum_and_diff.m, scratch.m, bk/ | not called; to archive in step 4 (the elastix recipe of bk/LightSuite.txt is copied into the README in the same step) |

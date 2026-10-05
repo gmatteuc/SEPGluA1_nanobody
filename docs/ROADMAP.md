@@ -236,9 +236,10 @@ question, not necessarily with the same output. Once A1 to A5 are in:
 
 - The three scripts of `adult_matlab/`, P8 to P10 until 4 October
   (`run_characterize_distribution`, `run_compare_with_allen_ish` and
-  `run_compare_nano_with_autofluorescence`), and `plot_violinplot.m` (used by
-  `run_compare_with_allen_ish` only) move to `archive/`; the override
-  `SEP_MERGE_SPECS` goes with `run_characterize_distribution`.
+  `run_compare_nano_with_autofluorescence`), and `plot_violinplot.m` (in
+  `adult_matlab/`, used by `run_compare_with_allen_ish` only) move to
+  `archive/`; the override `SEP_MERGE_SPECS` goes with
+  `run_characterize_distribution`.
 - Their outputs in `comparisons\` stay where they are, frozen, as what the
   additions were compared with (`merged_naive_rws_nano\`,
   `merged_naive_rws_auto\`, the `merged_naive_rws_vs_ish_*` folders,
