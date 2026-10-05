@@ -25,9 +25,12 @@ How to read this page:
   dates, which tell which code made them.
 - A figure open in a viewer while a Python run saves it is written as
   `<name>_new.png` instead.
-- "Changed since" lists what a later fix changes in a figure made before
-  3 October 2026. A rerun with the merged code gives the new version
-  ([ROADMAP.md](ROADMAP.md), section 2).
+- "Changed since" lists what a later fix or decision changed in a figure made
+  before 3 October 2026. The rerun of 5 October 2026 wrote the new versions
+  at the same paths; the versions shown before are kept in
+  `<data>\backup_before_rerun_2026-10-05\` for the Python route, and in the
+  approved folders for the plasticity comparison ([ROADMAP.md](ROADMAP.md),
+  section 2).
 
 ---
 
@@ -93,6 +96,12 @@ they change the `subref` panel and its title (the reference is now TH, HY,
 PAL, MB, P and MY: fibre tracts, ventricles and unassigned labels left out).
 MG897's missing `sepratio` voxels, now left out of its region means, move one
 marker of `group_plot.eps` by a thousandth of a point; the PNG is unchanged.
+Decision 4 of 4 October carries the young brains to the CCF without
+darkening their tissue edges, so the young cortical surface reads brighter in
+the close-ups and flatmaps (the young outer cortical shell, 0.548 to 0.599 of
+the interior), and takes each brain's backgrounds over its imaged voxels
+only, which moves the differences of `group_stats.csv` by at most 0.01
+(RL+AL `zref` +0.232 to +0.235).
 
 ## The plasticity comparison Sami El-Boustani approved (5 December 2025)
 
@@ -151,7 +160,10 @@ MG693, MG736, MG737; behaviour MG705, MG709, MG716, MG718.
 **Names.** Today's code puts the channel in the comparison tag, so it writes
 `naive_vs_rws_nano\` with `_nano` after the tag in every name that carries it
 (`Slab_Avg_565_naive_vs_rws_nano_surpmask`). It never overwrites the approved
-folders.
+folders. The merged code wrote `naive_vs_rws_nano\` and
+`naive_vs_behavior_nano\` on 5 October 2026, from production's current
+normalised volumes, which are not the approved run's inputs
+([ROADMAP.md](ROADMAP.md), section 2).
 
 **Changed since.** Each mouse's voxels outside its tissue are left out
 instead of set to 0 after smoothing (fix 23, accepted on 3 October): every
@@ -167,7 +179,11 @@ parafascicular nucleus was listed twice, and the bar labelled mediodorsal
 nucleus summed the intermediodorsal nucleus (88,205 voxels), whose name
 contains the one asked for; the duplicate goes, and the bar sums the
 mediodorsal nucleus (691,695 voxels). "Hemishpere" becomes "Hemisphere" in
-the individual videos' titles.
+the individual videos' titles. Since 4 October a voxel gets a t only where
+each group has at least three mice, the slab figures and bars use only the
+voxels with a t of their own, and each regional bar is the share of one of 71
+atlas regions' voxels at p < 0.01, no voxel in two bars (decisions 1 and 2,
+[ROADMAP.md](ROADMAP.md), section 1).
 
 ## The adult map
 
@@ -195,8 +211,9 @@ The absolute t rises in 89 to 96% of the voxels shown, by a median factor of
 1.10 to 1.14 for `cref` and `zref` (1.02 to 1.06 for `ratio`, 1.00 to 1.04 for
 `sepratio`, 1.09 to 1.11 for `subref`), and the t panel's upper end with it
 (adult `cref` 22.9 to 28.0, `zref` 14.8 to 16.9); the mean panel is
-unchanged. The `subref` volumes and video change with the `subref` fix. A1
-changes every `zref` value.
+unchanged. The `subref` volumes and video change with the `subref` fix.
+Decision 4 takes each brain's backgrounds over its imaged voxels only, which
+moves the readings slightly everywhere. A1 changes every `zref` value.
 
 ### The MATLAB distribution and autofluorescence control, until A4 and A5 replace them
 
@@ -278,8 +295,13 @@ printed conclusions now follow the numbers, in short wording (fix 27):
 is largest", `C_where` reads "Where the leftover lives", `D_controls` counts
 its controls ("7 ways"), and `numbers_for_the_caption.txt` says "10 adult
 mice" and "D. 7 controls"; panel E's verdict on the residuals takes its
-threshold from `[beyond_regression] diagnostic_p`. No number changes. A1 to
-A3 do not move this result.
+threshold from `[beyond_regression] diagnostic_p`. None of these changes a
+number. Decision 4 of 4 October does: it takes each brain's backgrounds over
+its imaged voxels only, and the rerun of 5 October keeps 126 structures
+instead of 125 and leaves 36% of the explainable variance unexplained instead
+of 39%, replicating at 0.936 instead of 0.934 (the other numbers in
+[SCIENTIFIC_CONTEXT.md](SCIENTIFIC_CONTEXT.md), line of work 3). A1 to A3 do
+not move this result.
 
 ### The ISH comparison
 
@@ -343,7 +365,11 @@ Negr1 (no `energy.mhd` in the downloaded file). The `subref` correlations of
 `gene_correlations.csv` and `role_summary.csv` move by at most 0.005 with the
 `subref` fix; Cacng8 stays first. `ish_roles.png`'s title takes the direction
 of the split and its verdict from the numbers (fix 27), with the same reading
-as before.
+as before. With decision 4's backgrounds (the rerun of 5 October) the
+correlations move slightly: Cacng8 stays first under every reading but
+`sepratio`, the old-against-new agreement under `zref` is 0.906 (0.910
+before), the panel test's matched p is 0.98 and the positive control's
+0.0004.
 
 ### What the green channel reports
 
@@ -352,14 +378,17 @@ made by `mapping/run_sep_channel_check.py` (`v2_sep_channel_check.py`) from the
 per-brain files of the ten adults and the 100-gene table: each channel's
 dynamic range, what each tracks across structures, and the SEP residual once
 autofluorescence is regressed out. The figure behind the finding that the
-green channel is mostly autofluorescence. Changed since: its title no longer
+green channel is mostly autofluorescence. Changed since: with decision 4's
+backgrounds its numbers move by less than 0.01; its title no longer
 calls the sections cleared (fix 27).
 
 ## Young against adult: figures and videos
 
-All in `<data>\comparisons_v2\young_vs_adult\` unless stated, from the run of
-24 and 25 September 2026 (seven young brains, ten adults), every reading in
-force (`ratio`, `sepratio`, `cref`, `subref`, `zref`).
+All in `<data>\comparisons_v2\young_vs_adult\` unless stated, first made on
+24 and 25 September 2026 and rerun on 5 October (seven young brains, ten
+adults), every reading in force (`ratio`, `sepratio`, `cref`, `subref`,
+`zref`). The barrel-field variant was not rerun (its script no longer runs,
+[ROADMAP.md](ROADMAP.md), section 8).
 
 | output | made by | what it shows |
 |---|---|---|
@@ -417,6 +446,16 @@ use the maps for the pattern: maps and tables do not give the same number
   ("0 = equally bright").
 - The videos' reliability t: each brain counted once, its hemispheres
   averaged first (the adult map, above).
+- Decision 4 of 4 October: each brain's backgrounds over its imaged voxels
+  only, and the young brains carried to the CCF without darkening their
+  tissue edges. In the maps, videos and close-ups the young cortical surface
+  reads brighter. In `group_stats.csv` the differences move by at most 0.01;
+  per structure most move by a few thousandths, and a few small structures
+  at the tissue surface by more (the supramammillary nucleus, measured in
+  four or five young brains, by 0.25 to 0.57 log2 depending on the
+  reading). The `subref` structures at Welch q < 0.05 are 83 (104 before
+  fix 1, 81 with fix 1 alone). Four `zref` structures that sat on the
+  Benjamini-Hochberg boundary leave q < 0.05, so that count is not quoted.
 - A1 moves every `zref` value; the laminar contrast per mouse is added to
   `run_region_groups`' outputs (step 9).
 
@@ -447,7 +486,9 @@ Inputs: the per-brain files, the cohort volumes, `region_table.csv` and
 plasticity chain. `run_diagnostics.py <mouse>` refreshes one brain's sheets.
 Settings: `[tissue]` (the mask's threshold, `mad_k`, appears in the titles).
 Changed since: sheet 01's title says what the tissue mask needs; the titles of
-sheets 06, 08 and 09 state what the numbers show (fix 27).
+sheets 06, 08 and 09 state what the numbers show (fix 27). Since decision 4
+the sheets draw unimaged voxels white instead of the no-data grey
+([ROADMAP.md](ROADMAP.md), section 8).
 
 `processing_diagnostics\sep_channel\<mouse>.png` and `.txt`, one per brain,
 are written by `registration/run_add_sep_channel.m` (`P4bis_add_sep_channel.m`):

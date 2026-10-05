@@ -11,12 +11,16 @@ names (`get_paths.m`, `mapping/sepmap/config.py`). Each result below comes
 from the output file named beside it, or from a document in this repository;
 the numbers of the papers come from the papers.
 
-The results are those of the output files on 3 October 2026. Some of them
-will move when the scientific additions A1 to A5 run, after the refactor, on
-one declared set of structures (S1 to S5 and A1 to A5 in
+The results are those of the output files of 5 October 2026, when the
+Python route was rerun with the merged code of the refactor. Its outputs
+before that rerun, the state the grant figures were made from, are kept in
+`data\backup_before_rerun_2026-10-05\` and, as of 30 September, in the
+snapshot `G:\sep_histology_snapshot_2026-09-29` ([ROADMAP.md](ROADMAP.md),
+section 2). Some results will move when the scientific additions A1 to A5
+run on one declared set of structures (S1 to S5 and A1 to A5 in
 [history/REFACTOR_PLAN.md](history/REFACTOR_PLAN.md)); those are marked
-provisional. Four fixes accepted in step 8 of the refactor change a quoted
-number; each is noted where the number is.
+provisional. Where a fix of step 8 or a decision of 4 October moved a quoted
+number, the earlier value is given beside it.
 
 ## The question
 
@@ -122,6 +126,17 @@ questions of the map:
   against five), as before. The behaviour comparison changes most: MG709,
   with no tissue at that slab, no longer counts as a fourth mouse
   ([ROADMAP.md](ROADMAP.md), section 1).
+- **Edge voxels and the bars (4 October).** A voxel now gets a t only where
+  each group has at least three mice with tissue, and each regional bar is
+  the share of one of 71 atlas regions' voxels at p < 0.01, no voxel in two
+  bars. On the same inputs the barrel field keeps its 292 and 287 pixels and
+  is the only significant spot of the hemisphere-difference map in the slab;
+  the large t values at the tissue edges are gone (ROADMAP, section 1). The
+  merged code's run on production's current normalised volumes (5 October)
+  is in `data\comparisons\naive_vs_rws_nano\` and `naive_vs_behavior_nano\`.
+  Those volumes are not the approved run's inputs, so that run is not the
+  reference; its region shares agree with the rerun on the approved inputs
+  (r 0.994 to 0.997 for RWS).
 - **Status.** The team was not fully confident that the effect holds, and
   more animals would be a large investment, so the line is paused, not
   closed. The code stays runnable, and documented well enough to resume with
@@ -133,15 +148,15 @@ questions of the map:
   brain, and how reproducible that is across mice.
 - **Cohort.** The five naive and five RWS mice, pooled. Pooling was checked:
   the part of the map that abundance and density do not explain (line 3)
-  agrees between the naive and the RWS mice at rho +0.884
+  agrees between the naive and the RWS mice at rho +0.888
   (`adult_v2\beyond\controls.csv`, control D). The behaviour mice enter only
   the plasticity comparison.
 - **Reproducibility.** Over the 126 ways of splitting the ten adults into two
-  halves of five, the two half-cohort maps agree at rho 0.974 over 125
+  halves of five, the two half-cohort maps agree at rho 0.974 over 126
   grey-matter structures (`adult_v2\beyond\for_sami\numbers_for_the_caption.txt`;
   the structures in `adult_v2\beyond\structures_used.csv`). Spearman-Brown
   takes this to 0.987 for the full cohort. The autofluorescence of the same
-  brains explains none of the map (cross-validated R² -0.04,
+  brains explains none of the map (cross-validated R² -0.06,
   `adult_v2\beyond\variance_partition.csv`).
 - **Being rebuilt.** Which structures stand out, and with what confidence, is
   being redone. The MATLAB route (`run_characterize_distribution`) called a
@@ -159,7 +174,7 @@ A reader will ask whether the map simply follows how much receptor a region
 makes, or how many synapses it has. The project tests this against the Allen
 in situ hybridisation (ISH) maps of the adult mouse brain (Lein et al. 2007).
 
-**The map is more than abundance and density.** Over 125 grey-matter
+**The map is more than abundance and density.** Over 126 grey-matter
 structures, the adult map was predicted from receptor abundance (Gria1 to
 Gria4 mRNA), synaptic markers, the first principal component of 188
 postsynaptic-density genes, and the cohort's own autofluorescence. Each model
@@ -169,34 +184,36 @@ reliability (the ceiling, 97.4% of the variance). From
 
 | predictors | cross-validated R² | share of the explainable variance |
 |---|---|---|
-| receptor abundance (Gria1 to Gria4) | 0.2526 | 26% |
-| synaptic markers | 0.1479 | 15% |
-| postsynaptic density, first component | 0.2619 | 27% |
-| autofluorescence | -0.0425 | 0% |
-| all four, straight lines | 0.4155 | 43% |
-| all four, allowed to bend | 0.5969 | 61% |
+| receptor abundance (Gria1 to Gria4) | 0.2666 | 27% |
+| synaptic markers | 0.1622 | 17% |
+| postsynaptic density, first component | 0.2681 | 28% |
+| autofluorescence | -0.0643 | 0% |
+| all four, straight lines | 0.4086 | 42% |
+| all four, allowed to bend | 0.6236 | 64% |
 
-- 39% of the explainable variance is left over. The leftover replicates
-  across independent halves of the cohort at rho 0.934 (95% CI 0.888 to
-  0.951; Spearman-Brown 0.966), almost as well as the map itself
-  (`numbers_for_the_caption.txt`).
+- 36% of the explainable variance is left over. The leftover replicates
+  across independent halves of the cohort at rho 0.936 (95% CI 0.887 to
+  0.951; Spearman-Brown 0.967), almost as well as the map itself
+  (`numbers_for_the_caption.txt`). Before decision 4 of 4 October, which
+  leaves unimaged voxels out of each brain's backgrounds, the analysis kept
+  125 structures and found 39% left over, replicating at 0.934.
 - Seven controls tried to break this (`adult_v2\beyond\controls.csv`): a
   spatial gradient, structure size, single animals, naive against RWS,
   curvature, the whole gene space and the choice of reading. All seven pass.
   For single animals, the leftovers of every pair of mice agree, at a median
-  rho of 0.780 (worst 0.595).
+  rho of 0.782 (worst 0.596).
 - The curvature control is why the model bends. With straight lines the four
-  predictors leave 57% of the explainable variance; allowed to bend, 39%. A
-  straight model would have credited 18 points of curvature to the leftover
-  (a fifth power adds little: R² 0.602 against 0.597).
-- The richest model tried, 20 principal components of the panel genes
-  measured in every structure, reaches a cross-validated R² of 0.826 (85% of
-  the ceiling). Its leftover still replicates at 0.879.
+  predictors leave 58% of the explainable variance; allowed to bend, 36%. A
+  straight model would have credited 22 points of curvature to the leftover
+  (a fifth power adds little: R² 0.644 against 0.624).
+- The richest model tried, 17 principal components of the panel genes
+  measured in every structure, reaches a cross-validated R² of 0.821 (84% of
+  the ceiling). Its leftover still replicates at 0.875.
 - The leftover is high, relative to what the predictors give, in the medial
-  geniculate (+48 ranks), subthalamic nucleus (+44), ventral lateral
-  geniculate (+38) and lateral habenula (+38). It is low in VPM (-49), VPL
-  (-47), dorsal retrosplenial cortex (-46) and the posterior thalamic complex
-  (-43) (`adult_v2\beyond\residual_by_structure.csv`). `run_beyond_density`
+  geniculate (+48 ranks), subthalamic nucleus (+43), lateral habenula (+38)
+  and ventral lateral geniculate (+38). It is low in VPM (-50), VPL (-48),
+  dorsal retrosplenial cortex (-45) and the posterior thalamic complex (-44)
+  (`adult_v2\beyond\residual_by_structure.csv`). `run_beyond_density`
   prints the genes closest to the leftover but writes them to no table, so
   they are not quoted here.
 - This result uses all ten adults and the grey-matter rule, so the
@@ -216,10 +233,10 @@ reliability (the ceiling, 97.4% of the variance). From
   AMPA receptor trafficking and anchoring genes, Cacng8 first, above Gria1
   itself
   (`data\comparisons\merged_naive_rws_vs_ish_summary_nosmooth\gene_panel_summary.csv`).
-- The Python route reproduces that ranking: rho 0.910 against the old
+- The Python route reproduces that ranking: rho 0.906 against the old
   ordering under `zref` (`adult_v2\ish\ish_old_vs_new.png`). Cacng8 (TARP γ-8)
   is first under `zref`, `cref`, `subref` and `ratio`; under `sepratio` it is
-  second, 0.002 behind Cnih2 (`adult_v2\ish\gene_correlations.csv`, 95 genes
+  second, 0.004 behind Cnih2 (`adult_v2\ish\gene_correlations.csv`, 95 genes
   with an ISH map). Under `zref` it stays first in every structure set tried,
   at rho 0.77 to 0.82 (history/REFACTOR_PLAN.md, S5; computed read-only, in
   [REFACTOR_COVERAGE.md](REFACTOR_COVERAGE.md)).
@@ -249,10 +266,13 @@ reliability (the ceiling, 97.4% of the variance). From
   so far are in [adult_ish_design.md](adult_ish_design.md). Fix 5 of step 8
   gives each permutation test its own random generator, which moves the
   powered test's p there from 0.7432 to 0.7481 and the positive control's
-  from 0.0007 to 0.0006, within Monte Carlo error, and leaves
-  `panel_test.csv` unchanged. These p values are anticonservative,
-  because genes within a set are co-expressed (Fulcher et al. 2021); a
-  spatial null is planned (A7).
+  from 0.0007 to 0.0006, within Monte Carlo error. In the rerun of 5 October,
+  with decision 4's backgrounds, the matched difference is -0.000 (p 0.98)
+  and the positive control's p is 0.0004
+  (`adult_v2\ish\ish_panel_test.png`): still negative, with a working
+  positive control. These p values are anticonservative, because genes
+  within a set are co-expressed (Fulcher et al. 2021); a spatial null is
+  planned (A7).
 
 **The green channel is not total receptor.**
 
@@ -265,7 +285,7 @@ reliability (the ceiling, 97.4% of the variance). From
   ten adults). In every adult it tracks the autofluorescence channel across
   structures, at rho 0.79 ± 0.04. It varies less across the brain than
   either autofluorescence or nano: p90 - p10 of log2, 0.95 ± 0.16 against
-  1.07 ± 0.16 and 1.93 ± 0.26. Against Gria1 ISH, nano correlates at +0.60
+  1.08 ± 0.16 and 1.93 ± 0.26. Against Gria1 ISH, nano correlates at +0.61
   and the green channel at +0.30.
 - **Consequences.** `sepratio` (nano per unit SEP) is not a surface fraction,
   and the three-way test cannot be run on these data.
@@ -306,11 +326,11 @@ reliability (the ceiling, 97.4% of the variance). From
 - **Only the pattern can be compared.** Young and adult brains were imaged in
   different sessions. The autofluorescence used as an internal standard rises
   with age itself. Nano per unit autofluorescence is lower in young cortex
-  (-0.42 log2 in retrosplenial to -1.21 in frontal cortex, the `ratio` rows
+  (-0.42 log2 in retrosplenial to -1.22 in frontal cortex, the `ratio` rows
   of `comparisons_v2\young_vs_adult\group_stats.csv`), but that is a bound,
   not a value.
 - **The young brain is flatter.** The spread of its structures (p90 - p10 of
-  log2 nano relative to cortex) is about half the adult one: 0.98 ± 0.28 log2
+  log2 nano relative to cortex) is about half the adult one: 0.99 ± 0.27 log2
   in the seven young brains against 1.93 ± 0.26 in the ten adults (mean ± SD
   over brains of the spread the maps divide by: for the adults `range_nano`
   in `adult_v2\arms\sep_channel_check.csv`, for the young brains `z_spread`
@@ -322,16 +342,16 @@ reliability (the ceiling, 97.4% of the variance). From
   within each brain's own range, not a fold change (see Terms).
 - **By system** (7 young against 10 adults, `cref`, log2 young minus adult,
   group medians from `group_stats.csv`; Mann-Whitney p < 0.01, uncorrected,
-  unless marked): primary somatosensory +0.21, retrosplenial +0.24, frontal
-  -0.42, striatum -0.79, hippocampus -1.03; primary visual -0.06, not
+  unless marked): primary somatosensory +0.22, retrosplenial +0.24, frontal
+  -0.43, striatum -0.79, hippocampus -1.03; primary visual -0.06, not
   significant. The reading matters: hippocampus is -1.03 under `cref` and
   +0.49 under `zref`.
 - **RL and AL.** RL and AL together, the visuo-tactile areas of the grant,
-  are the only visual group that survives correction under `zref`: +0.23
+  are the only visual group that survives correction under `zref`: +0.24
   (p = 0.0007, q = 0.014), against -0.01 between naive and RWS adults; the
   P20 brains alone give +0.34. This holds under `zref` only: under `cref`,
   which is blind to a shift of the whole cortex, RL+AL is +0.08 (p = 0.36).
-  V1 shows no difference (`zref` +0.07, q = 0.35).
+  V1 shows no difference (`zref` +0.07, q = 0.33).
 - **By layer.** Under `cref`, in every sensory system, primary and higher
   order alike, the young-minus-adult difference is larger in the
   supragranular layers (+0.11 to +0.30) than in the infragranular ones. The
@@ -340,7 +360,7 @@ reliability (the ceiling, 97.4% of the variance). From
   (SSp +0.07, SSs +0.11). Under `zref`, RL+AL is higher in both the
   supragranular layers (+0.28) and layer 4 (+0.27, q = 0.006 each), while
   layer 4 does not differ in V1 or in the other visual areas (+0.13 and
-  +0.15, q ≥ 0.11): RL and AL have a laminar profile closer to somatosensory
+  +0.15, q ≥ 0.09): RL and AL have a laminar profile closer to somatosensory
   cortex than to V1 (all from `group_stats.csv`).
 - **The laminar contrast.** Taken per mouse, the supragranular-minus-
   infragranular contrast would cancel any scale factor of a brain (exposure,
@@ -372,9 +392,9 @@ reliability (the ceiling, 97.4% of the variance). From
   aged P16 to P20: MG904, at P22, was grouped with the P20 brains, as Sami
   El-Boustani asked. The layer flatmaps (`detail_flatmap_layers_zref.png`)
   show three bands. For RL+AL, layers 5 and 6 are the weakest statistically
-  (`zref` q = 0.110, against 0.006 for the supragranular layers and layer 4).
+  (`zref` q = 0.092, against 0.006 for the supragranular layers and layer 4).
   Both groups are high there: the young median is 0.54 and the adult one
-  0.35, against 0.37 and 0.10 in the supragranular layers (`group_stats.csv`).
+  0.35, against 0.38 and 0.10 in the supragranular layers (`group_stats.csv`).
   So the band is bright in both groups' maps, and its young-adult difference
   is the smallest of the three (+0.19, against +0.28 and +0.27).
 - **Provisional.** A1 changes the reference of zref and so moves every zref
@@ -384,12 +404,17 @@ reliability (the ceiling, 97.4% of the variance). From
   reference, which moves each brain's subref by one constant (+0.19 to +0.45
   log2 in the adults, +0.02 to +0.32 in the young brains). The young-adult
   subref difference moves by -0.21 log2, and its structures at Welch
-  q < 0.05 fall from 104 to 81; the other readings are unchanged (the
-  rerun of 4 October on a copy, [ROADMAP.md](ROADMAP.md), section 1; the
-  production tables change at the rerun after the merge). Fix 3 of step 8
+  q < 0.05 fall from 104 to 81 with fix 1 alone, and to 83 in the production
+  tables of 5 October, with decision 4 as well ([ROADMAP.md](ROADMAP.md),
+  section 1); fix 1 leaves the other readings unchanged. Fix 3 of step 8
   stops the cohort mean from counting MG897's 183 voxels without a sepratio
   value as zero, so the young sepratio mean there rises by a factor of 7/6
-  and its n falls from 7 to 6; nothing else changes.
+  and its n falls from 7 to 6; nothing else changes. Decision 4 of 4 October
+  leaves unimaged voxels out of each brain's backgrounds and carries the
+  young brains to the CCF without darkening their tissue edges. The
+  differences quoted in this section move by at most 0.006 (RL+AL `zref`
+  +0.232 to +0.235, which now rounds to +0.24) and their q values by at most
+  0.02; in the maps the young cortical surface reads brighter than before.
 
 ## The grant: SNSF Weave (El-Boustani, Geneva; Gjorgjieva, Munich)
 
@@ -538,7 +563,7 @@ neurodevelopment. *Trends Neurosci* 46(10):847-862. `Larsen_2023.pdf`
   suggests a later or prolonged critical period.
 - Here: the frame of the grant's prediction that associative visuo-tactile
   areas have a delayed or prolonged window. Our frontal areas are lower in
-  young brains (`cref` -0.42); with two ages this cannot be read as timing.
+  young brains (`cref` -0.43); with two ages this cannot be read as timing.
 
 ### Comparing a brain map with gene expression
 
@@ -722,7 +747,7 @@ its parameters in `mapping/settings.toml`.
 - **Structure sets.** The beyond-abundance analysis keeps grey-matter
   structures seen in all ten adults, with no "..., unassigned" labels, that
   the ISH maps of the subunit and marker genes cover and that have
-  autofluorescence values in every adult (125 structures,
+  autofluorescence values in every adult (126 structures,
   `adult_v2\beyond\structures_used.csv`). The plan's declared set (S1) keeps
   grey-matter structures seen in all ten adults, 234 of 280.
 - **Reliability and Spearman-Brown.** Agreement between two independent

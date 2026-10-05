@@ -146,8 +146,9 @@ A brain's stages are in `<data>\<group>\<mouse>\lightsuite\`. The drivers:
 - A Python step, from the code root (`--help` lists the options):
   `tools\venv_atlas\Scripts\python.exe mapping\run_per_mouse.py <mouse>`.
 - The plasticity comparison approved on 5 December 2025 is in
-  `comparisons\naive_vs_rws\` and `naive_vs_behavior\`; a rerun writes
-  `naive_vs_<exp>_nano\` beside them ([how](group_comparison/README.md)).
+  `comparisons\naive_vs_rws\` and `naive_vs_behavior\`; today's code writes
+  `naive_vs_<exp>_nano\` beside them, last on 5 October 2026
+  ([how](group_comparison/README.md)).
 
 ## Where to change
 
@@ -197,6 +198,11 @@ compare the outputs with the tools in `tools/`. Follow the
   in `<group>\`. The plasticity comparison and `adult_matlab/` write to
   `comparisons\`, the Python route to `comparisons_v2\` and `adult_v2\`.
   Which script makes which figure: [`docs/FIGURES.md`](docs/FIGURES.md).
+- The Python route and the group-difference step were rerun with the
+  refactored code on 5 October 2026. The Python route's outputs from before,
+  the state behind the grant figures, are in
+  `backup_before_rerun_2026-10-05\` under the data root; the data tree of
+  30 September is also in the snapshot `G:\sep_histology_snapshot_2026-09-29`.
 - `main` is the working branch. Tags: `grant-2026-09` (grant figures),
   `before-refactor` (snapshot of 29 September 2026), `refactor-start` (start
   of the reorganisation), `pre-auto-annotation` (before the automatic

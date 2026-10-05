@@ -226,7 +226,8 @@ tools\venv_atlas\Scripts\python.exe mapping\run_diagnostics.py <mouse>
 
 `run_per_mouse` measures the brain on the atlas of its age; `run_to_ccf`
 carries a young brain into the adult CCF with CCF Translator (about 2.5 min
-per volume, four volumes) and only places an adult. Look at
+per volume, five volumes: nano, autofluorescence, SEP and the tissue mask
+twice) and only places an adult. Look at
 `processing_diagnostics\01_tissue_<mouse>.png`, `02_levels_<mouse>.png` and,
 for a young brain, `04_warp_<mouse>.png`, all under `<data>\comparisons_v2\`;
 what to look for is in `processing_diagnostics\README.md`.
@@ -268,9 +269,10 @@ LightSuite's defaults are the adults' values. Then, in `group_comparison/`
    picks `'rws'` or `'behavior'`.
 
 The comparison approved on 5 December 2025 is in
-`<data>\comparisons\naive_vs_rws\` and `naive_vs_behavior\`; a rerun writes
-`naive_vs_<exp>_nano\` beside it. A new naive or RWS adult also changes the
-Python route's adult cohort once its `mapping_cohort` is set.
+`<data>\comparisons\naive_vs_rws\` and `naive_vs_behavior\`; today's code
+writes `naive_vs_<exp>_nano\` beside it (last on 5 October 2026). A new
+naive or RWS adult also changes the Python route's adult cohort once its
+`mapping_cohort` is set.
 
 ## Traps
 

@@ -53,9 +53,14 @@ P20 stack and its background masks, which sheet 08 of
   bar before 4 October 2026).
 
 The approved outputs are in `<data>\comparisons\naive_vs_rws\` and
-`naive_vs_behavior\`, named before the channel joined the comparison tag;
-a rerun writes `naive_vs_rws_nano\` and `naive_vs_behavior_nano\` beside
-them.
+`naive_vs_behavior\`, named before the channel joined the comparison tag.
+Today's code writes `naive_vs_rws_nano\` and `naive_vs_behavior_nano\`
+beside them, last on 5 October 2026 from the normalised stacks then in the
+group folders (naive of 4 September 2026, RWS of 1 May 2026, behavior of
+5 December 2025), not those of the approved run. Naive and RWS were
+normalised months apart: a clean final version reruns step 2 on the three
+groups together, then step 3 ([`../docs/ROADMAP.md`](../docs/ROADMAP.md),
+section 2).
 
 ## Where the code is
 
