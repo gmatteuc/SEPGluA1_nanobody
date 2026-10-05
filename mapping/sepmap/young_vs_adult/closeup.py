@@ -31,8 +31,7 @@ rainbow has no neutral middle to read zero against.
 
 The flatmaps need ccf_streamlines, which brings its own numpy and scikit-image, so
 this module runs in its own environment, tools\\venv_flat (made from
-tools\\requirements_flat.txt), and imports only config, plotting and hemispheres
-from pathlib import Path
+tools\\requirements_flat.txt), and imports only config, hemispheres and plotting
 from the package. Its assets, about 0.6 GB, are fetched once into atlas_flatmap/
 under the data root from the Allen Institute's ccf_streamlines_assets folder,
     https://download.alleninstitute.org/informatics-archive/current-release/
@@ -65,6 +64,7 @@ from matplotlib.image import AxesImage
 from scipy.ndimage import gaussian_filter
 
 from sepmap.config import DATA, SETTINGS
+from sepmap.hemispheres import fold, fold_count
 from sepmap.plotting import (
     coronal_figure,
     coronal_frame,
@@ -72,7 +72,6 @@ from sepmap.plotting import (
     save_figure,
     transparent_bad,
 )
-from sepmap.young_vs_adult.hemispheres import fold, fold_count
 
 CLOSEUP = SETTINGS["closeup"]
 READINGS = SETTINGS["readings"]

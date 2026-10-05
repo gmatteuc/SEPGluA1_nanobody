@@ -16,10 +16,11 @@ mapping/
   sepmap/               the package the run scripts call
     config.py           the data root (SEP_DATA_ROOT and its guards), the settings, the cohort table
     plotting.py         the palette, the colormaps, the save function, the coronal drawing
+    hemispheres.py      the two hemispheres of a volume folded onto one (volumes, young_vs_adult)
     diagnostics.py      the sheets that audit each step
     volumes/            per_mouse, to_ccf, cohort: per-brain volumes, the adult CCF, cohort means
     young_vs_adult/     compare, replot, region_plot, region_groups, video, video_compare,
-                        closeup, hemispheres
+                        closeup
     adult/              sep_channel_check, arms, beyond_density, beyond_controls,
                         beyond_figures, beyond_regression
     ish/                regions, compare, words, roles, arms, panel_build, panel_fetch,

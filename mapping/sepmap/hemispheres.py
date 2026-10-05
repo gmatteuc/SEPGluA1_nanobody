@@ -7,8 +7,9 @@ folds to the larger count of the two sides, the most brains behind either.
 
 Only numpy is imported, so the flatmap environment (young_vs_adult.closeup) can
 import this module too. Used by volumes.cohort, which folds each brain before the
-cohort statistics behind the videos, and by young_vs_adult.compare, video_compare
-and closeup.
+cohort statistics behind the videos, and by young_vs_adult.compare, video,
+video_compare and closeup; it sits at the top of the package because both
+sub-packages use it.
 """
 
 import numpy as np

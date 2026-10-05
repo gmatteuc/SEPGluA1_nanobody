@@ -399,6 +399,7 @@ v2_sep_channel_check.py,mapping/sepmap/adult/sep_channel_check.py
 v2_to_ccf.py,mapping/sepmap/volumes/to_ccf.py
 v2_video.py,mapping/sepmap/young_vs_adult/video.py
 v2_video_compare.py,mapping/sepmap/young_vs_adult/video_compare.py
+,mapping/sepmap/hemispheres.py
 ,tests/sep_test_path.m
 ,mapping/sepmap/__init__.py
 ,mapping/sepmap/volumes/__init__.py

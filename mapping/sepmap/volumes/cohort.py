@@ -52,7 +52,7 @@ comparison), young_P20 (the P20 brains alone, the sensitivity check), young_P16,
 young_P22, naive, rws, and adult (naive and rws).
 
 The same statistics are taken a second time with each brain's two hemispheres
-averaged first (young_vs_adult.hemispheres.fold), on the left half of the grid.
+averaged first (hemispheres.fold), on the left half of the grid.
 Each brain then gives one value per voxel, so the count is the brains with a value
 on either side and a t over them has the n it claims; folding the cohort's own
 left and right maps instead leaves no such n where the two sides were cut in
@@ -73,9 +73,9 @@ import numpy as np
 from scipy.ndimage import gaussian_filter
 
 from sepmap.config import SETTINGS
+from sepmap.hemispheres import fold
 from sepmap.volumes.per_mouse import DATA, MICE, annotation_20, structure_terms
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
-from sepmap.young_vs_adult.hemispheres import fold
 
 READINGS = SETTINGS["readings"]
 REGION_TABLES = SETTINGS["region_tables"]
