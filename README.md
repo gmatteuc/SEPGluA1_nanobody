@@ -78,7 +78,7 @@ subfolder of its own (`registration/annotation_gui/`,
 | `tests/`, `tools/` | two MATLAB tests; the detached runner and the checks that a change does not change the results ([README](tests/README.md), [README](tools/README.md)) |
 | `docs/` | [scientific context](docs/SCIENTIFIC_CONTEXT.md), [adding data](docs/ADDING_DATA.md), [figures](docs/FIGURES.md), [code style](docs/STYLE.md), [roadmap](docs/ROADMAP.md); the specification of A1 to A10 in [REFACTOR_COVERAGE.md](docs/REFACTOR_COVERAGE.md) and [adult_ish_design.md](docs/adult_ish_design.md); the old and new script names in [refactor_name_map.csv](docs/refactor_name_map.csv); the refactor's plan and reports in [history/](docs/history/README.md) |
 | `assets/` | the image at the top of this README |
-| `third_party/`, `archive/` | LightSuite (local changes listed in its `PATCHES.md`), matlab_elastix, yamlmatlab, BioformatsImage; retired code, kept until checked |
+| `third_party/`, `archive/` | LightSuite (local changes listed in its `PATCHES.md`), matlab_elastix, yamlmatlab, BioformatsImage; retired code, kept until checked ([README](third_party/README.md), [README](archive/README.md)) |
 
 *Nomenclature note.* nano is the nanobody channel (Cy5), auto the
 autofluorescence (Cy3), SEP the green channel (filter EGFP). Files carry dye
