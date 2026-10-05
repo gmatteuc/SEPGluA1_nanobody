@@ -355,8 +355,9 @@ the code behind the grant figures of September 2026 at `grant-2026-09`.
 Every file the reorganisation moved, helpers and vendored folders included,
 is in [`refactor_name_map.csv`](refactor_name_map.csv), one row per file.
 Since then the body of each MATLAB driver has moved into a function in its
-folder's `pipeline/`, and `landmark_refine` into `archive/`; after the merge
-(4 October), P8, P9 and P10 moved into `adult_matlab/` under `run_...` names,
+folder's `pipeline/`, and `landmark_refine` has been retired (deleted on 5
+October); after the merge (4 October), P8, P9 and P10 moved into
+`adult_matlab/` under `run_...` names,
 with new headers and their computations unchanged. `sep_setup_paths` warns
 about any `.m` file at the code root other than `get_paths.m` and itself (an
 editor tab saved after a move recreates the old file there).
@@ -387,7 +388,7 @@ editor tab saved after a move recreates the old file there).
 | `v2_paths.py` | `mapping/sepmap/config.py` |
 | `V2_ISH_PANEL`, `V2_ISH_TABLE` (environment) | `--panel targets` or `--panel ontology` of `run_ish_regions.py` and `run_ish_reliability.py`; the old variables are refused |
 | `auto_annotation/`, `setup_auto_annotation.ps1` | `registration/auto_annotation/`, its `setup.ps1` |
-| `landmark_refine*` (the GUI's `r` key) | `archive/`, retired |
+| `landmark_refine*` (the GUI's `r` key) | retired, deleted on 5 October (at the tag `refactor-start`) |
 | `LightSuite-main/`, `matlab_elastix-master/`, `yamlmatlab/`, `BioformatsImage/` | `third_party/LightSuite/`, `matlab_elastix/`, `yamlmatlab/`, `BioformatsImage/` |
 
 Ages (P20), atlas keys (`demba_p20`), cohort tags (`young_P20`) and data file

@@ -18,6 +18,14 @@ The rest of the folder goes once Giulio has checked the Python route against
 the old code, run from the tag `refactor-start` in a check tree of its own
 ([ROADMAP.md](../docs/ROADMAP.md), section 4).
 
+Deleted on 5 October, and still at the tag `refactor-start`:
+
+- `landmark_refine`, the image matcher behind the control-point GUI's old `r`
+  key, retired in L3: its Python package and LoFTR weights, its MATLAB
+  wrappers, its setup script and its requirements;
+- `bk/`, old backup copies of early helpers. Its one note still in use, the
+  elastix install, is now in the [README](../README.md#setup).
+
 ## Do not run
 
 - The five `.py` scripts write to `D:\sep_histology\data\comparisons\young_P20_vs_adult_nano\`,
