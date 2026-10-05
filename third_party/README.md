@@ -22,7 +22,7 @@ licence in the file), `helpers/print2array.m` (copyright Oliver Woodford
 Our changes to LightSuite are covered by its GPL-3.0: each modified file says
 so in a comment, and `LightSuite/PATCHES.md` lists every change with its date.
 The code of this project has no licence yet (decision L6 of
-`docs/REFACTOR_PLAN.md`); the GPL obligations come back when the code is
+`docs/history/REFACTOR_PLAN.md`); the GPL obligations come back when the code is
 released.
 
 ## Do not run
@@ -40,7 +40,7 @@ These files are kept as they came, and must not be run from this project:
 Also: `extractAxioscanImages.m`, which sat in `BioformatsImage/` but is not
 part of Bio-Formats, writes folders next to the `.czi` files it reads, which
 must never happen on raw folders. It has moved to `archive/`, and
-`explore_czi_G.m`, the other stray, to `preprocessing/`.
+`explore_czi_G.m`, the other stray, to `preprocessing/explore_czi.m`.
 
 ## Two duplicates to know about
 
@@ -48,6 +48,6 @@ must never happen on raw folders. It has moved to `archive/`, and
   `RUN_ALL.m`, and both are on the path. Nothing calls either;
   `tests/sep_test_path.m` lists them as a known duplicate.
 - A second copy of matlab_elastix nested inside itself
-  (`matlab_elastix/matlab_elastix-master/`) existed on disk and is ignored by
-  git: on the path it would shadow `transformix.m` and the rest. Delete it if
-  it is there.
+  (`matlab_elastix/matlab_elastix-master/`) was deleted on 4 October 2026;
+  `.gitignore` still ignores it, since on the path it would shadow
+  `transformix.m` and the rest.
