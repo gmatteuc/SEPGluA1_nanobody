@@ -267,21 +267,17 @@ function [allenDir, AllenCrop, brainMask, half_atlas] = load_allen_atlas(paths)
 % The Allen annotation cropped to the AP range of the registered volumes, its
 % brain mask, and the atlas the videos draw on.
 
-% the 10 um annotation, cropped to the adults' AP planes 180 to 1079
+% the 10 um annotation, cropped to the adults' AP planes 180 to 1079, and the
+% folder of the ontology tables
+A = get_atlas_crop('ccf');
+AllenCrop = A.annot;
+brainMask = A.brainMask;
 allenDir = paths.atlas;
-addpath(allenDir);
-AllenFile = fullfile(allenDir, 'annotation_10.nii.gz');
-AllenVol = niftiread(AllenFile);
-limits = [180 1079];
-AllenCrop = AllenVol(limits(1):limits(2), :, :);
-brainMask = AllenCrop > 0;
 
 % the atlas the videos draw their boundaries from: the whole width, despite the
 % name (the videos show the left half)
 half_atlas = AllenCrop(:, :, 1:end);
 
-% free the uncropped annotation
-clear bg_L_c bg_R_c bg_L_e bg_R_e AllenVol
 end
 
 function [data_4d_new_ctrl, data_4d_new_exp, med_data_4d_ctrl, ...
