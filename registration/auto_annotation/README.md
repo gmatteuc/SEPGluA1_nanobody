@@ -12,7 +12,7 @@ analysis (cohort agreement equal to the manual annotation on 14 of 15 brains;
 conclusions unchanged). The method, every experiment and the validation are in
 the separate repository `SEPGluA1_autoannotation` (its `LOG.md`).
 
-## Workflow (registration/run_register_to_atlas.m)
+## A new brain, step by step (registration/run_register_to_atlas.m)
 
 1. `run_mode = 'annotate'`: on the suggested anchor slices (`j` jumps between
    them) scroll to the right plane and press `a`; save with `s`. This writes
