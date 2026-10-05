@@ -7,7 +7,8 @@
 #   registration\auto_annotation\.venv\Scripts\python -m pip install -r tools\requirements_auto_annotation.txt
 # torch is the CUDA 12.4 build from the PyTorch index: add
 #   --extra-index-url https://download.pytorch.org/whl/cu124
-# to the install line (the setup script of the engine does this).
+# to the install line. The engine's setup script installs torch first, the CUDA or
+# the CPU build, then every other package of this file.
 
 filelock==3.32.3
 fsspec==2026.7.0

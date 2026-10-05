@@ -1,5 +1,0 @@
-numpy
-scipy
-tifffile
-imagecodecs
-h5py

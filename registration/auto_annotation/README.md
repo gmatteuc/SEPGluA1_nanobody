@@ -55,8 +55,8 @@ registration/auto_annotation/
                        | section <folder> <slice> <plane> <out.mat>   (the u key)
                        | sections <folder> <request.mat> <out.mat>    (the U key)
   weights/           landmark.pt, matcher.pt, VERSION.txt (which models, which brains they never saw)
-  requirements.txt
-  setup.ps1          creates the venv (CUDA torch if a GPU), self-test
+  setup.ps1          creates the venv: torch (CUDA if a GPU), then the other packages
+                     of tools/requirements_auto_annotation.txt; self-test
 registration/pipeline/auto_annotate.m   MATLAB wrapper; out.ok / out.message on any failure
 registration/annotation_gui/
   auto_annotation_plugin.m   the GUI's automatic-annotation keys, flags and files (opts.plugin)

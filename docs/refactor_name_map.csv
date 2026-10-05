@@ -21,7 +21,7 @@ auto_annotation/.gitignore,registration/auto_annotation/.gitignore
 auto_annotation/README.md,registration/auto_annotation/README.md
 auto_annotation/cli.py,registration/auto_annotation/cli.py
 auto_annotation/core.py,registration/auto_annotation/core.py
-auto_annotation/requirements.txt,registration/auto_annotation/requirements.txt
+auto_annotation/requirements.txt,
 auto_annotation/weights/VERSION.txt,registration/auto_annotation/weights/VERSION.txt
 auto_annotation/weights/landmark.pt,registration/auto_annotation/weights/landmark.pt
 auto_annotation/weights/matcher.pt,registration/auto_annotation/weights/matcher.pt
