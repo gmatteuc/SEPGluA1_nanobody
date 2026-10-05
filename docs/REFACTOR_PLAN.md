@@ -1223,6 +1223,22 @@ The style pass will add to this list.
   share bars (label shuffling), a faint negative RWS L+R band at the
   ventrolateral edge, the OT and VISp L-R bars, the behavior increase as a
   possible normalisation effect, PVT.
+- **5 Oct, decision 4 merged and the production reruns** (`main` `a125ae7`,
+  README restyled as the imaging repository's in `ebd3c9a`): the previous
+  production tables and figures and the 17 scalars caches are in
+  `data/backup_before_rerun_2026-10-05/`. The Python route on all 17 brains
+  (25 steps, 4.5 h) matches the check tree's run of the same code: adult and
+  ISH outputs identical, young against adult 333 files identical, the
+  scalars caches differing only in their source date. P7bis on production,
+  naive against RWS and against behavior, with videos (3.4 h each), writes
+  `comparisons/naive_vs_<group>_nano/`; the approved December folders are
+  untouched. Its inputs are production's current normalised stacks (naive of
+  4 Sep 2026, RWS of 1 May 2026, behavior of 5 Dec 2025), not the November
+  2025 ones behind the approved figures, so its files differ from the S6
+  rerun; the region shares agree (RWS r 0.997 L-R, 0.994 L+R, barrel field
+  5th by L-R share; behavior r 0.988 and 1.00, the top regions unchanged).
+  Naive and RWS were last normalised months apart: a clean final version
+  reruns run_normalise_groups on the three groups together, then P7bis.
 - **New order** (Giulio, 2 Oct): merge first, new science after. Step 7's
   kind C and the step 8 fixes go in one batch with one set of reruns (a fix
   that changes production numbers still waits for Giulio); then step 10's
