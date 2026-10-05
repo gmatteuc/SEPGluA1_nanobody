@@ -355,9 +355,9 @@ is in [`refactor_name_map.csv`](refactor_name_map.csv), one row per file.
 Since then the body of each MATLAB driver has moved into a function in its
 folder's `pipeline/`, and `landmark_refine` into `archive/`; after the merge
 (4 October), P8, P9 and P10 moved into `adult_matlab/` under `run_...` names,
-with new headers and their computations unchanged. `sep_setup_paths` refuses
-to run when a driver is back at the code root under its old name (an editor
-tab saved after the move does that).
+with new headers and their computations unchanged. `sep_setup_paths` warns
+about any `.m` file at the code root other than `get_paths.m` and itself (an
+editor tab saved after a move recreates the old file there).
 
 | before | now |
 |---|---|

@@ -225,8 +225,8 @@ Every file has one, local functions included: sentence case, short.
 ### Errors, messages, figures
 
 - An `error` starts with the name of the function or driver, then the shared
-  rule: `error(['sep_setup_paths: %s is back at the code root (%s) under its
-  name from before the refactor ...'], ...)`.
+  rule: `error(['sep_test_path: sep_setup_paths resolves to %s, not to this
+  code folder (%s). Run restoredefaultpath, ...'], ...)`.
 - A check on three lines: `if ~isequal(nano_mice, auto_mice)`, `error(...);`,
   `end`. A string option goes through `switch`, with
   `otherwise error('Unknown agg_method: %s', agg_method)`.
