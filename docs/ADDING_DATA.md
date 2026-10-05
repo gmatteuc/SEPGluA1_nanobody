@@ -103,7 +103,7 @@ young brain's age matches its name.
 
 **Copy.** `robocopy` copies, never moves or mirrors, and an interrupted copy
 resumes. A destination on the share's drive or on a network path is refused.
-For a brain from a new batch of acquisitions, `preprocessing/explore_czi_G`
+For a brain from a new batch of acquisitions, `preprocessing/explore_czi`
 prints the channels of a `.czi` file: extraction names each channel's file by
 its place and dye, and every later step opens the files by those names, so
 the four channels must come in the same order as before (traps below).

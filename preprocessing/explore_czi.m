@@ -1,4 +1,4 @@
-%% explore_czi_G
+%% explore_czi
 % ===== Print the metadata of .czi files =====
 %
 % A tool, run by hand. For each .czi file named below, prints the number of

@@ -7,7 +7,7 @@ P2bis_nano_correction_analysis.m,preprocessing/run_nano_equalisation.m
 P3_annotate_artifacts.m,preprocessing/run_annotate_artifacts.m
 make_ordering_volume.m,preprocessing/make_ordering_volume.m
 make_atlas_reference_sheet.m,preprocessing/make_atlas_reference_sheet.m
-BioformatsImage/explore_czi_G.m,preprocessing/explore_czi_G.m
+BioformatsImage/explore_czi_G.m,preprocessing/explore_czi.m
 ArtifactAnnotator.m,preprocessing/pipeline/ArtifactAnnotator.m
 select_reference_pixels.m,preprocessing/pipeline/select_reference_pixels.m
 P4_register_to_atlas.m,registration/run_register_to_atlas.m
