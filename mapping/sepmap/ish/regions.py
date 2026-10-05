@@ -42,7 +42,7 @@ import nibabel as nib
 import numpy as np
 from scipy.ndimage import binary_erosion
 
-from sepmap.config import DATA, SETTINGS
+from sepmap.config import DATA, SETTINGS, code_root
 from sepmap.volumes.per_mouse import structure_terms
 
 # the valid voxels a structure needs to get a value
@@ -56,9 +56,9 @@ FETCH_FAILURES = DATA / "adult_v2" / "panel" / "fetch_failures.csv"
 
 # the panel passes of settings.toml ([ish_panels]): each names a panel and the
 # table it writes, and is chosen by name (run_ish_regions.py --panel), so both
-# panels go through this one aggregation. A relative panel path is taken inside the
-# data root, so the same setting works on a copy of the data; an absolute one is
-# used as it is
+# panels go through this one aggregation. A panel path is taken from the code root
+# or the data root, as its root says; from the data root, the same setting works on
+# a copy of the data
 ISH_PANELS = SETTINGS["ish_panels"]
 
 # the default pass: the original 100-gene panel
@@ -81,9 +81,14 @@ def panel_files(name: str) -> tuple[Path, str]:
             f"no ISH panel pass {name!r} in settings.toml; the passes "
             f"are {', '.join(ISH_PANELS)}"
         )
-    panel = Path(ISH_PANELS[name]["panel"])
-    if not panel.is_absolute():
-        panel = DATA / panel
+    roots = {"code": Path(code_root()), "data": DATA}
+    root = ISH_PANELS[name]["root"]
+    if root not in roots:
+        raise ValueError(
+            f"the root of ISH panel pass {name!r} in settings.toml is {root!r}; "
+            "it must be code or data"
+        )
+    panel = roots[root] / ISH_PANELS[name]["panel"]
     return panel, ISH_PANELS[name]["table"]
 
 

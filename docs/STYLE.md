@@ -2,7 +2,7 @@
 
 Reference for all code in this repository, MATLAB and Python. New code
 follows it; the code that existed was brought in line by the style pass,
-step 7 of [REFACTOR_PLAN.md](REFACTOR_PLAN.md).
+step 7 of [history/REFACTOR_PLAN.md](history/REFACTOR_PLAN.md).
 
 Shared rules come first. The MATLAB half is the imaging repository's guide
 (`D:\dendrites\code\docs\STYLE.md`) adapted (Y6); the Python half quotes two
@@ -151,7 +151,10 @@ Each is defined in one place; never copy a value into a script.
 
 - A pipeline is one folder: its drivers (`run_*.m`) at the top, the functions
   they call in `pipeline/`, checks in `qc/`; shared functions in `common/`,
-  atlas functions in `atlas/`.
+  atlas functions in `atlas/`. Tools run by hand (`make_ordering_volume`,
+  `remap_control_points`) sit at the top beside the drivers, and a
+  self-contained component gets a subfolder of its own
+  (`registration/annotation_gui/`, `registration/auto_annotation/`).
 - A driver is a script: the header, `clear; clc; close all;` on one line,
   `%% Settings`, `%% Run`; everything else is a function. No path setup:
   `sep_setup_paths` runs once per session, and before each stage of the
@@ -160,7 +163,8 @@ Each is defined in one place; never copy a value into a script.
   `paths = get_paths();`, each with a comment above giving the allowed values
   where useful (`% groups to collect ('rws', 'naive', 'behavior', 'young')`).
 - Settings are lowercase `snake_case`, unlike the imaging guide, because
-  `sep_run_driver_copy` and `docs/production_settings.md` use their names.
+  `sep_run_driver_copy` and `docs/history/production_settings.md` use their
+  names.
 - `%% Run` copies the settings into `run_settings` under the same names
   (`run_settings.mousetypes_list = mousetypes_list;`) and makes one call,
   `collect_by_group(run_settings);`. A driver computes nothing else.
@@ -225,8 +229,8 @@ Every file has one, local functions included: sentence case, short.
 ### Errors, messages, figures
 
 - An `error` starts with the name of the function or driver, then the shared
-  rule: `error(['sep_setup_paths: %s is back at the code root (%s) under its
-  name from before the refactor ...'], ...)`.
+  rule: `error(['sep_test_path: sep_setup_paths resolves to %s, not to this
+  code folder (%s). Run restoredefaultpath, ...'], ...)`.
 - A check on three lines: `if ~isequal(nano_mice, auto_mice)`, `error(...);`,
   `end`. A string option goes through `switch`, with
   `otherwise error('Unknown agg_method: %s', agg_method)`.

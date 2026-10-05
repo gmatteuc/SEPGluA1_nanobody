@@ -13,13 +13,15 @@ brains differ from adults. It reads the registered volumes that
 mapping/
   run_*.py              one entry point per step; the header of each lists the run order
   settings.toml         every analysis parameter, a table per stage
+  gene_targets.csv      the hand-written 100-gene panel of the first ISH pass
   sepmap/               the package the run scripts call
     config.py           the data root (SEP_DATA_ROOT and its guards), the settings, the cohort table
     plotting.py         the palette, the colormaps, the save function, the coronal drawing
+    hemispheres.py      the two hemispheres of a volume folded onto one (volumes, young_vs_adult)
     diagnostics.py      the sheets that audit each step
     volumes/            per_mouse, to_ccf, cohort: per-brain volumes, the adult CCF, cohort means
     young_vs_adult/     compare, replot, region_plot, region_groups, video, video_compare,
-                        closeup, hemispheres
+                        closeup
     adult/              sep_channel_check, arms, beyond_density, beyond_controls,
                         beyond_figures, beyond_regression
     ish/                regions, compare, words, roles, arms, panel_build, panel_fetch,

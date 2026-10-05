@@ -12,7 +12,7 @@ analysis (cohort agreement equal to the manual annotation on 14 of 15 brains;
 conclusions unchanged). The method, every experiment and the validation are in
 the separate repository `SEPGluA1_autoannotation` (its `LOG.md`).
 
-## Workflow (registration/run_register_to_atlas.m)
+## A new brain, step by step (registration/run_register_to_atlas.m)
 
 1. `run_mode = 'annotate'`: on the suggested anchor slices (`j` jumps between
    them) scroll to the right plane and press `a`; save with `s`. This writes
@@ -55,8 +55,8 @@ registration/auto_annotation/
                        | section <folder> <slice> <plane> <out.mat>   (the u key)
                        | sections <folder> <request.mat> <out.mat>    (the U key)
   weights/           landmark.pt, matcher.pt, VERSION.txt (which models, which brains they never saw)
-  requirements.txt
-  setup.ps1          creates the venv (CUDA torch if a GPU), self-test
+  setup.ps1          creates the venv: torch (CUDA if a GPU), then the other packages
+                     of tools/requirements_auto_annotation.txt; self-test
 registration/pipeline/auto_annotate.m   MATLAB wrapper; out.ok / out.message on any failure
 registration/annotation_gui/
   auto_annotation_plugin.m   the GUI's automatic-annotation keys, flags and files (opts.plugin)

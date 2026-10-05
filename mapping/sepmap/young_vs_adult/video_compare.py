@@ -34,12 +34,12 @@ import numpy as np
 from matplotlib.colors import Colormap
 
 from sepmap.config import SETTINGS
+from sepmap.hemispheres import fold, fold_count
 from sepmap.plotting import coronal_figure, coronal_frame, hot_cut, transparent_bad
 from sepmap.volumes.cohort import COHORTS, SIGNED_READINGS
 from sepmap.volumes.cohort import OUT_ROOT as CCF_ROOT
 from sepmap.volumes.per_mouse import DATA, structure_terms
 from sepmap.young_vs_adult.compare import YOUNG
-from sepmap.young_vs_adult.hemispheres import fold, fold_count
 
 # the brains a voxel needs, as in young_vs_adult.compare; the log2 floor of
 # volumes.cohort; the fixed colour ranges of the means and of the comparison, the

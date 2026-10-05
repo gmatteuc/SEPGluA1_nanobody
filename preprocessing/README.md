@@ -28,7 +28,7 @@ Tools, run by hand:
 
 | script | what it does |
 |---|---|
-| `explore_czi_G` | print the series, scenes, channels and tile positions of `.czi` files (Bio-Formats); only reads |
+| `explore_czi` | print the series, scenes, channels and tile positions of `.czi` files (Bio-Formats); only reads |
 | `make_atlas_reference_sheet` | coronal plates of the atlas one section apart, to keep beside SliceOrderEditor |
 | `make_ordering_volume` | rebuild the ordering composite with other colours, without extracting again; the order is untouched |
 

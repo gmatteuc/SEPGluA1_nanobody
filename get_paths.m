@@ -24,7 +24,7 @@ function p = get_paths()
 %
 %   The environment variable SEP_DATA_ROOT points the whole data tree
 %   elsewhere. The refactor's checks run on copies of the data and must never
-%   write into the real one (docs/REFACTOR_PLAN.md), so a copy of the code is
+%   write into the real one (docs/history/REFACTOR_PLAN.md), so a copy of the code is
 %   refused the production data, and neither the snapshot on G: nor the code
 %   folder is accepted as a data root. The Python route applies the same rules
 %   (mapping/sepmap/config.py, and atlas/build_demba_atlas.py, which sits

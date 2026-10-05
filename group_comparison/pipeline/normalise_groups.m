@@ -30,13 +30,6 @@ plot_verification_video = run_settings.plot_verification_video;
 channel = run_settings.channel;
 cohort_specs = run_settings.cohort_specs;
 
-%% Add paths
-
-% the toolboxes are on the path from sep_setup_paths; only the atlas folder is
-% added here
-allenDir = paths.atlas;
-addpath(allenDir)
-
 %% Normalise each cohort
 
 for ci = 1:numel(cohort_specs)
@@ -150,7 +143,8 @@ else
     subset_indices = 1:numel(current_mice);
 end
 
-% the cohort's atlas on the grid of its registered volumes
+% the cohort's atlas on the grid of its registered volumes; get_atlas, which
+% get_atlas_crop calls, puts this atlas's folder on the path and no other
 A = get_atlas_crop(S.atlas_key);
 AllenCrop = A.annot;
 brainMask = A.brainMask;

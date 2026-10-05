@@ -31,13 +31,25 @@ There are four lines of work:
 
 MATLAB R2024b on Windows (R2022b at least), with the Image Processing,
 Computer Vision, Optimization, Statistics and Machine Learning, and Parallel
-Computing toolboxes; elastix 5.1.0 on the PATH, for LightSuite. Start each
-session with `restoredefaultpath; cd('D:\sep_histology\code'); sep_setup_paths`.
-Code and data sit side by side, in `<root>\code` and `<root>\data`, the
-atlases in the data root (`atlas\`, `atlas_demba_p<age>\`); `get_paths.m` and
+Computing toolboxes; elastix 5.1.0 on the PATH, for LightSuite (below).
+Start each session with
+`restoredefaultpath; cd('D:\sep_histology\code'); sep_setup_paths`. Code and
+data sit side by side, in `<root>\code` and `<root>\data`, the atlases in the
+data root (`atlas\`, `atlas_demba_p<age>\`); `get_paths.m` and
 `mapping/sepmap/config.py` find the data next to the code. `SEP_DATA_ROOT`
 points a run at a copy of the data, and a copy of the code refuses to run on
 the production data.
+
+LightSuite calls elastix and transformix from the command line, so they are
+installed once per machine, outside the repository: download elastix 5.1.0
+for Windows from its
+[release page](https://github.com/SuperElastix/elastix/releases/tag/5.1.0),
+unzip it into a folder of its own (on the analysis computer
+`C:\Users\<user>\elastix`, which holds `elastix.exe`, `transformix.exe` and
+`ANNlib-5.1.dll`; the Linux and macOS packages put them in `bin/`), add that
+folder to the system Path ("Edit the system environment variables",
+Environment Variables, Path, New), and check in a new terminal that
+`elastix --version` prints `elastix version: 5.1.0`.
 
 Python is Anaconda's 3.12.7, in environments git ignores, each made as the
 top lines of its `tools\requirements_*.txt` say: `tools\venv_flat` runs
@@ -49,8 +61,11 @@ annotation's own; without it the control-point GUI has no automatic keys.
 ## Folders
 
 `preprocessing/`, `registration/` and `group_comparison/` have their drivers
-(`run_*.m`) at the top and the functions only they use in `pipeline/`. The
-Python route has its drivers in `mapping/` and its code in `mapping/sepmap/`.
+(`run_*.m`) at the top and the functions only they use in `pipeline/`. Tools
+run by hand sit beside the drivers, and a self-contained component has a
+subfolder of its own (`registration/annotation_gui/`,
+`registration/auto_annotation/`). The Python route has its drivers in
+`mapping/` and its code in `mapping/sepmap/`.
 
 | folder | what |
 |---|---|
@@ -61,8 +76,9 @@ Python route has its drivers in `mapping/` and its code in `mapping/sepmap/`.
 | `adult_matlab/` | three earlier MATLAB analyses of lines 2 and 3, kept until `mapping/` answers their questions, A1 to A5 of the [roadmap](docs/ROADMAP.md) ([README](adult_matlab/README.md)) |
 | `common/`, `atlas/` | the cohort table, volume reading, colours; `get_atlas`, the DeMBA builder, atlas checks ([README](common/README.md), [README](atlas/README.md)) |
 | `tests/`, `tools/` | two MATLAB tests; the detached runner and the checks that a change does not change the results ([README](tests/README.md), [README](tools/README.md)) |
-| `docs/` | [adding data](docs/ADDING_DATA.md), [figures](docs/FIGURES.md), [code style](docs/STYLE.md), [roadmap](docs/ROADMAP.md), the [refactor plan](docs/REFACTOR_PLAN.md) |
-| `third_party/`, `archive/` | LightSuite (local changes listed in its `PATCHES.md`), matlab_elastix, yamlmatlab, BioformatsImage; retired code, kept until checked |
+| `docs/` | [scientific context](docs/SCIENTIFIC_CONTEXT.md), [adding data](docs/ADDING_DATA.md), [figures](docs/FIGURES.md), [code style](docs/STYLE.md), [roadmap](docs/ROADMAP.md); the specification of A1 to A10 in [REFACTOR_COVERAGE.md](docs/REFACTOR_COVERAGE.md) and [adult_ish_design.md](docs/adult_ish_design.md); the old and new script names in [refactor_name_map.csv](docs/refactor_name_map.csv); the refactor's plan and reports in [history/](docs/history/README.md) |
+| `assets/` | the image at the top of this README |
+| `third_party/`, `archive/` | LightSuite (local changes listed in its `PATCHES.md`), matlab_elastix, yamlmatlab, BioformatsImage; retired code, kept until checked ([README](third_party/README.md), [README](archive/README.md)) |
 
 *Nomenclature note.* nano is the nanobody channel (Cy5), auto the
 autofluorescence (Cy3), SEP the green channel (filter EGFP). Files carry dye
@@ -146,8 +162,9 @@ A brain's stages are in `<data>\<group>\<mouse>\lightsuite\`. The drivers:
 - A Python step, from the code root (`--help` lists the options):
   `tools\venv_atlas\Scripts\python.exe mapping\run_per_mouse.py <mouse>`.
 - The plasticity comparison approved on 5 December 2025 is in
-  `comparisons\naive_vs_rws\` and `naive_vs_behavior\`; a rerun writes
-  `naive_vs_<exp>_nano\` beside them ([how](group_comparison/README.md)).
+  `comparisons\naive_vs_rws\` and `naive_vs_behavior\`; today's code writes
+  `naive_vs_<exp>_nano\` beside them, last on 5 October 2026
+  ([how](group_comparison/README.md)).
 
 ## Where to change
 
@@ -155,6 +172,7 @@ A brain's stages are in `<data>\<group>\<mouse>\lightsuite\`. The drivers:
 |---|---|
 | paths | `get_paths.m`, `mapping/sepmap/config.py` |
 | the cohort | `common/cohort.csv`, read by `get_cohort` and by `config.py` |
+| the 100-gene ISH panel | `mapping/gene_targets.csv`; `run_compare_with_allen_ish` reads its copy `<data>\gene_targets.csv` |
 | a MATLAB step | the `%% Settings` block of its driver |
 | the adults of the plasticity comparison | `selected_mice_idx_list` in `run_normalise_groups` and `run_group_differences`, which must agree; `behavior_mice` in the second |
 | Python parameters | `mapping/settings.toml`; run options on the command line |
@@ -196,6 +214,11 @@ compare the outputs with the tools in `tools/`. Follow the
   in `<group>\`. The plasticity comparison and `adult_matlab/` write to
   `comparisons\`, the Python route to `comparisons_v2\` and `adult_v2\`.
   Which script makes which figure: [`docs/FIGURES.md`](docs/FIGURES.md).
+- The Python route and the group-difference step were rerun with the
+  refactored code on 5 October 2026. The Python route's outputs from before,
+  the state behind the grant figures, are in
+  `backup_before_rerun_2026-10-05\` under the data root; the data tree of
+  30 September is also in the snapshot `G:\sep_histology_snapshot_2026-09-29`.
 - `main` is the working branch. Tags: `grant-2026-09` (grant figures),
   `before-refactor` (snapshot of 29 September 2026), `refactor-start` (start
   of the reorganisation), `pre-auto-annotation` (before the automatic

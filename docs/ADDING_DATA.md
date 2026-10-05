@@ -103,7 +103,7 @@ young brain's age matches its name.
 
 **Copy.** `robocopy` copies, never moves or mirrors, and an interrupted copy
 resumes. A destination on the share's drive or on a network path is refused.
-For a brain from a new batch of acquisitions, `preprocessing/explore_czi_G`
+For a brain from a new batch of acquisitions, `preprocessing/explore_czi`
 prints the channels of a `.czi` file: extraction names each channel's file by
 its place and dye, and every later step opens the files by those names, so
 the four channels must come in the same order as before (traps below).
@@ -226,7 +226,8 @@ tools\venv_atlas\Scripts\python.exe mapping\run_diagnostics.py <mouse>
 
 `run_per_mouse` measures the brain on the atlas of its age; `run_to_ccf`
 carries a young brain into the adult CCF with CCF Translator (about 2.5 min
-per volume, four volumes) and only places an adult. Look at
+per volume, five volumes: nano, autofluorescence, SEP and the tissue mask
+twice) and only places an adult. Look at
 `processing_diagnostics\01_tissue_<mouse>.png`, `02_levels_<mouse>.png` and,
 for a young brain, `04_warp_<mouse>.png`, all under `<data>\comparisons_v2\`;
 what to look for is in `processing_diagnostics\README.md`.
@@ -268,9 +269,10 @@ LightSuite's defaults are the adults' values. Then, in `group_comparison/`
    picks `'rws'` or `'behavior'`.
 
 The comparison approved on 5 December 2025 is in
-`<data>\comparisons\naive_vs_rws\` and `naive_vs_behavior\`; a rerun writes
-`naive_vs_<exp>_nano\` beside it. A new naive or RWS adult also changes the
-Python route's adult cohort once its `mapping_cohort` is set.
+`<data>\comparisons\naive_vs_rws\` and `naive_vs_behavior\`; today's code
+writes `naive_vs_<exp>_nano\` beside it (last on 5 October 2026). A new
+naive or RWS adult also changes the Python route's adult cohort once its
+`mapping_cohort` is set.
 
 ## Traps
 
@@ -353,11 +355,12 @@ the code behind the grant figures of September 2026 at `grant-2026-09`.
 Every file the reorganisation moved, helpers and vendored folders included,
 is in [`refactor_name_map.csv`](refactor_name_map.csv), one row per file.
 Since then the body of each MATLAB driver has moved into a function in its
-folder's `pipeline/`, and `landmark_refine` into `archive/`; after the merge
-(4 October), P8, P9 and P10 moved into `adult_matlab/` under `run_...` names,
-with new headers and their computations unchanged. `sep_setup_paths` refuses
-to run when a driver is back at the code root under its old name (an editor
-tab saved after the move does that).
+folder's `pipeline/`, and `landmark_refine` has been retired (deleted on 5
+October); after the merge (4 October), P8, P9 and P10 moved into
+`adult_matlab/` under `run_...` names,
+with new headers and their computations unchanged. `sep_setup_paths` warns
+about any `.m` file at the code root other than `get_paths.m` and itself (an
+editor tab saved after a move recreates the old file there).
 
 | before | now |
 |---|---|
@@ -385,7 +388,7 @@ tab saved after the move does that).
 | `v2_paths.py` | `mapping/sepmap/config.py` |
 | `V2_ISH_PANEL`, `V2_ISH_TABLE` (environment) | `--panel targets` or `--panel ontology` of `run_ish_regions.py` and `run_ish_reliability.py`; the old variables are refused |
 | `auto_annotation/`, `setup_auto_annotation.ps1` | `registration/auto_annotation/`, its `setup.ps1` |
-| `landmark_refine*` (the GUI's `r` key) | `archive/`, retired |
+| `landmark_refine*` (the GUI's `r` key) | retired, deleted on 5 October (at the tag `refactor-start`) |
 | `LightSuite-main/`, `matlab_elastix-master/`, `yamlmatlab/`, `BioformatsImage/` | `third_party/LightSuite/`, `matlab_elastix/`, `yamlmatlab/`, `BioformatsImage/` |
 
 Ages (P20), atlas keys (`demba_p20`), cohort tags (`young_P20`) and data file

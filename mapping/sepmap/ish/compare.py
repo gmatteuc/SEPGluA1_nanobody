@@ -37,12 +37,12 @@ from scipy.stats import spearmanr
 
 from sepmap.config import DATA, SETTINGS
 from sepmap.plotting import RED, tidy
+from sepmap.young_vs_adult.region_plot import REGION_MEANS
 
 # the voxels a gene value needs, the adult groups, the structures a correlation needs
 # and the genes two rankings must share to be compared
 ISH = SETTINGS["ish"]
 
-NANO = DATA / "comparisons_v2" / "young_vs_adult" / "region_means_per_mouse.csv"
 GENES = DATA / "adult_v2" / "ish" / "gene_region_table.csv"
 OLD = (
     DATA
@@ -60,20 +60,19 @@ READINGS = ("zref", "cref", "subref", "ratio", "sepratio")
 MACHINERY = ("auxiliary", "trafficking", "scaffold")
 
 
-def adult_profile() -> dict[str, dict[str, float]]:
-    """{reading: {structure: mean over the adults}} from the per-mouse table.
+def adult_profile(reading: str) -> dict[str, float]:
+    """{structure: mean over the adults} of one reading, from the per-mouse table.
 
-    A structure's mean is over the adults that have it, however many they are.
+    A structure's mean is over the adults that have it, however many they are;
+    empty when the table does not hold the reading. ish.panel_test and ish.roles
+    use it too.
     """
-    per = defaultdict(lambda: defaultdict(list))
-    with open(NANO, newline="", encoding="utf-8") as fh:
+    per = defaultdict(list)
+    with open(REGION_MEANS, newline="", encoding="utf-8") as fh:
         for r in csv.DictReader(fh):
-            if r["group"] in ADULT_GROUPS:
-                per[r["reading"]][r["structure"]].append(float(r["log2_value"]))
-    return {
-        reading: {s: float(np.mean(v)) for s, v in d.items()}
-        for reading, d in per.items()
-    }
+            if r["group"] in ADULT_GROUPS and r["reading"] == reading:
+                per[r["structure"]].append(float(r["log2_value"]))
+    return {s: float(np.mean(v)) for s, v in per.items()}
 
 
 def gene_profiles() -> tuple[dict[str, dict[str, float]], dict[str, str]]:
@@ -345,11 +344,11 @@ def figure(rows: list[dict], old: dict[str, float], category: dict[str, str]) ->
 def main() -> None:
     """Correlate every gene with the adult map, write the table, report and draw."""
     # the adult profiles and the gene profiles
-    nano = adult_profile()
+    nano = {reading: adult_profile(reading) for reading in READINGS}
     genes, category = gene_profiles()
-    missing = [r for r in READINGS if r not in nano]
+    missing = [r for r in READINGS if not nano[r]]
     if missing:
-        raise ValueError(f"readings missing from {NANO}: {missing}")
+        raise ValueError(f"readings missing from {REGION_MEANS}: {missing}")
     print(
         f"{len(genes)} genes, {len(nano['zref'])} adult structures, "
         f"readings {list(READINGS)}"

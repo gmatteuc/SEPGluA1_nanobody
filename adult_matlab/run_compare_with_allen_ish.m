@@ -35,7 +35,7 @@
 % from before the channel entered the folder names, is in
 % comparisons\merged_naive_rws_vs_ish_*; mapping/run_ish_compare.py reads its
 % gene_panel_summary.csv. Run sep_setup_paths first, once per MATLAB session; the
-% violins are drawn by plot_violinplot, at the code root.
+% violins are drawn by plot_violinplot, in this folder.
 
 clear all
 close all

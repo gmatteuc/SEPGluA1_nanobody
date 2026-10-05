@@ -37,11 +37,11 @@ import numpy as np
 from matplotlib.colors import Colormap
 
 from sepmap.config import SETTINGS
+from sepmap.hemispheres import fold, fold_count
 from sepmap.plotting import coronal_frame, hot_cut, transparent_bad
 from sepmap.volumes.cohort import COHORTS, MODES, SIGNED_READINGS
 from sepmap.volumes.cohort import OUT_ROOT as CCF_ROOT
 from sepmap.volumes.per_mouse import DATA, structure_terms
-from sepmap.young_vs_adult.hemispheres import fold, fold_count
 
 # the colour range of the means, the range of the t panel, the brains a voxel needs
 # per cohort and the frame rate

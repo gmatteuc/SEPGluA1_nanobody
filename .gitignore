@@ -57,13 +57,15 @@ codegen/
 #  resources (colormaps, example volumes, mex binaries) that
 #  the pipeline needs at runtime. Re-include their whole trees
 #  (all in third_party/), the images the documentation shows,
-#  the documents with their tables, and the cohort table that
-#  MATLAB and Python read.
+#  the documents with their tables, the cohort table that
+#  MATLAB and Python read, and the Python route's hand-written
+#  gene panel.
 # =============================================================
 !third_party/**
 !assets/**
 !docs/**
 !common/cohort.csv
+!mapping/gene_targets.csv
 
 # ---- Re-apply junk rules inside the vendored trees ----
 **/*.asv
@@ -71,21 +73,16 @@ codegen/
 **/.DS_Store
 
 # =============================================================
-#  Duplicate vendored copy: byte-identical to its parent and
-#  referenced by nothing. Excluded because genpath() puts BOTH
-#  copies on the MATLAB path, shadowing transformix.m et al.
-#  Safe to delete from disk.
+#  Duplicate vendored copy, byte-identical to its parent and
+#  deleted on 4 October 2026. Kept as a guard: if it came back,
+#  genpath() would put BOTH copies on the MATLAB path, shadowing
+#  transformix.m et al.
 # =============================================================
 third_party/matlab_elastix/matlab_elastix-master/
 
-# Python environments (tools/requirements_*.txt recreates them)
+# Python environments (tools/requirements_*.txt recreates them) and caches
 tools/venv_atlas/
 tools/venv_flat/
 tools/venv_dev/
 __pycache__/
-
-# Left at the code root by the refactor, since git moves only tracked files:
-# the engine's environment until it is moved by hand to
-# registration/auto_annotation/.venv, and the retired matcher's (archive/).
-/auto_annotation/.venv/
-/landmark_refine/.venv/
+.ruff_cache/

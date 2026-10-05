@@ -78,8 +78,8 @@ other MATLAB pipelines, they are not split into a driver and a function in
 `pipeline/`, and they keep the style they were written in, since they
 retire. Shared: `../common/` (`get_cohort_spec`, `compute_lr_stats`,
 `get_color2color_colormap`), `../atlas/` (`get_atlas_crop`,
-`get_allen_region_mask`), `write_lr_video` in `../group_comparison/pipeline/`,
-and `plot_violinplot` at the code root (step 2's violins).
+`get_allen_region_mask`), `write_lr_video` in `../group_comparison/pipeline/`;
+`plot_violinplot`, in this folder, draws step 2's violins.
 
 ## Notes
 

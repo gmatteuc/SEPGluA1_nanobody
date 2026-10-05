@@ -53,9 +53,14 @@ P20 stack and its background masks, which sheet 08 of
   bar before 4 October 2026).
 
 The approved outputs are in `<data>\comparisons\naive_vs_rws\` and
-`naive_vs_behavior\`, named before the channel joined the comparison tag;
-a rerun writes `naive_vs_rws_nano\` and `naive_vs_behavior_nano\` beside
-them.
+`naive_vs_behavior\`, named before the channel joined the comparison tag.
+Today's code writes `naive_vs_rws_nano\` and `naive_vs_behavior_nano\`
+beside them, last on 5 October 2026 from the normalised stacks then in the
+group folders (naive of 4 September 2026, RWS of 1 May 2026, behavior of
+5 December 2025), not those of the approved run. Naive and RWS were
+normalised months apart: a clean final version reruns step 2 on the three
+groups together, then step 3 ([`../docs/ROADMAP.md`](../docs/ROADMAP.md),
+section 2).
 
 ## Where the code is
 
@@ -75,8 +80,9 @@ outlines (`lr_atlas_boundaries`) sit beside them. Shared: `../common/`
   that time (`nano_4d_normalized_bk.mat` in `naive\` and `rws\`), reproduced
   it: the slab t maps and surprise masks correlate with the approved ones at
   0.997 to 0.998 for RWS and 0.988 to 0.999 for behavior
-  (`../docs/REFACTOR_PLAN.md`, Progress). This checks the computation on the
-  same mice; it is not a replication in new animals.
+  ([`../docs/history/REFACTOR_PLAN.md`](../docs/history/REFACTOR_PLAN.md),
+  Progress). This checks the computation on the same mice; it is not a
+  replication in new animals.
 - Step 3 used to smooth each mouse's tissue and then set the voxels outside
   it to 0, so those zeros entered the group means and the SEM's n. Since
   fix 23 of step 8 they are left out. On the same inputs the RWS S1 increase

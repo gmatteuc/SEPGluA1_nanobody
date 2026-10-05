@@ -2,10 +2,11 @@
 
 This file describes the code before step 7 of the refactor (`v2_*.py` scripts, constants in the code, panels chosen by environment variable); the current names are in [refactor_name_map.csv](refactor_name_map.csv), the run order in the headers of `mapping/run_*.py`, and the constants in `mapping/settings.toml`.
 
-**Status: design agreed 25 Sep 2026, implementation starting.**
-This document is the running record of *what we decided and why*, plus a map of the
-pipeline. Update it as steps land; if the code and this file disagree, the file is wrong
-and should be fixed in the same commit.
+**Status: designed on 25 Sep 2026 and built and run on 25 and 26 Sep 2026; a record since,
+kept as the specification of A1 to A10 ([ROADMAP.md](ROADMAP.md), sections 3 and 7) until
+they are done.**
+This document is the record of *what we decided and why*, plus a map of the pipeline as it
+was then.
 
 ## The question
 
@@ -18,7 +19,7 @@ Two halves of one story:
    the SURFACE pool rather than total receptor: the nano map already correlates better
    with AMPAR trafficking and anchoring machinery (Cacng8 = TARP γ-8 at ρ = 0.78,
    Dlg2 = PSD-93 at 0.76) than with *Gria1* itself (ρ = 0.52, rank 22 of 97). See
-   `project_measurement_validation_strategy` in memory.
+   [SCIENTIFIC_CONTEXT.md](SCIENTIFIC_CONTEXT.md), "What the map measures".
 
 ## Shape of the thing
 

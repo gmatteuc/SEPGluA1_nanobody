@@ -1,10 +1,11 @@
 # Tools
 
 Checks that a change to the code does not change the results, the runner for
-long MATLAB stages, and the requirements of the Python environments. The checks follow the verification design of
-[docs/REFACTOR_PLAN.md](../docs/REFACTOR_PLAN.md): old and new code each run
-in a fresh session on their own copy of the data, never on the production
-data, and their outputs are compared file by file.
+long MATLAB stages, and the requirements of the Python environments. The
+checks follow the verification design of
+[docs/history/REFACTOR_PLAN.md](../docs/history/REFACTOR_PLAN.md): old and
+new code each run in a fresh session on their own copy of the data, never on
+the production data, and their outputs are compared file by file.
 
 ## Where a run reads and writes: SEP_DATA_ROOT
 
@@ -141,7 +142,13 @@ rewrote its outputs, and for a fix, the old code fails the same test.
   the point subsampling in extraction and align): compare it on the plan's
   named measures, never file by file.
 - **Caches** are reused when present. Delete the computed caches in a check
-  tree before each run (the plan lists them).
+  tree before each run, so that a check that rewrote nothing cannot pass: the
+  per-brain `comparisons_v2\per_mouse\<mouse>_scalars.npz`, which
+  `run_cohort` reuses when their source file's date matches, and the ISH
+  tables `adult_v2\ish\gene_region_table*.csv`. The downloaded caches (the
+  Allen and Gene Ontology answers in `adult_v2\panel\cache\`, the gene
+  annotations in `adult_v2\ish\annotation\`) are copied unchanged, so the
+  network steps run from them. Check the outputs' dates after the run.
 
 ## Files
 

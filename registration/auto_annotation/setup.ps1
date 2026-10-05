@@ -1,18 +1,23 @@
 # Setup of the automatic annotation's engine, once per machine: a Python
 # environment of its own (.venv, beside this script) with torch, the CUDA build
-# when an NVIDIA GPU is present, the packages of requirements.txt, and a
-# self-test that loads the bundled weights.
+# when an NVIDIA GPU is present, the other packages pinned in
+# tools\requirements_auto_annotation.txt, and a self-test that loads the bundled
+# weights.
 #
 #   cd D:\sep_histology\code
 #   .\registration\auto_annotation\setup.ps1
 #
-# Running it again is safe. Needs Python 3.10 or later on PATH (Anaconda's will
-# do) and internet access for the packages (about 2.5 GB with CUDA torch).
+# Running it again is safe. Needs Python 3.12 on PATH (the environment was frozen
+# with Anaconda's 3.12.7) and internet access for the packages (about 2.5 GB with
+# CUDA torch).
 
 $ErrorActionPreference = 'Stop'
 
-# this script sits in the engine's folder, next to requirements.txt and weights\
+# this script sits in the engine's folder, next to weights\, two levels below the
+# code root, whose tools\ holds the pinned packages
 $pydir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$code_root = Split-Path -Parent (Split-Path -Parent $pydir)
+$pinned = Join-Path $code_root 'tools\requirements_auto_annotation.txt'
 $venv  = Join-Path $pydir '.venv'
 $py    = Join-Path $venv 'Scripts\python.exe'
 
@@ -34,7 +39,13 @@ if ($gpu) {
     Write-Host "no NVIDIA GPU: installing the CPU build of torch (a brain will take a while)"
     & $py -m pip install --quiet --index-url https://download.pytorch.org/whl/cpu torch==2.6.0
 }
-& $py -m pip install --quiet -r (Join-Path $pydir 'requirements.txt')
+
+# the other pinned packages, without the torch line: its +cu124 build would fail on
+# a machine without CUDA, and torch is in place already
+$packages = Get-Content $pinned | Where-Object {
+    $_ -match '^[A-Za-z0-9_.-]+==' -and $_ -notmatch '^torch=='
+}
+& $py -m pip install --quiet @packages
 
 # the weights are tracked with the code; stop if either is missing
 foreach ($w in 'landmark.pt', 'matcher.pt') {

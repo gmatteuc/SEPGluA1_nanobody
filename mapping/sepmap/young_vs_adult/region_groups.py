@@ -37,7 +37,6 @@ Run by run_region_groups.py.
 """
 
 import csv
-import math
 import re
 from collections import defaultdict
 
@@ -49,7 +48,6 @@ from sepmap.plotting import GROUP_COLOURS, save_figure
 from sepmap.volumes.cohort import (
     NAIVE,
     RWS,
-    SIGNED_READINGS,
     YOUNG_P20,
 )
 from sepmap.volumes.per_mouse import CSV_MAP, DATA, MICE, annotation_20
@@ -62,6 +60,8 @@ from sepmap.young_vs_adult.region_plot import (
     bh_fdr,
     label_sums,
     mannwhitney,
+    range_match,
+    value,
     welch,
 )
 
@@ -316,69 +316,6 @@ def group_means(
             flush=True,
         )
     return per, refs, struct_mean
-
-
-def range_match(
-    mice: list[str],
-    struct_mean: dict[str, dict[str, float]],
-    refs: dict[str, dict[str, float]],
-) -> dict[str, tuple[float, float]]:
-    """Per mouse the median and p90-p10 spread of log2 cortex-relative structure means.
-
-    Taken over the structures every brain has, so the spread does not depend on
-    which regions the sections happened to cover.
-    """
-    # the structures every brain has, so all spreads are taken over the same set
-    common = set.intersection(*[set(struct_mean[m]) for m in mice])
-    norm = {}
-    for m in mice:
-        # log2 of each structure's mean over the brain's isocortex mean; a mean at or
-        # below the background has no log and is left out
-        v = np.array(
-            [
-                math.log2(struct_mean[m][k] / refs[m]["cref"])
-                for k in sorted(common)
-                if struct_mean[m][k] > 0
-            ]
-        )
-
-        # the median and the p90-p10 spread, floored so a flat brain cannot divide
-        # by zero
-        p10, med, p90 = np.percentile(v, [10, 50, 90])
-        norm[m] = (med, max(p90 - p10, 1e-6))
-    return norm
-
-
-def value(
-    reading: str,
-    mouse: str,
-    key: tuple[str, str],
-    per: dict[str, dict],
-    norm: dict[str, tuple[float, float]],
-    refs: dict[str, dict[str, float]],
-) -> float | None:
-    """Value of `reading` for `mouse` in group `key` (log2 or range-matched), or None."""
-    # None where the group is too small in this brain
-    cell = per[mouse].get(key)
-    if cell is None:
-        return None
-    _, m_sig, m_rat, m_sep = cell
-
-    # a signed reading (zref): the group's log2 mean over the isocortex, minus the
-    # brain's median, over its spread; None for a mean at or below the background
-    if reading in SIGNED_READINGS:
-        if m_sig <= 0:
-            return None
-        med, spread = norm[mouse]
-        return (math.log2(m_sig / refs[mouse]["cref"]) - med) / spread
-
-    # ratio and sepratio are already ratios against a channel; the rest divide sig
-    # by a single number measured on this brain
-    if reading in ("ratio", "sepratio"):
-        v = m_rat if reading == "ratio" else m_sep
-    else:
-        v = m_sig / refs[mouse][reading]
-    return math.log2(v) if v > 0 else None
 
 
 def group_stats(
