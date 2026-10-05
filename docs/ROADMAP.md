@@ -472,6 +472,10 @@ script did.
 - zref's median and spread count "brain, unassigned" as one structure among
   several hundred (`mouse_scalars`, `region_plot`); A1's declared set settles
   it.
+- The `log2_zref` and `log2_zref_P20only` columns of `region_table.csv`
+  (`run_compare`) hold a difference, young minus adult, not a log2 ratio:
+  zref is already a position on a log scale. The names stay unless the table
+  changes for another reason, since readers of the existing table use them.
 
 ## 9. LightSuite: upstream contributions (Z2), then the swap (Z1)
 
