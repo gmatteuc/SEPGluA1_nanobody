@@ -52,10 +52,11 @@ each in its own commit and rechecked against the reference: the plasticity
 chain, P2 and P2bis on MG914, the whole Python route, fix 23 on the inputs of
 the approved run, and MG914's registration, rerun on 4 October after drive C:
 had filled with MATLAB's and elastix's temporary folders. Every output that
-changed is traced to its fix. At the merge, Giulio's uncommitted run
-settings went to `registration/run_register_to_atlas.m`, the engine's
-environment moved to `registration\auto_annotation\.venv` (self-test passed)
-and the leftovers at the old paths were deleted. On the merged code
+changed is traced to its fix
+([history/STEP8_REPORT.md](history/STEP8_REPORT.md)). At the merge, Giulio's
+uncommitted run settings went to `registration/run_register_to_atlas.m`, the
+engine's environment moved to `registration\auto_annotation\.venv` (self-test
+passed) and the leftovers at the old paths were deleted. On the merged code
 `sep_test_path` gives no failure, and every Python module imports.
 
 ### The fixes that change results
@@ -123,7 +124,8 @@ the rerun of 5 October (section 2).
 
 Giulio decided the four open points on 4 October; each was measured before
 it was adopted, and all four are merged (`3b56943` for 1 to 3, `a125ae7` for
-4).
+4). The measurements are in
+[history/DECISIONS_REPORT.md](history/DECISIONS_REPORT.md).
 
 - **1. A t only with enough mice.** A voxel gets a t only where each group
   has at least 3 mice with tissue (`min_mice_per_group = 3` in
@@ -747,7 +749,8 @@ For the reasons, see the plan and the documents named.
 ## Cross-references
 
 - [history/REFACTOR_PLAN.md](history/REFACTOR_PLAN.md): the refactor, its
-  decisions, bug list and progress.
+  decisions, bug list and progress; the reports of its last steps are beside
+  it ([history/README.md](history/README.md)).
 - [REFACTOR_COVERAGE.md](REFACTOR_COVERAGE.md): the MATLAB adult analyses (P8
   to P10, now `adult_matlab/`) item by item, and the specification of A1 to
   A10.

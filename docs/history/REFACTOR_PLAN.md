@@ -1061,13 +1061,13 @@ The style pass will add to this list.
   the old and new GUI headless through the sandbox's drive scripts plus
   three new ones (hand annotation, reopening a review, save unchanged), with
   and without the engine: the same files, apart from click times and the
-  GPU proposal's usual spread. Still by hand: `G:\sep_refactor\gui_check\HAND_CHECK.md`.
+  GPU proposal's usual spread. Still by hand: [HAND_CHECK.md](HAND_CHECK.md).
   **For the merge (step 11):** move `code\auto_annotation\.venv` to
   `registration\auto_annotation\.venv` (git does not move ignored files) and
   run its self-test before the first `annotate`, or annotate opens without
   the automatic layer; the leftover `code\landmark_refine\.venv` can be
   deleted (the root `.gitignore` now ignores both).
-- **2 Oct, step 6 hand check** (Giulio, `G:\sep_refactor\gui_check\HAND_CHECK.md`):
+- **2 Oct, step 6 hand check** (Giulio, [HAND_CHECK.md](HAND_CHECK.md)):
   passed. Annotate mode with the engine (open a reviewed brain; review a
   proposal with k, u, j, a, U, K, t, p, s), without the engine (plain GUI,
   points only), the cutting angle (refused with points; set and saved on a
@@ -1109,8 +1109,8 @@ The style pass will add to this list.
   identical; P2/P2bis identical; MG914 registration identical, the proposal
   in the GPU spread; GUI drive scripts the same; Python 259 of 267 identical,
   the 8 known differences). 21 fixes that change an output wait on
-  `step8-pending` for Giulio, listed in `G:\sep_refactor\MORNING_REPORT.md`
-  and `G:\sep_refactor\FIXES_STEP8.md`; among them two that change results:
+  `step8-pending` for Giulio, listed in [MORNING_REPORT.md](MORNING_REPORT.md)
+  and [FIXES_STEP8.md](FIXES_STEP8.md); among them two that change results:
   subref's reference never excluded fiber tracts and ventricles (the
   exclusion names never matched; fixing it moves the young-adult subref
   difference by -0.19 log2 and its q < 0.05 structures from 104 to 86; the
@@ -1118,7 +1118,7 @@ The style pass will add to this list.
   missing sepratio voxels as zero. Open, no commit: P7bis smoothing sets
   voxels outside the tissue to 0, not NaN, so the zeros enter the group
   means of the approved December 2025 comparison.
-- **3 Oct, Giulio's answers to the held fixes** (`G:\sep_refactor\MORNING_REPORT.md`):
+- **3 Oct, Giulio's answers to the held fixes** ([MORNING_REPORT.md](MORNING_REPORT.md)):
   yes to 1-9 and 11-21, no to 10 (the automatic annotation stays on the GPU:
   speed matters more than exact repeatability). With them: 1 also takes
   "brain-unassigned" and "unassigned" out of subref's reference; 9 checks the
@@ -1139,7 +1139,7 @@ The style pass will add to this list.
   mouse's age); the grant figure only grouped it with the P20 brains, as
   Sami asked.
 - **3-4 Oct, step 8 done** (refactor `cfb7cd9`; report
-  `G:\sep_refactor\STEP8_REPORT.md`): the accepted held fixes and the new
+  [STEP8_REPORT.md](STEP8_REPORT.md)): the accepted held fixes and the new
   fixes 23 to 27, every check passed with each output difference traced to
   its fix (plasticity, P2/P2bis, two Python runs, MG914's registration rerun
   on 4 Oct after C: had filled on 3 Oct with MATLAB and elastix temporary
@@ -1211,7 +1211,7 @@ The style pass will add to this list.
   the headline numbers (RL+AL under zref, the laminar contrasts, the
   significant-structure counts) before Giulio adopts them.
 - **4 Oct evening, decisions 1-3 merged** (`main` `3b56943`; report
-  `G:\sep_refactor\DECISIONS_REPORT.md`): P7bis gives a t only where each
+  [DECISIONS_REPORT.md](DECISIONS_REPORT.md)): P7bis gives a t only where each
   group has at least 3 mice (`min_mice_per_group = 3`), sums and opacity only
   over voxels with their own t; the surprise bars are 71 atlas regions (all
   43 isocortical areas, 28 declared subcortical regions, children taken out
