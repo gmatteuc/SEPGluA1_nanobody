@@ -97,4 +97,5 @@ Per brain, in `<data>\<group>\<mouse>\lightsuite\`:
   registers from the images alone.
 - The automatic annotation's matcher is not repeatable on the GPU: two runs
   give points that differ slightly. The proposals are reviewed by hand.
-- elastix 5.1.0 must be on the system path (the README of the repository).
+- elastix 5.1.0 must be on the system path (how, in the
+  [repository's README](../README.md), Setup).

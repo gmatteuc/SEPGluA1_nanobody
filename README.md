@@ -31,13 +31,25 @@ There are four lines of work:
 
 MATLAB R2024b on Windows (R2022b at least), with the Image Processing,
 Computer Vision, Optimization, Statistics and Machine Learning, and Parallel
-Computing toolboxes; elastix 5.1.0 on the PATH, for LightSuite. Start each
-session with `restoredefaultpath; cd('D:\sep_histology\code'); sep_setup_paths`.
-Code and data sit side by side, in `<root>\code` and `<root>\data`, the
-atlases in the data root (`atlas\`, `atlas_demba_p<age>\`); `get_paths.m` and
+Computing toolboxes; elastix 5.1.0 on the PATH, for LightSuite (below).
+Start each session with
+`restoredefaultpath; cd('D:\sep_histology\code'); sep_setup_paths`. Code and
+data sit side by side, in `<root>\code` and `<root>\data`, the atlases in the
+data root (`atlas\`, `atlas_demba_p<age>\`); `get_paths.m` and
 `mapping/sepmap/config.py` find the data next to the code. `SEP_DATA_ROOT`
 points a run at a copy of the data, and a copy of the code refuses to run on
 the production data.
+
+LightSuite calls elastix and transformix from the command line, so they are
+installed once per machine, outside the repository: download elastix 5.1.0
+for Windows from its
+[release page](https://github.com/SuperElastix/elastix/releases/tag/5.1.0),
+unzip it into a folder of its own (on the analysis computer
+`C:\Users\<user>\elastix`, which holds `elastix.exe`, `transformix.exe` and
+`ANNlib-5.1.dll`; the Linux and macOS packages put them in `bin/`), add that
+folder to the system Path ("Edit the system environment variables",
+Environment Variables, Path, New), and check in a new terminal that
+`elastix --version` prints `elastix version: 5.1.0`.
 
 Python is Anaconda's 3.12.7, in environments git ignores, each made as the
 top lines of its `tools\requirements_*.txt` say: `tools\venv_flat` runs
@@ -61,7 +73,8 @@ Python route has its drivers in `mapping/` and its code in `mapping/sepmap/`.
 | `adult_matlab/` | three earlier MATLAB analyses of lines 2 and 3, kept until `mapping/` answers their questions, A1 to A5 of the [roadmap](docs/ROADMAP.md) ([README](adult_matlab/README.md)) |
 | `common/`, `atlas/` | the cohort table, volume reading, colours; `get_atlas`, the DeMBA builder, atlas checks ([README](common/README.md), [README](atlas/README.md)) |
 | `tests/`, `tools/` | two MATLAB tests; the detached runner and the checks that a change does not change the results ([README](tests/README.md), [README](tools/README.md)) |
-| `docs/` | [adding data](docs/ADDING_DATA.md), [figures](docs/FIGURES.md), [code style](docs/STYLE.md), [roadmap](docs/ROADMAP.md), the [refactor plan](docs/history/REFACTOR_PLAN.md) |
+| `docs/` | [scientific context](docs/SCIENTIFIC_CONTEXT.md), [adding data](docs/ADDING_DATA.md), [figures](docs/FIGURES.md), [code style](docs/STYLE.md), [roadmap](docs/ROADMAP.md); the specification of A1 to A10 in [REFACTOR_COVERAGE.md](docs/REFACTOR_COVERAGE.md) and [adult_ish_design.md](docs/adult_ish_design.md); the old and new script names in [refactor_name_map.csv](docs/refactor_name_map.csv); the refactor's plan and reports in [history/](docs/history/README.md) |
+| `assets/` | the image at the top of this README |
 | `third_party/`, `archive/` | LightSuite (local changes listed in its `PATCHES.md`), matlab_elastix, yamlmatlab, BioformatsImage; retired code, kept until checked |
 
 *Nomenclature note.* nano is the nanobody channel (Cy5), auto the
