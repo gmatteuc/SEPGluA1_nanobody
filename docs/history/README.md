@@ -18,5 +18,5 @@ refactor and may have been cleared since.
 
 The old and new names of every script are in
 [refactor_name_map.csv](../refactor_name_map.csv), which stays in `docs/`:
-`tools/check_code_identity.py --map` and the warning of `sep_setup_paths`
-use it.
+`tools/check_code_identity.py --map` reads it, and the warning of
+`sep_setup_paths` points to it.
