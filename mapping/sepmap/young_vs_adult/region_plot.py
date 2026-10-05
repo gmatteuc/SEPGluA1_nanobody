@@ -388,29 +388,37 @@ def brain_references(
 
 
 def range_match(
-    mice: list[str], per: dict[str, dict], refs: dict[str, dict[str, float]]
+    mice: list[str],
+    sig_means: dict[str, dict[str, float]],
+    refs: dict[str, dict[str, float]],
 ) -> dict[str, tuple[float, float]]:
     """Per mouse the median and the p90-p10 spread of log2 cortex-relative sig.
 
-    Taken over the structures every brain has, and printed.
+    `sig_means` holds each brain's mean sig per structure. Taken over the
+    structures every brain has, and printed. region_groups uses it too, so zref is
+    defined here only.
     """
     # the same structures in every brain, or the spread would depend on which
     # regions the sections happened to cover
-    common = set.intersection(*[set(per[m]) for m in mice])
+    common = set.intersection(*[set(sig_means[m]) for m in mice])
     norm = {}
     for m in mice:
+        # log2 of each structure's mean over the brain's isocortex mean; a mean at or
+        # below the background has no log and is left out
         v = np.array(
             [
-                math.log2(per[m][k][1] / refs[m]["cref"])
+                math.log2(sig_means[m][k] / refs[m]["cref"])
                 for k in sorted(common)
-                if per[m][k][1] > 0
+                if sig_means[m][k] > 0
             ]
         )
+
+        # the median and the p90-p10 spread, floored so a flat brain cannot divide
+        # by zero
         p10, med, p90 = np.percentile(v, [10, 50, 90])
         norm[m] = (med, max(p90 - p10, 1e-6))
     print(
-        "dynamic range per brain (p90-p10 of log2 over %d shared structures):"
-        % len(common)
+        f"dynamic range per brain (p90-p10 of log2 over {len(common)} shared structures):"
     )
     for m in mice:
         print(f"  {m:20s} median {norm[m][0]:+.2f}   spread {norm[m][1]:.2f}")
@@ -420,19 +428,26 @@ def range_match(
 def value(
     reading: str,
     m: str,
-    k: str | None,
+    k: str | tuple[str, str] | None,
     per: dict[str, dict],
     norm: dict[str, tuple[float, float]],
     refs: dict[str, dict[str, float]],
 ) -> float | None:
     """Value of `reading` for mouse `m` in structure `k`, or None.
 
-    log2 for every reading but the signed ones, which are range-matched. None when
-    the structure is missing in that brain or its value is not positive.
+    region_groups passes a group as `k`, whose cell holds the same four numbers:
+    voxels, mean sig, mean ratio, mean sepratio. log2 for every reading but the
+    signed ones, which are range-matched. None when the structure is missing in
+    that brain or too small there, or its value is not positive.
     """
-    if k is None or k not in per[m]:
+    # None where the structure is missing in this brain, or too small there
+    cell = per[m].get(k)
+    if cell is None:
         return None
-    n, ms, mr, msep = per[m][k]
+    _, ms, mr, msep = cell
+
+    # a signed reading (zref): the log2 mean over the isocortex, minus the brain's
+    # median, over its spread; None for a mean at or below the background
     if reading in SIGNED_READINGS:
         if ms <= 0:
             return None
@@ -797,7 +812,8 @@ def main() -> None:
 
     # the references of each brain, and its range match
     refs = brain_references(mice, per, meta)
-    norm = range_match(mice, per, refs)
+    sig_means = {m: {k: cell[1] for k, cell in per[m].items()} for m in mice}
+    norm = range_match(mice, sig_means, refs)
 
     # per structure: the values of each mouse and the tests, as two tables
     rows_pm, rows_st = region_rows(mice, meta, group_of, per, norm, refs)
