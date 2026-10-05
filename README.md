@@ -155,6 +155,7 @@ A brain's stages are in `<data>\<group>\<mouse>\lightsuite\`. The drivers:
 |---|---|
 | paths | `get_paths.m`, `mapping/sepmap/config.py` |
 | the cohort | `common/cohort.csv`, read by `get_cohort` and by `config.py` |
+| the 100-gene ISH panel | `mapping/gene_targets.csv`; `run_compare_with_allen_ish` reads its copy `<data>\gene_targets.csv` |
 | a MATLAB step | the `%% Settings` block of its driver |
 | the adults of the plasticity comparison | `selected_mice_idx_list` in `run_normalise_groups` and `run_group_differences`, which must agree; `behavior_mice` in the second |
 | Python parameters | `mapping/settings.toml`; run options on the command line |

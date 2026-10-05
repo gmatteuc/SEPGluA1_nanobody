@@ -41,6 +41,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from sepmap.config import DATA, SETTINGS
+from sepmap.ish.regions import panel_files
 
 # the genes asked per GO term (a term with more stops the run), and the experiments
 # asked per gene
@@ -49,8 +50,9 @@ ISH_PANEL_BUILD = SETTINGS["ish_panel_build"]
 OUT = DATA / "adult_v2" / "panel"
 CACHE = OUT / "cache"
 
-# the 100-gene panel, whose category of each gene is recorded beside its new role
-OLD_PANEL = DATA / "gene_targets.csv"
+# the 100-gene panel (mapping/gene_targets.csv), whose category of each gene is
+# recorded beside its new role
+OLD_PANEL = panel_files("targets")[0]
 
 MYGENE = "https://mygene.info/v3/query"
 ALLEN = "http://api.brain-map.org/api/v2/data/query.json"

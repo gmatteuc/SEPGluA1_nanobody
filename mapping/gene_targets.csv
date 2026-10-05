@@ -1,0 +1,101 @@
+symbol,experiment_id,category,plane,description
+Gria1,79591719,AMPAR_core,coronal,AMPAR subunit 1 - the target protein of the nanobody
+Gria2,75551462,AMPAR_core,coronal,AMPAR subunit 2 - dominant heteromeric partner of GluA1
+Gria3,71247616,AMPAR_core,coronal,AMPAR subunit 3 - less abundant subunit
+Gria4,71358628,AMPAR_core,coronal,AMPAR subunit 4 - enriched in cerebellum
+Cacng3,73615560,auxiliary,coronal,TARP gamma-3 - cortical TARP
+Cacng4,72119652,auxiliary,coronal,TARP gamma-4 - developmental TARP
+Cacng5,70560341,auxiliary,coronal,TARP gamma-5 - modulatory TARP
+Cacng7,74750054,auxiliary,coronal,TARP gamma-7 - cerebellum-enriched TARP
+Cacng8,72108823,auxiliary,coronal,TARP gamma-8 - dominant hippocampal TARP driving surface GluA1
+Cnih2,2109,auxiliary,coronal,Cornichon-2 - promotes AMPAR surface delivery
+Cnih3,39,auxiliary,coronal,Cornichon-3 - AMPAR auxiliary regulating kinetics
+Shisa9,74363334,auxiliary,coronal,CKAMP44 - AMPAR auxiliary regulating desensitization
+Grm1,537,auxiliary,coronal,mGluR1 - metabotropic glutamate receptor co-localized with AMPARs perisynaptically
+Grm5,73512423,auxiliary,coronal,mGluR5 - perisynaptic mGluR triggering AMPAR internalization via LTD
+Dlg4,72109445,scaffold,coronal,PSD-95 - main postsynaptic scaffold anchoring AMPARs
+Dlg2,73817444,scaffold,coronal,PSD-93 - postsynaptic scaffold related to PSD-95
+Homer1,1748,scaffold,coronal,Postsynaptic scaffold linking mGluRs and Shank
+Grip1,74988749,scaffold,coronal,AMPAR-binding protein - anchors GluA2 at synapses
+Grip2,112646245,scaffold,coronal,ABP - AMPAR anchoring and trafficking partner
+Nrxn1,70301083,scaffold,coronal,Neurexin-1 - presynaptic organizer of excitatory synapses
+Lrfn2,75041454,scaffold,coronal,SALM1 - synapse adhesion molecule enriched at excitatory synapses
+Ptprs,74882787,scaffold,coronal,Receptor phosphatase sigma - synapse organizer
+Nsf,356092,trafficking,coronal,N-ethylmaleimide sensitive factor - AMPAR membrane recycling
+Synj1,1287,trafficking,coronal,Synaptojanin 1 - synaptic vesicle and endocytic recycling
+Snap25,1854,trafficking,coronal,SNARE protein - membrane fusion in exocytosis
+Stx1a,2645,trafficking,coronal,Syntaxin 1A - SNARE protein for membrane fusion
+Syn1,227540,trafficking,coronal,Synapsin 1 - presynaptic vesicle clustering and reserve pool
+Cplx1,67752308,trafficking,coronal,Complexin 1 - SNARE complex regulator at presynaptic terminal
+Bsn,73992923,trafficking,coronal,Bassoon - presynaptic active zone scaffold organizing release sites
+Slc17a7,70436317,excitatory,coronal,VGLUT1 - vesicular glutamate transporter marks excitatory terminals
+Slc17a6,73818754,excitatory,coronal,VGLUT2 - marks thalamocortical and subcortical excitatory neurons
+Camk2a,79490122,excitatory,coronal,CaMKII alpha - kinase driving LTP and GluA1 surface insertion
+Syt1,1014,excitatory,coronal,Synaptotagmin 1 - presynaptic calcium sensor triggering vesicle release
+Grin1,1585,excitatory,coronal,NMDAR NR1 - obligatory NMDAR subunit present at all glutamatergic synapses
+Grin2a,75081000,excitatory,coronal,NMDAR NR2A - mature-type NMDAR subunit
+Grin2b,78545305,excitatory,coronal,NMDAR NR2B - developmental and adult plasticity NMDAR subunit
+Arc,74273120,plasticity,coronal,Activity-regulated cytoskeletal protein - drives AMPAR endocytosis
+Bdnf,79587720,plasticity,coronal,Brain-derived neurotrophic factor - promotes synaptic plasticity
+Gad1,479,control_inhib,coronal,GAD67 - GABA synthesis enzyme marking all GABAergic neurons
+Gad2,79591669,control_inhib,coronal,GAD65 - GABA synthesis enzyme enriched at synaptic terminals
+Slc32a1,1098,control_inhib,coronal,VGAT - vesicular GABA transporter marks inhibitory terminals
+Pvalb,79556738,control_inhib,coronal,Parvalbumin - fast-spiking interneuron marker
+Sst,156346713,control_inhib,coronal,Somatostatin - dendrite-targeting interneuron marker
+Reln,890,control_inhib,coronal,Reelin - interneuron subtype marker and AMPAR surface trafficking via ApoER2
+Aldh1l1,1724,control_glia,coronal,Astrocyte marker - cytosolic enzyme
+Gfap,1357,control_glia,coronal,Glial fibrillary acidic protein - reactive astrocyte marker
+Mbp,112202838,control_glia,coronal,Myelin basic protein - oligodendrocyte / white matter marker
+Cx3cr1,1605,control_glia,coronal,Fractalkine receptor - microglia marker
+Nrgn,736,excitatory,coronal,Neurogranin - CaMKII/calmodulin regulator driving GluA1 surface insertion
+Map2,74272037,control_struct,coronal,MAP2 - dendritic structural marker (controls for dendrite density)
+Grik1,75749751,excitatory,coronal,Kainate receptor 1 - ionotropic glutamate receptor (non-AMPAR)
+Grik2,71247618,excitatory,coronal,Kainate receptor 2 - major kainate receptor subunit
+Grik3,75749418,excitatory,coronal,Kainate receptor 3 - modulatory kainate subunit
+Grik4,75551478,excitatory,coronal,Kainate receptor 4 - high-affinity kainate subunit
+Grik5,75551459,excitatory,coronal,Kainate receptor 5 - high-affinity kainate subunit
+Grin2c,75888748,excitatory,coronal,NMDAR NR2C - cerebellar-enriched NMDAR subunit
+Grin2d,75551479,excitatory,coronal,NMDAR NR2D - developmental NMDAR subunit
+Grin3a,73907499,excitatory,coronal,NMDAR NR3A - modulatory NMDAR subunit reducing conductance
+Grm2,79591611,auxiliary,coronal,mGluR2 - presynaptic group II metabotropic glutamate receptor
+Grm3,539,auxiliary,coronal,mGluR3 - group II mGluR expressed on astrocytes and neurons
+Grm4,71247631,auxiliary,coronal,mGluR4 - presynaptic group III metabotropic glutamate receptor
+Cbln2,70231306,scaffold,coronal,Cerebellin-2 - synapse organizer bridging neurexin and GluD receptors
+Vamp2,1092,trafficking,coronal,VAMP2/Synaptobrevin - v-SNARE essential for synaptic vesicle fusion
+Syt2,1023,trafficking,coronal,Synaptotagmin 2 - fast calcium sensor at inhibitory and calyceal synapses
+Syt3,1026,trafficking,coronal,Synaptotagmin 3 - involved in AMPAR internalization during LTD
+Nptx1,73520998,trafficking,coronal,Neuronal pentraxin 1 - clusters AMPARs at excitatory synapses
+Egr1,71247672,plasticity,coronal,Zif268/NGFI-A - immediate early gene induced by synaptic activity
+Fos,78126453,plasticity,coronal,c-Fos - canonical immediate early gene marking neuronal activation
+Nos1,77790681,plasticity,coronal,Neuronal nitric oxide synthase - retrograde LTD signaling at PSD
+Gabra1,72340131,control_inhib,coronal,GABA-A receptor alpha1 - dominant inhibitory receptor subunit
+Gabrb2,472,control_inhib,coronal,GABA-A receptor beta2 - major inhibitory receptor subunit
+Gabrg2,474,control_inhib,coronal,GABA-A receptor gamma2 - synaptic GABA-A clustering subunit
+Glra1,72108824,control_inhib,coronal,Glycine receptor alpha1 - inhibitory receptor in brainstem/spinal cord
+Npy,717,control_inhib,coronal,Neuropeptide Y - marks NPY+ interneuron subtype
+Cck,200,control_inhib,coronal,Cholecystokinin - marks CCK+ basket cell interneurons
+Htr3a,74724760,control_inhib,coronal,Serotonin receptor 3A - marks Htr3a+ interneuron subpopulation
+Chat,81161531,control_inhib,coronal,Choline acetyltransferase - cholinergic neuron marker
+Th,1056,control_inhib,coronal,Tyrosine hydroxylase - dopaminergic/noradrenergic neuron marker
+Tph2,112200312,control_inhib,coronal,Tryptophan hydroxylase 2 - serotonergic neuron marker
+Scn1a,77340528,control_inhib,coronal,Nav1.1 sodium channel - enriched in PV+ fast-spiking interneurons
+Drd1,352,control_inhib,coronal,Dopamine D1 receptor - marks direct pathway MSNs in striatum
+Drd2,357,control_inhib,coronal,Dopamine D2 receptor - marks indirect pathway MSNs in striatum
+Penk,74881286,control_inhib,coronal,Proenkephalin - opioid peptide marking indirect pathway MSNs
+Pdyn,71717084,control_inhib,coronal,Prodynorphin - opioid peptide marking direct pathway MSNs
+Tac1,1038,control_inhib,coronal,Tachykinin/Substance P - neuropeptide in direct pathway and sensory circuits
+Tac2,77279001,control_inhib,coronal,Neurokinin B precursor - neuropeptide in hypothalamic and limbic circuits
+Chrm1,73907497,control_inhib,coronal,Muscarinic M1 receptor - cholinergic receptor on cortical/hippocampal neurons
+Chrm2,70560343,control_inhib,coronal,Muscarinic M2 receptor - presynaptic cholinergic autoreceptor
+Olig2,100045397,control_glia,coronal,Oligodendrocyte transcription factor 2 - OPC and oligodendrocyte marker
+Sox10,79556652,control_glia,coronal,SRY-box 10 - oligodendrocyte lineage marker
+Aqp4,79556722,control_glia,coronal,Aquaporin-4 - astrocyte water channel at perivascular endfeet
+Nefl,73512198,control_struct,coronal,Neurofilament light chain - axonal structural protein
+Nefm,73817434,control_struct,coronal,Neurofilament medium chain - axonal caliber determinant
+Eno2,112197625,control_struct,coronal,Neuron-specific enolase - pan-neuronal metabolic marker
+Calb1,78591334,control_struct,coronal,Calbindin - calcium-binding protein in Purkinje cells and interneurons
+Calb2,100045655,control_struct,coronal,Calretinin - calcium-binding protein marking specific interneuron subtypes
+Kcna1,73994714,control_struct,coronal,Kv1.1 potassium channel - axonal repolarization unrelated to AMPARs
+Kcna2,75038432,control_struct,coronal,Kv1.2 potassium channel - juxtaparanodal axonal channel
+Hcn1,77280561,control_struct,coronal,HCN1 - hyperpolarization-activated channel in dendrites
+Hcn2,73512185,control_struct,coronal,HCN2 - pacemaker channel in thalamus and heart

@@ -142,12 +142,16 @@ diagnostic_p = 0.05        # panel E: a tilt or a fan of the residuals against t
 
 # The ISH chain runs twice: on the hand-written 100-gene panel, then on the
 # 390-gene ontology panel that run_panel_build writes. run_ish_regions.py and
-# run_ish_reliability.py choose a pass with --panel. Panel paths are relative to
-# the data root; table is the file run_ish_regions writes under adult_v2/ish.
+# run_ish_reliability.py choose a pass with --panel. panel is relative to the folder
+# root names: code for the hand-written panel, versioned beside this file, data for
+# the ontology panel, an output under the data root; table is the file
+# run_ish_regions writes under adult_v2/ish.
 [ish_panels.targets]
-panel = "gene_targets.csv"
+panel = "mapping/gene_targets.csv"
+root = "code"
 table = "gene_region_table.csv"
 
 [ish_panels.ontology]
 panel = "adult_v2/panel/panel_v2.csv"
+root = "data"
 table = "gene_region_table_panel.csv"

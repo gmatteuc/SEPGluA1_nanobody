@@ -400,7 +400,8 @@ the path guard covers their old names too.
 ### Inputs and couplings to keep
 
 - `data\gene_targets.csv` (the hand-written 100-gene panel) is not in the
-  repository, and `*.csv` is ignored: it becomes a versioned, documented input.
+  repository, and `*.csv` is ignored: it becomes a versioned, documented input
+  (done on 5 October: `mapping/gene_targets.csv`, which the Python route reads).
 - `v2_ish_compare` reads P9's `gene_panel_summary.csv`
   (`data\comparisons\merged_naive_rws_vs_ish_summary_nosmooth\`, from an older
   P9 whose output folder had no channel tag) for the old-against-new ranking

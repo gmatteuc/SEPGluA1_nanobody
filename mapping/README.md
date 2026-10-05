@@ -13,6 +13,7 @@ brains differ from adults. It reads the registered volumes that
 mapping/
   run_*.py              one entry point per step; the header of each lists the run order
   settings.toml         every analysis parameter, a table per stage
+  gene_targets.csv      the hand-written 100-gene panel of the first ISH pass
   sepmap/               the package the run scripts call
     config.py           the data root (SEP_DATA_ROOT and its guards), the settings, the cohort table
     plotting.py         the palette, the colormaps, the save function, the coronal drawing

@@ -57,13 +57,15 @@ codegen/
 #  resources (colormaps, example volumes, mex binaries) that
 #  the pipeline needs at runtime. Re-include their whole trees
 #  (all in third_party/), the images the documentation shows,
-#  the documents with their tables, and the cohort table that
-#  MATLAB and Python read.
+#  the documents with their tables, the cohort table that
+#  MATLAB and Python read, and the Python route's hand-written
+#  gene panel.
 # =============================================================
 !third_party/**
 !assets/**
 !docs/**
 !common/cohort.csv
+!mapping/gene_targets.csv
 
 # ---- Re-apply junk rules inside the vendored trees ----
 **/*.asv
