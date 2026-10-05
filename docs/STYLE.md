@@ -151,7 +151,10 @@ Each is defined in one place; never copy a value into a script.
 
 - A pipeline is one folder: its drivers (`run_*.m`) at the top, the functions
   they call in `pipeline/`, checks in `qc/`; shared functions in `common/`,
-  atlas functions in `atlas/`.
+  atlas functions in `atlas/`. Tools run by hand (`make_ordering_volume`,
+  `remap_control_points`) sit at the top beside the drivers, and a
+  self-contained component gets a subfolder of its own
+  (`registration/annotation_gui/`, `registration/auto_annotation/`).
 - A driver is a script: the header, `clear; clc; close all;` on one line,
   `%% Settings`, `%% Run`; everything else is a function. No path setup:
   `sep_setup_paths` runs once per session, and before each stage of the

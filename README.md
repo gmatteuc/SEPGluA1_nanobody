@@ -61,8 +61,11 @@ annotation's own; without it the control-point GUI has no automatic keys.
 ## Folders
 
 `preprocessing/`, `registration/` and `group_comparison/` have their drivers
-(`run_*.m`) at the top and the functions only they use in `pipeline/`. The
-Python route has its drivers in `mapping/` and its code in `mapping/sepmap/`.
+(`run_*.m`) at the top and the functions only they use in `pipeline/`. Tools
+run by hand sit beside the drivers, and a self-contained component has a
+subfolder of its own (`registration/annotation_gui/`,
+`registration/auto_annotation/`). The Python route has its drivers in
+`mapping/` and its code in `mapping/sepmap/`.
 
 | folder | what |
 |---|---|
