@@ -8,12 +8,16 @@
 % region and a weak shift over the whole of a small one, then (b) pure noise
 % under several seeds. Checks that every split is enumerated with the observed
 % one among them, that the observed split gives the bars' surprise median to
-% the bit (the arithmetic of group_differences, written out below), that a
-% split's mirror image is its negative, that the cluster and top-volume
-% measures put the large region first at a corrected p < 0.05 in (a), and that
-% in (b) no measure reaches a corrected p < 0.05 more often than chance; prints
-% how every measure ranks the two regions of (a). Prints PASS or FAIL for each
-% check, and stops with an error if any fails.
+% the bit (the arithmetic of group_differences, written out below), that its
+% sum, quantile, top volume and heaviest cluster equal those written out
+% region by region (each region's clusters from bwconncomp of its own voxels
+% of one sign), also on (c) a map whose clusters cross a region border and
+% touch the other sign, and whose heaviest cluster differs at 6, 18 and 26
+% connectivity, that a split's mirror image is its negative, that the cluster
+% and top-volume measures put the large region first at a corrected p < 0.05
+% in (a), and that in (b) no measure reaches a corrected p < 0.05 more often
+% than chance; prints how every measure ranks the two regions of (a). Prints
+% PASS or FAIL for each check, and stops with an error if any fails.
 %
 % Run it after any change to region_permutation_test, or to the t, the surprise
 % or the rolling median of group_differences. It needs no data and writes
@@ -132,6 +136,90 @@ for m = 1:2
         sprintf('map %d: the observed share equals the bars'' in the %d regions', m, ...
         n_regions), n_pass, n_fail);
 end
+
+%% The observed split's measures, written out region by region
+
+% the top volume in voxels, from the voxel side
+topvol_k = round(perm_settings.topvol_mm3 / voxel_mm^3);
+[n_pass, n_fail] = check(perm.topvol_k == topvol_k, sprintf(['top volume of %g ' ...
+    'mm^3 at %g mm voxels: %d voxels'], perm_settings.topvol_mm3, voxel_mm, ...
+    perm.topvol_k), n_pass, n_fail);
+
+% the four signed measures of the observed split against each region's own,
+% computed on the whole grid from the signed median of the bars' arithmetic:
+% the sum, the quantile and the top volume over its voxels with a t, and the
+% heaviest cluster among the bwconncomp components of its own significant
+% voxels of one sign
+for m = 1:2
+    vol_m = {vol_diff, vol_sum};
+    [~, signed_reference] = bars_rolled_surprise(vol_m{m}, n_ctrl, brain, ...
+        perm_settings.min_mice_per_group, perm_settings.slab_range);
+    [n_pass, n_fail] = check_measures(perm.maps{m}, splits.observed, ...
+        signed_reference, region_vol, n_regions, perm_settings, topvol_k, ...
+        sprintf('(a) map %d', m), n_pass, n_fail);
+end
+
+%% Clusters cut by region and sign, and their connectivity
+
+% a map of noise with, in the experimental mice, blocks of 16 planes in the
+% large region: two positive ones touching only at a corner (one cluster at
+% 26-connectivity, two at 18), two touching along an edge (one at 18, two at
+% 6) and a negative one touching the edge pair by a face; and a positive block
+% across the border of the large region and a ventral one. The clusters of the
+% observed split must be cut at the border and between the signs, and joined
+% at 18-connectivity
+rng(200);
+vol_cut = noisy_mice(grid_size, n_mice, noise_sigma);
+effect_cut = zeros(grid_size);
+
+% the corner pair: plane 20 against plane 21, DV and ML 9 against 10
+effect_cut(5:20, 5:9, 5:9) = bump_amplitude;
+effect_cut(21:36, 10:14, 10:14) = bump_amplitude;
+
+% the edge pair, the same planes: DV 8 against 9 and ML 28 against 29; the
+% negative block against the first by a face, ML 24 against 25
+effect_cut(5:20, 5:8, 25:28) = bump_amplitude;
+effect_cut(5:20, 9:12, 29:32) = bump_amplitude;
+effect_cut(5:20, 5:8, 21:24) = -bump_amplitude;
+
+% across the border of the large region (DV 3 to 22) and the ventral one below
+effect_cut(41:56, 19:26, 5:8) = bump_amplitude;
+vol_cut(:, :, :, n_ctrl + 1:end) = vol_cut(:, :, :, n_ctrl + 1:end) + effect_cut;
+vol_cut = missing_tissue(vol_cut, brain);
+vol_cut_noise = missing_tissue(noisy_mice(grid_size, n_mice, noise_sigma), brain);
+[stacks_cut, geom_cut] = candidate_stacks({vol_cut, vol_cut_noise}, brain, ...
+    region_vol, n_regions, voxel_mm, perm_settings.min_mice_per_group);
+observed_only = perm_settings;
+observed_only.n_permutations = 1;
+perm_cut = region_permutation_test(stacks_cut, n_ctrl, geom_cut, observed_only);
+
+% the clusters of all the significant voxels that hold two regions or both signs
+[~, signed_cut] = bars_rolled_surprise(vol_cut, n_ctrl, brain, ...
+    perm_settings.min_mice_per_group, perm_settings.slab_range);
+n_crossing = crossing_clusters(signed_cut, region_vol, perm_settings);
+[n_pass, n_fail] = check(n_crossing > 0, sprintf(['(c) %d clusters of the ' ...
+    'significant voxels hold two regions or both signs'], n_crossing), n_pass, n_fail);
+
+% the measures against each region's own, at 18-connectivity
+[n_pass, n_fail] = check_measures(perm_cut.maps{1}, perm_cut.splits.observed, ...
+    signed_cut, region_vol, n_regions, perm_settings, topvol_k, '(c) map 1', ...
+    n_pass, n_fail);
+
+% the heaviest positive cluster of the large region at 6, 18 and 26: three
+% different masses, so the check above tells 18 from the other two
+masses = zeros(1, 3);
+connectivities = [6 18 26];
+for c = 1:3
+    connectivity_settings = perm_settings;
+    connectivity_settings.cluster_connectivity = connectivities(c);
+    reference_pos = reference_measures(signed_cut, region_vol, n_regions, ...
+        connectivity_settings, topvol_k);
+    masses(c) = reference_pos(large_region, 4);
+end
+[n_pass, n_fail] = check(numel(unique(masses)) == 3, sprintf(['(c) heaviest ' ...
+    'positive cluster of the large region at 6, 18, 26-connectivity: %.0f, %.0f, ' ...
+    '%.0f; the test''s %.0f'], masses, perm_cut.maps{1}.null_pos(1, large_region, ...
+    strcmp(perm_cut.measure_names, 'cluster'))), n_pass, n_fail);
 
 %% A mirror image is the split's negative
 
@@ -288,10 +376,12 @@ for m = 1:numel(vols)
 end
 end
 
-function rolled = bars_rolled_surprise(vol, n_ctrl, brain, min_mice_per_group, ...
-    slab_range)
+function [rolled, rolled_signed] = bars_rolled_surprise(vol, n_ctrl, brain, ...
+    min_mice_per_group, slab_range)
 % The surprise median the bars take, written out as group_differences computes
-% it (group_welch_t, welch_surprise, rolling_surprise_median) on the 4D maps.
+% it (group_welch_t, welch_surprise, rolling_surprise_median) on the 4D maps;
+% and the same median of the surprise signed by the t, which the region
+% measures other than the share take.
 
 x_ctrl = abs(vol(:, :, :, 1:n_ctrl));
 x_exp = abs(vol(:, :, :, n_ctrl + 1:end));
@@ -316,7 +406,16 @@ df = (var1 + var2).^2 ./ ...
 df(n_vox_ctrl < min_mice_per_group | n_vox_exp < min_mice_per_group) = NaN;
 surprise = -log10(2 * tcdf(-abs(t), df));
 
-% the median over +/- slab_range planes, on the voxels with a t
+% the median over +/- slab_range planes, on the voxels with a t, of the
+% surprise and of the signed surprise
+rolled = slab_rolling_median(surprise, has_t, slab_range);
+rolled_signed = slab_rolling_median(surprise .* sign(t), has_t, slab_range);
+end
+
+function rolled = slab_rolling_median(surprise, has_t, slab_range)
+% The median over +/- slab_range planes, on the voxels with a t, as
+% rolling_surprise_median of group_differences.
+
 rolled = zeros(size(surprise), 'single');
 n_slices = size(surprise, 1);
 for z = 1:n_slices
@@ -328,6 +427,90 @@ for z = 1:n_slices
     slab_median(~has_t(z, :, :)) = NaN;
     rolled(z, :, :) = slab_median;
 end
+end
+
+function [pos, neg] = reference_measures(rolled, region_vol, n_regions, ...
+    perm_settings, topvol_k)
+% Each region's summed surprise at p < p_thresh, quantile, top volume and
+% heaviest cluster at p < cluster_p, positive and negative apart (n_regions x 4,
+% magnitudes; NaN without a voxel with a t), written out region by region on
+% the whole grid: the clusters are the bwconncomp components of the region's
+% own significant voxels of one sign.
+
+thresh_sig = -log10(perm_settings.p_thresh);
+thresh_cluster = -log10(perm_settings.cluster_p);
+pos = nan(n_regions, 4);
+neg = nan(n_regions, 4);
+for r = 1:n_regions
+    in_region = region_vol == r;
+    values = rolled(in_region & ~isnan(rolled));
+    if isempty(values)
+        continue
+    end
+    for direction = [1 -1]
+
+        % the effects of this sign, as magnitudes
+        signed_values = direction * values;
+        part = max(signed_values, 0);
+        sorted_part = sort(double(part), 'descend');
+        measures = zeros(1, 4);
+        measures(1) = sum(double(signed_values(signed_values > thresh_sig)));
+        measures(2) = quantile(part, perm_settings.region_quantile);
+        measures(3) = mean(sorted_part(1:min(topvol_k, numel(sorted_part))));
+
+        % the heaviest cluster of the region's significant voxels of this sign
+        components = bwconncomp(in_region & direction * rolled > thresh_cluster, ...
+            perm_settings.cluster_connectivity);
+        masses = cellfun(@(voxels) sum(abs(double(rolled(voxels)))), ...
+            components.PixelIdxList);
+        if ~isempty(masses)
+            measures(4) = max(masses);
+        end
+        if direction > 0
+            pos(r, :) = measures;
+        else
+            neg(r, :) = measures;
+        end
+    end
+end
+end
+
+function n_crossing = crossing_clusters(rolled, region_vol, perm_settings)
+% The bwconncomp components of all the significant voxels in a region (at
+% p < cluster_p, either sign) that hold voxels of two regions or of both signs.
+
+is_sig = abs(rolled) > -log10(perm_settings.cluster_p) & region_vol > 0;
+label = 2 * double(region_vol) - (rolled > 0);
+components = bwconncomp(is_sig, perm_settings.cluster_connectivity);
+n_labels = cellfun(@(voxels) numel(unique(label(voxels))), components.PixelIdxList);
+n_crossing = nnz(n_labels > 1);
+end
+
+function [n_pass, n_fail] = check_measures(map, observed_row, signed_rolled, ...
+    region_vol, n_regions, perm_settings, topvol_k, label, n_pass, n_fail)
+% The observed split's sum, quantile, top volume and heaviest cluster of every
+% region, both signs, against those written out by reference_measures.
+
+[reference_pos, reference_neg] = reference_measures(signed_rolled, region_vol, ...
+    n_regions, perm_settings, topvol_k);
+engine_pos = reshape(map.null_pos(observed_row, :, 2:5), n_regions, 4);
+engine_neg = reshape(map.null_neg(observed_row, :, 2:5), n_regions, 4);
+largest_error = max(relative_error([engine_pos; engine_neg], ...
+    [reference_pos; reference_neg]));
+[n_pass, n_fail] = check(largest_error < 1e-6, sprintf(['%s: the observed sum, ' ...
+    'quantile, top volume and heaviest cluster equal each region''s own, both ' ...
+    'signs (largest relative difference %.1g)'], label, largest_error), n_pass, ...
+    n_fail);
+end
+
+function err = relative_error(engine, reference)
+% The difference of two arrays relative to the reference (absolute below 1);
+% Inf where only one of them is NaN.
+
+err = abs(engine - reference) ./ max(1, abs(reference));
+err(isnan(engine) & isnan(reference)) = 0;
+err(isnan(engine) ~= isnan(reference)) = Inf;
+err = err(:);
 end
 
 function share = bars_share(rolled, region_vol, n_regions, p_thresh)

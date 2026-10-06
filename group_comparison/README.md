@@ -99,7 +99,16 @@ outlines (`lr_atlas_boundaries`) sit beside them. Shared: `../common/`
   |score| over the regions reaches it. The splits relabel each mouse's folded
   map after the alignment of the two groups: the groups were normalised on
   scales of their own (step 2), and refitting the alignment line between mixed
-  groups would put two scales into each group.
+  groups would put two scales into each group. The sum of the measures is
+  taken on the signed median, one sign at a time, so it is not the table's
+  `surprise_sum` (the unsigned median, both signs together), which stays
+  beside it for reference. A corrected p compares a region's score with the
+  largest score of any region under relabelling, and the measures differ in
+  which regions give that largest score: for the sum, the top volume and the
+  cluster, the ten largest regions (HPF, CP, MBmot, HY, MOs, PIR, MOp, SSs,
+  VISp, SSp-bfd) give 54 to 98% of the splits' maxima in both comparisons;
+  for the share and the 99th percentile, 1 to 16%, the rest coming from the
+  small regions, whose share and percentile vary most.
 
 - The headline of the approved comparison is a small increase of the
   nanobody signal in S1 after RWS, in the hemisphere-sum t map of the slab
