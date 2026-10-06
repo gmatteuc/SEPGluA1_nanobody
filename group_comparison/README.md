@@ -12,7 +12,7 @@ with more animals ([`../docs/ADDING_DATA.md`](../docs/ADDING_DATA.md), step 5).
 |---|---|---|
 | 1 | `run_collect_by_group` | stack the registered nano volumes of a group's mice into one 4D array (AP x DV x ML x mouse), in cohort-table order |
 | 2 | `run_normalise_groups` | per mouse and plane, a background mask; each mouse fitted onto the group's median cortex with a robust line, then applied to the whole volume |
-| 3 | `run_group_differences` | each mouse folded onto the left hemisphere (L - R and L + R; the group means take \|L - R\|); the experimental group aligned onto the control group's profile; tissue smoothed in 3D, each mouse NaN outside its tissue; group means, Welch t and surprise (-log10 p) maps over the mice with tissue at each voxel, a t only where each group has at least `min_mice_per_group` of them (3), slab figures, regional bars, videos |
+| 3 | `run_group_differences` | each mouse folded onto the left hemisphere (L - R and L + R; the group means take \|L - R\|); the experimental group aligned onto the control group's profile; tissue smoothed in 3D, each mouse NaN outside its tissue; group means, Welch t and surprise (-log10 p) maps over the mice with tissue at each voxel, a t only where each group has at least `min_mice_per_group` of them (3), slab figures, regional bars, five region measures with an exact label permutation test, videos |
 
 The comparison as it was approved (5 December 2025) runs:
 
@@ -50,7 +50,14 @@ P20 stack and its background masks, which sheet 08 of
   its atlas division, its voxels in the left hemisphere, the regions of the
   list taken out of it, and for L - R and L + R its voxels with a t, those at
   p < 0.01, their fraction, which is the bar, and their summed surprise, the
-  bar before 4 October 2026).
+  bar before 4 October 2026). Since 6 October 2026 also
+  `Region_Surprise_Bar_<bar_measure>_<comp>` (the bars of the measure chosen,
+  shaded by their corrected permutation p), `Region_Measures_<comp>` (each
+  region's rank and corrected p under the five measures), the measures'
+  columns of the table (per map and measure the score with its sign, p and
+  corrected p; the heaviest cluster's voxels and peak; the top volume's
+  voxels) and `Region_Permutation_Null_<comp>.mat` (every split's scores). With
+  `n_permutations` a number, these four carry `_perm<n>` in their names.
 
 The approved outputs are in `<data>\comparisons\naive_vs_rws\` and
 `naive_vs_behavior\`, named before the channel joined the comparison tag.
@@ -72,6 +79,27 @@ outlines (`lr_atlas_boundaries`) sit beside them. Shared: `../common/`
 `../atlas/` (`get_atlas_crop`, `get_allen_region_mask`).
 
 ## Notes
+
+- The region measures (since 6 October 2026, `region_permutation_test`).
+  The share of significant voxels, the bar since 4 October, dilutes a focal
+  bump inside a large region (the RWS bump inside SSp-bfd), and the summed
+  surprise grows with the region's size. Each region is therefore scored five
+  ways on the same rolling median, here of the surprise signed by the group
+  difference, positive and negative effects apart, the larger with its sign:
+  the share; the summed surprise at p < 0.01; the 99th percentile; the mean of
+  its most surprising voxels over 0.1 mm^3 (`topvol`, 100,000 voxels of 10 um,
+  all of them in a smaller region); and the mass of its heaviest cluster at
+  p < 0.01 (18-connected, within the region's own voxels). Each score is
+  tested by relabelling the mice: every split of the pooled mice into groups
+  of the original sizes (252 for 5 against 5, 126 for 5 against 4), each with
+  the t, the three-mice rule, the surprise and the rolling median computed
+  again; a region's p is the share of splits reaching its |score|, the
+  observed one included (so at least 1/126, and 2/252 for equal groups, whose
+  splits come in mirror pairs), and its corrected p the share whose largest
+  |score| over the regions reaches it. The splits relabel each mouse's folded
+  map after the alignment of the two groups: the groups were normalised on
+  scales of their own (step 2), and refitting the alignment line between mixed
+  groups would put two scales into each group.
 
 - The headline of the approved comparison is a small increase of the
   nanobody signal in S1 after RWS, in the hemisphere-sum t map of the slab

@@ -231,6 +231,12 @@ Run twice, with only `exp_type` changed.
 | `apply_smoothing` | `true` | `true` | |
 | `smooth_sigma` | `5.0` | `5.0` | voxels, 3D Gaussian over each mouse's tissue; the old code set the voxels outside the tissue to 0 after it. Since fix 23 of step 8 the Gaussian is normalised by the smoothed tissue mask and the voxels outside the tissue stay NaN, left out of every mean, SEM and t |
 | `min_mice_per_group` (new, 4 Oct 2026) | `3` | none: every mouse counted at every voxel (2, fixed in the code, from fix 23 of step 8) | the fewest mice with a value a voxel needs in each group to get a t and a surprise. With 2, voxels at tissue edges gave \|t\| up to 73 (naive against rws); Giulio's decision of 4 Oct 2026 |
+| `bar_measure` (new, 6 Oct 2026) | `'cluster'` | none: the bars were the summed surprise, then (4 Oct) the share | the measure the region bars draw; all five (`share`, `sum`, `q99`, `topvol`, `cluster`) are in the table and the comparison figure whatever the choice |
+| `n_permutations` (new, 6 Oct 2026) | `'all'` | none | splits of the pooled mice for the region permutation test: all of them (252 for 5 against 5, 126 for 5 against 4), or a number for a random subset with seed 0 |
+| `cluster_p`, `cluster_connectivity` (new, 6 Oct 2026) | `0.01`, `18` | none | a voxel joins a cluster from p < 0.01 of the rolling median; voxels touch by a face or an edge |
+| `topvol_mm3` (new, 6 Oct 2026) | `0.1` | none | the volume over which the top-volume measure averages a region's most surprising voxels (100,000 voxels of 10 um) |
+| `region_quantile` (new, 6 Oct 2026) | `0.99` | none | the quantile measure |
+| `permutation_workers` (new, 6 Oct 2026) | `16` | none | thread workers of the permutation test; changes the time, not the result |
 | `channel` | `'nano'` | `'nano'` | |
 
 Fixed in code, unchanged:

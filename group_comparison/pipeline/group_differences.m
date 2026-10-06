@@ -7,9 +7,14 @@ function group_differences(run_settings)
 %   (run_normalise_groups) from the two groups' folders, and writes into
 %   comp_out_dir, each as .fig and .png: Normalization_Profiles_LR_<comp_tag>
 %   (the profile alignment), Slab_Avg_565_<comp_tag>_surpmask and
-%   Indiv_Slab_Avg_565_<group> (the slab figures), and
-%   Region_Surprise_Bar_DiffSum_<comp_tag> (the regional surprise bars), with
-%   their values in Region_Surprise_DiffSum_<comp_tag>.csv; then the videos
+%   Indiv_Slab_Avg_565_<group> (the slab figures),
+%   Region_Surprise_Bar_DiffSum_<comp_tag> (the regional surprise bars, the
+%   share), Region_Surprise_Bar_<bar_measure>_<comp_tag> (the bars of the
+%   measure chosen, shaded by their corrected permutation p) and
+%   Region_Measures_<comp_tag> (every region's rank and corrected p under each
+%   measure), with the values in Region_Surprise_DiffSum_<comp_tag>.csv and the
+%   permutation null in Region_Permutation_Null_<comp_tag>.mat (the last four
+%   named with _perm<n> when n_permutations is a number); then the videos
 %   switched on, and the region analyses if switched on.
 %
 %   The volumes are on the adults' CCF crop (planes 180 to 1079 of the 10 um
@@ -33,7 +38,13 @@ function group_differences(run_settings)
 %   voxels with a t, and give for each region of the list (the atlas's
 %   isocortical areas and a declared set of subcortical regions, each without
 %   the regions of the list inside it) the fraction of its voxels with a t that
-%   is at p < 0.01.
+%   is at p < 0.01. Each region is also scored by four measures of the same
+%   median, taken with the sign of the difference, positive and negative
+%   effects apart: the summed surprise at p < 0.01, a quantile, the mean of its
+%   most surprising voxels over a fixed volume, and the mass of its heaviest
+%   cluster; each score, the share included, gets the p of an exact label
+%   permutation, uncorrected and corrected over the regions
+%   (region_permutation_test, which says how).
 
 % settings of run_group_differences, under the names the code below uses
 paths = run_settings.paths;
@@ -58,12 +69,46 @@ comp_tag = run_settings.comp_tag;
 ctrl_dir = run_settings.ctrl_dir;
 exp_dir = run_settings.exp_dir;
 comp_out_dir = run_settings.comp_out_dir;
+bar_measure = run_settings.bar_measure;
+n_permutations = run_settings.n_permutations;
+cluster_p = run_settings.cluster_p;
+cluster_connectivity = run_settings.cluster_connectivity;
+topvol_mm3 = run_settings.topvol_mm3;
+region_quantile = run_settings.region_quantile;
+permutation_workers = run_settings.permutation_workers;
 
 % an SEM needs two mice
 if min_mice_per_group < 2
     error(['run_group_differences: min_mice_per_group is %d, but an SEM needs at ' ...
            'least 2 mice per group. Set it to 2 or more.'], min_mice_per_group);
 end
+
+% the bars' measure, checked now rather than after hours of maps and videos
+measure_names = {'share', 'sum', sprintf('q%g', 100 * region_quantile), 'topvol', ...
+    'cluster'};
+if ~ismember(bar_measure, measure_names)
+    error('run_group_differences: bar_measure is ''%s''; use one of %s.', bar_measure, ...
+        strjoin(measure_names, ', '));
+end
+is_all = ischar(n_permutations) && strcmp(n_permutations, 'all');
+is_count = isnumeric(n_permutations) && isscalar(n_permutations) && ...
+    n_permutations >= 1 && n_permutations == round(n_permutations);
+if ~is_all && ~is_count
+    error(['run_group_differences: n_permutations must be ''all'' or a whole number ' ...
+           'of splits, not %s.'], mat2str(n_permutations));
+end
+
+% the permutation test of the region scores, its own settings and the bars'
+% thresholds (in regional_surprise_bars); a random subset of splits with seed 0
+perm_settings = struct();
+perm_settings.min_mice_per_group = min_mice_per_group;
+perm_settings.cluster_p = cluster_p;
+perm_settings.cluster_connectivity = cluster_connectivity;
+perm_settings.topvol_mm3 = topvol_mm3;
+perm_settings.region_quantile = region_quantile;
+perm_settings.n_permutations = n_permutations;
+perm_settings.n_workers = permutation_workers;
+perm_settings.seed = 0;
 
 %% Atlas
 
@@ -253,10 +298,26 @@ end
 
 %% Regional surprise bars
 
+% the regions of the list (the isocortical areas of the atlas and a declared set
+% of subcortical regions, no voxel in two), and the region of each atlas voxel
+% of the left hemisphere
+[T_regions, valid_pixels, region_of_voxel] = surprise_regions(AllenCrop, allenDir);
+
+% every mouse's absolute L - R and L + R on the voxels where a split of the mice
+% can give a t, control mice first, for the permutation test; the folded maps
+% and those made from them are not used again, so they go first
+[stacks, geom] = permutation_stacks(lr_diff_ctrl, lr_diff_exp, lr_sum_ctrl, ...
+    lr_sum_exp, valid_pixels, region_of_voxel, height(T_regions), min_mice_per_group);
+clear lr_diff_ctrl lr_sum_ctrl lr_diff_exp lr_sum_exp mask_bg_ctrl mask_bg_exp ...
+    avg_lr_diff_ctrl avg_lr_sum_ctrl avg_lr_diff_exp avg_lr_sum_exp ...
+    avg_lr_diff_groupdiff avg_lr_sum_groupdiff t_lr_diff_groupdiff ...
+    t_lr_sum_groupdiff atlas_left
+
 % the fraction of each region's voxels with a t that is significant, for L - R
-% and L + R, over the regions of the list (the isocortical areas of the atlas and a
-% declared set of subcortical regions, no voxel in two)
-regional_surprise_bars(surp_diff, surp_sum, has_t, AllenCrop, allenDir, exp_type, ...
+% and L + R, as bars; the region measures with their permutation test, the bars
+% of bar_measure, the comparison of the measures, and the table
+regional_surprise_bars(surp_diff, surp_sum, has_t, T_regions, valid_pixels, ...
+    region_of_voxel, stacks, geom, n_ctrl, perm_settings, bar_measure, exp_type, ...
     comp_tag, comp_out_dir);
 
 end
@@ -2206,11 +2267,14 @@ write_lr_indiv_rolling_video( ...
 fprintf('Individual rolling videos generation complete.\n');
 end
 
-function regional_surprise_bars(surp_diff, surp_sum, has_t, AllenCrop, allenDir, ...
-    exp_type, comp_tag, comp_out_dir)
+function regional_surprise_bars(surp_diff, surp_sum, has_t, T_regions, valid_pixels, ...
+    region_of_voxel, stacks, geom, n_ctrl, perm_settings, bar_measure, exp_type, ...
+    comp_tag, comp_out_dir)
 % Bar charts of the fraction of each region's voxels with a t that is
 % significant, after a rolling median of the surprise over planes, for the
-% difference and the sum; the counts and the summed surprise in a table.
+% difference and the sum; the five region measures with their permutation test,
+% the bars of bar_measure and the comparison of the measures; the counts, the
+% summed surprise and the measures in a table, the null in a .mat file.
 
 fprintf('Starting Regional Surprise Analysis (Rolling Median - Diff & Sum)...\n');
 
@@ -2218,12 +2282,400 @@ fprintf('Starting Regional Surprise Analysis (Rolling Median - Diff & Sum)...\n'
 slab_range = 10;
 p_thresh_agg = 0.01;
 
-% the regions, and the region of each atlas voxel of the left hemisphere
-[T_regions, valid_pixels, region_of_voxel] = surprise_regions(AllenCrop, allenDir);
+% the bars of the difference and the sum, as one figure, their columns of the
+% table, and the median at the candidate voxels of the permutation test
+[T_regions, rolled_candidates] = plot_regional_surprise(surp_diff, surp_sum, has_t, ...
+    T_regions, valid_pixels, region_of_voxel, slab_range, p_thresh_agg, exp_type, ...
+    comp_tag, comp_out_dir, geom.cand_lin);
 
-% the bars of the difference and the sum, as one figure, and the table
-plot_regional_surprise(surp_diff, surp_sum, has_t, T_regions, valid_pixels, ...
-    region_of_voxel, slab_range, p_thresh_agg, exp_type, comp_tag, comp_out_dir);
+% every region measure for every split of the mice, with the bars' median and
+% threshold
+fprintf('Permutation test of the region measures...\n');
+perm_settings.slab_range = slab_range;
+perm_settings.p_thresh = p_thresh_agg;
+perm = region_permutation_test(stacks, n_ctrl, geom, perm_settings);
+
+% the observed split must give the bars: the same median, the same share
+check_against_bars(perm, rolled_candidates, T_regions);
+
+% a random subset of splits names its outputs, so they never replace the exact ones
+file_tag = comp_tag;
+if isnumeric(perm_settings.n_permutations)
+    file_tag = sprintf('%s_perm%d', comp_tag, size(perm.splits.in_ctrl, 1));
+end
+
+% the measures' columns of the table, and the table, every region in the list's order
+T_regions = permutation_columns(T_regions, perm);
+table_file = fullfile(comp_out_dir, ['Region_Surprise_DiffSum_' file_tag '.csv']);
+writetable(T_regions, table_file);
+
+% the null of every split, without the observed median (a value per voxel)
+for m = 1:numel(perm.maps)
+    perm.maps{m}.detail.rolled_unsigned = [];
+end
+perm.regions = T_regions.acronym;
+perm.map_names = {'lr_diff', 'lr_sum'};
+save(fullfile(comp_out_dir, ['Region_Permutation_Null_' file_tag '.mat']), 'perm');
+
+% the bars of bar_measure, and every measure's ranks and corrected p
+plot_measure_bars(perm, T_regions, bar_measure, exp_type, file_tag, comp_out_dir);
+plot_measure_comparison(perm, T_regions, bar_measure, exp_type, file_tag, ...
+    comp_out_dir);
+fprintf('Region measures and their permutation test saved to: %s\n', comp_out_dir);
+end
+
+function [stacks, geom] = permutation_stacks(lr_diff_ctrl, lr_diff_exp, lr_sum_ctrl, ...
+    lr_sum_exp, valid_pixels, region_of_voxel, n_regions, min_mice_per_group)
+% Every mouse's absolute L - R and L + R (the values the group means and SEMs
+% take) on the candidate voxels, n_cand x mice in single, control mice first,
+% and the candidates' geometry for region_permutation_test.
+
+% the candidates: atlas voxels of the left hemisphere where at least twice
+% min_mice_per_group mice have a value, the fewest with which some split gives a
+% t (the sum has the same missing voxels as the difference)
+n_with_value = zeros(size(valid_pixels), 'uint8');
+for i = 1:size(lr_diff_ctrl, 4)
+    n_with_value = n_with_value + uint8(~isnan(lr_diff_ctrl(:, :, :, i)));
+end
+for i = 1:size(lr_diff_exp, 4)
+    n_with_value = n_with_value + uint8(~isnan(lr_diff_exp(:, :, :, i)));
+end
+candidates = valid_pixels & n_with_value >= 2 * min_mice_per_group;
+clear n_with_value
+
+% their region, through the left hemisphere's voxels
+region_vol = zeros(size(valid_pixels), 'like', region_of_voxel);
+region_vol(valid_pixels) = region_of_voxel;
+
+% the candidates, with the grid of the folded maps: the 10 um voxels of the
+% registered volumes (get_atlas_crop)
+geom = struct();
+geom.grid_size = size(valid_pixels);
+geom.cand_lin = uint32(find(candidates));
+geom.cand_region = region_vol(candidates);
+geom.n_regions = n_regions;
+geom.voxel_mm = 0.01;
+clear region_vol candidates
+
+% each map's values, mouse by mouse, by linear index into the 4D maps
+n_cand = numel(geom.cand_lin);
+n_voxels = prod(geom.grid_size);
+maps = {{lr_diff_ctrl, lr_diff_exp}, {lr_sum_ctrl, lr_sum_exp}};
+stacks = cell(1, 2);
+for m = 1:2
+    n_mice = size(maps{m}{1}, 4) + size(maps{m}{2}, 4);
+    stacks{m} = zeros(n_cand, n_mice, 'single');
+    column = 0;
+    for g = 1:2
+        for i = 1:size(maps{m}{g}, 4)
+            column = column + 1;
+            values = maps{m}{g}(double(geom.cand_lin) + (i - 1) * n_voxels);
+            stacks{m}(:, column) = single(abs(values));
+        end
+    end
+end
+fprintf('  %d candidate voxels; stacks of %d mice, %.1f GB for the two maps.\n', ...
+    n_cand, size(stacks{1}, 2), 2 * n_cand * size(stacks{1}, 2) * 4 / 1e9);
+end
+
+function check_against_bars(perm, rolled_candidates, T_regions)
+% The observed split of the permutation test against the bars: the same rolling
+% median at every candidate voxel, the same share in every region; a warning
+% where they differ.
+
+columns = {'lr_diff_fraction_significant', 'lr_sum_fraction_significant'};
+map_labels = {'L - R', 'L + R'};
+for m = 1:numel(perm.maps)
+    rolled_perm = perm.maps{m}.detail.rolled_unsigned;
+    share_perm = perm.maps{m}.score(:, strcmp(perm.measure_names, 'share'));
+    same_median = isequaln(rolled_perm, rolled_candidates{m});
+    same_share = isequaln(share_perm, T_regions.(columns{m}));
+    if same_median && same_share
+        fprintf(['  %s: the observed split gives the bars'' median on all %d ' ...
+                 'candidate voxels and their share in all %d regions.\n'], ...
+                map_labels{m}, numel(rolled_perm), height(T_regions));
+    else
+        n_differ = nnz(~(rolled_perm == rolled_candidates{m} | ...
+            (isnan(rolled_perm) & isnan(rolled_candidates{m}))));
+        warning(['run_group_differences: %s: the permutation test''s observed ' ...
+                 'split differs from the bars at %d voxels and in %d regions'' share.'], ...
+                map_labels{m}, n_differ, ...
+                nnz(~(share_perm == T_regions.(columns{m}) | isnan(share_perm))));
+    end
+end
+end
+
+function T_regions = permutation_columns(T_regions, perm)
+% The table's columns of the region measures, per map: for the share its p and
+% corrected p; for the other four the score (the larger of the positive and the
+% negative effect, with its sign), the sign, the p and the corrected p; the
+% voxels and signed peak of the heaviest cluster of the score's sign; the voxels
+% each top volume averaged, and whether the region had fewer than the top volume.
+
+prefixes = {'lr_diff_', 'lr_sum_'};
+for m = 1:numel(perm.maps)
+    map = perm.maps{m};
+    for k = 1:numel(perm.measure_names)
+        name = [prefixes{m} perm.measure_names{k}];
+        if ~strcmp(perm.measure_names{k}, 'share')
+            T_regions.([name '_score']) = map.score(:, k);
+            T_regions.([name '_sign']) = map.sign(:, k);
+        end
+        T_regions.([name '_p_perm']) = map.p_perm(:, k);
+        T_regions.([name '_p_perm_fwer']) = map.p_fwer(:, k);
+    end
+
+    % the heaviest cluster of the sign of the cluster score (the positive one for
+    % a zero score, which has no voxel)
+    is_negative = map.sign(:, strcmp(perm.measure_names, 'cluster')) < 0;
+    cluster_n = map.detail.cluster_n(:, 1);
+    cluster_n(is_negative) = map.detail.cluster_n(is_negative, 2);
+    cluster_peak = map.detail.cluster_peak(:, 1);
+    cluster_peak(is_negative) = map.detail.cluster_peak(is_negative, 2);
+    T_regions.([prefixes{m} 'cluster_n']) = cluster_n;
+    T_regions.([prefixes{m} 'cluster_peak']) = cluster_peak;
+
+    % the top volume's voxels, fewer than perm.topvol_k in a small region
+    T_regions.([prefixes{m} 'topvol_n_voxels']) = map.detail.topvol_n;
+    T_regions.([prefixes{m} 'topvol_below_k']) = map.detail.topvol_n < perm.topvol_k & ...
+        map.detail.n_with_t > 0;
+end
+end
+
+function plot_measure_bars(perm, T_regions, bar_measure, exp_type, file_tag, ...
+    comp_out_dir)
+% The bars of one region measure, L - R and L + R side by side: the regions with
+% a score other than zero, the largest |score| at the top, signed (experimental
+% higher to the right), grey by the corrected permutation p, darker for a
+% smaller p, starred below 0.05.
+
+k = find(strcmp(perm.measure_names, bar_measure));
+n_splits = size(perm.splits.in_ctrl, 1);
+map_titles = {'L - R', 'L + R'};
+
+fig_bars = figure('Visible', 'off', 'Name', ...
+    ['Region_Surprise_Bar_' bar_measure '_' file_tag], 'Color', 'w', ...
+    'Units', 'Normalized', 'Position', [0 0 0.9 0.9]);
+for m = 1:numel(perm.maps)
+    score = perm.maps{m}.score(:, k);
+    p_fwer = perm.maps{m}.p_fwer(:, k);
+
+    % the regions with a score, the largest |score| last, which barh draws at the top
+    drawn = find(~isnan(score) & score ~= 0);
+    [~, order] = sort(abs(score(drawn)), 'ascend');
+    drawn = drawn(order);
+
+    % the bars, the label of the measure, and the regions expected to change in
+    % bold magenta
+    subplot(1, 2, m);
+    draw_measure_bars(score(drawn), p_fwer(drawn), T_regions.label(drawn), n_splits);
+    xlabel(measure_label(bar_measure, perm));
+    title(sprintf('%s: %d of %d regions with a score', map_titles{m}, numel(drawn), ...
+        height(T_regions)));
+    highlight_surprise_regions(exp_type);
+end
+sgtitle(sprintf(['Region %s, shaded by the corrected p of %d label permutations ' ...
+    '(* p < 0.05) - %s'], bar_measure, n_splits, strrep(file_tag, '_', ' ')), ...
+    'FontSize', 14, 'FontWeight', 'bold');
+
+% save it
+saveas(fig_bars, fullfile(comp_out_dir, ...
+    ['Region_Surprise_Bar_' bar_measure '_' file_tag '.fig']));
+exportgraphics(fig_bars, fullfile(comp_out_dir, ...
+    ['Region_Surprise_Bar_' bar_measure '_' file_tag '.png']), 'Resolution', 300);
+end
+
+function draw_measure_bars(values, p_fwer, labels, n_splits)
+% One panel of signed bars, grey by their corrected p, starred below 0.05, with
+% the colour bar of the p.
+
+c_map = sep_palette('bars');
+if isempty(values)
+    text(0.5, 0.5, 'no region with a score', 'HorizontalAlignment', 'center');
+    axis off;
+    return
+end
+
+% the bars, each grey by its corrected p
+b = barh(values, 'FaceColor', 'flat', 'EdgeColor', 'none');
+b.CData = c_map(p_shade_index(p_fwer, n_splits, size(c_map, 1)), :);
+
+% a star at the end of each bar at p < 0.05, outside the bar
+hold on;
+for i = find(p_fwer(:)' < 0.05)
+    if values(i) > 0
+        text(values(i), i, ' *', 'HorizontalAlignment', 'left', 'FontSize', 12);
+    else
+        text(values(i), i, '* ', 'HorizontalAlignment', 'right', 'FontSize', 12);
+    end
+end
+
+% the region names as tick labels, in the bars' order
+yticks(1:numel(labels));
+yticklabels(labels);
+ylim([0 numel(labels) + 1]);
+grid on;
+set(gca, 'FontSize', 10);
+
+% the colour bar of the corrected p
+add_p_colorbar(c_map, n_splits);
+end
+
+function plot_measure_comparison(perm, T_regions, bar_measure, exp_type, file_tag, ...
+    comp_out_dir)
+% Every measure's ranks and corrected p, L - R and L + R side by side: the
+% regions in the first n_top of at least one measure, in the order of
+% bar_measure's ranks, one cell per measure holding the region's rank (by
+% |score|), shaded by its corrected p and starred below 0.05; '-' for no score.
+
+% the regions shown: those ranked in the first 10 by at least one measure
+n_top = 10;
+n_splits = size(perm.splits.in_ctrl, 1);
+map_titles = {'L - R', 'L + R'};
+expected = expected_regions(exp_type);
+
+fig_cmp = figure('Visible', 'off', 'Name', ['Region_Measures_' file_tag], ...
+    'Color', 'w', 'Units', 'Normalized', 'Position', [0 0 0.9 0.9]);
+for m = 1:numel(perm.maps)
+
+    % each measure's ranks, and the regions shown, in bar_measure's order (those
+    % it does not rank last)
+    ranks = nan(size(perm.maps{m}.score));
+    for k = 1:numel(perm.measure_names)
+        ranks(:, k) = measure_ranks(perm.maps{m}.score(:, k));
+    end
+    shown = find(any(ranks <= n_top, 2));
+    order_key = ranks(shown, strcmp(perm.measure_names, bar_measure));
+    order_key(isnan(order_key)) = Inf;
+    [~, order] = sort(order_key);
+    shown = shown(order);
+    subplot(1, 2, m);
+    if isempty(shown)
+        text(0.5, 0.5, 'no region with a score', 'HorizontalAlignment', 'center');
+        axis off;
+        continue
+    end
+
+    % the table of ranks, the measures as columns, the regions by acronym, those
+    % expected to change in bold magenta
+    draw_rank_table(ranks(shown, :), perm.maps{m}.p_fwer(shown, :), n_splits);
+    xticks(1:numel(perm.measure_names));
+    xticklabels(perm.measure_names);
+    row_labels = T_regions.acronym(shown);
+    for r = 1:numel(shown)
+        if ismember(T_regions.name{shown(r)}, expected)
+            row_labels{r} = ['\color{magenta}\bf ' row_labels{r}];
+        end
+    end
+    yticks(1:numel(shown));
+    yticklabels(row_labels);
+    set(gca, 'FontSize', 10, 'TickLength', [0 0]);
+    title(sprintf('%s: rank by |score| (cell), corrected p (shade)', map_titles{m}));
+end
+sgtitle(sprintf(['Region measures: the regions in the first %d of any, in the ' ...
+    'order of %s (* corrected p < 0.05, %d permutations) - %s'], n_top, bar_measure, ...
+    n_splits, strrep(file_tag, '_', ' ')), 'FontSize', 14, 'FontWeight', 'bold');
+
+% save it
+saveas(fig_cmp, fullfile(comp_out_dir, ['Region_Measures_' file_tag '.fig']));
+exportgraphics(fig_cmp, fullfile(comp_out_dir, ['Region_Measures_' file_tag '.png']), ...
+    'Resolution', 300);
+end
+
+function draw_rank_table(ranks, p_fwer, n_splits)
+% A table of ranks as an image: one cell per region and measure, white without a
+% score, else grey by its corrected p, holding the rank, starred below 0.05 and
+% written in white on the dark cells; with the colour bar of the p.
+
+c_map = sep_palette('bars');
+[n_rows, n_cols] = size(ranks);
+shade = p_shade_index(p_fwer, n_splits, size(c_map, 1));
+cells = ones(n_rows, n_cols, 3);
+for k = 1:n_cols
+    for r = 1:n_rows
+        if ~isnan(ranks(r, k))
+            cells(r, k, :) = c_map(shade(r, k), :);
+        end
+    end
+end
+image(cells);
+hold on;
+
+% each cell's rank
+for k = 1:n_cols
+    for r = 1:n_rows
+        if isnan(ranks(r, k))
+            cell_text = '-';
+        elseif p_fwer(r, k) < 0.05
+            cell_text = sprintf('%d*', ranks(r, k));
+        else
+            cell_text = sprintf('%d', ranks(r, k));
+        end
+        text_colour = [0 0 0];
+        if ~isnan(ranks(r, k)) && shade(r, k) > 0.55 * size(c_map, 1)
+            text_colour = [1 1 1];
+        end
+        text(k, r, cell_text, 'HorizontalAlignment', 'center', 'Color', text_colour, ...
+            'FontSize', 9);
+    end
+end
+add_p_colorbar(c_map, n_splits);
+end
+
+function ranks = measure_ranks(score)
+% Each region's rank by |score|, 1 for the largest; NaN for no score (zero or NaN).
+
+ranks = nan(size(score));
+has_score = find(~isnan(score) & score ~= 0);
+[~, order] = sort(abs(score(has_score)), 'descend');
+ranks(has_score(order)) = 1:numel(has_score);
+end
+
+function shade = p_shade_index(p, n_splits, n_levels)
+% The grey level of a corrected p: 1 (the lightest) at p = 1 to n_levels (black)
+% at the smallest p the splits allow, 1 / n_splits, on a log scale.
+
+darkness = log(p) / log(1 / n_splits);
+darkness(isnan(darkness)) = 0;
+darkness = min(max(darkness, 0), 1);
+shade = max(1, ceil(darkness * n_levels));
+end
+
+function add_p_colorbar(c_map, n_splits)
+% The colour bar of the corrected p, from 1 (light, at the bottom) to
+% 1 / n_splits (black, at the top).
+
+colormap(gca, c_map);
+clim([0 1]);
+cb = colorbar;
+
+% the ticks at these p, placed as p_shade_index shades them, from the bottom
+tick_p = [1, 0.5, 0.1, 0.05, 0.01, 1 / n_splits];
+tick_p = sort(unique(tick_p(tick_p >= 1 / n_splits)), 'descend');
+cb.Ticks = log(tick_p) / log(1 / n_splits);
+cb.TickLabels = arrayfun(@(p) sprintf('%.3g', p), tick_p, 'UniformOutput', false);
+cb.Label.String = 'corrected p';
+end
+
+function label = measure_label(measure, perm)
+% The axis label of a region measure.
+
+settings = perm.settings;
+switch measure
+    case 'share'
+        label = sprintf('fraction of the voxels with a t at p < %g', settings.p_thresh);
+    case 'sum'
+        label = sprintf('summed surprise (-log_{10} p) of the voxels at p < %g, signed', ...
+            settings.p_thresh);
+    case 'topvol'
+        label = sprintf('mean surprise of the top %g mm^3 (%d voxels), signed', ...
+            settings.topvol_mm3, perm.topvol_k);
+    case 'cluster'
+        label = sprintf(['mass (summed surprise) of the heaviest cluster at p < %g, ' ...
+                         'signed'], settings.cluster_p);
+    otherwise
+        label = sprintf('%g quantile of the surprise, signed', settings.region_quantile);
+end
 end
 
 function [T_regions, valid_pixels, region_of_voxel] = surprise_regions(AllenCrop, ...
@@ -2495,12 +2947,13 @@ if any(has_no_voxel)
 end
 end
 
-function plot_regional_surprise(surp_diff, surp_sum, has_t, T_regions, valid_pixels, ...
-    region_of_voxel, slab_range, p_thresh_agg, exp_type, comp_tag, comp_out_dir)
+function [T_regions, rolled_candidates] = plot_regional_surprise(surp_diff, surp_sum, ...
+    has_t, T_regions, valid_pixels, region_of_voxel, slab_range, p_thresh_agg, ...
+    exp_type, comp_tag, comp_out_dir, cand_lin)
 % The bar charts of the fraction of each region's voxels with a t that is at
-% p < p_thresh_agg, difference and sum side by side, and the table of the
-% regions with, for each, its voxels with a t, those significant, their
-% fraction and their summed surprise (Region_Surprise_DiffSum_<comp_tag>.csv).
+% p < p_thresh_agg, difference and sum side by side; the table of the regions
+% with, for each, its voxels with a t, those significant, their fraction and
+% their summed surprise; and each map's rolling median at the voxels cand_lin.
 
 fig_surp = figure('Visible', 'off', 'Name', ...
     ['Region_Surprise_BarChart_DiffSum_' comp_tag], 'Color', 'w', ...
@@ -2512,6 +2965,7 @@ surp_thresh_val = -log10(p_thresh_agg);
 % the difference, then the sum, and the prefix of their columns in the table
 modes = {'Diff', 'Sum'};
 column_prefixes = {'lr_diff_', 'lr_sum_'};
+rolled_candidates = cell(1, 2);
 
 for m_idx = 1:2
     mode_name = modes{m_idx};
@@ -2533,6 +2987,7 @@ for m_idx = 1:2
     % its median over +/- slab_range planes around each plane, over the voxels with
     % a t, kept on the voxels with a t
     vol_surp = rolling_surprise_median(raw_surp_vol, slab_range, has_t, mode_name);
+    rolled_candidates{m_idx} = vol_surp(cand_lin);
 
     % each region's voxels with a t, those significant, their fraction and their
     % summed surprise, into the table
@@ -2573,10 +3028,6 @@ saveas(fig_surp, ...
 exportgraphics(fig_surp, ...
     fullfile(comp_out_dir, ['Region_Surprise_Bar_DiffSum_' comp_tag '.png']), ...
     'Resolution', 300);
-
-% the table, every region in the list's order
-table_file = fullfile(comp_out_dir, ['Region_Surprise_DiffSum_' comp_tag '.csv']);
-writetable(T_regions, table_file);
 
 fprintf('Regional surprise analysis (Diff & Sum) saved to: %s\n', comp_out_dir);
 
@@ -2643,18 +3094,8 @@ end
 function highlight_surprise_regions(exp_type)
 % The tick labels of the regions expected to change, in bold magenta.
 
-% the regions expected to change, labelled in bold magenta: the whisker system,
-% as in the coarse bars, and the rostrolateral visual area
-switch exp_type
-    case {'rws', 'behavior'}
-        highlighted_areas = {'Primary somatosensory area, barrel field', ...
-            'Ventral posteromedial nucleus of the thalamus', ...
-            'Posterior complex of the thalamus', ...
-            'Supplemental somatosensory area', 'Zona incerta', ...
-            'Rostrolateral visual area'};
-    otherwise
-        highlighted_areas = {};
-end
+% the regions expected to change
+highlighted_areas = expected_regions(exp_type);
 
 % each tick label recoloured with TeX markup, underscores as spaces
 ax = gca;
@@ -2668,6 +3109,23 @@ for i = 1:length(ytl)
     end
 end
 ax.YTickLabel = colored_labels;
+end
+
+function names = expected_regions(exp_type)
+% The names of the regions expected to change, which the bars label in bold
+% magenta: the whisker system, as in the coarse bars, and the rostrolateral
+% visual area.
+
+switch exp_type
+    case {'rws', 'behavior'}
+        names = {'Primary somatosensory area, barrel field', ...
+            'Ventral posteromedial nucleus of the thalamus', ...
+            'Posterior complex of the thalamus', ...
+            'Supplemental somatosensory area', 'Zona incerta', ...
+            'Rostrolateral visual area'};
+    otherwise
+        names = {};
+end
 end
 
 function vol_surp = rolling_surprise_median(raw_surp_vol, slab_range, has_t, ...

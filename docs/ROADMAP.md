@@ -647,7 +647,13 @@ it convincing:
   hemispheric sum or difference is the right reading;
 - a correction beyond the voxelwise p < 0.01 (uncorrected, on 3D-smoothed
   maps, five mice per group): a cluster-level permutation, or a test of
-  declared structures (S1 barrel field, VPM, the posterior thalamic complex);
+  declared structures (S1 barrel field, VPM, the posterior thalamic complex).
+  Since 6 October `run_group_differences` scores each of the 71 regions five
+  ways (share, sum, 99th percentile, top 0.1 mm^3, heaviest cluster), each
+  with an exact label permutation, corrected over the regions
+  (`region_permutation_test`, [../group_comparison/README.md](../group_comparison/README.md));
+  which measure the bars keep is Giulio's choice, from the comparison figure
+  of both comparisons (`cluster` until then);
 - the comparison repeated in new animals;
 - what the naive-against-behaviour comparison shows, written down. The
   sources record only that it reproduced; with fix 23, which leaves out
@@ -660,7 +666,8 @@ Also open, from the measurements of decisions 1 and 2 (section 1):
 
 - a chance level for the share bars, by shuffling the group labels (Sami
   El-Boustani's point of April); every RWS L - R share is under 1%, and the
-  rolling median changes what chance would give;
+  rolling median changes what chance would give. The permutation test of
+  6 October gives it: each share's p and corrected p, in the table;
 - a faint negative band of the RWS hemisphere sum along the ventrolateral
   cortical edge (474 pixels, 324 within 100 um of the edge), already in the
   approved figure, with at least three mice per group everywhere;

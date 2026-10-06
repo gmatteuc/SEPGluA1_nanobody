@@ -17,15 +17,22 @@
 % folded: for every mouse |L - R| and L + R, then the group means, their
 % difference, and Welch t and surprise (-log10 p) maps of it, each voxel over
 % the mice with tissue on both sides of it, and a t only where each group has
-% at least min_mice_per_group of them. Saves, in
+% at least min_mice_per_group of them. Each region of the bars is scored by five
+% measures of its surprise (share, sum, quantile, top volume, heaviest cluster),
+% each with the p of an exact permutation of the group labels, uncorrected and
+% corrected over the regions. Saves, in
 % data\comparisons\<ctrl>_vs_<exp>_<channel>\, the profile alignment figure, the
 % slab figures around plane 565 (group t-maps masked by surprise, individual
 % mice), the regional surprise bars (the fraction of each region's voxels with a
-% t at p < 0.01) with their table, and the videos switched on below.
+% t at p < 0.01), the bars of bar_measure shaded by their corrected p, a figure
+% comparing the five measures, their table and the permutation null, and the
+% videos switched on below.
 %
 % Setup: naive against behavior (the four behavior mice), nano channel, smoothed
-% with sigma 5, every video on, the region analyses off. Run sep_setup_paths
-% first, once per MATLAB session; the code is in pipeline\group_differences.m.
+% with sigma 5, every video on, the region analyses off, the region bars by
+% cluster mass with all 126 splits of the mice. Run sep_setup_paths first, once
+% per MATLAB session; the code is in pipeline\group_differences.m and
+% pipeline\region_permutation_test.m.
 
 clear; clc; close all;
 
@@ -98,6 +105,38 @@ smooth_sigma = 5.0;
 % give |t| up to 73 in naive against rws
 min_mice_per_group = 3;
 
+% the measure of the region bars ('cluster', 'sum', 'q99', 'topvol' or 'share'):
+% the mass of each region's heaviest cluster, Giulio's first choice, since a
+% focal bump inside a large region (the RWS bump inside SSp-bfd) keeps its
+% weight, where the share dilutes it and the sum grows with the region's size;
+% all five are in the table and the comparison figure whatever the choice
+bar_measure = 'cluster';
+
+% splits of the pooled mice for the permutation test: 'all' (exact, 252 for 5
+% against 5, 126 for 5 against 4), or a number, for a random subset with a fixed
+% seed (the observed split always in it), to try the run quickly
+n_permutations = 'all';
+
+% a voxel joins a cluster from p < cluster_p, the threshold of the bars
+cluster_p = 0.01;
+
+% the voxels of a cluster touch by a face or an edge (18); 26 would also join
+% voxels touching only at a corner, 6 only those sharing a face
+cluster_connectivity = 18;
+
+% the top volume, in mm^3: a region's score is the mean surprise of its most
+% surprising voxels over this volume (0.1 mm^3, 100,000 voxels of 10 um)
+topvol_mm3 = 0.1;
+
+% the quantile of a region's surprise over its voxels with a t: 0.99 scores the
+% most surprising 1% of the region
+region_quantile = 0.99;
+
+% thread workers of the permutation test, one core each: they share the stacks
+% (12 GB for 10 mice) and each needs about 2 GB of its own; 16, half the
+% machine's 32 cores, put the 126 splits of 5 against 5 at about half an hour
+permutation_workers = 16;
+
 % channel to compare ('nano', surface GluA1, or 'auto', the autofluorescence
 % control): loads <channel>_4d_normalized.mat from each cohort folder
 channel = 'nano';
@@ -136,6 +175,13 @@ run_settings.perform_area_based_analysis_coarse = perform_area_based_analysis_co
 run_settings.apply_smoothing = apply_smoothing;
 run_settings.smooth_sigma = smooth_sigma;
 run_settings.min_mice_per_group = min_mice_per_group;
+run_settings.bar_measure = bar_measure;
+run_settings.n_permutations = n_permutations;
+run_settings.cluster_p = cluster_p;
+run_settings.cluster_connectivity = cluster_connectivity;
+run_settings.topvol_mm3 = topvol_mm3;
+run_settings.region_quantile = region_quantile;
+run_settings.permutation_workers = permutation_workers;
 run_settings.channel = channel;
 run_settings.comp_tag = comp_tag;
 run_settings.ctrl_dir = ctrl_dir;
