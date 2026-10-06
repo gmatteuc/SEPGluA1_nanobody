@@ -1,27 +1,32 @@
 # Tests
 
 Checks of the shared definitions that every pipeline relies on, where a
-mistake would be silent: the MATLAB path and the cohort table. Each runs in a
-fresh MATLAB session, from the code root:
+mistake would be silent: the MATLAB path and the cohort table; and a
+known-answer check of the plasticity comparison's permutation test, on
+synthetic data. Each runs in a fresh MATLAB session, from the code root:
 
 ```matlab
 restoredefaultpath; cd('D:\sep_histology\code'); sep_setup_paths
 run(fullfile('tests', 'sep_test_path.m'))
 run(fullfile('tests', 'test_backward_compat.m'))
+run(fullfile('tests', 'test_region_permutation.m'))
 ```
 
 `sep_setup_paths` does not put `tests\` on the path, so each test is run by
-its file. Both print what they check and stop with an error when a check
+its file. Each prints what it checks and stops with an error when a check
 fails.
 
 | file | what it checks | data |
 |---|---|---|
 | `sep_test_path` | no function name is defined twice on the project path (compared without case, vendored code included, the known vendored duplicates listed), none shadows or is shadowed by a MATLAB or toolbox function, and, when `D:\dendrites\code` is there, none is also defined by the imaging repository, which runs in the same MATLAB | none |
 | `test_backward_compat` | the cohort table lists the 17 adults in their fixed order and groups, positions 1 to 17 are still those adults, their folders exist; `get_atlas('ccf')` and `get_paths` give the folders and files the drivers used; the young cohort `get_cohort` returns is the young rows of `common\cohort.csv`, in their order (read from the table, so the test needs no change when a brain is added); each young brain's age matches the age in its name; each young brain's `share_subdir` holds its `.czi` files (skipped when the share is not reachable; the share is only read) | the data root of `get_paths`, the lab share |
+| `test_region_permutation` | the permutation test of the plasticity comparison's region measures (`region_permutation_test`) on synthetic stacks of 5 against 5 mice: all 252 splits enumerated with the observed one among them; the observed split gives the bars' rolling median and share to the bit (the arithmetic of `group_differences`, written out in the test); a split's mirror image equals its own scores with the signs swapped; a strong 400-voxel bump inside a large region and a shift over a small one: cluster and top volume put the large region first at a corrected p < 0.05 (the share and the 99th percentile put the small one first); pure noise under six seeds: no measure reaches a corrected p < 0.05 in more than 3 of 12 maps. Opens a pool of 4 thread workers, about a minute | none |
 
-Run `sep_test_path` after adding, moving or renaming a function, and
+Run `sep_test_path` after adding, moving or renaming a function,
 `test_backward_compat` after any change to the cohort table, `get_cohort`,
-`get_atlas` or `get_paths`.
+`get_atlas` or `get_paths`, and `test_region_permutation` after any change to
+`region_permutation_test` or to the t, the surprise or the rolling median of
+`group_differences`.
 
 Other checks live with their code:
 
