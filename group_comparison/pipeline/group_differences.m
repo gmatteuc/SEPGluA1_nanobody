@@ -2496,9 +2496,12 @@ if isempty(values)
     return
 end
 
-% the bars, each grey by its corrected p
+% the bars, each grey by its corrected p, the values written out on the axis (a
+% common exponent would sit on the axis label)
 b = barh(values, 'FaceColor', 'flat', 'EdgeColor', 'none');
 b.CData = c_map(p_shade_index(p_fwer, n_splits, size(c_map, 1)), :);
+ax = gca;
+ax.XAxis.Exponent = 0;
 
 % a star at the end of each bar at p < 0.05, outside the bar
 hold on;

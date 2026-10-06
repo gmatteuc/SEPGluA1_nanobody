@@ -133,8 +133,9 @@ topvol_mm3 = 0.1;
 region_quantile = 0.99;
 
 % thread workers of the permutation test, one core each: they share the stacks
-% (12 GB for 10 mice) and each needs about 2 GB of its own; 16, half the
-% machine's 32 cores, put the 126 splits of 5 against 5 at about half an hour
+% (12 GB for 10 mice) and each needs about 2 GB of its own; with 16, half the
+% machine's 32 cores, the 126 splits of 5 against 5 take about 35 min (8 workers
+% take about 40: the splits share the memory bandwidth)
 permutation_workers = 16;
 
 % channel to compare ('nano', surface GluA1, or 'auto', the autofluorescence
