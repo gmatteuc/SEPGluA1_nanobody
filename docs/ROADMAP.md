@@ -648,12 +648,20 @@ it convincing:
 - a correction beyond the voxelwise p < 0.01 (uncorrected, on 3D-smoothed
   maps, five mice per group): a cluster-level permutation, or a test of
   declared structures (S1 barrel field, VPM, the posterior thalamic complex).
-  Since 6 October `run_group_differences` scores each of the 71 regions five
-  ways (share, sum, 99th percentile, top 0.1 mm^3, heaviest cluster), each
-  with an exact label permutation, corrected over the regions
-  (`region_permutation_test`, [../group_comparison/README.md](../group_comparison/README.md));
-  which measure the bars keep is Giulio's choice, from the comparison figure
-  of both comparisons (`cluster` until then);
+  Done on 6 and 7 October: `run_group_differences` scores each of the 71
+  regions five ways (share, sum, 99th percentile, top 0.1 mm^3, heaviest
+  cluster), each with an exact label permutation, uncorrected and corrected
+  over the regions (`region_permutation_test`,
+  [../group_comparison/README.md](../group_comparison/README.md)); Giulio
+  chose the heaviest cluster's mass for the bars (7 October), and the barrel
+  field as the one structure named in advance (`a_priori_regions`), whose
+  uncorrected p is its test. On the December 2025 inputs it is first by
+  cluster mass in RWS L - R, p 0.032 uncorrected and 0.635 corrected (L + R
+  0.048 and 0.683); after behaviour, L + R 0.0079 and 0.016. So the RWS
+  increase holds as a test of the barrel field alone, not as a search over
+  all regions; more animals, the first point above, would settle it. The
+  share's p is the chance level of the share bars asked for in April (Sami
+  El-Boustani);
 - the comparison repeated in new animals;
 - what the naive-against-behaviour comparison shows, written down. The
   sources record only that it reproduced; with fix 23, which leaves out
@@ -664,10 +672,6 @@ it convincing:
 
 Also open, from the measurements of decisions 1 and 2 (section 1):
 
-- a chance level for the share bars, by shuffling the group labels (Sami
-  El-Boustani's point of April); every RWS L - R share is under 1%, and the
-  rolling median changes what chance would give. The permutation test of
-  6 October gives it: each share's p and corrected p, in the table;
 - a faint negative band of the RWS hemisphere sum along the ventrolateral
   cortical edge (474 pixels, 324 within 100 um of the edge), already in the
   approved figure, with at least three mice per group everywhere;

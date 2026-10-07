@@ -107,7 +107,7 @@ smooth_sigma = 5.0;
 min_mice_per_group = 3;
 
 % the measure of the region bars ('cluster', 'sum', 'q99', 'topvol' or 'share'):
-% the mass of each region's heaviest cluster, Giulio's first choice, since a
+% the mass of each region's heaviest cluster, Giulio's choice of 7 Oct 2026, since a
 % focal bump inside a large region (the RWS bump inside SSp-bfd) keeps its
 % weight, where the share dilutes it and the sum grows with the region's size;
 % all five are in the table and the comparison figure whatever the choice
@@ -115,7 +115,7 @@ bar_measure = 'cluster';
 
 % regions named in advance, by atlas acronym, tested by their uncorrected p: the
 % barrel field, since RWS stimulates the whiskers and the behavior task uses one
-% whisker; the bars write its uncorrected p beside it, the table marks it
+% whisker; the bars write its uncorrected p in bold beside it, the table marks it
 a_priori_regions = {'SSp-bfd'};
 
 % splits of the pooled mice for the permutation test: 'all' (exact, 252 for 5

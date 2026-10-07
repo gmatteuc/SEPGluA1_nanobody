@@ -52,9 +52,11 @@ P20 stack and its background masks, which sheet 08 of
   p < 0.01, their fraction, which is the bar, and their summed surprise, the
   bar before 4 October 2026). Since 6 October 2026 also
   `Region_Surprise_Bar_<bar_measure>_<comp>` (the bars of the measure chosen,
-  shaded by their corrected permutation p, a dagger where only the
-  uncorrected p is below 0.05, the uncorrected p of the regions named in
-  advance beside their bars), `Region_Measures_<comp>` (each
+  the cluster mass, shaded by their corrected permutation p and starred where
+  it is below 0.05; a dagger where only the uncorrected p is below 0.05; the
+  uncorrected p of the regions named in advance in bold beside their bars;
+  the names of the regions expected to change in magenta; two lines under the
+  title say which p tests what), `Region_Measures_<comp>` (each
   region's rank and corrected p under the five measures), the measures'
   columns of the table (per map and measure the score with its sign, p and
   corrected p; the heaviest cluster's voxels and peak; the top volume's
@@ -111,14 +113,30 @@ outlines (`lr_atlas_boundaries`) sit beside them. Shared: `../common/`
   VISp, SSp-bfd) give 54 to 98% of the splits' maxima in both comparisons;
   for the share and the 99th percentile, 1 to 16%, the rest coming from the
   small regions, whose share and percentile vary most.
-  The corrected p is the test of a search over all 71 regions. A region
-  named in advance (`a_priori_regions`: since 7 October 2026 the barrel
-  field, since RWS stimulates the whiskers and the behavior task uses one
-  whisker) needs no search: it is one test, and its uncorrected p is that
-  test. For any other region the uncorrected p is not a test, and its
-  dagger is no result. In the run on the December 2025 inputs the barrel
-  field is first by cluster mass in RWS L - R, at p = 0.032 uncorrected
-  and 0.635 corrected. The table's `a_priori` column marks these regions.
+  Giulio chose the cluster mass for the bars on 7 October 2026, from the
+  comparison figure of both comparisons. The share's p, in the table, is the
+  chance level of the share bars asked for in April (Sami El-Boustani).
+- What the two p of the bars test. The corrected p is the test of a search
+  over all 71 regions. A region named in advance (`a_priori_regions`: since
+  7 October 2026 the barrel field, since RWS stimulates the whiskers and the
+  behavior task uses one whisker) needs no search: it is one test, and its
+  uncorrected p is that test, written in bold beside its bar. For any other
+  region the uncorrected p is not a test, and its dagger is no result: in
+  behavior L + R, 50 of the 59 regions with a score are below 0.05
+  uncorrected. The table's `a_priori` column marks the regions named in
+  advance. In the run on the December 2025 inputs, the barrel field's
+  cluster mass (higher in the experimental group in all four):
+
+  | comparison | map | rank | uncorrected p | corrected p |
+  |---|---|---|---|---|
+  | naive vs RWS | L - R | 1st of 45 | 0.032 | 0.635 |
+  | naive vs RWS | L + R | 5th of 40 | 0.048 | 0.683 |
+  | naive vs behavior | L - R | 7th of 38 | 0.119 | 0.929 |
+  | naive vs behavior | L + R | 4th of 59 | 0.0079 | 0.016 |
+
+  Tested on its own, the barrel field changes after RWS at p < 0.05 in both
+  maps, which the search over all regions does not show; after behavior its
+  L + R holds under both p, its L - R under neither.
 
 - The headline of the approved comparison is a small increase of the
   nanobody signal in S1 after RWS, in the hemisphere-sum t map of the slab

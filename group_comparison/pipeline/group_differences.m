@@ -2475,11 +2475,14 @@ function plot_measure_bars(perm, T_regions, bar_measure, exp_type, file_tag, ...
 % a score other than zero, the largest |score| at the top, signed (experimental
 % higher to the right), grey by the corrected permutation p, darker for a
 % smaller p, starred below 0.05, a dagger at an uncorrected p below 0.05, and
-% the uncorrected p of the regions named in advance beside their bars.
+% the uncorrected p of the regions named in advance in bold beside their bars.
 
 k = find(strcmp(perm.measure_names, bar_measure));
 n_splits = size(perm.splits.in_ctrl, 1);
 map_titles = {'L - R', 'L + R'};
+panel_axes = gobjects(1, numel(perm.maps));
+mark_texts = cell(1, numel(perm.maps));
+n_drawn = zeros(1, numel(perm.maps));
 
 fig_bars = figure('Visible', 'off', 'Name', ...
     ['Region_Surprise_Bar_' bar_measure '_' file_tag], 'Color', 'w', ...
@@ -2497,35 +2500,53 @@ for m = 1:numel(perm.maps)
     % the bars, the label of the measure, and the regions expected to change in
     % bold magenta
     subplot(1, 2, m);
-    mark_texts = draw_measure_bars(score(drawn), p_perm(drawn), p_fwer(drawn), ...
+    mark_texts{m} = draw_measure_bars(score(drawn), p_perm(drawn), p_fwer(drawn), ...
         T_regions.label(drawn), T_regions.a_priori(drawn), n_splits);
     xlabel(measure_label(bar_measure, perm));
     title(sprintf('%s: %d of %d regions with a score', map_titles{m}, numel(drawn), ...
         height(T_regions)));
     highlight_surprise_regions(exp_type);
-
-    % the axis widened for the marks and the p beside the bars, once the tick
-    % labels and the colour bar have taken their room, then its ticks fixed
-    if ~isempty(drawn)
-        widen_for_texts(mark_texts);
-        set_value_ticks();
-    end
+    panel_axes(m) = gca;
+    n_drawn(m) = numel(drawn);
 end
 
-% the title, and what the marks mean: the corrected p tests a search over all the
-% regions, the uncorrected p only a region named in advance
-marks_note = sprintf(['* corrected p < 0.05, the test of a search over all %d ' ...
-                      'regions;   %s uncorrected p < 0.05, the test only of a region ' ...
-                      'named in advance'], height(T_regions), char(8224));
-a_priori_acronyms = T_regions.acronym(T_regions.a_priori);
-if ~isempty(a_priori_acronyms)
-    marks_note = sprintf('%s (%s: its p beside its bar)', marks_note, ...
-        strjoin(a_priori_acronyms, ', '));
-end
+% the title, and what the marks and the magenta names mean: the corrected p tests
+% a search over all the regions, the uncorrected p only a region named in advance
+dagger = char(8224);
 title_line = sprintf('Region %s, shaded by the corrected p of %d label permutations - %s', ...
     bar_measure, n_splits, strrep(file_tag, '_', ' '));
-sgtitle({title_line, ['\rm\fontsize{11}' marks_note]}, 'FontSize', 14, ...
-    'FontWeight', 'bold');
+a_priori_acronyms = T_regions.acronym(T_regions.a_priori);
+other_notes = {};
+if isempty(a_priori_acronyms)
+    marks_line = sprintf(['* corrected p < 0.05: the test of a search over all %d ' ...
+                          'regions;   %s uncorrected p < 0.05: not a test, no region ' ...
+                          'was named in advance'], height(T_regions), dagger);
+else
+    marks_line = sprintf(['* corrected p < 0.05: the test of a search over all %d ' ...
+                          'regions;   %s uncorrected p < 0.05: the test of a region ' ...
+                          'named in advance, %s (its p in bold beside its bar)'], ...
+                          height(T_regions), dagger, strjoin(a_priori_acronyms, ', '));
+    other_notes{end + 1} = sprintf('a %s on any other region is not a test', dagger);
+end
+if ~isempty(expected_regions(exp_type))
+    other_notes{end + 1} = 'names in magenta: the regions expected to change';
+end
+title_lines = {title_line, ['\rm\fontsize{11}' marks_line]};
+if ~isempty(other_notes)
+    title_lines{end + 1} = ['\rm\fontsize{11}' strjoin(other_notes, ';   ')];
+end
+sgtitle(title_lines, 'FontSize', 14, 'FontWeight', 'bold');
+
+% in each panel, once the titles have taken their room: the daggers no taller
+% than a row, the axis widened for the marks and the p beside the bars, and its
+% ticks fixed
+for m = 1:numel(perm.maps)
+    if n_drawn(m) > 0
+        fit_daggers_to_rows(panel_axes(m), mark_texts{m}, n_drawn(m));
+        widen_for_texts(panel_axes(m), mark_texts{m});
+        set_value_ticks(panel_axes(m));
+    end
+end
 
 % save it
 saveas(fig_bars, fullfile(comp_out_dir, ...
@@ -2537,9 +2558,10 @@ end
 function mark_texts = draw_measure_bars(values, p_perm, p_fwer, labels, ...
     is_a_priori, n_splits)
 % One panel of signed bars, grey by their corrected p, starred below 0.05, a
-% dagger where only the uncorrected p is below 0.05, the uncorrected p beside
-% the bars of the regions named in advance, with the colour bar of the
-% corrected p; returns the texts beside the bars.
+% dagger where only the uncorrected p is below 0.05, the uncorrected p in bold
+% beside the bars of the regions named in advance, with the colour bar of the
+% corrected p; returns the texts beside the bars, whose font size is the
+% dagger's (the star and the p have their own).
 
 c_map = sep_palette('bars');
 mark_texts = gobjects(0);
@@ -2558,18 +2580,18 @@ ax.XAxis.Exponent = 0;
 
 % at the end of each bar, outside it: a star at a corrected p < 0.05, else a
 % dagger at an uncorrected p < 0.05; for a region named in advance, its
-% uncorrected p beside the mark
+% uncorrected p in bold beside the mark (the braces keep each size to its part)
 hold on;
 for i = 1:numel(values)
     mark = '';
     if p_fwer(i) < 0.05
-        mark = '\fontsize{12}*';
+        mark = '{\fontsize{12}*}';
     elseif p_perm(i) < 0.05
-        mark = ['\fontsize{12}' char(8224)];
+        mark = char(8224);
     end
     note = '';
     if is_a_priori(i)
-        note = sprintf('\\fontsize{10}a priori: p = %.2g', p_perm(i));
+        note = sprintf('{\\fontsize{10}\\bf a priori: p = %.2g}', p_perm(i));
     end
     if isempty(mark) && isempty(note)
         continue
@@ -2577,14 +2599,14 @@ for i = 1:numel(values)
 
     % the mark next to the bar's end, the p after it
     if values(i) > 0
-        beside = [' ' strtrim([mark ' ' note])];
+        beside = [' ' mark note];
         alignment = 'left';
     else
-        beside = [strtrim([note ' ' mark]) ' '];
+        beside = [note ' ' mark ' '];
         alignment = 'right';
     end
-    mark_texts(end + 1) = text(values(i), i, beside, 'HorizontalAlignment', ...
-        alignment); %#ok<AGROW>
+    mark_texts(end + 1) = text(values(i), i, beside, 'FontSize', 12, ...
+        'HorizontalAlignment', alignment); %#ok<AGROW>
 end
 
 % the region names as tick labels, in the bars' order
@@ -2598,16 +2620,31 @@ set(gca, 'FontSize', 10);
 add_p_colorbar(c_map, n_splits);
 end
 
-function widen_for_texts(texts)
-% Widens the x axis of the current axes so that each text, anchored at the end of
-% a bar, ends inside it, with 5% of the axis to spare.
+function fit_daggers_to_rows(ax, texts, n_rows)
+% Sets the texts beside the bars, whose size is the dagger's, to 12 points or
+% less, so that daggers on adjacent rows stay apart.
+
+% the dagger is about 0.9 of its font size tall, and the export at 300 dpi draws
+% text about 10% larger than the screen: 0.8 of a row keeps a gap between rows
+% (59 regions give rows of 9.6 points and 7.7-point daggers; at 12 points the
+% daggers of adjacent rows join into one line)
+drawnow;
+ax.Units = 'points';
+row_pt = ax.Position(4) / (n_rows + 1);
+ax.Units = 'normalized';
+set(texts, 'FontSize', min(12, 0.8 * row_pt));
+end
+
+function widen_for_texts(ax, texts)
+% Widens the x axis of ax so that each text, anchored at the end of a bar, ends
+% inside it, with 5% of the axis to spare.
 
 % three passes, each on the figure as drawn: the new tick labels can take some
 % of the axis's width
 for pass = 1:3
     drawnow;
     for i = 1:numel(texts)
-        limits = xlim;
+        limits = xlim(ax);
 
         % a text keeps its width on the screen, so it takes the same fraction of
         % the axis whatever the limits: the limit on its side moves until the rest
@@ -2622,27 +2659,27 @@ for pass = 1:3
         else
             limits(1) = min(limits(1), limits(2) - (limits(2) - anchor) / room);
         end
-        xlim(limits);
+        xlim(ax, limits);
     end
 end
 end
 
-function set_value_ticks()
-% The x ticks of the current axes as MATLAB places them, but every other one,
-% zero kept, when there are more than seven, which it would draw rotated; their
-% labels as MATLAB writes them, but zero as 0, which it writes 0x10^0 when the
-% others are powers of ten.
+function set_value_ticks(ax)
+% The x ticks of ax as MATLAB places them, but every other one, zero kept, when
+% there are more than seven, which it would draw rotated; their labels as MATLAB
+% writes them, but zero as 0, which it writes 0x10^0 when the others are powers
+% of ten.
 
-tick_values = xticks;
+tick_values = xticks(ax);
 if numel(tick_values) > 7
     step = tick_values(2) - tick_values(1);
     is_even = mod(round(tick_values / step), 2) == 0;
     tick_values = tick_values(is_even);
 end
-xticks(tick_values);
-tick_labels = xticklabels;
+xticks(ax, tick_values);
+tick_labels = xticklabels(ax);
 tick_labels(tick_values == 0) = {'0'};
-xticklabels(tick_labels);
+xticklabels(ax, tick_labels);
 end
 
 function plot_measure_comparison(perm, T_regions, bar_measure, exp_type, file_tag, ...
