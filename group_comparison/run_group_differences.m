@@ -20,19 +20,20 @@
 % at least min_mice_per_group of them. Each region of the bars is scored by five
 % measures of its surprise (share, sum, quantile, top volume, heaviest cluster),
 % each with the p of an exact permutation of the group labels, uncorrected and
-% corrected over the regions. Saves, in
+% corrected over the regions: the corrected p tests a search over all the
+% regions, the uncorrected p only a region named in advance. Saves, in
 % data\comparisons\<ctrl>_vs_<exp>_<channel>\, the profile alignment figure, the
 % slab figures around plane 565 (group t-maps masked by surprise, individual
 % mice), the regional surprise bars (the fraction of each region's voxels with a
-% t at p < 0.01), the bars of bar_measure shaded by their corrected p, a figure
-% comparing the five measures, their table and the permutation null, and the
-% videos switched on below.
+% t at p < 0.01), the bars of bar_measure shaded by their corrected p and marked
+% at an uncorrected p < 0.05, a figure comparing the five measures, their table
+% and the permutation null, and the videos switched on below.
 %
 % Setup: naive against behavior (the four behavior mice), nano channel, smoothed
 % with sigma 5, every video on, the region analyses off, the region bars by
-% cluster mass with all 126 splits of the mice. Run sep_setup_paths first, once
-% per MATLAB session; the code is in pipeline\group_differences.m and
-% pipeline\region_permutation_test.m.
+% cluster mass with all 126 splits of the mice, the barrel field named in
+% advance. Run sep_setup_paths first, once per MATLAB session; the code is in
+% pipeline\group_differences.m and pipeline\region_permutation_test.m.
 
 clear; clc; close all;
 
@@ -112,6 +113,11 @@ min_mice_per_group = 3;
 % all five are in the table and the comparison figure whatever the choice
 bar_measure = 'cluster';
 
+% regions named in advance, by atlas acronym, tested by their uncorrected p: the
+% barrel field, since RWS stimulates the whiskers and the behavior task uses one
+% whisker; the bars write its uncorrected p beside it, the table marks it
+a_priori_regions = {'SSp-bfd'};
+
 % splits of the pooled mice for the permutation test: 'all' (exact, 252 for 5
 % against 5, 126 for 5 against 4), or a number, for a random subset with a fixed
 % seed (the observed split always in it), to try the run quickly
@@ -177,6 +183,7 @@ run_settings.apply_smoothing = apply_smoothing;
 run_settings.smooth_sigma = smooth_sigma;
 run_settings.min_mice_per_group = min_mice_per_group;
 run_settings.bar_measure = bar_measure;
+run_settings.a_priori_regions = a_priori_regions;
 run_settings.n_permutations = n_permutations;
 run_settings.cluster_p = cluster_p;
 run_settings.cluster_connectivity = cluster_connectivity;

@@ -10,12 +10,14 @@ function group_differences(run_settings)
 %   Indiv_Slab_Avg_565_<group> (the slab figures),
 %   Region_Surprise_Bar_DiffSum_<comp_tag> (the regional surprise bars, the
 %   share), Region_Surprise_Bar_<bar_measure>_<comp_tag> (the bars of the
-%   measure chosen, shaded by their corrected permutation p) and
-%   Region_Measures_<comp_tag> (every region's rank and corrected p under each
-%   measure), with the values in Region_Surprise_DiffSum_<comp_tag>.csv and the
-%   permutation null in Region_Permutation_Null_<comp_tag>.mat (the last four
-%   named with _perm<n> when n_permutations is a number); then the videos
-%   switched on, and the region analyses if switched on.
+%   measure chosen, shaded by their corrected permutation p, marked at an
+%   uncorrected p < 0.05, with the uncorrected p of the regions named in
+%   advance beside their bars) and Region_Measures_<comp_tag> (every region's
+%   rank and corrected p under each measure), with the values in
+%   Region_Surprise_DiffSum_<comp_tag>.csv (a_priori marks the regions named in
+%   advance) and the permutation null in Region_Permutation_Null_<comp_tag>.mat
+%   (the last four named with _perm<n> when n_permutations is a number); then
+%   the videos switched on, and the region analyses if switched on.
 %
 %   The volumes are on the adults' CCF crop (planes 180 to 1079 of the 10 um
 %   annotation). Each mouse's values outside its tissue (the atlas brain,
@@ -44,7 +46,9 @@ function group_differences(run_settings)
 %   most surprising voxels over a fixed volume, and the mass of its heaviest
 %   cluster; each score, the share included, gets the p of an exact label
 %   permutation, uncorrected and corrected over the regions
-%   (region_permutation_test, which says how).
+%   (region_permutation_test, which says how). The corrected p is the test of a
+%   search over all the regions; the uncorrected p is the test of a region
+%   named in advance (a_priori_regions), and of no other.
 
 % settings of run_group_differences, under the names the code below uses
 paths = run_settings.paths;
@@ -70,6 +74,7 @@ ctrl_dir = run_settings.ctrl_dir;
 exp_dir = run_settings.exp_dir;
 comp_out_dir = run_settings.comp_out_dir;
 bar_measure = run_settings.bar_measure;
+a_priori_regions = run_settings.a_priori_regions;
 n_permutations = run_settings.n_permutations;
 cluster_p = run_settings.cluster_p;
 cluster_connectivity = run_settings.cluster_connectivity;
@@ -114,6 +119,10 @@ perm_settings.seed = 0;
 
 % the 10 um Allen annotation on the volumes' AP crop, and its brain mask
 [allenDir, AllenCrop, brainMask, half_atlas] = load_allen_atlas(paths);
+
+% the regions named in advance, checked against the bars' regions now rather than
+% after hours of maps and videos
+check_a_priori_regions(a_priori_regions, allenDir);
 
 %% Load both groups
 
@@ -303,6 +312,9 @@ end
 % of the left hemisphere
 [T_regions, valid_pixels, region_of_voxel] = surprise_regions(AllenCrop, allenDir);
 
+% the regions named in advance, whose uncorrected p is their test
+T_regions.a_priori = ismember(T_regions.acronym, a_priori_regions);
+
 % every mouse's absolute L - R and L + R on the voxels where a split of the mice
 % can give a t, control mice first, for the permutation test; the folded maps
 % and those made from them are not used again, so they go first
@@ -339,6 +351,21 @@ allenDir = paths.atlas;
 % name (the videos show the left half)
 half_atlas = AllenCrop(:, :, 1:end);
 
+end
+
+function check_a_priori_regions(a_priori_regions, allenDir)
+% Stops if a region named in advance is not one of the bars' regions, the
+% isocortical areas of the atlas and the declared subcortical ones.
+
+T_members = readtable(fullfile(allenDir, ...
+    'parcellation_to_parcellation_term_membership.csv'));
+bar_acronyms = [isocortical_areas(T_members); surprise_subcortical_list()];
+is_listed = ismember(a_priori_regions, bar_acronyms);
+if ~all(is_listed)
+    error(['run_group_differences: a_priori_regions holds %s, not a region of the ' ...
+           'bars. Use their atlas acronyms: %s.'], ...
+           strjoin(a_priori_regions(~is_listed), ', '), strjoin(bar_acronyms, ', '));
+end
 end
 
 function [data_4d_new_ctrl, data_4d_new_exp, med_data_4d_ctrl, ...
@@ -2447,7 +2474,8 @@ function plot_measure_bars(perm, T_regions, bar_measure, exp_type, file_tag, ...
 % The bars of one region measure, L - R and L + R side by side: the regions with
 % a score other than zero, the largest |score| at the top, signed (experimental
 % higher to the right), grey by the corrected permutation p, darker for a
-% smaller p, starred below 0.05.
+% smaller p, starred below 0.05, a dagger at an uncorrected p below 0.05, and
+% the uncorrected p of the regions named in advance beside their bars.
 
 k = find(strcmp(perm.measure_names, bar_measure));
 n_splits = size(perm.splits.in_ctrl, 1);
@@ -2458,6 +2486,7 @@ fig_bars = figure('Visible', 'off', 'Name', ...
     'Units', 'Normalized', 'Position', [0 0 0.9 0.9]);
 for m = 1:numel(perm.maps)
     score = perm.maps{m}.score(:, k);
+    p_perm = perm.maps{m}.p_perm(:, k);
     p_fwer = perm.maps{m}.p_fwer(:, k);
 
     % the regions with a score, the largest |score| last, which barh draws at the top
@@ -2468,15 +2497,35 @@ for m = 1:numel(perm.maps)
     % the bars, the label of the measure, and the regions expected to change in
     % bold magenta
     subplot(1, 2, m);
-    draw_measure_bars(score(drawn), p_fwer(drawn), T_regions.label(drawn), n_splits);
+    mark_texts = draw_measure_bars(score(drawn), p_perm(drawn), p_fwer(drawn), ...
+        T_regions.label(drawn), T_regions.a_priori(drawn), n_splits);
     xlabel(measure_label(bar_measure, perm));
     title(sprintf('%s: %d of %d regions with a score', map_titles{m}, numel(drawn), ...
         height(T_regions)));
     highlight_surprise_regions(exp_type);
+
+    % the axis widened for the marks and the p beside the bars, once the tick
+    % labels and the colour bar have taken their room, then its ticks fixed
+    if ~isempty(drawn)
+        widen_for_texts(mark_texts);
+        set_value_ticks();
+    end
 end
-sgtitle(sprintf(['Region %s, shaded by the corrected p of %d label permutations ' ...
-    '(* p < 0.05) - %s'], bar_measure, n_splits, strrep(file_tag, '_', ' ')), ...
-    'FontSize', 14, 'FontWeight', 'bold');
+
+% the title, and what the marks mean: the corrected p tests a search over all the
+% regions, the uncorrected p only a region named in advance
+marks_note = sprintf(['* corrected p < 0.05, the test of a search over all %d ' ...
+                      'regions;   %s uncorrected p < 0.05, the test only of a region ' ...
+                      'named in advance'], height(T_regions), char(8224));
+a_priori_acronyms = T_regions.acronym(T_regions.a_priori);
+if ~isempty(a_priori_acronyms)
+    marks_note = sprintf('%s (%s: its p beside its bar)', marks_note, ...
+        strjoin(a_priori_acronyms, ', '));
+end
+title_line = sprintf('Region %s, shaded by the corrected p of %d label permutations - %s', ...
+    bar_measure, n_splits, strrep(file_tag, '_', ' '));
+sgtitle({title_line, ['\rm\fontsize{11}' marks_note]}, 'FontSize', 14, ...
+    'FontWeight', 'bold');
 
 % save it
 saveas(fig_bars, fullfile(comp_out_dir, ...
@@ -2485,11 +2534,15 @@ exportgraphics(fig_bars, fullfile(comp_out_dir, ...
     ['Region_Surprise_Bar_' bar_measure '_' file_tag '.png']), 'Resolution', 300);
 end
 
-function draw_measure_bars(values, p_fwer, labels, n_splits)
-% One panel of signed bars, grey by their corrected p, starred below 0.05, with
-% the colour bar of the p.
+function mark_texts = draw_measure_bars(values, p_perm, p_fwer, labels, ...
+    is_a_priori, n_splits)
+% One panel of signed bars, grey by their corrected p, starred below 0.05, a
+% dagger where only the uncorrected p is below 0.05, the uncorrected p beside
+% the bars of the regions named in advance, with the colour bar of the
+% corrected p; returns the texts beside the bars.
 
 c_map = sep_palette('bars');
+mark_texts = gobjects(0);
 if isempty(values)
     text(0.5, 0.5, 'no region with a score', 'HorizontalAlignment', 'center');
     axis off;
@@ -2503,14 +2556,35 @@ b.CData = c_map(p_shade_index(p_fwer, n_splits, size(c_map, 1)), :);
 ax = gca;
 ax.XAxis.Exponent = 0;
 
-% a star at the end of each bar at p < 0.05, outside the bar
+% at the end of each bar, outside it: a star at a corrected p < 0.05, else a
+% dagger at an uncorrected p < 0.05; for a region named in advance, its
+% uncorrected p beside the mark
 hold on;
-for i = find(p_fwer(:)' < 0.05)
-    if values(i) > 0
-        text(values(i), i, ' *', 'HorizontalAlignment', 'left', 'FontSize', 12);
-    else
-        text(values(i), i, '* ', 'HorizontalAlignment', 'right', 'FontSize', 12);
+for i = 1:numel(values)
+    mark = '';
+    if p_fwer(i) < 0.05
+        mark = '\fontsize{12}*';
+    elseif p_perm(i) < 0.05
+        mark = ['\fontsize{12}' char(8224)];
     end
+    note = '';
+    if is_a_priori(i)
+        note = sprintf('\\fontsize{10}a priori: p = %.2g', p_perm(i));
+    end
+    if isempty(mark) && isempty(note)
+        continue
+    end
+
+    % the mark next to the bar's end, the p after it
+    if values(i) > 0
+        beside = [' ' strtrim([mark ' ' note])];
+        alignment = 'left';
+    else
+        beside = [strtrim([note ' ' mark]) ' '];
+        alignment = 'right';
+    end
+    mark_texts(end + 1) = text(values(i), i, beside, 'HorizontalAlignment', ...
+        alignment); %#ok<AGROW>
 end
 
 % the region names as tick labels, in the bars' order
@@ -2522,6 +2596,53 @@ set(gca, 'FontSize', 10);
 
 % the colour bar of the corrected p
 add_p_colorbar(c_map, n_splits);
+end
+
+function widen_for_texts(texts)
+% Widens the x axis of the current axes so that each text, anchored at the end of
+% a bar, ends inside it, with 5% of the axis to spare.
+
+% three passes, each on the figure as drawn: the new tick labels can take some
+% of the axis's width
+for pass = 1:3
+    drawnow;
+    for i = 1:numel(texts)
+        limits = xlim;
+
+        % a text keeps its width on the screen, so it takes the same fraction of
+        % the axis whatever the limits: the limit on its side moves until the rest
+        % of the axis, room, holds the span from the other limit to the bar's end;
+        % the width taken 15% larger, since the export at 300 dpi draws text up to
+        % about 10% wider than the screen measures it
+        width_fraction = 1.15 * texts(i).Extent(3) / diff(limits) + 0.05;
+        room = 1 - width_fraction;
+        anchor = texts(i).Position(1);
+        if strcmp(texts(i).HorizontalAlignment, 'left')
+            limits(2) = max(limits(2), limits(1) + (anchor - limits(1)) / room);
+        else
+            limits(1) = min(limits(1), limits(2) - (limits(2) - anchor) / room);
+        end
+        xlim(limits);
+    end
+end
+end
+
+function set_value_ticks()
+% The x ticks of the current axes as MATLAB places them, but every other one,
+% zero kept, when there are more than seven, which it would draw rotated; their
+% labels as MATLAB writes them, but zero as 0, which it writes 0x10^0 when the
+% others are powers of ten.
+
+tick_values = xticks;
+if numel(tick_values) > 7
+    step = tick_values(2) - tick_values(1);
+    is_even = mod(round(tick_values / step), 2) == 0;
+    tick_values = tick_values(is_even);
+end
+xticks(tick_values);
+tick_labels = xticklabels;
+tick_labels(tick_values == 0) = {'0'};
+xticklabels(tick_labels);
 end
 
 function plot_measure_comparison(perm, T_regions, bar_measure, exp_type, file_tag, ...
