@@ -1,67 +1,64 @@
-"""The beyond-abundance regression shown as a regression: observed, predicted, residual.
+"""The regression of analysis 4 shown as a regression: map, prediction, leftover.
 
-adult.beyond_density and adult.beyond_figures report the regression's summary
-numbers (R2, replication, controls); none of them shows the fit. This module does,
-three ways:
+adult.beyond_density reports the model's summary numbers (R2, replication) and
+adult.beyond_controls its controls; this module shows the fit itself, three ways:
 
-    1  observed against predicted, one dot per structure, with the identity line.
-       A good model puts the cloud on that line; the spread away from it is the
-       leftover, drawn rather than summarised.
-    2  residual against predicted, the standard diagnostic. A tilt or a fan here
-       would mean the model is mis-specified rather than merely incomplete.
-    3  the same three quantities painted back onto the brain (observed, predicted
-       and residual maps), because the leftover is a spatial claim.
+    1  the map against the prediction, one dot per structure, with the identity
+       line. A good model puts the cloud on that line; the spread away from it is
+       the leftover, drawn rather than summarised.
+    2  the leftover against the prediction, the standard diagnostic. A tilt or a
+       fan here would mean the model is mis-specified rather than incomplete.
+    3  the same three quantities painted back onto the brain (map, prediction and
+       leftover), because the leftover is a spatial claim.
 
-What is regressed on what:
+What is regressed on what (adult.beyond_density has the reasons):
 
-    y            the ten adults' mean surface-GluA1 (zref) per structure, ranked
-    predictors   four, each one value per structure, entered as x, x^2 and x^3:
+    y            the ten adults' mean zref per structure, ranked
+    predictors   seven, one value per structure each, entered as x, x^2 and x^3:
 
-      abundance  the four AMPA receptor subunit genes Gria1-4, the mean of their
-                 rank profiles. The set is GO:0004971 intersected with
-                 GO:0032281, less the delta receptors Grid1 and Grid2 (OVERRIDE in
-                 ish.panel_build).
-      markers    eleven canonical synaptic markers chosen by hand from the panel:
-                 Syp, Syn1, Vamp2, Bsn and Syt1 presynaptic, Dlg4, Homer1,
-                 Shank2, Shank3, Nlgn1 and Camk2a postsynaptic. A hand-made list
-                 is arguable, hence the next predictor.
-      psd_pc1    the first principal component of the 188 postsynaptic-density
-                 genes (GO:0014069, less the subunit and localisation sets). No
-                 gene is chosen individually: the component is whatever those
-                 genes have most in common, and it is the stronger density
-                 predictor of the two (0.26 against 0.15).
+      Gria1-4    the four AMPA receptor subunit genes, each its own term. The set is
+                 GO:0004971 intersected with GO:0032281, less the delta receptors
+                 Grid1 and Grid2 (ish.panel_build)
+      markers    the synaptic marker genes of [beyond] markers, chosen by hand from
+                 the panel, presynaptic and postsynaptic, as the mean of their ranks.
+                 A hand-made list is arguable, hence the next predictor
+      psd_pc1    the first principal component of the postsynaptic-density genes
+                 of the ontology panel (role control_psd) measured in every
+                 structure. No gene is chosen individually: the component is
+                 whatever those genes have most in common
       autofluo   not a gene: the autofluorescence of the same ten brains per
-                 structure, the only predictor measured in the tissue the map
-                 comes from.
+                 structure, the only predictor measured in the tissue the map comes
+                 from
 
-Writes, in adult_v2/beyond/for_sami/ under the data root:
+Guided figure 12 (adult.beyond_figures) draws its maps from regression_table.csv.
 
-    E_regression.png/.eps    the fit and its diagnostic
-    F_maps.png/.eps          observed, predicted and residual on the brain
-    regression_table.csv     every structure: observed, predicted, residual
+Writes, in adult_v2/ish_analysis/beyond/ under the data root:
+
+    regression_table.csv    every structure: map, prediction, leftover (ranks)
+    E_regression.png        the fit and its diagnostic (a working figure)
+    F_maps.png              map, prediction and leftover on the brain (working)
 
 Run by run_beyond_regression.py.
 """
 
-import csv
-
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from scipy.stats import spearmanr
 
 from sepmap.adult.beyond_density import (
-    ADULTS,
     MARKERS,
+    OUT,
     SUBUNITS,
     build_covariates,
     cv_r2,
-    flexible,
-    half_map,
-    prepare,
+    full_map,
+    load_inputs,
+    model,
     r_squared,
     residual,
+    save,
 )
-from sepmap.adult.beyond_figures import FIGS, save
 from sepmap.config import SETTINGS
 from sepmap.plotting import DARK_GREY, MID_GREY, RED, tidy
 from sepmap.volumes.per_mouse import annotation_20, structure_terms
@@ -73,6 +70,8 @@ BEYOND_REGRESSION = SETTINGS["beyond_regression"]
 
 # the planes as a tuple, in 20 um planes of the cropped CCF grid
 PLANES = tuple(BEYOND_REGRESSION["planes"])
+
+REGRESSION = OUT / "regression_table.csv"
 
 
 def paint(
@@ -126,8 +125,8 @@ def draw_fit(
         )
     ax.set_xlim(lim)
     ax.set_ylim(lim)
-    ax.set_xlabel("predicted from abundance and density (rank)", fontsize=8.5)
-    ax.set_ylabel("observed surface GluA1 (rank)", fontsize=8.5)
+    ax.set_xlabel("predicted from receptor mRNA and density (rank)", fontsize=8.5)
+    ax.set_ylabel("nano map (rank)", fontsize=8.5)
     ax.set_title(f"the fit\nR2 {fitted_r2:.2f} fitted, {cv:.2f} predicted", fontsize=9.5)
     tidy(ax)
 
@@ -218,12 +217,12 @@ def panel_e(
     draw_leftover(axes[2], res)
 
     fig.suptitle(
-        "E.  The regression behind the claim: surface GluA1 predicted from "
-        "receptor abundance and synaptic density",
+        "E.  The regression of analysis 4: the nano map predicted from receptor "
+        "mRNA and synaptic density",
         fontsize=10,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.93))
-    save(fig, "E_regression")
+    save(fig, "E_regression.png")
 
 
 def draw_map(
@@ -286,9 +285,9 @@ def panel_f(
 
     # (title, value per structure, colormap, symmetric limit or None for ranks)
     maps = [
-        ("observed\nsurface GluA1", dict(zip(structures, observed)), "hot", None),
+        ("the nano map", dict(zip(structures, observed)), "hot", None),
         (
-            "predicted from abundance\nand synaptic density",
+            "predicted from receptor mRNA\nand synaptic density",
             dict(zip(structures, predicted)),
             "hot",
             None,
@@ -310,38 +309,66 @@ def panel_f(
 
     fig.suptitle(
         "F.  The same three quantities on the brain.  Red in the third column is "
-        "more surface GluA1 than\nabundance and density predict, blue is less.  "
-        "Black is outside the brain, or a structure the\nanalysis excludes: "
-        "fibre tracts, ventricles and unassigned voxels.",
+        "a higher nano rank than\nreceptor mRNA and density predict, blue is lower.  "
+        "Black is outside the brain, or a structure the\nfit does not use.",
         fontsize=10,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.94))
-    save(fig, "F_maps")
+    save(fig, "F_maps.png")
+
+
+def regression_table(
+    structures: list[str],
+    acronym: dict[str, str],
+    division: dict[str, str],
+    observed: np.ndarray,
+    predicted: np.ndarray,
+    res: np.ndarray,
+) -> pd.DataFrame:
+    """regression_table.csv: every structure, the largest leftover first."""
+    table = pd.DataFrame(
+        dict(
+            structure=structures,
+            acronym=[acronym.get(s, "") for s in structures],
+            division=[division.get(s, "") for s in structures],
+            observed_rank=observed,
+            predicted_rank=predicted,
+            residual=res,
+        )
+    )
+    return table.sort_values("residual", ascending=False, ignore_index=True)
+
+
+def load_regression() -> pd.DataFrame:
+    """The table run_beyond_regression wrote."""
+    if not REGRESSION.exists():
+        raise FileNotFoundError(
+            f"{REGRESSION} not found: run run_beyond_regression.py first"
+        )
+    return pd.read_csv(REGRESSION, keep_default_na=False, na_values=[""])
 
 
 def main() -> None:
-    """Fit the quoted model, write the table, and draw panels E and F."""
-    FIGS.mkdir(parents=True, exist_ok=True)
-
-    # the structures and the quoted model, as adult.beyond_density builds them
-    nano, _, expr, role, auto, structures = prepare()
-
-    # the fit
-    covariates, controls, _ = build_covariates(nano, expr, role, auto, structures)
-    model = flexible(list(covariates.values()))
-    observed = half_map(nano, range(len(ADULTS)), structures)
-    res = residual(observed, model)
+    """Fit the model, write the table, and draw the working panels E and F."""
+    OUT.mkdir(parents=True, exist_ok=True)
+    inputs = load_inputs()
+    structures = inputs.structures
+    covariates, psd, _ = build_covariates(
+        inputs.expr, inputs.role, inputs.auto, structures
+    )
+    xs = model(covariates)
+    observed = full_map(inputs.nano)
+    res = residual(observed, xs)
     predicted = observed - res
-    fitted, cv = r_squared(observed, model), cv_r2(observed, model)
-
+    fitted, cv = r_squared(observed, xs), cv_r2(observed, xs)
     print(
-        f"{len(structures)} structures; predictors: Gria1-4 ({len(SUBUNITS)} genes), "
-        f"{len(MARKERS)} hand-picked markers, psd_pc1 of {len(controls)} genes, "
-        f"autofluorescence"
+        f"{len(structures)} structures; predictors: {', '.join(SUBUNITS)} as separate "
+        f"terms, {len(MARKERS)} marker genes, psd_pc1 of {len(psd)} genes, "
+        "autofluorescence, each bent"
     )
     print(
         f"  R2 {fitted:.3f} fitted, {cv:.3f} cross-validated; "
-        f"observed against predicted rho {spearmanr(observed, predicted).statistic:.3f}"
+        f"map against prediction rho {spearmanr(observed, predicted).statistic:.3f}"
     )
     tilt, p_tilt, fan, p_fan = diagnostic(predicted, res)
     misspecified = min(p_tilt, p_fan) < BEYOND_REGRESSION["diagnostic_p"]
@@ -349,22 +376,11 @@ def main() -> None:
         f"  residual spread {res.std():.1f} ranks; "
         f"residual against predicted rho {tilt:+.3f} (p {p_tilt:.2g}), "
         f"|residual| against predicted rho {fan:+.3f} (p {p_fan:.2g}) "
-        f"(both should be ~0 if the model is not mis-specified)"
+        "(both near 0 when the model is not mis-specified)"
     )
-
-    # every structure, largest residual first
-    with open(FIGS / "regression_table.csv", "w", newline="", encoding="utf-8") as fh:
-        writer = csv.writer(fh)
-        writer.writerow(["structure", "observed_rank", "predicted_rank", "residual"])
-        for i in np.argsort(-res):
-            writer.writerow(
-                [
-                    structures[i],
-                    f"{observed[i]:.1f}",
-                    f"{predicted[i]:.1f}",
-                    f"{res[i]:.2f}",
-                ]
-            )
-
+    regression_table(
+        structures, inputs.acronym, inputs.division, observed, predicted, res
+    ).to_csv(REGRESSION, index=False)
+    print(f"  -> {REGRESSION}")
     panel_e(observed, predicted, res, structures, fitted, cv, misspecified)
     panel_f(observed, predicted, res, structures)

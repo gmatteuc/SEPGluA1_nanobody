@@ -32,12 +32,15 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                divisions; figure 08, gene sheets
     20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
                                against matched controls; figures 09, 10
-    21. run_beyond_density     analysis 4: what abundance and density leave
+    21. run_beyond_density     analysis 4: what receptor mRNA and
+                               synaptic density leave; the leftover
     22. run_beyond_controls    seven attempts to break it
-    23. run_beyond_calibration the same model on maps whose answer is known
+    23. run_beyond_calibration the same model on maps whose answer
+                               is known
     24. run_beyond_regression  the regression, per structure
     25. run_beyond_figures     figures 11 and 12
-    26. run_sep_channel_check  analysis 5: what the green channel reports
+    26. run_sep_channel_check  analysis 5: what the green channel
+                               reports; figure 13
     27. run_ish_overview       figures 00 and 14; the numbers for the text
 
 Correlates every gene with the adult map again, changing one choice of the primary

@@ -1,4 +1,4 @@
-"""Analysis 4 of the ISH line: what receptor mRNA and synaptic density leave of the map.
+"""The model of analysis 4 on maps whose answer is known: the floor.
 
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
@@ -32,10 +32,10 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                divisions; figure 08, gene sheets
     20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
                                against matched controls; figures 09, 10
-    21. run_beyond_density     analysis 4: what receptor mRNA and   <- this script
+    21. run_beyond_density     analysis 4: what receptor mRNA and
                                synaptic density leave; the leftover
     22. run_beyond_controls    seven attempts to break it
-    23. run_beyond_calibration the same model on maps whose answer
+    23. run_beyond_calibration the same model on maps whose answer  <- this script
                                is known
     24. run_beyond_regression  the regression, per structure
     25. run_beyond_figures     figures 11 and 12
@@ -43,23 +43,17 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                reports; figure 13
     27. run_ish_overview       figures 00 and 14; the numbers for the text
 
-The ceiling (how reproducible the map is), what the four subunits, synaptic
-density and autofluorescence predict on structures the fit has not seen, whether the
-leftover replicates across mice, where it lives, and every gene of the gene table
-against it with the leftover's spatial null; the method is in
-sepmap/adult/beyond_density.py. Writes, in adult_v2/ish_analysis/beyond/ under the
-data root:
+Each gene's Allen experiments split in two halves; a map made only of receptor
+mRNA and synaptic density, and a map of one Gria1 experiment, built from one half,
+given ten made-up adults as noisy as ours, and predicted from the other half with
+the model of run_beyond_density; the real map read the same way. The method is in
+sepmap/adult/beyond_calibration.py. Writes, in adult_v2/ish_analysis/beyond/ under
+the data root:
 
-    structures_used.csv        every structure of the adult table, used or not, why
-    variance_partition.csv     what each model predicts, against the ceiling
-    replication.csv            per split of the adults, the two agreements
-    residual_by_structure.csv  per structure: map, prediction, leftover, steadiness
-    leftover_genes.csv         every gene against the leftover, with its spatial p
-    leftover_sets.csv          the gene sets of analysis 3 against the leftover
-    leftover_null.npz          the leftover's surrogates, every gene's null rho
-    fig0_structures.png ... fig3_residual.png    working figures
+    calibration.csv    per map, direction and draw: the ceiling, the CV R2, the
+                       share left and the leftover's replication
 
-    python run_beyond_density.py
+    python run_beyond_calibration.py
 """
 
 import argparse
@@ -67,13 +61,13 @@ import argparse
 import matplotlib
 
 from sepmap import config, plotting
-from sepmap.adult import beyond_density
+from sepmap.adult import beyond_calibration
 
 
 def main():
-    """Print the settings in force, then run the steps of analysis 4."""
+    """Print the settings in force, then run the calibration."""
     config.print_settings({})
-    beyond_density.main()
+    beyond_calibration.main()
 
 
 if __name__ == "__main__":
@@ -83,7 +77,7 @@ if __name__ == "__main__":
 
     # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(
-        description="analysis 4: what receptor mRNA and synaptic density leave"
+        description="analysis 4 on maps whose answer is known"
     )
     parser.parse_args()
     main()

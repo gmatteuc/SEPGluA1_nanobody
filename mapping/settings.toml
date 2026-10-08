@@ -138,11 +138,13 @@ n_perm = 20000             # label permutations per test
 min_sensitivity_genes = 10 # genes on each side that the sensitivity run needs
 min_control_genes = 30     # control genes with a reliability that the positive control needs
 
+# analysis 4 (adult.beyond_density): what receptor mRNA and synaptic density leave of
+# the adult map; the map is A1's zref of the adult profile (adult.profiles)
 [beyond]
-reading = "zref"           # the reading analysed
 half = 5                   # animals per half when the cohort is split
-# the gene sets standing in for the two explanations: receptor abundance, and
-# synaptic density (Syp to Syt1 presynaptic, Dlg4 to Camk2a postsynaptic)
+# the gene sets standing in for the two explanations: receptor abundance, the four
+# subunits each its own term, and synaptic density (Syp to Syt1 presynaptic, Dlg4 to
+# Camk2a postsynaptic), with the first component of the postsynaptic-density genes
 subunits = ["Gria1", "Gria2", "Gria3", "Gria4"]
 markers = ["Syp", "Syn1", "Vamp2", "Bsn", "Syt1", "Dlg4", "Homer1", "Shank2", "Shank3", "Nlgn1", "Camk2a"]
 
@@ -157,11 +159,18 @@ curvature_gain = 0.05      # E: cross-validated R2 gained by fifth powers above 
 replication = 0.5          # F: the whole-panel model's leftover replicating below this, the panel accounts for the map; the same bound decides whether the quoted model's leftover (and the map) replicates where beyond_density and beyond_figures say so
 readings_replication = 0.8 # G: every reading's leftover must replicate above this
 
+# analysis 4's calibration (adult.beyond_calibration): the same model on maps whose
+# answer is known
+[beyond_calibration]
+n_noise = 20               # draws of animal noise per known map and direction, which give the floor a range rather than one value
+
+# the guided figures of analysis 4 (adult.beyond_figures): figures 11 and 12
 [beyond_figures]
-n_boot = 2000              # bootstrap replicates over structures, panel A
-n_perm = 10000             # permutations of the "could it be noise" null
-boot_splits = 20           # half-cohort splits used inside each bootstrap replicate
-n_boot_halves = 300        # bootstrap replicates of the ceiling and of the leftover's replication
+n_boot = 2000              # bootstrap replicates over structures: the range of the leftover and of each step of the budget
+n_perm = 10000             # shuffles of one half's leftover, what two unrelated leftovers agree at (for scale)
+boot_splits = 20           # half-cohort splits behind the ceiling of each bootstrap replicate
+t_max_structures = 10.0    # figure 12: a structure's bar is black at this t of the adults' own leftovers, near the 90th percentile of |t| over the structures (9.2 on 8 October)
+t_max_genes = 10.0         # figure 12: a gene's bar is black at this rho with the leftover over its SD across resampled adults, near the 90th percentile over the genes (10.5 on 8 October)
 
 [beyond_regression]
 # coronal planes to draw, in 20 um planes of the cropped CCF grid (450 of them): cortex
