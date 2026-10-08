@@ -36,8 +36,21 @@ neither chosen by correlation. A gene may sit in one GO set and one marker set
 (Slc32a1 is presynaptic by GO and a GABAergic marker); a contrast between two sets
 leaves out the genes in both, and says so.
 
+Two contrasts are named in advance (the plan of 8 October, before any correlation on
+the new inputs): the three postsynaptic sets pooled against the presynaptic set, and
+against glia. A postsynaptic-like map, as any glutamate receptor label should give,
+puts the first side above the second in both.
+
+One more group is drawn beside the six for context and never tested: genes GO
+annotates to both the presynapse and the postsynapse. The rule "not both" leaves the
+classic vesicle genes (Syn1, Vamp2, Stx1a, Bsn, Syt1, Cplx1), Camk2a and Slc17a7 out
+of the presynaptic set, which keeps 16 genes, mostly inhibitory and neuromodulatory;
+a reader looks for them there. It was added after the sets' membership was read, and
+before any correlation on the new inputs.
+
 The tests of the sets against the map come with analysis 3 (run_ish_gene_sets).
-Membership is computed by run_ish_gene_table.py, with the gene table.
+Membership is computed by run_ish_gene_table.py, with the gene table; the context
+group by run_ish_gene_sets.py, from the same cached GO records.
 """
 
 # the sets in the order the figures draw them
@@ -82,6 +95,21 @@ GENE_SETS = {
     "glia": "P9's control_glia: Aldh1l1, Aqp4, Gfap, Olig2, Sox10, Mbp, Cx3cr1",
 }
 
+# the contrasts named in advance: the postsynaptic sets pooled, against the presynaptic
+# set and against glia; a gene on both sides of a contrast is left out of it
+POSTSYNAPTIC_SETS = ("subunits", "localisation", "other postsynaptic")
+CONTRASTS = {
+    "postsynaptic against presynaptic": (POSTSYNAPTIC_SETS, ("presynaptic",)),
+    "postsynaptic against glia": (POSTSYNAPTIC_SETS, ("glia",)),
+}
+
+# the group drawn for context and never tested: annotated to both synapse sides
+CONTEXT_SET = "pre- and postsynaptic"
+CONTEXT_RULE = (
+    "GO:0098793 presynapse and GO:0098794 postsynapse (or below) both, not in the "
+    "first two sets; context, not tested"
+)
+
 
 def gene_sets(
     genes: list[str], role: dict[str, str], components: dict[str, set[str]]
@@ -104,3 +132,35 @@ def gene_sets(
     out["GABAergic markers"] = sorted(g for g in genes if g in markers)
     out["glia"] = sorted(g for g in genes if g in GLIA)
     return {name: out[name] for name in SET_ORDER}
+
+
+def context_set(
+    genes: list[str], role: dict[str, str], components: dict[str, set[str]]
+) -> list[str]:
+    """The genes annotated to both the presynapse and the postsynapse, sorted.
+
+    Subunit and localisation genes are left out, as from the two GO sets; the
+    arguments are those of gene_sets.
+    """
+    by_role = {g for g in genes if role.get(g, "") in PANEL_ROLE_SETS.values()}
+    both = {
+        g
+        for g in genes
+        if {POSTSYNAPSE, PRESYNAPSE} <= components.get(g, set()) and g not in by_role
+    }
+    return sorted(both)
+
+
+def contrast_sides(
+    members: dict[str, list[str]], contrast: str
+) -> tuple[list[str], list[str], list[str]]:
+    """The genes of each side of a contrast named in advance, and those left out.
+
+    A gene in a set of both sides (a marker set beside a GO set) is in neither, and
+    comes back in the third list.
+    """
+    first, second = CONTRASTS[contrast]
+    a = {g for name in first for g in members[name]}
+    b = {g for name in second for g in members[name]}
+    both = a & b
+    return sorted(a - both), sorted(b - both), sorted(both)
