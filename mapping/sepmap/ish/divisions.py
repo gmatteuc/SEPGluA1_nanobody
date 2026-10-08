@@ -22,7 +22,8 @@ The within rho is tested two ways:
                     ish_analysis.n_perm_within times: keeps which division a value
                     sits in and destroys the order inside it. It ignores that near
                     structures inside a division are alike, so it is too narrow;
-                    the cheap first null of the discussion, reported beside
+                    the cheap first null of the ISH discussion
+                    (docs/history/ISH_DISCUSSION.md), reported beside
     spatial null    the same weighted within rho for every surrogate of the map
                     (ish.spatial_null), whose smoothness inside divisions is the
                     map's; the p the figures use

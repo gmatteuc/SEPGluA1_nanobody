@@ -1,4 +1,4 @@
-"""Analysis 5 of the ISH line: what the green channel reports; figure 13.
+"""Analysis 5 of the ISH line: what the green channel reports; figure 14.
 
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
@@ -25,9 +25,9 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     16. run_ish_spatial_null   A7: surrogate maps and their checks
     17. run_ish_gene_ranking   analysis 1: each gene against the
                                map, the null, autofluorescence (A8),
-                               the Cacng8 - Gria1 gap; figures 05 to 07 and 11
+                               the Cacng8 - Gria1 gap; figures 05 to 07 and 12
     18. run_ish_robustness     A3: the ranking under other choices;
-                               figure 12
+                               figure 13
     19. run_ish_divisions      analysis 2 (A6): between or within
                                divisions; figure 10, gene sheets
     20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
@@ -38,10 +38,10 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     23. run_beyond_calibration the same model on maps whose answer
                                is known
     24. run_beyond_regression  the regression, per structure
-    25. run_beyond_figures     figures 03 and 04
+    25. run_beyond_figures     figures 03, 04 and 11
     26. run_sep_channel_check  analysis 5: what the green channel   <- this script
-                               reports; figure 13
-    27. run_ish_overview       figures 00 and 14, the figure index;
+                               reports; figure 14
+    27. run_ish_overview       figures 00 and 15, the figure index;
                                the numbers for the text
 
 Per adult, on the declared structures: the dynamic range of each raw channel, what
@@ -53,7 +53,7 @@ adult_v2/ish_analysis/ in the data root:
     green_channel/sep_channel_check.csv   per adult: the ranges and correlations
     green_channel/sep_channel_check.png   the working figure
     tables/numbers_green_channel.csv      the numbers of analysis 5, for the text
-    figures/13_green_channel.png          the guided figure
+    figures/14_green_channel.png          the guided figure
 
     python run_sep_channel_check.py
 """
@@ -99,7 +99,7 @@ def numbers_table(rows: pd.DataFrame, n_structures: int) -> pd.DataFrame:
 
 
 def main():
-    """Print the settings, measure the channels per adult, draw figure 13."""
+    """Print the settings, measure the channels per adult, draw figure 14."""
     config.print_settings({})
     per, rows = sep_channel_check.main()
     rows = pd.DataFrame(rows)
@@ -108,7 +108,7 @@ def main():
         TABLES / "numbers_green_channel.csv", index=False
     )
 
-    # figure 13: the first adult's raw channels on the plane of the guided figures
+    # figure 14: the first adult's raw channels on the plane of the guided figures
     plane = ISH_FIGURES["plane"]
     mouse = sep_channel_check.ADULTS[0]
     fig = ish_plotting.plot_green_channel(
@@ -122,7 +122,7 @@ def main():
         save=FIGURES / ish_plotting.figure_file("green_channel"),
     )
     plt.close(fig)
-    print(f"figure 13 in {FIGURES}")
+    print(f"figure 14 in {FIGURES}")
 
 
 if __name__ == "__main__":

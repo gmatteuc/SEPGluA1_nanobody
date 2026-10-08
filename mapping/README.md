@@ -69,7 +69,7 @@ mapping/
 | ontology panel | 11 `run_panel_build`, 12 `run_panel_fetch` | a 390-gene panel from Gene Ontology terms, and its ISH grids (network, once; not rerun for an analysis) |
 | ISH inputs | 13 `run_structure_set`, 14 `run_ish_section_qc`, 15 `run_ish_gene_table`, 16 `run_ish_spatial_null` | the declared structures and the adult profiles (A1); section QC of every experiment (A2); one gene table, merged profiles, gene sets, documentation (A9); surrogate maps with the map's smoothness (A7) |
 | the genes against the map | 17 `run_ish_gene_ranking`, 18 `run_ish_robustness`, 19 `run_ish_divisions`, 20 `run_ish_gene_sets` | each gene against the map and the autofluorescence map, with the null (A8); the ranking under other choices (A3); between or within divisions (A6); gene sets and localisation against matched controls |
-| beyond abundance and density | 21 `run_beyond_density`, 22 `run_beyond_controls`, 23 `run_beyond_calibration`, 24 `run_beyond_regression`, 25 `run_beyond_figures` | how much of the map receptor mRNA and synaptic density predict, seven controls, the same model on maps whose answer is known, the regression per structure, the figures |
+| beyond abundance and density | 21 `run_beyond_density`, 22 `run_beyond_controls`, 23 `run_beyond_calibration`, 24 `run_beyond_regression`, 25 `run_beyond_figures` | how much of the map receptor mRNA and synaptic density predict, and the genes against what they leave; seven controls and the leftover under other folds and structures; the same model on maps whose answer is known, and the nano map against them on the same structures; the regression per structure; the figures |
 | the green channel, the overview | 26 `run_sep_channel_check`, 27 `run_ish_overview` | what the green channel reports; April's headline, the numbers for the text, the overview and the index of the figures |
 
 What fixes the order: step 5's `region_means_per_mouse.csv` is read by steps
@@ -150,7 +150,7 @@ Under `<data>\adult_v2\`:
 - `ish_analysis\`: the ISH analysis. `tables\` (every table of steps 13 to
   27, the surrogates, `numbers_<step>.csv` and `numbers_for_the_text.csv`),
   `beyond\` (part 1's tables and working figures), `green_channel\`,
-  `figures\` (the guided figures `00_overview.png` to `14_april_headline.png`
+  `figures\` (the guided figures `00_overview.png` to `15_april_headline.png`
   with the index `README.md`, `qc\` and `genes\`), `cache\` (Allen
   experiment lists, mygene records, `go-basic.obo`). The table of every file:
   `../docs/ISH_ANALYSIS.md`, section 10.
@@ -184,10 +184,17 @@ the ISH tables, the API answers and the grids.
 - The spatial null of the ISH analysis rests on structure centroids in one
   hemisphere and a variogram matched at short range; structures of very
   different sizes count as points. It is calibrated on random maps of another
-  kind (about 4% false positives at 0.05), but differences between two genes'
-  correlations need to be large to pass it.
-- The true absences of the section QC (`ish_section_exceptions.csv`) are a
-  human call, proposed and not yet reviewed.
+  kind (about 4% false positives at 0.05). A difference between two genes'
+  correlations is tested against maps related to both alike, and still needs
+  to be large to pass.
+- The calibration floor of part 1 errs low: a gene measured by one Allen
+  experiment is the same in both halves, so its mismatch is not in it.
+- The true absences of the section QC (`ish_section_exceptions.csv`, one
+  section today) and the sections kept at a step in expression are a human
+  call, proposed and not yet reviewed.
+- The ISH outputs quoted in the documents were made on a full copy of the
+  production inputs (`SEP_DATA_ROOT`); the production data root has them once
+  steps 13 to 27 run there after the merge.
 - The young cohort holds P16, P20 and P22 brains. A brain of another age
   (`mapping_cohort` `young_P28` and so on) goes through the per-brain steps,
   but no cohort takes it until one is added (see `../docs/ADDING_DATA.md`,

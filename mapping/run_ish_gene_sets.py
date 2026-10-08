@@ -25,9 +25,9 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     16. run_ish_spatial_null   A7: surrogate maps and their checks
     17. run_ish_gene_ranking   analysis 1: each gene against the
                                map, the null, autofluorescence (A8),
-                               the Cacng8 - Gria1 gap; figures 05 to 07 and 11
+                               the Cacng8 - Gria1 gap; figures 05 to 07 and 12
     18. run_ish_robustness     A3: the ranking under other choices;
-                               figure 12
+                               figure 13
     19. run_ish_divisions      analysis 2 (A6): between or within
                                divisions; figure 10, gene sheets
     20. run_ish_gene_sets      analysis 3: kinds of genes; localisation   <- this script
@@ -38,10 +38,10 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     23. run_beyond_calibration the same model on maps whose answer
                                is known
     24. run_beyond_regression  the regression, per structure
-    25. run_beyond_figures     figures 03 and 04
+    25. run_beyond_figures     figures 03, 04 and 11
     26. run_sep_channel_check  analysis 5: what the green channel
-                               reports; figure 13
-    27. run_ish_overview       figures 00 and 14, the figure index;
+                               reports; figure 14
+    27. run_ish_overview       figures 00 and 15, the figure index;
                                the numbers for the text
 
 Tests the gene sets fixed in advance (sepmap/ish/gene_sets.py) against the adult
@@ -72,6 +72,7 @@ Writes, in adult_v2/ish_analysis/ under the data root:
 """
 
 import argparse
+import re
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -140,6 +141,19 @@ def numbers_table(members, tests, contrasts, summary, power):
         ),
     ]
     return pd.DataFrame(rows, columns=["name", "value", "what"], dtype=object)
+
+
+def named_terms(text, names):
+    """`text` with each GO id followed by its name in brackets, unless named already."""
+
+    def name(match):
+        term = match.group(0)
+        after = text[match.end() : match.end() + 1 + len(names.get(term, ""))]
+        if term not in names or after.strip() == names[term]:
+            return term
+        return f"{term} ({names[term]})"
+
+    return re.sub(r"GO:\d{7}", name, text)
 
 
 def gene_levels(table):
@@ -275,6 +289,8 @@ def main():
     # figures 08 and 09
     rules = dict(gene_sets.GENE_SETS)
     rules[gene_sets.CONTEXT_SET] = gene_sets.CONTEXT_RULE
+    _, term_names, _ = gene_table.load_obo(offline=True)
+    rules = {k: named_terms(v, term_names) for k, v in rules.items()}
     n_surrogates = surr.shape[0]
     fig = ish_plotting.plot_gene_sets(
         member_rows,

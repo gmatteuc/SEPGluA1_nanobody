@@ -25,9 +25,9 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     16. run_ish_spatial_null   A7: surrogate maps and their checks
     17. run_ish_gene_ranking   analysis 1: each gene against the    <- this script
                                map, the null, autofluorescence (A8),
-                               the Cacng8 - Gria1 gap; figures 05 to 07 and 11
+                               the Cacng8 - Gria1 gap; figures 05 to 07 and 12
     18. run_ish_robustness     A3: the ranking under other choices;
-                               figure 12
+                               figure 13
     19. run_ish_divisions      analysis 2 (A6): between or within
                                divisions; figure 10, gene sheets
     20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
@@ -38,10 +38,10 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     23. run_beyond_calibration the same model on maps whose answer
                                is known
     24. run_beyond_regression  the regression, per structure
-    25. run_beyond_figures     figures 03 and 04
+    25. run_beyond_figures     figures 03, 04 and 11
     26. run_sep_channel_check  analysis 5: what the green channel
-                               reports; figure 13
-    27. run_ish_overview       figures 00 and 14, the figure index;
+                               reports; figure 14
+    27. run_ish_overview       figures 00 and 15, the figure index;
                                the numbers for the text
 
 Correlates every gene of the gene table with the adult nano map and with the
@@ -64,7 +64,7 @@ adult_v2/ish_analysis/ under the data root:
     figures/05_one_comparison.png      what one comparison is
     figures/06_spatial_null.png        why a null, and the null itself
     figures/07_gene_ranking.png        P9's genes against the map and its null
-    figures/11_autofluorescence.png    the same on the autofluorescence map
+    figures/12_autofluorescence.png    the same on the autofluorescence map
 
     python run_ish_gene_ranking.py
 """
@@ -328,7 +328,7 @@ def main():
     )
     plt.close(fig)
 
-    # figure 07: the ranking; figure 11: the autofluorescence map
+    # figure 07: the ranking; figure 12: the autofluorescence map
     fig = ish_plotting.plot_gene_ranking(
         ranking,
         gap,
@@ -349,7 +349,7 @@ def main():
         save=figures / ish_plotting.figure_file("autofluorescence"),
     )
     plt.close(fig)
-    print(f"figures: 05 to 07 and 11 in {figures}")
+    print(f"figures: 05 to 07 and 12 in {figures}")
 
 
 if __name__ == "__main__":

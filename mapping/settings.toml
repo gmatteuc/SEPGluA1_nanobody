@@ -127,7 +127,7 @@ n_calibration_surrogates = 1000  # surrogates per calibration map, enough to pla
 q = 0.05                   # Benjamini-Hochberg level at which a gene, a set or a contrast is marked in the figures and counted in the text
 n_boot_mice = 2000         # resamples of the ten adults: each gene's rho spread (the grey of its bar) and the interval of the Cacng8 - Gria1 gap
 min_division_structures = 8  # structures a division needs, for one gene, to enter the mean within divisions (A6); with fewer, one rho is too noisy to average
-n_perm_within = 10000      # shuffles of structures within divisions: the discussion's cheap first null of analysis 2, reported beside the spatial one, which the figures use
+n_perm_within = 10000      # shuffles of structures within divisions: the cheap first null of analysis 2 in the ISH discussion (docs/history/ISH_DISCUSSION.md, section 8), reported beside the spatial one, which the figures use
 n_calibration_within = 1000  # random smooth maps (the spatial null's calibration fields) tested inside divisions, to show which within null keeps 5% false positives
 min_set_genes = 5          # genes with a profile a set needs to be tested, as the word test asked
 power_maps = 500           # maps per effect size in the power check of the localisation test, each the real map's composite part plus a surrogate of its remainder: enough to place a power of 80% within about 2 points
@@ -182,7 +182,6 @@ jackknife_splits = 20      # half-cohort splits behind the ceiling on each subsa
 [beyond_figures]
 n_perm = 10000             # shuffles of one half's leftover, what two unrelated leftovers agree at (for scale)
 t_max_structures = 10.0    # figure 04: a structure's bar is black at this t of the adults' own leftovers, near the 90th percentile of |t| over the structures (9.2 on 8 October)
-t_max_genes = 10.0         # figure 04: a gene's bar is black at this rho with the leftover over its SD across resampled adults, near the 90th percentile over the genes (10.5 on 8 October)
 
 [beyond_regression]
 # coronal planes to draw, in 20 um planes of the cropped CCF grid (450 of them): cortex
@@ -197,7 +196,7 @@ diagnostic_p = 0.05        # panel E: a tilt or a fan of the residuals against t
 
 # the guided figures of the ISH analysis (ish.plotting)
 [ish_figures]
-plane = 700                # CCF plane at 10 um of every coronal panel (ISH section 35): cortex, hippocampus and thalamus in one section, the plane of the discussion's Figure 1
+plane = 700                # CCF plane at 10 um of every coronal panel (ISH section 35): cortex, hippocampus and thalamus in one section, the plane of Figure 1 of docs/history/ISH_DISCUSSION.md
 t_max = 40.0               # the grey of a gene's bar saturates at this rho over its SD across resampled adults: near the 90th percentile over P9's genes (39 on 8 October), so the steadiest tenth is black
 
 # The ISH chain runs twice: on the hand-written 100-gene panel, then on the

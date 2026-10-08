@@ -25,9 +25,9 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     16. run_ish_spatial_null   A7: surrogate maps and their checks
     17. run_ish_gene_ranking   analysis 1: each gene against the
                                map, the null, autofluorescence (A8),
-                               the Cacng8 - Gria1 gap; figures 05 to 07 and 11
+                               the Cacng8 - Gria1 gap; figures 05 to 07 and 12
     18. run_ish_robustness     A3: the ranking under other choices;
-                               figure 12
+                               figure 13
     19. run_ish_divisions      analysis 2 (A6): between or within
                                divisions; figure 10, gene sheets
     20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
@@ -38,10 +38,10 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     23. run_beyond_calibration the same model on maps whose answer
                                is known
     24. run_beyond_regression  the regression, per structure
-    25. run_beyond_figures     figures 03 and 04
+    25. run_beyond_figures     figures 03, 04 and 11
     26. run_sep_channel_check  analysis 5: what the green channel
-                               reports; figure 13
-    27. run_ish_overview       figures 00 and 14, the figure index;   <- this script
+                               reports; figure 14
+    27. run_ish_overview       figures 00 and 15, the figure index;   <- this script
                                the numbers for the text
 
 Measures what is left of April's headline (the category violins and their ANOVA)
@@ -58,7 +58,7 @@ Writes, in adult_v2/ish_analysis/ under the data root:
                                        docs/ISH_ANALYSIS.md (and a .txt to read)
     figures/00_overview.png            the question, the argument, which figure
                                        answers what
-    figures/14_april_headline.png      April's headline, then and now
+    figures/15_april_headline.png      April's headline, then and now
     figures/README.md                  the guided walk: each figure with its
                                        question, what to look at, what to take
 
@@ -113,7 +113,7 @@ def main():
         [
             overview.headline_numbers(headline, anova, groups, f_info),
             overview.leftover_extremes(),
-            overview.ranking_extras(ranking, per_adult, summary),
+            overview.ranking_extras(ranking, per_adult, summary, robustness_rows),
             overview.gene_extras(),
         ],
         ignore_index=True,
@@ -126,7 +126,7 @@ def main():
     n = overview.lookup(numbers)
     print(f"numbers: {len(numbers)} from {numbers['step'].nunique()} steps")
 
-    # figure 14: April's headline; figure 00: the overview; the index
+    # figure 15: April's headline; figure 00: the overview; the index
     fig = ish_plotting.plot_april_headline(
         headline,
         anova,
@@ -152,7 +152,7 @@ def main():
         for key in ish_plotting.FIGURES
         if not (figures / ish_plotting.figure_file(key)).exists()
     ]
-    print(f"figures: 00 and 14, and the index, in {figures}")
+    print(f"figures: 00 and 15, and the index, in {figures}")
     if missing:
         print(f"  warning: the index names figures not drawn yet: {', '.join(missing)}")
 

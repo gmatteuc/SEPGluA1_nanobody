@@ -111,4 +111,4 @@ def test_todays_index_and_rows_fill_from_the_numbers():
     text = overview.figure_index(n)
     for key in FIGURES:
         assert QUESTIONS[key] in text
-    assert len(overview.overview_rows(n)) == 8
+    assert len(overview.overview_rows(n)) == 9

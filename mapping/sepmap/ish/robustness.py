@@ -20,7 +20,7 @@ whether the order of the genes, and where Cacng8 and Gria1 sit, moves:
     structures  P9's nine divisions (the structures of those divisions in the adult
                 table, seen in any number of adults, no catch-all labels), and
                 every structure of the adult table
-    5 October   the route before the build: stored zref, every structure, P9's
+    5 October   the route as it ran on 5 October: stored zref, every structure, P9's
                 one experiment per gene, no QC (the region table of
                 adult_v2/ish/, frozen), as ish.compare correlated them
 

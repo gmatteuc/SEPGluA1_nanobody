@@ -42,8 +42,8 @@ Whether a flagged section is a failure or a true absence of expression is a huma
 call. mapping/ish_section_exceptions.csv lists the sections reviewed as true
 absence (symbol, experiment_id, sections, reason, status): with status proposed or
 accepted they are kept, with rejected they are set missing like any other flag.
-The build proposes candidates, which stay "proposed" until reviewed on the QC
-sheets (figures/qc/).
+Candidates are listed with status "proposed" and stay so until reviewed on the
+QC sheets (figures/qc/).
 
 Run by run_ish_section_qc.py.
 """

@@ -25,9 +25,9 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     16. run_ish_spatial_null   A7: surrogate maps and their checks
     17. run_ish_gene_ranking   analysis 1: each gene against the
                                map, the null, autofluorescence (A8),
-                               the Cacng8 - Gria1 gap; figures 05 to 07 and 11
+                               the Cacng8 - Gria1 gap; figures 05 to 07 and 12
     18. run_ish_robustness     A3: the ranking under other choices;
-                               figure 12
+                               figure 13
     19. run_ish_divisions      analysis 2 (A6): between or within
                                divisions; figure 10, gene sheets
     20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
@@ -38,10 +38,10 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     23. run_beyond_calibration the same model on maps whose answer
                                is known
     24. run_beyond_regression  the regression, per structure
-    25. run_beyond_figures     figures 03 and 04
+    25. run_beyond_figures     figures 03, 04 and 11
     26. run_sep_channel_check  analysis 5: what the green channel
-                               reports; figure 13
-    27. run_ish_overview       figures 00 and 14, the figure index;
+                               reports; figure 14
+    27. run_ish_overview       figures 00 and 15, the figure index;
                                the numbers for the text
 
 Measures the three channels of every adult per structure, plain and eroded by one
@@ -100,6 +100,21 @@ def numbers_table(set_table, reference, centroids, agreement):
             "structures_all_adults",
             int((set_table["n_adults"] >= STRUCTURES["min_adults"]).sum()),
             "measured in all the adults the rule asks for",
+        ),
+        (
+            "structures_below_5_adults",
+            int((set_table["n_adults"] < 5).sum()),
+            "left out: measured in fewer than five adults",
+        ),
+        (
+            "structures_5_to_9_adults",
+            int(
+                (
+                    (set_table["n_adults"] >= 5)
+                    & (set_table["n_adults"] < STRUCTURES["min_adults"])
+                ).sum()
+            ),
+            "left out: measured in five or more adults, but not in all",
         ),
         ("structures_declared", int(set_table["in_set"].sum()), "the declared set"),
         (

@@ -1,4 +1,4 @@
-"""The guided figures of analysis 4, with their intervals: figures 03 and 04.
+"""The guided figures of analysis 4, with their intervals: figures 03, 04 and 11.
 
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
@@ -25,9 +25,9 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     16. run_ish_spatial_null   A7: surrogate maps and their checks
     17. run_ish_gene_ranking   analysis 1: each gene against the
                                map, the null, autofluorescence (A8),
-                               the Cacng8 - Gria1 gap; figures 05 to 07 and 11
+                               the Cacng8 - Gria1 gap; figures 05 to 07 and 12
     18. run_ish_robustness     A3: the ranking under other choices;
-                               figure 12
+                               figure 13
     19. run_ish_divisions      analysis 2 (A6): between or within
                                divisions; figure 10, gene sheets
     20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
@@ -38,14 +38,14 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     23. run_beyond_calibration the same model on maps whose answer
                                is known
     24. run_beyond_regression  the regression, per structure
-    25. run_beyond_figures     figures 03 and 04                    <- this script
+    25. run_beyond_figures     figures 03, 04 and 11                <- this script
     26. run_sep_channel_check  analysis 5: what the green channel
-                               reports; figure 13
-    27. run_ish_overview       figures 00 and 14, the figure index;
+                               reports; figure 14
+    27. run_ish_overview       figures 00 and 15, the figure index;
                                the numbers for the text
 
 Jackknife intervals over structures, the noise band of the replication, the
-numbers the text quotes, and the two figures; it reads the tables of steps 21 to
+numbers the text quotes, and the three figures; it reads the tables of steps 21 to
 24. The method is in sepmap/adult/beyond_figures.py. Writes, under
 adult_v2/ish_analysis/ in the data root:
 
@@ -54,6 +54,7 @@ adult_v2/ish_analysis/ in the data root:
     tables/numbers_beyond.csv           the numbers of analysis 4, for the text
     figures/03_beyond_budget.png        what receptor mRNA and density predict
     figures/04_beyond_where.png         where the leftover lives
+    figures/11_leftover_genes.png       the genes and gene sets against the leftover
 
     python run_beyond_figures.py
 """
@@ -67,7 +68,7 @@ from sepmap.adult import beyond_figures
 
 
 def main():
-    """Print the settings in force, then run the intervals and figures 03 and 04."""
+    """Print the settings in force, then run the intervals and figures 03, 04 and 11."""
     config.print_settings({})
     beyond_figures.main()
 
@@ -78,6 +79,6 @@ if __name__ == "__main__":
     plotting.set_style()
 
     # no options; parsing still gives the script its --help
-    parser = argparse.ArgumentParser(description="figures 03 and 04 of analysis 4")
+    parser = argparse.ArgumentParser(description="figures 03, 04 and 11 of analysis 4")
     parser.parse_args()
     main()

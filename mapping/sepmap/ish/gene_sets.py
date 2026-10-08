@@ -36,10 +36,12 @@ neither chosen by correlation. A gene may sit in one GO set and one marker set
 (Slc32a1 is presynaptic by GO and a GABAergic marker); a contrast between two sets
 leaves out the genes in both, and says so.
 
-Two contrasts are named in advance (the plan of 8 October, before any correlation on
-the new inputs): the three postsynaptic sets pooled against the presynaptic set, and
-against glia. A postsynaptic-like map, as any glutamate receptor label should give,
-puts the first side above the second in both.
+Two contrasts are named in advance (the ISH discussion,
+docs/history/ISH_DISCUSSION.md, section 8, analysis 3; written into this file before
+any set was correlated with the map on these inputs): the three postsynaptic sets
+pooled against the presynaptic set, and against glia. A postsynaptic-like map, as any
+glutamate receptor label should give, puts the first side above the second in both;
+the criterion needs both.
 
 One more group is drawn beside the six for context and never tested: genes GO
 annotates to both the presynapse and the postsynapse. The rule "not both" leaves the

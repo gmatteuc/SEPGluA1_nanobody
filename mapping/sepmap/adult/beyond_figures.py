@@ -1,18 +1,20 @@
-"""The guided figures of analysis 4, with their intervals: figures 03 and 04.
+"""The guided figures of analysis 4, with their intervals: figures 03, 04 and 11.
 
 adult.beyond_density, adult.beyond_controls, adult.beyond_calibration and
 adult.beyond_regression write the tables. This module adds the intervals, gathers
 the numbers the text quotes, and has ish.plotting draw the two figures of the guided
 walk:
 
-    11  how much of the nano map receptor mRNA and synaptic density predict, and
+    03  how much of the nano map receptor mRNA and synaptic density predict, and
         whether what they leave is real: the map against Gria1, against synaptic
         density and against the whole model; the variance budget with the
         leftover's range and the calibration floor; the calibration; the leftover's
-        replication across mice
-    12  where the leftover lives: map, prediction and leftover on three coronal
-        planes, the structures with the largest leftovers, and every gene of the
-        gene table against the leftover, with the leftover's spatial null
+        replication across mice; the leftover under other folds and structures
+    04  where the leftover lives: map, prediction and leftover on three coronal
+        planes, and the structures with the largest leftovers
+    11  every gene of the gene table and every gene set against the leftover, with
+        the leftover's spatial null (after figure 10, once the null and the sets
+        have been shown)
 
 Intervals come from resampling structures, not animals: the claim is about where in
 the brain the map departs from prediction, so what would differ in a repeat of the
@@ -45,6 +47,7 @@ Writes, under adult_v2/ish_analysis/ in the data root:
     tables/numbers_beyond.csv           the numbers of analysis 4, for the text
     figures/03_beyond_budget.png        (and .eps)
     figures/04_beyond_where.png         (and .eps)
+    figures/11_leftover_genes.png       (and .eps)
 
 Run by run_beyond_figures.py.
 """
@@ -73,6 +76,7 @@ from sepmap.volumes.to_ccf import CCF_CROP
 BEYOND_FIGURES = SETTINGS["beyond_figures"]
 BEYOND_CALIBRATION = SETTINGS["beyond_calibration"]
 ISH_ANALYSIS = SETTINGS["ish_analysis"]
+ISH_FIGURES = SETTINGS["ish_figures"]
 
 JACKKNIFE = bd.OUT / "jackknife.csv"
 CAPTION = bd.OUT / "numbers_for_the_caption.txt"
@@ -296,14 +300,19 @@ def numbers_table(n: dict) -> pd.DataFrame:
         ("leftover_rank_Cacng8", int(n["cacng8"]["rank_all"]), "its rank"),
     ]
     for r in n["sets"].itertuples():
+        key = r.gene_set.replace(" ", "_")
         rows.append(
             (
-                f"leftover_set_{r.gene_set.replace(' ', '_')}",
+                f"leftover_set_{key}",
                 round(r.median_rho, 3),
-                f"median rho with the leftover, {r.n_genes} genes; spatial p "
-                + (f"{r.p_spatial:.4f}" if r.tested else "not tested"),
+                f"median rho with the leftover, {r.n_genes} genes",
             )
         )
+        if r.tested:
+            rows += [
+                (f"leftover_set_p_{key}", round(r.p_spatial, 4), "its spatial p"),
+                (f"leftover_set_q_{key}", round(r.q, 4), "its q over the tested sets"),
+            ]
     return pd.DataFrame(rows, columns=["name", "value", "what"], dtype=object)
 
 
@@ -419,7 +428,7 @@ def plane_images(regression: pd.DataFrame) -> list[dict]:
 
 
 def main() -> None:
-    """Compute the intervals, write the numbers and draw figures 03 and 04.
+    """Compute the intervals, write the numbers and draw figures 03, 04 and 11.
 
     One seeded generator feeds the bootstrap and then the noise null.
     """
@@ -552,18 +561,23 @@ def main() -> None:
     )
     plt.close(fig)
 
-    # figure 04: where the leftover lives, and the genes against it
-    null = np.load(bd.LEFTOVER_NULL)
+    # figure 04: where the leftover lives; figure 11: the genes against it
     fig = ish_plotting.plot_beyond_where(
         planes=plane_images(regression),
         residuals=residuals,
+        numbers=numbers,
+        t_max=BEYOND_FIGURES["t_max_structures"],
+        save=FIGURES / ish_plotting.figure_file("beyond_where"),
+    )
+    plt.close(fig)
+    null = np.load(bd.LEFTOVER_NULL)
+    fig = ish_plotting.plot_leftover_genes(
         genes=genes,
         sets=sets,
         numbers=numbers,
         n_surrogates=int(null["surrogates"].shape[0]),
-        t_max=BEYOND_FIGURES["t_max_structures"],
-        t_max_genes=BEYOND_FIGURES["t_max_genes"],
-        save=FIGURES / ish_plotting.figure_file("beyond_where"),
+        t_max=ISH_FIGURES["t_max"],
+        save=FIGURES / ish_plotting.figure_file("leftover_genes"),
     )
     plt.close(fig)
-    print(f"figures 03 and 04 in {FIGURES}")
+    print(f"figures 03, 04 and 11 in {FIGURES}")

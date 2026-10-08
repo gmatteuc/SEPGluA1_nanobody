@@ -25,9 +25,9 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     16. run_ish_spatial_null   A7: surrogate maps and their checks
     17. run_ish_gene_ranking   analysis 1: each gene against the
                                map, the null, autofluorescence (A8),
-                               the Cacng8 - Gria1 gap; figures 05 to 07 and 11
+                               the Cacng8 - Gria1 gap; figures 05 to 07 and 12
     18. run_ish_robustness     A3: the ranking under other choices;
-                               figure 12
+                               figure 13
     19. run_ish_divisions      analysis 2 (A6): between or within
                                divisions; figure 10, gene sheets
     20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
@@ -38,10 +38,10 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     23. run_beyond_calibration the same model on maps whose answer
                                is known
     24. run_beyond_regression  the regression, per structure
-    25. run_beyond_figures     figures 03 and 04
+    25. run_beyond_figures     figures 03, 04 and 11
     26. run_sep_channel_check  analysis 5: what the green channel
-                               reports; figure 13
-    27. run_ish_overview       figures 00 and 14, the figure index;
+                               reports; figure 14
+    27. run_ish_overview       figures 00 and 15, the figure index;
                                the numbers for the text
 
 Lists every experiment of the two gene panels, adds the other Allen experiments of
@@ -85,9 +85,14 @@ from sepmap.volumes.per_mouse import structure_terms
 OUT = config.DATA / "adult_v2" / "ish_analysis"
 
 
-def numbers_table(experiments, summary):
+def numbers_table(experiments, summary, sections):
     """The numbers of this step that the text quotes, one row each."""
     ok = summary[summary["grid"] == "ok"]
+    reasons = sections["reason"].fillna("").astype(str)
+    steps = sections[
+        (sections["status"] == section_qc.OK)
+        & reasons.str.startswith("dim against one side only")
+    ]
     rows = [
         ("experiments_listed", len(experiments), "experiments of both panels and repair"),
         ("genes_listed", experiments["symbol"].nunique(), "genes of both panels"),
@@ -109,6 +114,26 @@ def numbers_table(experiments, summary):
             "dim sections kept as true absence (exceptions list)",
         ),
         ("sections_judged", int(ok["n_judged"].sum()), "sections judged"),
+        (
+            "sections_faint",
+            int((sections["status"] == section_qc.FAINT).sum()),
+            "sections not judged: neighbours at the noise level",
+        ),
+        (
+            "sections_step",
+            len(steps),
+            "dim against one side only: kept, a step in expression",
+        ),
+        (
+            "experiments_step",
+            steps["experiment_id"].nunique(),
+            "experiments with a section kept at a step",
+        ),
+        (
+            "experiments_near_zero",
+            int(ok["near_zero"].astype(str).eq("True").sum()),
+            "experiments whose median section is at the noise level",
+        ),
     ]
     p9 = experiments.loc[experiments["p9_experiment"], "experiment_id"]
     p9_ok = ok[ok["experiment_id"].isin(set(p9))]
@@ -181,7 +206,7 @@ def main(sheets, redraw, offline):
         f"{int((ok['n_flagged'] > 0).sum())} with flags, {int(ok['n_flagged'].sum())} "
         f"sections flagged, {int(ok['n_absence_kept'].sum())} kept as absence"
     )
-    numbers = numbers_table(experiments, summary)
+    numbers = numbers_table(experiments, summary, sections)
     numbers.to_csv(tables / "numbers_section_qc.csv", index=False)
 
     # the overview of the flags, and with --sheets one sheet per experiment
