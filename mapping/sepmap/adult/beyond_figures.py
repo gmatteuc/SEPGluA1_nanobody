@@ -442,7 +442,7 @@ def main() -> None:
     map_agreement, explainable = bd.ceiling(inputs.nano, splits)
     print(f"{len(s)} structures, {len(bd.ADULTS)} adults, ceiling {explainable:.4f}")
 
-    # the tables of steps 21 to 24
+    # the tables of steps 22 to 25
     partition = pd.read_csv(bd.PARTITION).set_index("key")
     replication = pd.read_csv(bd.REPLICATION)
     residuals = pd.read_csv(bd.RESIDUALS, keep_default_na=False, na_values=[""])

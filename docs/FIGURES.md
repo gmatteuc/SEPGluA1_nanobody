@@ -287,9 +287,12 @@ the numbers of the run. The story and every number:
 | `qc\00_flagged.png`, `qc\<gene>_<experiment>.png` | `mapping/run_ish_section_qc.py --sheets` | every experiment with a section set missing, kept as a true absence or kept at a step; one sheet per experiment: the section profile with its flags, the orientation check |
 | `genes\<gene>.png` | `run_ish_divisions.py --sheets` | Cacng8, Gria1, Grm5, Dlg2 and Aqp4: rank maps, the scatter with a fitted line per division |
 
-Working figures beside the tables: `beyond\fig0_structures` to
-`fig6_readings`, `E_regression`, `F_maps` (steps 21, 22 and 24) and
-`green_channel\sep_channel_check.png` (step 26).
+Working figures beside the tables: `synaptome\feasibility.png` (step 21: how
+much of part 1's fit the measured PSD95 density covers, per division, and how
+it agrees with the mRNA density terms, Gria1, the map and itself across the
+two hemispheres), `beyond\fig0_structures` to `fig6_readings`, `E_regression`,
+`F_maps` (steps 22, 23 and 25) and `green_channel\sep_channel_check.png`
+(step 27).
 
 **Inputs.** The per-brain files and `region_means_per_mouse.csv` of the route's
 steps 1 to 5 (the stored `cref`, `zref` and `ratio` rows), the ontology panel

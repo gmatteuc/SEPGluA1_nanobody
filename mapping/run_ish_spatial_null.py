@@ -32,16 +32,19 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                divisions; figure 10, gene sheets
     20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
                                against matched controls; figures 08, 09
-    21. run_beyond_density     analysis 4: what receptor mRNA and
+    21. run_synaptome          the measured synapse density (network,
+                               once): PSD95 puncta per structure,
+                               its coverage of the fit
+    22. run_beyond_density     analysis 4: what receptor mRNA and
                                synaptic density leave; the leftover
-    22. run_beyond_controls    seven attempts to break it
-    23. run_beyond_calibration the same model on maps whose answer
+    23. run_beyond_controls    seven attempts to break it
+    24. run_beyond_calibration the same model on maps whose answer
                                is known
-    24. run_beyond_regression  the regression, per structure
-    25. run_beyond_figures     figures 03, 04 and 11
-    26. run_sep_channel_check  analysis 5: what the green channel
+    25. run_beyond_regression  the regression, per structure
+    26. run_beyond_figures     figures 03, 04 and 11
+    27. run_sep_channel_check  analysis 5: what the green channel
                                reports; figure 14
-    27. run_ish_overview       figures 00 and 15, the figure index;
+    28. run_ish_overview       figures 00 and 15, the figure index;
                                the numbers for the text
 
 Draws variogram-matched surrogates (Burt 2020) of the adult nano map and of the

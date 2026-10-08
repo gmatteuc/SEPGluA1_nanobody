@@ -5105,3 +5105,236 @@ def plot_april_headline(
         ],
     )
     return saved(fig, save)
+
+
+# ===== The measured synapse density (adult.synaptome) =====
+
+
+# how each density is drawn in the agreement panel: the one the model uses filled, in
+# the density colour of the budget; the variants open, in greys
+DENSITY_MARKERS = {
+    "psd95": ("o", DENSITY_BLUE, 46, "PSD95 puncta (the one used)"),
+    "psd95_only": ("s", DARK_GREY, 22, "PSD95 alone"),
+    "sap102": ("^", DARK_GREY, 24, "SAP102 puncta"),
+    "all_puncta": ("D", MID_GREY, 18, "every punctum"),
+}
+
+# the terms of the agreement panel, top to bottom, and how they are named
+AGREEMENT_TERMS = {
+    "markers": "marker mRNA composite",
+    "psd_pc1": "psd_pc1 (PSD genes' mRNA)",
+    "Gria1": "Gria1 mRNA",
+    "nano": "nano map",
+    "autofluorescence": "autofluorescence map",
+}
+
+
+def coverage_panel(ax: plt.Axes, coverage: pd.DataFrame) -> None:
+    """A: per division, the structures of the fit with a measured density and without."""
+    rows = coverage[coverage["fit"] > 0].set_index("division")
+    order = [d for d in DIVISION_ORDER if d in rows.index]
+    y = np.arange(len(order))
+    measured = rows.loc[order, "fit_measured"].to_numpy()
+    total = rows.loc[order, "fit"].to_numpy()
+    ax.barh(y, measured, color=DENSITY_BLUE, height=0.7, label="measured")
+    ax.barh(
+        y,
+        total - measured,
+        left=measured,
+        color=LIGHT_GREY,
+        height=0.7,
+        label="not sampled",
+    )
+    for k in range(len(order)):
+        ax.text(
+            total[k] + 0.4,
+            k,
+            f"{measured[k]} of {total[k]}",
+            va="center",
+            fontsize=7,
+            color=DARK_GREY,
+        )
+    ax.set_yticks(y)
+    ax.set_yticklabels(order, fontsize=8)
+    ax.invert_yaxis()
+    ax.set_xlabel("structures of the fit", fontsize=8)
+    ax.set_xlim(0, total.max() * 1.3)
+    ax.legend(fontsize=7, frameon=False, loc="lower right")
+    tidy(ax)
+
+
+def rank_scatter(
+    ax: plt.Axes,
+    x: pd.Series,
+    y: pd.Series,
+    groups: dict[str, str],
+    labels: tuple[str, str],
+) -> tuple[int, float]:
+    """Two maps over the structures both have, as ranks; returns (n, Spearman)."""
+    pair = pd.DataFrame(dict(x=x, y=y)).dropna()
+    group = [groups.get(s, "other grey matter") for s in pair.index]
+    scatter_groups(ax, rankdata(pair["x"]), rankdata(pair["y"]), group)
+    ax.set_xlabel(labels[0], fontsize=8)
+    ax.set_ylabel(labels[1], fontsize=8)
+    tidy(ax)
+    return len(pair), float(spearmanr(pair["x"], pair["y"]).statistic)
+
+
+def agreement_dots(ax: plt.Axes, agreement: pd.DataFrame) -> None:
+    """D: each density's Spearman with each term, over the fit's measured structures."""
+    fit = agreement[agreement["structures"] == "fit"]
+    terms = [t for t in AGREEMENT_TERMS if t in set(fit["term"])]
+    for k, term in enumerate(terms):
+        ax.axhline(k, color="0.92", lw=0.6, zorder=0)
+        for density, (marker, colour, size, _) in DENSITY_MARKERS.items():
+            row = fit[(fit["term"] == term) & (fit["density"] == density)]
+            filled = density == "psd95"
+            ax.scatter(
+                row["rho"],
+                [k] * len(row),
+                marker=marker,
+                s=size,
+                facecolors=colour if filled else "none",
+                edgecolors=colour,
+                linewidths=0 if filled else 1.0,
+                zorder=3 if filled else 2,
+            )
+    ax.axvline(0, color=MID_GREY, lw=0.6)
+    ax.set_yticks(range(len(terms)))
+    ax.set_yticklabels([AGREEMENT_TERMS[t] for t in terms], fontsize=8)
+    ax.invert_yaxis()
+    ax.set_xlim(-0.2, 1.0)
+    ax.set_xlabel("Spearman rho over the measured structures of the fit", fontsize=8)
+    handles = []
+    for density, (marker, colour, size, label) in DENSITY_MARKERS.items():
+        face = colour if density == "psd95" else "none"
+        handles.append(
+            plt.Line2D(
+                [],
+                [],
+                ls="",
+                marker=marker,
+                ms=np.sqrt(size),
+                mfc=face,
+                mec=colour,
+                label=label,
+            )
+        )
+    ax.legend(handles=handles, fontsize=7, frameon=False, loc="upper left")
+    tidy(ax)
+
+
+def plot_synaptome(
+    density: pd.DataFrame,
+    coverage: pd.DataFrame,
+    agreement: pd.DataFrame,
+    markers: pd.Series,
+    min_coverage: float,
+    save: Path | None = None,
+) -> plt.Figure:
+    """The measured synapse density: how much of the fit it covers, and how it compares.
+
+    A: per division, the structures of analysis 4's fit with a measured PSD95 density.
+    B: that density against the marker mRNA composite it would replace, as ranks.
+    C: the left hemisphere against the right, the one check of a one-mouse map.
+    D: each density's Spearman with the mRNA density terms, Gria1, the nano map and
+    autofluorescence. `density`, `coverage` and `agreement` are the tables of
+    run_synaptome; `markers` is the marker composite per structure of the fit.
+    """
+    table = density.set_index("structure")
+    fit = table[table["in_fit"]]
+    measured = fit[fit["measured"]]
+    n_fit, n_measured = len(fit), len(measured)
+    needed = int(np.ceil(min_coverage * n_fit))
+    groups = {
+        s: DIVISION_GROUP.get(d, "other grey matter")
+        for s, d in table["division"].items()
+    }
+
+    fig = plt.figure(figsize=(11.5, 8.8))
+    grid = fig.add_gridspec(
+        2, 2, hspace=0.42, wspace=0.34, left=0.12, right=0.97, top=0.86, bottom=0.14
+    )
+
+    ax = fig.add_subplot(grid[0, 0])
+    coverage_panel(ax, coverage)
+    panel_title(
+        ax,
+        "A",
+        "Structures of the fit with a measured density",
+        f"{n_measured} of {n_fit} ({n_measured / n_fit:.0%}); the rule asks for {needed} "
+        f"({min_coverage:.0%})",
+    )
+
+    ax = fig.add_subplot(grid[0, 1])
+    n, rho = rank_scatter(
+        ax,
+        measured["psd95"],
+        markers,
+        groups,
+        ("PSD95 puncta (rank)", "marker mRNA composite (rank)"),
+    )
+    ax.legend(handles=group_handles(), fontsize=7, frameon=False, loc="upper left")
+    panel_title(
+        ax,
+        "B",
+        "PSD95 puncta against the mRNA they would replace",
+        f"rho {rho:+.2f}, n = {n}",
+    )
+
+    ax = fig.add_subplot(grid[1, 0])
+    n, rho = rank_scatter(
+        ax,
+        measured["psd95_left"],
+        measured["psd95_right"],
+        groups,
+        ("left hemisphere (rank)", "right hemisphere (rank)"),
+    )
+    panel_title(
+        ax, "C", "One mouse: left hemisphere against right", f"rho {rho:+.2f}, n = {n}"
+    )
+
+    ax = fig.add_subplot(grid[1, 1])
+    agreement_dots(ax, agreement)
+    panel_title(ax, "D", "How each density agrees with the other maps")
+
+    # the title, the takeaway and how to read it
+    if n_measured >= needed:
+        verdict = "it replaces the mRNA density terms in the main model"
+    else:
+        verdict = (
+            "the mRNA terms stay in the main model, and PSD95 is a variant on the "
+            f"{n_measured} structures it covers"
+        )
+    fig.text(
+        0.5,
+        0.985,
+        "The measured synapse density: how much of the fit it covers, how it compares",
+        ha="center",
+        va="top",
+        fontsize=12,
+    )
+    fig.text(
+        0.5,
+        0.95,
+        f"PSD95 puncta cover {n_measured / n_fit:.0%} of the fit, "
+        f"{'not below' if n_measured >= needed else 'below'} the {min_coverage:.0%} "
+        f"the rule asks: {verdict}",
+        ha="center",
+        va="top",
+        fontsize=9,
+        color=DARK_GREY,
+    )
+    footer(
+        fig,
+        [
+            "Zhu et al. 2018, one adult male mouse, as Hansen et al. share it. PSD95 "
+            "density: the mean of the 30 subtypes whose puncta hold PSD95, each scaled "
+            "0..1 as shared;",
+            "never a punctum's intensity or size. A structure is measured when it or one "
+            "of its parts was sampled; a region above several structures is never spread "
+            "onto",
+            "them. Every rho is Spearman over the structures both maps have.",
+        ],
+    )
+    return saved(fig, save)

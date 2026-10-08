@@ -8,7 +8,7 @@ October 2026 from the decisions of the ISH discussion (all five as recommended,
 the same day after three reviews (statistics, figures, facts).
 
 - Code: `mapping/sepmap/structures.py`, `mapping/sepmap/adult/` and
-  `mapping/sepmap/ish/`, run by steps 13 to 27 of the Python route
+  `mapping/sepmap/ish/`, run by steps 13 to 28 of the Python route
   ([mapping/README.md](../mapping/README.md)), on branch `post-ish`, not merged
   yet.
 - Outputs: `<data>\adult_v2\ish_analysis\`. The numbers below are those of the
@@ -157,6 +157,62 @@ subunits), other postsynaptic (196), presynaptic (16), GABAergic neuron markers
 (5) and glia (7, P9's list). The presynaptic set is small and mostly cell-type
 and peptide markers, because GO annotates the vesicle machinery to both sides
 of the synapse and the rule keeps a gene on one side only (section 8).
+
+**The measured synapse density** (step 21; `run_synaptome.py`,
+`synaptome\feasibility.png`). The density terms of part 1 are Allen mRNA, which
+sits in cell bodies: a presynaptic marker's mRNA marks where the neurons that
+make the synapses are, not where their synapses are. Zhu et al. (2018) counted
+excitatory synapses where they are, in a knock-in mouse with PSD95 and SAP102
+tagged: one adult male (about P80), five coronal sections, every punctum sorted
+into 37 subtypes by intensity, size and shape, and the density of each subtype
+(puncta per unit area) measured in regions of the Allen Reference Atlas.
+Hansen et al. share the table: 37 subtypes by 775 samples, a sample being one
+region of one hemisphere in one section. It is downloaded from their
+repository at a pinned commit (`0399525`, files as in release v1.0, Zenodo doi
+10.5281/zenodo.18201390) into `<data>\reference\synaptome\`, each file checked
+against git's hash of it at that commit.
+
+- *What is read.* Subtypes 1 to 11 hold PSD95 alone, 12 to 18 SAP102 alone and
+  19 to 37 both (as Hansen et al.'s code indexes them). As shared, each
+  subtype's density is scaled to 0..1 across the 775 samples, so absolute
+  counts, and their sum, are gone. The PSD95 density is the mean over the 30
+  subtypes whose puncta hold PSD95, each subtype's map weighing alike; never a
+  punctum's intensity or size, since PSD95 per synapse is scaffolding, the
+  surface side. Variants: PSD95 alone (Hansen et al.'s "PSD95 synapses"),
+  SAP102 (26 subtypes) and every punctum (37). They order the structures of
+  the fit at 0.86, 0.68 and 0.94 with the PSD95 density.
+- *Placing the samples.* By the Allen id the source gives each sample (its
+  acronym where it gives none), through the CCF 2017 ontology: a sample lies in
+  the structure that is its id or the id's nearest ancestor. A unit (a layer,
+  or the structure itself) is the mean of its samples over both hemispheres
+  and every section; a structure is the mean of its sampled units weighted by
+  their voxels in the 20 um CCF annotation, alike when a unit is not drawn
+  there (9 structures of the fit, olfactory areas, the lateral entorhinal
+  cortex and the subiculum, whose layers the annotation does not draw). A
+  region the source gives only above several structures is never spread onto
+  them, and a structure with no sample stays missing. Of the 775 samples, 739
+  lie in 114 structures; left out are 8 above the structures (the midbrain's
+  and the medulla's motor parts, the medial septal complex, the midbrain
+  raphe), 12 that the 2017 annotation no longer draws (the layers of PTLp, now
+  VISa and VISrl; the cochlear granular lamina), 15 whose names are not CCF
+  acronyms (Mop, ZID, ZIV, DCOmo, CENT1) and the right locus coeruleus, with no
+  punctum at all.
+- *Coverage.* 77 of the 126 structures of the fit (61%) and 96 of the 204
+  declared ones. Missing from the fit: 10 thalamic nuclei (AM, AV, CL, MD, PR,
+  PT, PoT, RE, SMT, VAL), 9 cortical areas (AIp, FRP, SSp-ll, SSs, VISC, VISa,
+  VISl, VISpm, VISrl), 7 hypothalamic, 6 midbrain (all under the midbrain's
+  motor part), 5 pallidal, 4 striatal, 3 olfactory, 3 hippocampal and both
+  pontine structures. Two are measured in less than half their volume (SCs
+  from its zonal layer, BMA from its posterior part).
+- *Agreement* (Spearman over the 77): with the marker mRNA composite 0.73, with
+  `psd_pc1` 0.80, with Gria1 0.42, with the nano map 0.45, with
+  autofluorescence 0.29. The two hemispheres agree at 0.96 (75 structures),
+  the one check of reliability a single mouse allows.
+- *The rule.* The measured density replaces the mRNA terms in the main model
+  only if it covers at least 80% of the fit (101 of 126; `[beyond]
+  min_psd95_coverage`, fixed before this was run). It covers 61%, so the main
+  model keeps the mRNA terms on the 126 structures, and PSD95 enters as a
+  variant on the 77 it covers.
 
 ## 4. Part 1: not explained by receptor mRNA or synaptic density
 
@@ -622,7 +678,7 @@ asks it again on sets fixed in advance.
   and works with that of 5 October. Both are shown, with the power check;
   neither turns the localisation result positive.
 - **The production run.** The outputs quoted here were made on a full copy of
-  the production inputs; steps 13 to 27 run on the production data root after
+  the production inputs; steps 13 to 28 run on the production data root after
   the merge.
 
 ## 9. How to rerun
@@ -644,10 +700,11 @@ tools\venv_atlas\Scripts\python.exe mapping\run_ish_overview.py
 | 15 | `run_ish_gene_table` | mygene.info and the GO ontology, cached in `cache\`; `--offline` stops instead | 5 minutes |
 | 16 | `run_ish_spatial_null` | the surrogates are cached; `--recompute` draws them again | 14 minutes, the calibration |
 | 17 to 20 | `run_ish_gene_ranking`, `run_ish_robustness`, `run_ish_divisions --sheets`, `run_ish_gene_sets` | the surrogates | 2, 1, 3 and 1 minutes |
-| 21 to 26 | `run_beyond_density` to `run_sep_channel_check` | | under 1 minute each; the calibration 2 minutes |
-| 27 | `run_ish_overview` | every step's numbers | 10 s |
+| 21 | `run_synaptome` | the synaptome of Zhu et al. 2018, downloaded once into `<data>\reference\synaptome\`; `--offline` stops instead | 10 s |
+| 22 to 27 | `run_beyond_density` to `run_sep_channel_check` | | under 1 minute each; the calibration 2 minutes |
+| 28 | `run_ish_overview` | every step's numbers | 10 s |
 
-A full run of steps 13 to 27 takes about half an hour, and a second run gives
+A full run of steps 13 to 28 takes about half an hour, and a second run gives
 the same tables.
 
 Every run prints the data root and the settings in force. `SEP_DATA_ROOT`
@@ -680,10 +737,11 @@ Under `<data>\adult_v2\ish_analysis\`:
 | `tables\ranking_robustness.csv`, `robustness_summary.csv` | 18 | per variant and gene; per variant |
 | `tables\within_division.csv`, `within_division_detail.csv`, `within_calibration.csv` | 19 | per gene, division-only and within rho with both nulls; per gene and division; the two nulls on random maps |
 | `tables\gene_sets.csv`, `set_tests.csv`, `contrasts.csv`, `localisation_test.csv`, `localisation_summary.csv`, `localisation_power.csv` | 20 | set members; set tests; contrasts; partial rho per gene and pool; every test of the localisation design; its power by effect size |
-| `beyond\` | 21 to 25 | `structures_used.csv`, `variance_partition.csv`, `calibration.csv`, `calibration_jackknife.csv`, `jackknife.csv`, `controls.csv`, `gene_space.csv`, `gene_space_calibration.csv`, `gene_space_summary.csv`, `variants.csv`, `regression_table.csv`, `residual_by_structure.csv`, `replication.csv`, `leftover_genes.csv`, `leftover_sets.csv`, `numbers_for_the_caption.txt`, working figures |
-| `green_channel\sep_channel_check.csv` | 26 | per adult, each channel's range and correlations |
-| `tables\april_headline.csv`, `april_anova.csv`, `april_groups.csv` | 27 | P9's genes then and now; the ANOVA under each choice; today's groups against the null |
-| `tables\numbers_<step>.csv`, `numbers_for_the_text.csv` and `.txt` | 13 to 27 | the numbers of each step, and all of them |
+| `synaptome\samples.csv`, `density.csv`, `coverage.csv`, `agreement.csv`, `feasibility.png` | 21 | per sample of the synaptome, its ids, densities and structure or why none; per structure of the adult table, measured or why not, its units, weights and densities; per division, how many declared and fitted structures are measured; each density's Spearman with the mRNA density terms, Gria1 and the maps |
+| `beyond\` | 22 to 26 | `structures_used.csv`, `variance_partition.csv`, `calibration.csv`, `calibration_jackknife.csv`, `jackknife.csv`, `controls.csv`, `gene_space.csv`, `gene_space_calibration.csv`, `gene_space_summary.csv`, `variants.csv`, `regression_table.csv`, `residual_by_structure.csv`, `replication.csv`, `leftover_genes.csv`, `leftover_sets.csv`, `numbers_for_the_caption.txt`, working figures |
+| `green_channel\sep_channel_check.csv` | 27 | per adult, each channel's range and correlations |
+| `tables\april_headline.csv`, `april_anova.csv`, `april_groups.csv` | 28 | P9's genes then and now; the ANOVA under each choice; today's groups against the null |
+| `tables\numbers_<step>.csv`, `numbers_for_the_text.csv` and `.txt` | 13 to 28 | the numbers of each step, and all of them |
 | `cache\` | 14, 15 | Allen experiment lists, mygene records, `go-basic.obo` |
 
 | figure | drawn by |
@@ -704,7 +762,7 @@ Reference data, under `<data>\reference\`, each folder with a `fetch_log.txt`
 
 | folder | what | source |
 |---|---|---|
-| `synaptome\` | PSD95 and SAP102 punctum density, 37 subtypes in 775 regions, each subtype scaled to 0..1 as shared (Zhu et al. 2018) | github.com/netneurolab/hansen_synaptome, `data/synaptome/mouse_liu2018/` at commit `0399525412b6f50cfdeb5904b96da7fa8e4b507c`; archived as Zenodo doi 10.5281/zenodo.18201390 |
+| `synaptome\` | PSD95 and SAP102 punctum density, 37 subtypes in 775 samples (a region of one hemisphere in one section), each subtype scaled to 0..1 as shared (Zhu et al. 2018); written by `run_synaptome.py` | github.com/netneurolab/hansen_synaptome, `data/synaptome/mouse_liu2018/` at commit `0399525412b6f50cfdeb5904b96da7fa8e4b507c`; archived as Zenodo doi 10.5281/zenodo.18201390 |
 | `go\` | the GO Consortium's mouse annotation, and its lines for GO:0032281 | `current.geneontology.org/annotations/mgi.gaf.gz`, release 2026-08-05 |
 | `ampar_complex\` | Schwenk et al. 2012: Figures 1 to 6 and the supplement (Tables S1 to S4) | the publisher's file server, `ars.els-cdn.com` |
 
