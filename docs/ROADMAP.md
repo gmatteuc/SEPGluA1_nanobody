@@ -655,11 +655,13 @@ it convincing:
   [../group_comparison/README.md](../group_comparison/README.md)); Giulio
   chose the heaviest cluster's mass for the bars (7 October), and the barrel
   field as the one structure named in advance (`a_priori_regions`), whose
-  uncorrected p is its test. On the December 2025 inputs it is first by
-  cluster mass in RWS L - R, p 0.032 uncorrected and 0.635 corrected (L + R
-  0.048 and 0.683); after behaviour, L + R 0.0079 and 0.016. So the RWS
-  increase holds as a test of the barrel field alone, not as a search over
-  all regions; more animals, the first point above, would settle it. The
+  uncorrected p is its test. In production (7 October) it is first by
+  cluster mass in RWS L - R, p 0.040 uncorrected and 0.635 corrected (L + R
+  0.056 and 0.667; on the December 2025 inputs 0.032 and 0.048); after
+  behaviour, L + R 0.0079 and 0.016. The result quoted for RWS (Giulio,
+  8 October) is the production test of the barrel field alone, the
+  experiment's prediction from the start; it does not hold as a search over
+  all regions, and more animals, the first point above, would settle it. The
   share's p is the chance level of the share bars asked for in April (Sami
   El-Boustani);
 - the comparison repeated in new animals;

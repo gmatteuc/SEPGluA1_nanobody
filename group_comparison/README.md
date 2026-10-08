@@ -124,19 +124,24 @@ outlines (`lr_atlas_boundaries`) sit beside them. Shared: `../common/`
   region the uncorrected p is not a test, and its dagger is no result: in
   behavior L + R, 50 of the 59 regions with a score are below 0.05
   uncorrected. The table's `a_priori` column marks the regions named in
-  advance. In the run on the December 2025 inputs, the barrel field's
-  cluster mass (higher in the experimental group in all four):
+  advance. The barrel field's cluster mass, higher in the experimental group
+  in all four (production run of 7 October 2026, `comparisons\naive_vs_<exp>_nano\`;
+  in brackets, the run on the December 2025 inputs):
 
   | comparison | map | rank | uncorrected p | corrected p |
   |---|---|---|---|---|
-  | naive vs RWS | L - R | 1st of 45 | 0.032 | 0.635 |
-  | naive vs RWS | L + R | 5th of 40 | 0.048 | 0.683 |
-  | naive vs behavior | L - R | 7th of 38 | 0.119 | 0.929 |
-  | naive vs behavior | L + R | 4th of 59 | 0.0079 | 0.016 |
+  | naive vs RWS | L - R | 1st of 71 | 0.040 (0.032) | 0.635 (0.635) |
+  | naive vs RWS | L + R | 5th | 0.056 (0.048) | 0.667 (0.683) |
+  | naive vs behavior | L - R | 6th | 0.15 (0.119) | 0.944 (0.929) |
+  | naive vs behavior | L + R | 4th | 0.0079 (0.0079) | 0.016 (0.016) |
 
-  Tested on its own, the barrel field changes after RWS at p < 0.05 in both
-  maps, which the search over all regions does not show; after behavior its
-  L + R holds under both p, its L - R under neither.
+  The result quoted for RWS (Giulio, 8 October 2026) is the production run's
+  targeted test of the barrel field, the prediction the experiment was
+  designed on: the heaviest cluster of the L - R map, first of all regions,
+  p = 0.040 (L + R 0.056). The search over all regions does not show it.
+  After behavior, the barrel field's L + R holds under both p, its L - R
+  under neither. The two runs differ slightly because production's naive
+  stack was normalised again in September 2026.
 
 - The headline of the approved comparison is a small increase of the
   nanobody signal in S1 after RWS, in the hemisphere-sum t map of the slab
