@@ -1,4 +1,4 @@
-"""The guided figures of analysis 4, with their intervals: figures 11 and 12.
+"""The guided figures of analysis 4, with their intervals: figures 03 and 04.
 
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
@@ -12,7 +12,7 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      8. run_video_compare      young beside adult, plane by plane
      9. run_closeup            close-ups and flatmaps (venv_flat)
     10. run_diagnostics        sheets that audit each step
-    11. run_panel_build        the 390-gene ontology panel (network, cached)
+    11. run_panel_build        390-gene ontology panel (network, cached)
     12. run_panel_fetch        its ISH grids (network, once)
     13. run_structure_set      A1: the declared structures, the
                                adult profiles; figure 01
@@ -25,23 +25,24 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     16. run_ish_spatial_null   A7: surrogate maps and their checks
     17. run_ish_gene_ranking   analysis 1: each gene against the
                                map, the null, autofluorescence (A8),
-                               the Cacng8 - Gria1 gap; figures 03 to 06
+                               the Cacng8 - Gria1 gap; figures 05 to 07 and 11
     18. run_ish_robustness     A3: the ranking under other choices;
-                               figure 07
+                               figure 12
     19. run_ish_divisions      analysis 2 (A6): between or within
-                               divisions; figure 08, gene sheets
+                               divisions; figure 10, gene sheets
     20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
-                               against matched controls; figures 09, 10
+                               against matched controls; figures 08, 09
     21. run_beyond_density     analysis 4: what receptor mRNA and
                                synaptic density leave; the leftover
     22. run_beyond_controls    seven attempts to break it
     23. run_beyond_calibration the same model on maps whose answer
                                is known
     24. run_beyond_regression  the regression, per structure
-    25. run_beyond_figures     figures 11 and 12                    <- this script
+    25. run_beyond_figures     figures 03 and 04                    <- this script
     26. run_sep_channel_check  analysis 5: what the green channel
                                reports; figure 13
-    27. run_ish_overview       figures 00 and 14; the numbers for the text
+    27. run_ish_overview       figures 00 and 14, the figure index;
+                               the numbers for the text
 
 Bootstrap intervals over structures, the noise band of the replication, the
 numbers the text quotes, and the two figures; it reads the tables of steps 21 to
@@ -51,8 +52,8 @@ adult_v2/ish_analysis/ in the data root:
     beyond/bootstrap.csv                per replicate, the ceiling and the shares
     beyond/numbers_for_the_caption.txt  the figures' numbers as sentences
     tables/numbers_beyond.csv           the numbers of analysis 4, for the text
-    figures/11_beyond_budget.png        what receptor mRNA and density predict
-    figures/12_beyond_where.png         where the leftover lives
+    figures/03_beyond_budget.png        what receptor mRNA and density predict
+    figures/04_beyond_where.png         where the leftover lives
 
     python run_beyond_figures.py
 """
@@ -66,7 +67,7 @@ from sepmap.adult import beyond_figures
 
 
 def main():
-    """Print the settings in force, then run the intervals and figures 11 and 12."""
+    """Print the settings in force, then run the intervals and figures 03 and 04."""
     config.print_settings({})
     beyond_figures.main()
 
@@ -77,6 +78,6 @@ if __name__ == "__main__":
     plotting.set_style()
 
     # no options; parsing still gives the script its --help
-    parser = argparse.ArgumentParser(description="figures 11 and 12 of analysis 4")
+    parser = argparse.ArgumentParser(description="figures 03 and 04 of analysis 4")
     parser.parse_args()
     main()

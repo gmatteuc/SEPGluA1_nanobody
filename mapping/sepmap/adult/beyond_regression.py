@@ -30,7 +30,7 @@ What is regressed on what (adult.beyond_density has the reasons):
                  structure, the only predictor measured in the tissue the map comes
                  from
 
-Guided figure 12 (adult.beyond_figures) draws its maps from regression_table.csv.
+Guided figure 04 (adult.beyond_figures) draws its maps from regression_table.csv.
 
 Writes, in adult_v2/ish_analysis/beyond/ under the data root:
 

@@ -12,7 +12,7 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      8. run_video_compare      young beside adult, plane by plane
      9. run_closeup            close-ups and flatmaps (venv_flat)
     10. run_diagnostics        sheets that audit each step
-    11. run_panel_build        the 390-gene ontology panel (network, cached)
+    11. run_panel_build        390-gene ontology panel (network, cached)
     12. run_panel_fetch        its ISH grids (network, once)
     13. run_structure_set      A1: the declared structures, the
                                adult profiles; figure 01
@@ -25,23 +25,24 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     16. run_ish_spatial_null   A7: surrogate maps and their checks
     17. run_ish_gene_ranking   analysis 1: each gene against the    <- this script
                                map, the null, autofluorescence (A8),
-                               the Cacng8 - Gria1 gap; figures 03 to 06
+                               the Cacng8 - Gria1 gap; figures 05 to 07 and 11
     18. run_ish_robustness     A3: the ranking under other choices;
-                               figure 07
+                               figure 12
     19. run_ish_divisions      analysis 2 (A6): between or within
-                               divisions; figure 08, gene sheets
+                               divisions; figure 10, gene sheets
     20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
-                               against matched controls; figures 09, 10
+                               against matched controls; figures 08, 09
     21. run_beyond_density     analysis 4: what receptor mRNA and
                                synaptic density leave; the leftover
     22. run_beyond_controls    seven attempts to break it
     23. run_beyond_calibration the same model on maps whose answer
                                is known
     24. run_beyond_regression  the regression, per structure
-    25. run_beyond_figures     figures 11 and 12
+    25. run_beyond_figures     figures 03 and 04
     26. run_sep_channel_check  analysis 5: what the green channel
                                reports; figure 13
-    27. run_ish_overview       figures 00 and 14; the numbers for the text
+    27. run_ish_overview       figures 00 and 14, the figure index;
+                               the numbers for the text
 
 Correlates every gene of the gene table with the adult nano map and with the
 autofluorescence map of the same sections on the declared structures, tests each
@@ -60,10 +61,10 @@ adult_v2/ish_analysis/ under the data root:
     tables/null_rho.npz                every gene's rho with every surrogate, per map,
                                        and the gap of every surrogate
     tables/numbers_gene_ranking.csv    the numbers of this step, for the text
-    figures/03_one_comparison.png      what one comparison is
-    figures/04_spatial_null.png        why a null, and the null itself
-    figures/05_gene_ranking.png        P9's genes against the map and its null
-    figures/06_autofluorescence.png    the same on the autofluorescence map
+    figures/05_one_comparison.png      what one comparison is
+    figures/06_spatial_null.png        why a null, and the null itself
+    figures/07_gene_ranking.png        P9's genes against the map and its null
+    figures/11_autofluorescence.png    the same on the autofluorescence map
 
     python run_ish_gene_ranking.py
 """
@@ -86,7 +87,7 @@ ISH_FIGURES = config.SETTINGS["ish_figures"]
 
 OUT = config.DATA / "adult_v2" / "ish_analysis"
 
-# the genes of figure 03 beside the map: the top of P9's ranking, the subunit the
+# the genes of figure 05 beside the map: the top of P9's ranking, the subunit the
 # label is on, and a glial gene as the control
 COMPARISON_GENES = ("Cacng8", "Gria1", "Aqp4")
 
@@ -156,7 +157,7 @@ def numbers_table(ranking, gap, per_adult):
 
 
 def comparison_rows(ranking, merged, table, lab, plane):
-    """The genes of figure 03: their ISH section on the plane and their rows."""
+    """The genes of figure 05: their ISH section on the plane and their rows."""
     nano = ranking[ranking["map"] == "nano"].set_index("symbol")
     n_p9 = int(nano["p9_gene"].sum())
     rows = []
@@ -274,7 +275,7 @@ def main():
     numbers = numbers_table(ranking, gap, per_adult)
     numbers.to_csv(tables / "numbers_gene_ranking.csv", index=False)
 
-    # figure 03: one comparison
+    # figure 05: one comparison
     plane = ISH_FIGURES["plane"]
     names, _, _ = structure_terms()
     lab = planes.label_plane(plane)
@@ -292,7 +293,7 @@ def main():
     )
     plt.close(fig)
 
-    # figure 04: the spatial null, with the two genes against it
+    # figure 06: the spatial null, with the two genes against it
     n = len(declared)
     map_ranks = dict(zip(declared, ish_plotting.ranks01(map_values.to_numpy())))
     surrogate_ranks = [
@@ -318,7 +319,7 @@ def main():
     )
     plt.close(fig)
 
-    # figure 05: the ranking; figure 06: the autofluorescence map
+    # figure 07: the ranking; figure 11: the autofluorescence map
     fig = ish_plotting.plot_gene_ranking(
         ranking,
         gap,
@@ -339,7 +340,7 @@ def main():
         save=figures / ish_plotting.figure_file("autofluorescence"),
     )
     plt.close(fig)
-    print(f"figures: 03 to 06 in {figures}")
+    print(f"figures: 05 to 07 and 11 in {figures}")
 
 
 if __name__ == "__main__":

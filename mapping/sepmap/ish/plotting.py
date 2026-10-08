@@ -71,23 +71,60 @@ RANK_FLOOR = -0.1
 DIVISION_ORDER = ["Isocortex", "OLF", "CTXsp", "HPF", "STR", "PAL", "TH", "HY", "MB"]
 DIVISION_ORDER += ["P", "MY", "CB"]
 
-# the guided figures and their place in the walk; a figure's title, its file name and
-# the figures' references to each other all read this table, so the walk is
-# renumbered here alone
+# the guided figures in reading order, which is the order of the argument: the question
+# (00), the inputs (01, 02), how much of the map receptor mRNA and synaptic density
+# leave (03, 04), what the leftover looks like through the genes (05 to 10), the
+# controls and limits (11 to 13), and the April headline as an appendix (14). A
+# figure's title, its file name and the figures' references to each other read this
+# table; the docstrings and the run scripts' headers that name the files follow it by
+# hand
 FIGURES = {
+    "overview": 0,
     "structures": 1,
     "genes": 2,
-    "one_comparison": 3,
-    "spatial_null": 4,
-    "gene_ranking": 5,
-    "autofluorescence": 6,
-    "robustness": 7,
-    "between_within": 8,
-    "gene_sets": 9,
-    "localisation": 10,
-    "beyond_budget": 11,
-    "beyond_where": 12,
+    "beyond_budget": 3,
+    "beyond_where": 4,
+    "one_comparison": 5,
+    "spatial_null": 6,
+    "gene_ranking": 7,
+    "gene_sets": 8,
+    "localisation": 9,
+    "between_within": 10,
+    "autofluorescence": 11,
+    "robustness": 12,
     "green_channel": 13,
+    "april_headline": 14,
+}
+
+# the question each guided figure answers: its title, and its heading in the index of
+# the figures (ish.overview)
+QUESTIONS = {
+    "overview": "The ISH line on one page: the question, the argument, and which figure "
+    "answers what",
+    "structures": "Which structures enter every comparison, and how much does the "
+    "declared reference move zref?",
+    "genes": "Which genes, which Allen experiments, and how trustworthy is each map?",
+    "beyond_budget": "How much of the nano map do receptor mRNA and synaptic density "
+    "predict, and is what they leave real?",
+    "beyond_where": "Where does the leftover live, and does any gene's map follow it?",
+    "one_comparison": "What does a gene's rho with the map mean, concretely?",
+    "spatial_null": "How large a rho do unrelated smooth maps give, and do the "
+    "surrogates have the nano map's smoothness?",
+    "gene_ranking": "Which genes' maps order the structures as the nano map does, "
+    "beyond what a map with its smoothness would?",
+    "gene_sets": "Do kinds of genes defined before looking match the map better than "
+    "others, beyond the null?",
+    "localisation": "Once receptor abundance is removed, do the genes that put AMPA "
+    "receptors at the membrane predict the map better than other postsynaptic genes?",
+    "between_within": "Does a gene follow the map inside divisions, or only through the "
+    "contrast between them?",
+    "autofluorescence": "Would the tissue's own autofluorescence, in the same sections, "
+    "give the same gene ranking?",
+    "robustness": "Does the order of the genes, and where Cacng8 and Gria1 sit, change "
+    "with the choices made?",
+    "green_channel": "Does the green channel report the tagged receptor, or the tissue?",
+    "april_headline": "What is left of April's headline, the category violins and their "
+    "p = 0.032?",
 }
 
 
@@ -95,18 +132,18 @@ FIGURES = {
 
 
 def figure_file(key: str) -> str:
-    """The file name of a guided figure: its number and its key, 05_gene_ranking.png."""
+    """The file name of a guided figure: its number and its key, 07_gene_ranking.png."""
     return f"{FIGURES[key]:02d}_{key}.png"
 
 
 def figure_ref(key: str) -> str:
-    """How a figure names another: 'figure 04'."""
+    """How a figure names another: 'figure 06'."""
     return f"figure {FIGURES[key]:02d}"
 
 
-def heading(fig: plt.Figure, key: str, question: str, numbers: str) -> None:
+def heading(fig: plt.Figure, key: str, numbers: str) -> None:
     """The figure's number and question, and under it the line of computed numbers."""
-    title = f"{FIGURES[key]}.  {question}"
+    title = f"{FIGURES[key]}.  {QUESTIONS[key]}"
     fig.text(0.5, 0.985, title, ha="center", va="top", fontsize=12)
     fig.text(0.5, 0.955, numbers, ha="center", va="top", fontsize=9, color=DARK_GREY)
 
@@ -341,8 +378,6 @@ def plot_structures(
     heading(
         fig,
         "structures",
-        "Which structures enter every comparison, and how much does the declared "
-        "reference move zref?",
         f"{n_table} structures in the adult table, {n_all} measured in all "
         f"{min_adults} adults, {n_set} of those grey matter: the declared set",
     )
@@ -877,7 +912,6 @@ def plot_genes(
     heading(
         fig,
         "genes",
-        "Which genes, which Allen experiments, and how trustworthy is each map?",
         f"{n_listed} genes and {len(experiments)} experiments listed; {len(genes)} "
         f"genes and {n_used} experiments usable; "
         f"{int(experiments['excluded'].sum())} experiments left out (F)",
@@ -916,7 +950,7 @@ def plot_genes(
 
 # ===== Shared pieces of the analyses =====
 
-# the structures named on the scatters of figure 03, by acronym: the top of the map,
+# the structures named on the scatters of figure 05, by acronym: the top of the map,
 # a thalamic relay nucleus, the striatum, the barrel field
 NAMED_STRUCTURES = ("CA1", "VPM", "CP", "SSp-bfd")
 
@@ -974,7 +1008,7 @@ def acronym_of(set_table: pd.DataFrame) -> dict[str, str]:
     return dict(zip(set_table["structure"], set_table["acronym"]))
 
 
-# ===== 03 What one comparison is =====
+# ===== 05 What one comparison is =====
 
 
 def rank_plane(
@@ -1077,7 +1111,7 @@ def plot_one_comparison(
     n_surrogates: int,
     save: Path | None = None,
 ) -> plt.Figure:
-    """Figure 03: what one gene's rho with the map is, for nano and a few genes.
+    """Figure 05: what one gene's rho with the map is, for nano and a few genes.
 
     `map_values` is the adult map on the declared structures, `nano_image` the
     cohort's cref on the plane; each of `rows` holds a gene's symbol, its ISH
@@ -1095,7 +1129,6 @@ def plot_one_comparison(
     heading(
         fig,
         "one_comparison",
-        "What does a gene's rho with the map mean, concretely?",
         f"one rank correlation across the declared structures per gene: {names_line}",
     )
     grid = fig.add_gridspec(
@@ -1169,7 +1202,7 @@ def plot_one_comparison(
     return saved(fig, save)
 
 
-# ===== 04 The spatial null =====
+# ===== 06 The spatial null =====
 
 
 def null_rho_panel(ax: plt.Axes, calibration: pd.DataFrame) -> None:
@@ -1343,7 +1376,7 @@ def plot_spatial_null(
     genes: list[tuple] | None = None,
     save: Path | None = None,
 ) -> plt.Figure:
-    """Figure 04: why a spatial null, and the null itself.
+    """Figure 06: why a spatial null, and the null itself.
 
     `map_ranks` and each of `surrogate_ranks` give a 0-1 rank per structure; `genes`,
     when given, holds (name, observed rho, null rhos, p) for panel E, which needs
@@ -1357,8 +1390,6 @@ def plot_spatial_null(
     heading(
         fig,
         "spatial_null",
-        "How large a rho do unrelated smooth maps give, and do the surrogates have "
-        "the nano map's smoothness?",
         f"{n_surrogates} surrogates of the nano map on {len(map_ranks)} structures; "
         f"spatial p below 0.05 in {spatial.get('pair', np.nan):.1%} of pairs of random "
         f"maps and {spatial.get('map', np.nan):.1%} of random maps against nano "
@@ -1394,7 +1425,7 @@ def plot_spatial_null(
     return saved(fig, save)
 
 
-# ===== 05 Which expression maps look like the nano map =====
+# ===== 07 Which expression maps look like the nano map =====
 
 
 def gene_bars(
@@ -1589,7 +1620,7 @@ def plot_gene_ranking(
     n_surrogates: int,
     save: Path | None = None,
 ) -> plt.Figure:
-    """Figure 05: P9's genes ranked against the map, with the null; the gap; counts.
+    """Figure 07: P9's genes ranked against the map, with the null; the gap; counts.
 
     `ranking` is gene_ranking.csv, `gap` gap.csv and `gap_null` the gap of every
     surrogate.
@@ -1602,8 +1633,6 @@ def plot_gene_ranking(
     heading(
         fig,
         "gene_ranking",
-        "Which genes' maps order the structures as the nano map does, beyond what a "
-        "map with its smoothness would?",
         f"P9's {len(nano)} genes on the declared structures; {n_pass} past the "
         f"spatial null at BH q < {q} within them; {n_surrogates} surrogates per gene",
     )
@@ -1640,12 +1669,12 @@ def plot_gene_ranking(
     return saved(fig, save)
 
 
-# ===== 06 Is the ranking the nanobody's or the tissue's =====
+# ===== 11 Is the ranking the nanobody's or the tissue's =====
 
-# genes always named on the scatter of figure 06, beside those far from the diagonal
+# genes always named on the scatter of figure 11, beside those far from the diagonal
 NAMED_AUTO = ("Cacng8", "Gria1", "Aqp4")
 
-# the gene lists of figure 06 D: lines per column, and the width of a column in the
+# the gene lists of figure 11 D: lines per column, and the width of a column in the
 # panel's width
 PASSING_LINES = 14
 PASSING_WIDTH = 0.19
@@ -1802,7 +1831,7 @@ def plot_autofluorescence(
     n_surrogates: int,
     save: Path | None = None,
 ) -> plt.Figure:
-    """Figure 06: the same ranking on the autofluorescence map of the same sections.
+    """Figure 11: the same ranking on the autofluorescence map of the same sections.
 
     `ranking` is gene_ranking.csv (both maps), `per_adult` the per-adult rho table.
     """
@@ -1820,8 +1849,6 @@ def plot_autofluorescence(
     heading(
         fig,
         "autofluorescence",
-        "Would the tissue's own autofluorescence, in the same sections, give the same "
-        "gene ranking?",
         "; ".join(parts),
     )
     auto_scatter(fig.add_axes([0.05, 0.4, 0.31, 0.47]), ranking, subunits)
@@ -1847,9 +1874,9 @@ def plot_autofluorescence(
     return saved(fig, save)
 
 
-# ===== 07 Does the ranking depend on the choices made =====
+# ===== 12 Does the ranking depend on the choices made =====
 
-# the colour of each kind of choice in figure 07
+# the colour of each kind of choice in figure 12
 KIND_COLOURS = {
     "primary": "0.1",
     "statistic": RED,
@@ -1984,7 +2011,7 @@ def plot_robustness(
     subunits: set[str],
     save: Path | None = None,
 ) -> plt.Figure:
-    """Figure 07: the ranking under other statistics, borders, readings, inputs, sets.
+    """Figure 12: the ranking under other statistics, borders, readings, inputs, sets.
 
     `summary` is robustness_summary.csv in the order of its rows, `robustness`
     ranking_robustness.csv.
@@ -1998,8 +2025,6 @@ def plot_robustness(
     heading(
         fig,
         "robustness",
-        "Does the order of the genes, and where Cacng8 and Gria1 sit, change with the "
-        "choices made?",
         f"{len(others)} variants of the primary ranking; the gene order agrees at "
         f"{others['agreement_p9'].min():.2f} to {others['agreement_p9'].max():.3f} "
         f"over P9's genes; Gria1 ranks {int(others['rank_p9_Gria1'].min())} to "
@@ -2036,9 +2061,9 @@ def plot_robustness(
     return saved(fig, save)
 
 
-# ===== 08 What a whole-brain rho is made of =====
+# ===== 10 What a whole-brain rho is made of =====
 
-# the colour of each detail gene in figure 08 D
+# the colour of each detail gene in figure 10 D
 DETAIL_COLOURS = {
     "Cacng8": RED,
     "Gria1": DARK_BLUE,
@@ -2207,7 +2232,7 @@ def plot_between_within(
     min_structures: int,
     save: Path | None = None,
 ) -> plt.Figure:
-    """Figure 08: what a whole-brain rho is made of, between and within divisions.
+    """Figure 10: what a whole-brain rho is made of, between and within divisions.
 
     `within` and `detail` are the tables of run_ish_divisions, `map_values` the map
     on the declared structures and `coarse` its division-only version, `example`
@@ -2226,8 +2251,6 @@ def plot_between_within(
     heading(
         fig,
         "between_within",
-        "Does a gene follow the map inside divisions, or only through the contrast "
-        "between them?",
         f"{len(table)} genes; median rho {table['rho'].median():+.2f} over the whole "
         f"brain, {table['rho_within'].median():+.2f} inside divisions; {n_pass} genes "
         f"past the within null at BH q < {q} within all genes, {n_pass_p9} within "
@@ -2467,7 +2490,7 @@ def plot_gene_sheet(
     return saved(fig, save)
 
 
-# ===== 09 Which kinds of genes match =====
+# ===== 08 Which kinds of genes match =====
 
 # sets of at least this many genes get a violin outline; smaller ones only dots
 VIOLIN_MIN = 15
@@ -2651,7 +2674,7 @@ def plot_gene_sets(
     n_surrogates: int,
     save: Path | None = None,
 ) -> plt.Figure:
-    """Figure 09: the gene sets fixed in advance against the map and its null.
+    """Figure 08: the gene sets fixed in advance against the map and its null.
 
     `members`, `tests` and `contrasts` are gene_sets.csv, set_tests.csv and
     contrasts.csv; `contrast_nulls` the surrogate differences of each contrast;
@@ -2664,8 +2687,6 @@ def plot_gene_sets(
     heading(
         fig,
         "gene_sets",
-        "Do kinds of genes defined before looking match the map better than others, "
-        "beyond the null?",
         f"{len(order)} sets from GO and cited marker lists, fixed before any rho on "
         f"these inputs; {n_pass} of {len(nano)} tested sets past the spatial null at "
         f"BH q < {q}",
@@ -2720,7 +2741,7 @@ def plot_gene_sets(
     return saved(fig, save)
 
 
-# ===== 10 Localisation genes against matched controls =====
+# ===== 09 Localisation genes against matched controls =====
 
 
 def strips(
@@ -2770,7 +2791,7 @@ def plot_localisation(
     panel_table: pd.DataFrame | None = None,
     save: Path | None = None,
 ) -> plt.Figure:
-    """Figure 10: localisation genes against expression-matched postsynaptic controls.
+    """Figure 09: localisation genes against expression-matched postsynaptic controls.
 
     `table` is localisation_test.csv, `summary` localisation_summary.csv, `nulls`
     each test's label null, `pairs` the matching, `p_spatial` the matched
@@ -2789,8 +2810,6 @@ def plot_localisation(
     heading(
         fig,
         "localisation",
-        "Once receptor abundance is removed, do the genes that put AMPA receptors at the "
-        "membrane predict the map better than other postsynaptic genes?",
         f"{len(loc)} localisation genes against {len(matched)} expression-matched "
         f"controls: difference {main['difference']:+.3f}, p = {main['p_labels']:.3f} "
         f"(spatial {p_text(p_spatial, n_surrogates)}); positive control "
@@ -2901,7 +2920,7 @@ def plot_localisation(
     return saved(fig, save)
 
 
-# ===== 11 How much of the map receptor mRNA and synaptic density predict =====
+# ===== 03 How much of the map receptor mRNA and synaptic density predict =====
 
 # the steps of the variance budget: abundance in the subunits' dark blue, density in
 # the pale blue of the plan, autofluorescence in its channel's yellow, what is left
@@ -3234,7 +3253,7 @@ def plot_beyond_budget(
     replication: pd.DataFrame,
     save: Path | None = None,
 ) -> plt.Figure:
-    """Figure 11: how much of the map receptor mRNA and synaptic density predict.
+    """Figure 03: how much of the map receptor mRNA and synaptic density predict.
 
     `y` is the map's ranks on `structures`, `gria1` Gria1's, `held_out` each
     structure's prediction by the density model and by the whole model from fits
@@ -3248,8 +3267,6 @@ def plot_beyond_budget(
     heading(
         fig,
         "beyond_budget",
-        "How much of the nano map do receptor mRNA and synaptic density predict, and "
-        "is what they leave real?",
         f"{n['n_structures']} grey-matter structures, {n['n_adults']} adults; the four "
         f"subunits, density and autofluorescence predict {n['steps'][2]:.0%} of the "
         f"reproducible map; {left:.0%} left ({n['left_ci'][0]:.0%} to "
@@ -3380,7 +3397,7 @@ def plot_beyond_budget(
     return saved(fig, save)
 
 
-# ===== 12 Where the leftover lives =====
+# ===== 04 Where the leftover lives =====
 
 # the structures shown in the bars, each way
 N_LEFTOVER_BARS = 12
@@ -3542,7 +3559,7 @@ def plot_beyond_where(
     t_max_genes: float,
     save: Path | None = None,
 ) -> plt.Figure:
-    """Figure 12: where the leftover lives, and whether any gene's map follows it.
+    """Figure 04: where the leftover lives, and whether any gene's map follows it.
 
     `planes` holds per plane its labels and the map, prediction and leftover
     painted (adult.beyond_figures.plane_images); `residuals`, `genes` and `sets` are
@@ -3558,7 +3575,6 @@ def plot_beyond_where(
     heading(
         fig,
         "beyond_where",
-        "Where does the leftover live, and does any gene's map follow it?",
         f"most above prediction: {top_up}; most below: {top_down}; genes past the "
         f"leftover's null at BH q < {q}: {n['n_pass']} of {n['n_genes']}",
     )
@@ -3799,7 +3815,6 @@ def plot_green_channel(
     heading(
         fig,
         "green_channel",
-        "Does the green channel report the tagged receptor, or the tissue?",
         f"{len(rows)} adults, {n_structures} declared structures: SEP follows "
         f"autofluorescence at {sep_auto.min():.2f} to {sep_auto.max():.2f} in every "
         f"adult, nano at {nano_auto.min():.2f} to {nano_auto.max():.2f}",
@@ -3931,6 +3946,559 @@ def plot_green_channel(
             "What is left of SEP once its autofluorescence part is taken out may be tag "
             "that survived, or nano's fluorescence leaking into the green channel; the "
             "filter sets decide which.",
+        ],
+    )
+    return saved(fig, save)
+
+
+# ===== 00 The ISH line on one page =====
+
+# the figure's width and margins, in inches; the height follows from the text
+OVERVIEW_WIDTH = 16.0
+OVERVIEW_MARGIN = 0.45
+
+# the columns of the overview's table: heading, width (inches), font size
+OVERVIEW_COLUMNS = (
+    ("step (figures)", 2.5, 9.0),
+    ("question", 3.1, 8.5),
+    ("what this run says", 5.9, 8.0),
+    ("what stays open", 3.3, 8.0),
+)
+
+# the tint of each part of the walk: a palette colour and its alpha
+PART_TINTS = {
+    "inputs": (LIGHT_GREY, 0.35),
+    "part 1": (NANO, 0.22),
+    "part 2": (NULL_BAND, 0.75),
+    "controls": (LIGHT_GREY, 0.35),
+    "limit": (LIGHT_GREY, 0.35),
+    "appendix": ("white", 1.0),
+}
+
+# the tint of each paragraph of the argument, by its heading
+ARGUMENT_TINTS = {
+    "The question": "inputs",
+    "Part 1": "part 1",
+    "Part 2": "part 2",
+    "The limit": "limit",
+}
+
+
+def wrapped(text: str, width_in: float, size: float, bold: bool = False) -> list[str]:
+    """`text` wrapped to a column `width_in` inches wide at font `size` points.
+
+    A character of the default sans font is on average a little over half the
+    font size wide, bold a little more, which keeps a line inside its column with
+    a little to spare.
+    """
+    share = 0.6 if bold else 0.54
+    chars = max(int(width_in / (share * size / 72)), 10)
+    lines = []
+    for paragraph in text.split("\n"):
+        lines += textwrap.wrap(paragraph, chars) or [""]
+    return lines
+
+
+def line_height(size: float) -> float:
+    """The height of one line of text at font `size`, in inches."""
+    return 1.45 * size / 72
+
+
+def tinted_box(ax: plt.Axes, x: float, y: float, w: float, h: float, part: str):
+    """A rounded box in the tint of its part, in the overview's inch coordinates."""
+    colour, alpha = PART_TINTS[part]
+    ax.add_patch(
+        FancyBboxPatch(
+            (x, y),
+            w,
+            h,
+            boxstyle="round,pad=0,rounding_size=0.06",
+            fc=colour,
+            alpha=alpha,
+            ec="none",
+            zorder=1,
+        )
+    )
+    ax.add_patch(
+        FancyBboxPatch(
+            (x, y),
+            w,
+            h,
+            boxstyle="round,pad=0,rounding_size=0.06",
+            fc="none",
+            ec=MID_GREY,
+            lw=0.6,
+            zorder=2,
+        )
+    )
+
+
+def overview_cells(row: dict) -> list[tuple[list[str], float, str, str]]:
+    """The four cells of one row: wrapped lines, font size, weight, colour."""
+    widths = [c[1] - 0.25 for c in OVERVIEW_COLUMNS]
+    sizes = [c[2] for c in OVERVIEW_COLUMNS]
+    title = wrapped(row["title"], widths[0], sizes[0], bold=True)
+    word = "figures" if "," in row["figures"] else "figure"
+    title += ["", f"{word} {row['figures']}"]
+    numbers = []
+    for line in row["lines"]:
+        part = wrapped(line, widths[2] - 0.12, sizes[2])
+        numbers += ["- " + part[0]] + ["  " + p for p in part[1:]]
+    return [
+        (title, sizes[0], "bold", "0.1"),
+        (wrapped(row["question"], widths[1], sizes[1]), sizes[1], "normal", "0.1"),
+        (numbers, sizes[2], "normal", "0.1"),
+        (wrapped(row["open"], widths[3], sizes[3]), sizes[3], "normal", DARK_GREY),
+    ]
+
+
+def argument_block(ax: plt.Axes, top: float, argument: list[tuple[str, str]]) -> float:
+    """The argument at the top of the overview; returns the inch below it."""
+    width = OVERVIEW_WIDTH - 2 * OVERVIEW_MARGIN
+    size = 9.5
+    y = top
+    for heading_text, body in argument:
+        lines = wrapped(body, width - 1.9, size)
+        h = len(lines) * line_height(size) + 0.18
+        tinted_box(ax, OVERVIEW_MARGIN, y, width, h, ARGUMENT_TINTS[heading_text])
+        ax.text(
+            OVERVIEW_MARGIN + 0.15,
+            y + 0.1,
+            heading_text,
+            fontsize=10,
+            fontweight="bold",
+            va="top",
+            zorder=3,
+        )
+        ax.text(
+            OVERVIEW_MARGIN + 1.7,
+            y + 0.1,
+            "\n".join(lines),
+            fontsize=size,
+            va="top",
+            linespacing=1.3,
+            zorder=3,
+        )
+        y += h + 0.07
+    return y
+
+
+def table_block(ax: plt.Axes, top: float, rows: list[dict]) -> float:
+    """The overview's table, a row per step of the walk; returns the inch below it."""
+    x = OVERVIEW_MARGIN
+    for heading_text, width, _ in OVERVIEW_COLUMNS:
+        ax.text(x + 0.1, top, heading_text, fontsize=9.5, fontweight="bold", va="top")
+        x += width + 0.1
+    y = top + 0.32
+    for row in rows:
+        cells = overview_cells(row)
+        h = max(len(c[0]) * line_height(c[1]) for c in cells) + 0.22
+        x = OVERVIEW_MARGIN
+        for (lines, size, weight, colour), (_, width, _) in zip(cells, OVERVIEW_COLUMNS):
+            tinted_box(ax, x, y, width, h, row["part"])
+            ax.text(
+                x + 0.12,
+                y + 0.11,
+                "\n".join(lines),
+                fontsize=size,
+                fontweight=weight,
+                color=colour,
+                va="top",
+                linespacing=1.3,
+                zorder=3,
+            )
+            x += width + 0.1
+        y += h + 0.08
+    return y
+
+
+def items_block(ax: plt.Axes, top: float, items: tuple) -> float:
+    """The A-items the ISH line touches, in two columns; returns the inch below them."""
+    ax.text(
+        OVERVIEW_MARGIN,
+        top,
+        "The open analysis items of docs/REFACTOR_COVERAGE.md that the ISH line "
+        "touches, and where they stand",
+        fontsize=9.5,
+        fontweight="bold",
+        va="top",
+    )
+    half = (len(items) + 1) // 2
+    width = (OVERVIEW_WIDTH - 2 * OVERVIEW_MARGIN) / 2
+    for k, (item, text) in enumerate(items):
+        x = OVERVIEW_MARGIN + (k // half) * width
+        y = top + 0.32 + (k % half) * line_height(8.5)
+        ax.text(x, y, f"{item:<4} {text}", fontsize=8, family="monospace", va="top")
+    return top + 0.32 + half * line_height(8.5)
+
+
+def plot_overview(
+    argument: list[tuple[str, str]],
+    rows: list[dict],
+    items: tuple,
+    save: Path | None = None,
+) -> plt.Figure:
+    """Figure 00: the question, the argument, and which figure answers what.
+
+    `argument` holds (heading, text) of the box at the top, `rows` the table's rows
+    (ish.overview.overview_rows), `items` the A-items and their state. The figure is
+    as tall as its text: every size is worked out in inches first.
+    """
+    # the height, from a dry run of the layout on a throwaway axes
+    probe = plt.figure(figsize=(OVERVIEW_WIDTH, 1))
+    ax = probe.add_axes([0, 0, 1, 1])
+    bottom = items_block(
+        ax, table_block(ax, argument_block(ax, 1.0, argument), rows) + 0.25, items
+    )
+    plt.close(probe)
+    height = bottom + 1.0
+
+    fig = plt.figure(figsize=(OVERVIEW_WIDTH, height))
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_xlim(0, OVERVIEW_WIDTH)
+    ax.set_ylim(height, 0)
+    ax.axis("off")
+    ax.text(
+        OVERVIEW_WIDTH / 2,
+        0.3,
+        f"{FIGURES['overview']}.  {QUESTIONS['overview']}",
+        ha="center",
+        va="top",
+        fontsize=12,
+    )
+    ax.text(
+        OVERVIEW_WIDTH / 2,
+        0.62,
+        "every number below is this run's (tables/numbers_for_the_text.csv); the "
+        "verdict in words is in docs/ISH_ANALYSIS.md",
+        ha="center",
+        va="top",
+        fontsize=9,
+        color=DARK_GREY,
+    )
+    y = argument_block(ax, 1.0, argument)
+    y = table_block(ax, y + 0.25, rows)
+    y = items_block(ax, y + 0.25, items)
+    ax.text(
+        OVERVIEW_MARGIN,
+        y + 0.3,
+        "How to read: one row per step of the walk, in the figures' order; the tint "
+        "says which part of the argument a row serves (orange: part 1, blue: part 2, "
+        "grey: inputs, controls and the limit).\nWhat would mean what: part 1 stands "
+        "when the leftover is well above the calibration floor and replicates; part 2 "
+        "corroborates the surface-fraction reading when the surface-regulating genes "
+        "pass their nulls and their matched controls.",
+        fontsize=8,
+        color=NOTE_GREY,
+        va="top",
+        linespacing=1.5,
+    )
+    return saved(fig, save)
+
+
+# ===== 14 April's headline, then and now =====
+
+# the genes named on the violins of the appendix
+HEADLINE_NAMED = (
+    "Cacng8",
+    "Grm5",
+    "Gria1",
+    "Gria2",
+    "Gria3",
+    "Gria4",
+    "Dlg2",
+    "Nptx1",
+    "Htr3a",
+    "Chrm1",
+    "Slc17a6",
+    "Th",
+    "Glra1",
+    "Calb2",
+    "Olig2",
+    "Arc",
+    "Cnih3",
+    "Hcn1",
+    "Nrgn",
+)
+
+# P9's kernel for its violins: Gaussian, bandwidth 0.12 in rho
+VIOLIN_BANDWIDTH = 0.12
+
+
+def half_violin(ax: plt.Axes, x0: float, values: np.ndarray, colour, side: int) -> None:
+    """Half a violin at `x0`, to the left (side -1) or the right (+1), P9's kernel."""
+    if len(values) < 2:
+        return
+    h = VIOLIN_BANDWIDTH
+    grid = np.linspace(values.min() - 2 * h, values.max() + 2 * h, 200)
+    density = np.exp(-0.5 * ((grid[:, None] - values[None, :]) / h) ** 2).sum(axis=1)
+    density = density / density.max() * 0.17
+    ax.fill_betweenx(grid, x0, x0 + side * density, color=colour, alpha=0.28, lw=0)
+
+
+def headline_violins(ax: plt.Axes, headline: pd.DataFrame, order: tuple) -> None:
+    """A: each group's April violin (grey, left) beside today's (orange, right)."""
+    ax.axhline(0, color="0.8", lw=0.7, zorder=0)
+    for i, (key, _) in enumerate(order):
+        mine = headline[headline["group"] == key]
+        april = mine.dropna(subset=["rho_april"])
+        today = mine.dropna(subset=["rho_today"])
+        xa, xt = i - 0.2, i + 0.2
+        half_violin(ax, xa, april["rho_april"].to_numpy(), MID_GREY, -1)
+        half_violin(ax, xt, today["rho_today"].to_numpy(), NANO, +1)
+        both = mine.dropna(subset=["rho_april", "rho_today"])
+        for _, r in both.iterrows():
+            ax.plot([xa, xt], [r["rho_april"], r["rho_today"]], color=PAIR_LINE, lw=0.5)
+        ax.scatter([xa] * len(april), april["rho_april"], s=16, color=DARK_GREY, lw=0)
+        ax.scatter([xt] * len(today), today["rho_today"], s=16, color=NANO_DOT, lw=0)
+        for x, values, colour in (
+            (xa, april["rho_april"], DARK_GREY),
+            (xt, today["rho_today"], NANO_DOT),
+        ):
+            if len(values):
+                m = float(np.median(values))
+                ax.plot([x - 0.13, x + 0.13], [m, m], color=colour, lw=2.4)
+        placed = []
+        for value, symbol in sorted(
+            zip(today["rho_today"], today["symbol"]), key=lambda t: t[0]
+        ):
+            if symbol not in HEADLINE_NAMED:
+                continue
+            y = max(value, placed[-1] + 0.05) if placed else value
+            placed.append(y)
+            colour = DARK_BLUE if symbol.startswith("Gria") else "0.2"
+            ax.text(xt + 0.05, y, symbol, fontsize=6.5, va="center", color=colour)
+        ax.text(
+            i,
+            -0.95,
+            f"n = {len(april)} / {len(today)}",
+            ha="center",
+            fontsize=7,
+            color=DARK_GREY,
+        )
+    ax.set_xticks(range(len(order)))
+    ax.set_xticklabels([label for _, label in order], fontsize=8.5)
+    ax.set_xlim(-0.6, len(order) - 0.4)
+    ax.set_ylim(-1.0, 1.05)
+    ax.set_ylabel("Spearman rho of the gene with the adult map")
+    ax.legend(
+        handles=[
+            plt.Line2D(
+                [],
+                [],
+                ls="",
+                marker="o",
+                mfc=DARK_GREY,
+                mec="none",
+                label="April (22 April, eroded Spearman, P9's structures)",
+            ),
+            plt.Line2D(
+                [],
+                [],
+                ls="",
+                marker="o",
+                mfc=NANO_DOT,
+                mec="none",
+                label="today (the declared structures, QC, merged profiles)",
+            ),
+            plt.Line2D([], [], color=PAIR_LINE, lw=1, label="the same gene"),
+            plt.Line2D([], [], color="0.3", lw=2.4, label="the group's median"),
+        ],
+        loc="lower center",
+        ncol=4,
+        fontsize=7.5,
+        bbox_to_anchor=(0.5, 1.0),
+    )
+    tidy(ax)
+
+
+def headline_scatter(ax: plt.Axes, headline: pd.DataFrame) -> float:
+    """B: each gene's rho in April against today's; returns their agreement."""
+    both = headline.dropna(subset=["rho_april", "rho_today"])
+    x = both["rho_april"].to_numpy()
+    y = both["rho_today"].to_numpy()
+    lim = (-0.75, 0.95)
+    ax.plot(lim, lim, color=MID_GREY, lw=0.8, ls=(0, (4, 3)), zorder=1)
+    ax.axhline(0, color="0.88", lw=0.6, zorder=0)
+    ax.axvline(0, color="0.88", lw=0.6, zorder=0)
+    sub = both["symbol"].str.startswith("Gria").to_numpy()
+    ax.scatter(x[~sub], y[~sub], s=28, color=DARK_GREY, lw=0, alpha=0.85, zorder=2)
+    ax.scatter(x[sub], y[sub], s=34, color=DARK_BLUE, lw=0, zorder=3)
+    moved = set(both["symbol"].iloc[np.argsort(-np.abs(y - x))[:5]])
+    for symbol in moved | {"Cacng8", "Gria1", "Gria4", "Dlg2"}:
+        k = list(both["symbol"]).index(symbol)
+        colour = DARK_BLUE if symbol.startswith("Gria") else "0.15"
+        ax.annotate(
+            symbol,
+            (x[k], y[k]),
+            xytext=(4, 2),
+            textcoords="offset points",
+            fontsize=7,
+            color=colour,
+        )
+    agreement = spearmanr(x, y).statistic
+    ax.set_xlim(lim)
+    ax.set_ylim(lim)
+    ax.set_aspect("equal")
+    ax.set_xlabel("April (eroded Spearman)")
+    ax.set_ylabel("today")
+    panel_title(
+        ax,
+        "B",
+        f"Gene by gene ({len(both)} genes in both)",
+        f"the order of the genes agrees at rho {agreement:.2f}; subunits dark blue",
+    )
+    tidy(ax)
+    return agreement
+
+
+def anova_panel(ax: plt.Axes, anova: pd.DataFrame, f_info: dict) -> None:
+    """C: the ANOVA p under each choice, and the same F against the surrogates."""
+    rows = list(anova.itertuples(index=False))
+    labels = [f"{r.label} ({r.n_genes})" for r in rows]
+    labels.append("today, F against the map's surrogates\n(co-expressed genes kept)")
+    ps = [r.p for r in rows] + [f_info["p_spatial"]]
+    ys = np.arange(len(ps))[::-1]
+    for k, (y, p) in enumerate(zip(ys, ps)):
+        ax.axhline(y, color="0.93", lw=0.8, zorder=0)
+        if k == len(ps) - 1:
+            ax.scatter([p], [y], s=60, marker="D", color="0.1", zorder=3, lw=0)
+        else:
+            colour = DARK_GREY if rows[k].kind == "april" else NANO_DOT
+            ax.scatter([p], [y], s=44, color=colour, zorder=3, lw=0)
+        ax.text(p * 1.3, y, f"{p:.3f}", va="center", fontsize=7.5, color="0.2")
+    ax.axvline(0.05, color=RED, lw=1, zorder=0)
+    ax.text(0.05, len(ps) - 0.4, " 0.05", color=RED, fontsize=7.5, va="bottom")
+    ax.set_xscale("log")
+    ax.set_xlim(1e-3, 1.5)
+    ax.set_ylim(-0.7, len(ps) - 0.2)
+    ax.set_yticks(ys)
+    ax.set_yticklabels(labels, fontsize=7.5)
+    ax.set_xlabel("one-way ANOVA p across the groups (log scale)")
+    panel_title(
+        ax,
+        "C",
+        "The group p under each choice it rests on",
+        "dots treat co-expressed genes as independent draws, as April did; the "
+        "diamond does not",
+    )
+    tidy(ax)
+
+
+def headline_null_panel(
+    ax: plt.Axes, headline: pd.DataFrame, groups: pd.DataFrame, n_surrogates: int
+) -> None:
+    """D: today's groups, each median against the band of its surrogates' medians."""
+    rng = np.random.default_rng(0)
+    ax.axhline(0, color="0.8", lw=0.7, zorder=0)
+    labels = []
+    for i, g in enumerate(groups.itertuples(index=False)):
+        mine = headline[(headline["group"] == g.group) & headline["rho_today"].notna()]
+        ax.add_patch(
+            Rectangle(
+                (i - 0.4, g.null_lo),
+                0.8,
+                g.null_hi - g.null_lo,
+                color=NULL_BAND,
+                lw=0,
+                zorder=0,
+            )
+        )
+        jitter = rng.uniform(-0.15, 0.15, len(mine))
+        ax.scatter(i + jitter, mine["rho_today"], s=16, color=NANO_DOT, lw=0, zorder=2)
+        ax.plot([i - 0.3, i + 0.3], [g.median_rho] * 2, color="0.1", lw=2, zorder=3)
+        if g.tested:
+            labels.append(
+                f"{g.label}\nn = {g.n_genes}\n{p_text(g.p_spatial, n_surrogates)}, "
+                f"q = {g.q:.3f}"
+            )
+        else:
+            labels.append(f"{g.label}\nn = {g.n_genes}\ntoo few genes to test")
+    ax.set_xticks(range(len(groups)))
+    ax.set_xticklabels(labels, fontsize=7.5)
+    ax.set_xlim(-0.6, len(groups) - 0.4)
+    ax.set_ylabel("today's rho with the adult map")
+    tidy(ax)
+
+
+def plot_april_headline(
+    headline: pd.DataFrame,
+    anova: pd.DataFrame,
+    groups: pd.DataFrame,
+    f_info: dict,
+    order: tuple,
+    n_surrogates: int,
+    q: float,
+    save: Path | None = None,
+) -> plt.Figure:
+    """Figure 14: April's category violins, recomputed today and against the null.
+
+    `headline` holds P9's genes with their group and both rho (ish.overview's
+    april_headline.csv), `anova` the ANOVA under each choice, `groups` each group's
+    median and null band today, `f_info` the ANOVA's F against the surrogates,
+    `order` the groups as April sorted them, (key, label), `q` the BH level.
+    """
+    fig = plt.figure(figsize=(16, 17))
+    grid = fig.add_gridspec(
+        3,
+        2,
+        height_ratios=[1.25, 1, 0.9],
+        width_ratios=[1, 1.25],
+        hspace=0.42,
+        wspace=0.45,
+        left=0.06,
+        right=0.98,
+        top=0.9,
+        bottom=0.12,
+    )
+    ax = fig.add_subplot(grid[0, :])
+    headline_violins(ax, headline, order)
+    ax.set_title(
+        "A.  April's ten groups: its headline (grey, left of each pair) beside the "
+        "same genes today (orange, right); April's order",
+        loc="left",
+        fontsize=9,
+        pad=30,
+    )
+    agreement = headline_scatter(fig.add_subplot(grid[1, 0]), headline)
+    anova_panel(fig.add_subplot(grid[1, 1]), anova, f_info)
+    ax = fig.add_subplot(grid[2, :])
+    headline_null_panel(ax, headline, groups, n_surrogates)
+    tested = groups[groups["tested"]]
+    n_past = int((tested["q"] < q).sum())
+    panel_title(
+        ax,
+        "D",
+        "Today's groups against the null: each median against where the median of "
+        "the same genes falls with 95% of the map's surrogates",
+        f"{n_past} of {len(tested)} tested groups past the null at BH q < {q}; the "
+        f"groups' F against the surrogates: {p_text(f_info['p_spatial'], n_surrogates)}",
+    )
+    first = anova.iloc[0]
+    plain = anova.iloc[1]
+    heading(
+        fig,
+        "april_headline",
+        f"April: {first['n_genes']} genes, group ANOVA p {first['p']:.3f} with the hand "
+        f"split, {plain['p']:.2f} without; the gene order reproduces today at rho "
+        f"{agreement:.2f}; against the surrogates "
+        f"{p_text(f_info['p_spatial'], n_surrogates)}",
+    )
+    footer(
+        fig,
+        [
+            "How to read: the groups are P9's categories of gene_targets.csv, written "
+            "while the genes were chosen, with 'auxiliary' split by hand into Aux "
+            "forebrain (Cacng8, Cacng3, Cnih2, Cnih3, Grm5) and Aux other.",
+            "An ANOVA over genes treats co-expressed genes as independent draws; the "
+            "surrogates keep them together, since every gene meets the same surrogate "
+            "of the map.",
+            "What would mean what: groups past their bands and an F past its null: "
+            "the kinds of genes differ beyond the brain's smoothness, though a group "
+            "written after looking (Aux forebrain) cannot count as a test.",
+            "An F inside its null: what reproduces from April is the order of the "
+            "genes, not a difference between the groups; the question is asked again "
+            f"on sets fixed in advance ({figure_ref('gene_sets')}).",
         ],
     )
     return saved(fig, save)

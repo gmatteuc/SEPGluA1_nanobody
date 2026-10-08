@@ -12,22 +12,37 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      8. run_video_compare      young beside adult, plane by plane
      9. run_closeup            close-ups and flatmaps (venv_flat)
     10. run_diagnostics        sheets that audit each step
-    11. run_ish_regions        ISH per structure, 100-gene panel
-    12. run_ish_compare        the adult map against each gene
-    13. run_ish_words          annotation words of the ranking
-    14. run_ish_roles          subunit against localisation genes
-    15. run_adult_arms         the channel arms per adult
-    16. run_ish_arms           the arms against the genes
-    17. run_sep_channel_check  what the green channel reports
-    18. run_panel_build        the 390-gene ontology panel            <- this script
-    19. run_panel_fetch        its ISH grids (network, once)
-    20. run_ish_regions        ISH per structure, ontology panel
-    21. run_ish_reliability    how reliable one ISH map is
-    22. run_ish_panel_test     localisation against controls
-    23. run_beyond_density     what abundance and density leave
-    24. run_beyond_controls    seven attempts to break it
-    25. run_beyond_figures     the figures of that result
-    26. run_beyond_regression  the regression, shown
+    11. run_panel_build        390-gene ontology panel (network, cached)   <- this script
+    12. run_panel_fetch        its ISH grids (network, once)
+    13. run_structure_set      A1: the declared structures, the
+                               adult profiles; figure 01
+    14. run_ish_section_qc     A2: the experiments of both panels
+                               and the repair (network, once);
+                               section QC; QC sheets
+    15. run_ish_gene_table     A9: region means, the gene table,
+                               merged profiles, gene sets,
+                               documentation; figure 02
+    16. run_ish_spatial_null   A7: surrogate maps and their checks
+    17. run_ish_gene_ranking   analysis 1: each gene against the
+                               map, the null, autofluorescence (A8),
+                               the Cacng8 - Gria1 gap; figures 05 to 07 and 11
+    18. run_ish_robustness     A3: the ranking under other choices;
+                               figure 12
+    19. run_ish_divisions      analysis 2 (A6): between or within
+                               divisions; figure 10, gene sheets
+    20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
+                               against matched controls; figures 08, 09
+    21. run_beyond_density     analysis 4: what receptor mRNA and
+                               synaptic density leave; the leftover
+    22. run_beyond_controls    seven attempts to break it
+    23. run_beyond_calibration the same model on maps whose answer
+                               is known
+    24. run_beyond_regression  the regression, per structure
+    25. run_beyond_figures     figures 03 and 04
+    26. run_sep_channel_check  analysis 5: what the green channel
+                               reports; figure 13
+    27. run_ish_overview       figures 00 and 14, the figure index;
+                               the numbers for the text
 
 Builds the gene panel from Gene Ontology terms (the terms, and the one hand-made
 call, are in sepmap/ish/panel_build.py), asking mygene.info and the Allen API and

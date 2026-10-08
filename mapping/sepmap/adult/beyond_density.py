@@ -797,7 +797,7 @@ def residual_table(
     Beside the cohort's leftover: the share of half-cohort leftovers with its sign
     (same_sign), and the leftover of each adult's own map (`per_adult`, adults x
     structures) as a mean, an SD and a t across the adults (t_adults), the
-    reliability that the bars of figure 12 show in grey.
+    reliability that the bars of figure 04 show in grey.
     """
     n = per_adult.shape[0]
     mean = per_adult.mean(axis=0)

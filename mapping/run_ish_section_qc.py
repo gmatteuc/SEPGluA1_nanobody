@@ -12,11 +12,11 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      8. run_video_compare      young beside adult, plane by plane
      9. run_closeup            close-ups and flatmaps (venv_flat)
     10. run_diagnostics        sheets that audit each step
-    11. run_panel_build        the 390-gene ontology panel (network, cached)
+    11. run_panel_build        390-gene ontology panel (network, cached)
     12. run_panel_fetch        its ISH grids (network, once)
     13. run_structure_set      A1: the declared structures, the
                                adult profiles; figure 01
-    14. run_ish_section_qc     A2: the experiments of both panels     <- this script
+    14. run_ish_section_qc     A2: the experiments of both panels   <- this script
                                and the repair (network, once);
                                section QC; QC sheets
     15. run_ish_gene_table     A9: region means, the gene table,
@@ -25,23 +25,24 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     16. run_ish_spatial_null   A7: surrogate maps and their checks
     17. run_ish_gene_ranking   analysis 1: each gene against the
                                map, the null, autofluorescence (A8),
-                               the Cacng8 - Gria1 gap; figures 03 to 06
+                               the Cacng8 - Gria1 gap; figures 05 to 07 and 11
     18. run_ish_robustness     A3: the ranking under other choices;
-                               figure 07
+                               figure 12
     19. run_ish_divisions      analysis 2 (A6): between or within
-                               divisions; figure 08, gene sheets
+                               divisions; figure 10, gene sheets
     20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
-                               against matched controls; figures 09, 10
+                               against matched controls; figures 08, 09
     21. run_beyond_density     analysis 4: what receptor mRNA and
                                synaptic density leave; the leftover
     22. run_beyond_controls    seven attempts to break it
     23. run_beyond_calibration the same model on maps whose answer
                                is known
     24. run_beyond_regression  the regression, per structure
-    25. run_beyond_figures     figures 11 and 12
+    25. run_beyond_figures     figures 03 and 04
     26. run_sep_channel_check  analysis 5: what the green channel
                                reports; figure 13
-    27. run_ish_overview       figures 00 and 14; the numbers for the text
+    27. run_ish_overview       figures 00 and 14, the figure index;
+                               the numbers for the text
 
 Lists every experiment of the two gene panels, adds the other Allen experiments of
 the P9 genes whose own grid cannot be used (fetched once, cached), and judges every

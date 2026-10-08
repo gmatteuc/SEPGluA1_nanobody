@@ -12,7 +12,7 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      8. run_video_compare      young beside adult, plane by plane
      9. run_closeup            close-ups and flatmaps (venv_flat)
     10. run_diagnostics        sheets that audit each step
-    11. run_panel_build        the 390-gene ontology panel (network, cached)
+    11. run_panel_build        390-gene ontology panel (network, cached)
     12. run_panel_fetch        its ISH grids (network, once)
     13. run_structure_set      A1: the declared structures, the
                                adult profiles; figure 01
@@ -25,23 +25,24 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     16. run_ish_spatial_null   A7: surrogate maps and their checks
     17. run_ish_gene_ranking   analysis 1: each gene against the
                                map, the null, autofluorescence (A8),
-                               the Cacng8 - Gria1 gap; figures 03 to 06
+                               the Cacng8 - Gria1 gap; figures 05 to 07 and 11
     18. run_ish_robustness     A3: the ranking under other choices;
-                               figure 07
+                               figure 12
     19. run_ish_divisions      analysis 2 (A6): between or within   <- this script
-                               divisions; figure 08, gene sheets
+                               divisions; figure 10, gene sheets
     20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
-                               against matched controls; figures 09, 10
+                               against matched controls; figures 08, 09
     21. run_beyond_density     analysis 4: what receptor mRNA and
                                synaptic density leave; the leftover
     22. run_beyond_controls    seven attempts to break it
     23. run_beyond_calibration the same model on maps whose answer
                                is known
     24. run_beyond_regression  the regression, per structure
-    25. run_beyond_figures     figures 11 and 12
+    25. run_beyond_figures     figures 03 and 04
     26. run_sep_channel_check  analysis 5: what the green channel
                                reports; figure 13
-    27. run_ish_overview       figures 00 and 14; the numbers for the text
+    27. run_ish_overview       figures 00 and 14, the figure index;
+                               the numbers for the text
 
 Splits each gene's rho with the adult map into what the contrast between divisions
 gives (rho with a map that knows only each structure's division) and what is left
@@ -55,7 +56,7 @@ Writes, in adult_v2/ish_analysis/ under the data root:
     tables/within_division_detail.csv   per gene and division, rho inside it
     tables/within_calibration.csv       random smooth maps tested inside divisions
     tables/numbers_divisions.csv        the numbers of this step, for the text
-    figures/08_between_within.png       what a whole-brain rho is made of
+    figures/10_between_within.png       what a whole-brain rho is made of
     figures/genes/<gene>.png            with --sheets, one sheet per detail gene
 
     python run_ish_divisions.py [--sheets]
@@ -164,7 +165,7 @@ def numbers_table(within, detail, calibration):
 
 
 def main(sheets):
-    """Print the settings, split every gene's rho; tables, figure 08, gene sheets."""
+    """Print the settings, split every gene's rho; tables, figure 10, gene sheets."""
     config.print_settings({"sheets": sheets})
     tables = OUT / "tables"
     figures = OUT / "figures"
@@ -234,7 +235,7 @@ def main(sheets):
     numbers = numbers_table(within, detail, calibration)
     numbers.to_csv(tables / "numbers_divisions.csv", index=False)
 
-    # figure 08
+    # figure 10
     coarse = pd.Series(
         divisions.division_only(map_values.to_numpy(float), division), index=declared
     )

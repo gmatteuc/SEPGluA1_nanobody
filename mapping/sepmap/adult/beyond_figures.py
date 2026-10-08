@@ -1,4 +1,4 @@
-"""The guided figures of analysis 4, with their intervals: figures 11 and 12.
+"""The guided figures of analysis 4, with their intervals: figures 03 and 04.
 
 adult.beyond_density, adult.beyond_controls, adult.beyond_calibration and
 adult.beyond_regression write the tables. This module adds the intervals, gathers
@@ -42,8 +42,8 @@ Writes, under adult_v2/ish_analysis/ in the data root:
                                         share of it
     beyond/numbers_for_the_caption.txt  the figures' numbers as sentences
     tables/numbers_beyond.csv           the numbers of analysis 4, for the text
-    figures/11_beyond_budget.png        (and .eps)
-    figures/12_beyond_where.png         (and .eps)
+    figures/03_beyond_budget.png        (and .eps)
+    figures/04_beyond_where.png         (and .eps)
 
 Run by run_beyond_figures.py.
 """
@@ -310,7 +310,7 @@ def gene_space_row(controls: pd.DataFrame, curve: pd.DataFrame) -> dict:
 
 
 def plane_images(regression: pd.DataFrame) -> list[dict]:
-    """The planes of figure 12: labels, and map, prediction and leftover painted."""
+    """The planes of figure 04: labels, and map, prediction and leftover painted."""
     names, _, _ = structure_terms()
     atlas = annotation_20("ccf")
     n = len(regression)
@@ -337,7 +337,7 @@ def plane_images(regression: pd.DataFrame) -> list[dict]:
 
 
 def main() -> None:
-    """Compute the intervals, write the numbers and draw figures 11 and 12.
+    """Compute the intervals, write the numbers and draw figures 03 and 04.
 
     One seeded generator feeds the bootstrap and then the noise null.
     """
@@ -417,7 +417,7 @@ def main() -> None:
         fh.write("\n".join(lines) + "\n")
     print("\n".join(lines))
 
-    # figure 11: the map against its predictors, the budget, the calibration, the
+    # figure 03: the map against its predictors, the budget, the calibration, the
     # replication
     set_table = load_structure_set()
     groups = ish_plotting.group_of(set_table)
@@ -440,7 +440,7 @@ def main() -> None:
     )
     plt.close(fig)
 
-    # figure 12: where the leftover lives, and the genes against it
+    # figure 04: where the leftover lives, and the genes against it
     null = np.load(bd.LEFTOVER_NULL)
     fig = ish_plotting.plot_beyond_where(
         planes=plane_images(regression),
@@ -454,4 +454,4 @@ def main() -> None:
         save=FIGURES / ish_plotting.figure_file("beyond_where"),
     )
     plt.close(fig)
-    print(f"figures 11 and 12 in {FIGURES}")
+    print(f"figures 03 and 04 in {FIGURES}")
