@@ -125,6 +125,7 @@ n_calibration_surrogates = 1000  # surrogates per calibration map, enough to pla
 [ish_analysis]
 q = 0.05                   # Benjamini-Hochberg level at which a gene, a set or a contrast is marked in the figures and counted in the text
 n_boot_mice = 2000         # resamples of the ten adults: each gene's rho spread (the grey of its bar) and the interval of the Cacng8 - Gria1 gap
+log2_floor = 0.01          # energy added before the log2 of the Pearson row of the robustness table: between the 1st and 5th percentiles of all structure means (0.006 and 0.05 on 8 October), so a structure with almost no signal does not sit at -30
 
 [ish_panel_test]
 min_structures = 80        # structures a gene must share with the map and the subunit composite

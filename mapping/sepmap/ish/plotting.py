@@ -1839,3 +1839,192 @@ def plot_autofluorescence(
         ],
     )
     return saved(fig, save)
+
+
+# ===== 07 Does the ranking depend on the choices made =====
+
+# the colour of each kind of choice in figure 07
+KIND_COLOURS = {
+    "primary": "0.1",
+    "statistic": RED,
+    "borders": DENSITY_BLUE,
+    "reading": NANO,
+    "inputs": DARK_GREY,
+    "structures": "#3a6db5",
+    "5 October": MID_GREY,
+}
+
+# the variants drawn against the primary in panel C, one per kind of choice
+SMALL_MULTIPLES = ("pearson_log2", "eroded_both", "ratio", "every_structure")
+
+
+def agreement_panel(ax: plt.Axes, summary: pd.DataFrame) -> None:
+    """A: each variant's gene order against the primary's, over P9's genes."""
+    y = np.arange(len(summary))
+    for i, (_, r) in enumerate(summary.iterrows()):
+        colour = KIND_COLOURS.get(r["kind"], DARK_GREY)
+        ax.plot([0.5, r["agreement_p9"]], [i, i], color=LIGHT_GREY, lw=1, zorder=1)
+        ax.scatter(r["agreement_p9"], i, s=40, color=colour, zorder=2)
+        ax.text(
+            r["agreement_p9"] + 0.012,
+            i,
+            f"{r['agreement_p9']:.3f}",
+            va="center",
+            fontsize=7.5,
+        )
+    ax.set_yticks(y)
+    ax.set_yticklabels(summary["label"], fontsize=8)
+    for tick, kind in zip(ax.get_yticklabels(), summary["kind"]):
+        tick.set_color(KIND_COLOURS.get(kind, DARK_GREY))
+    ax.set_ylim(len(summary) - 0.5, -0.5)
+    ax.set_xlim(0.5, 1.08)
+    ax.set_xlabel("agreement with the primary order\n(Spearman over P9's genes)")
+    panel_title(ax, "A", "The order of the genes", "")
+    tidy(ax)
+
+
+def ranks_panel(ax: plt.Axes, summary: pd.DataFrame) -> None:
+    """B: where Cacng8 and Gria1 sit among P9's genes under each variant."""
+    for gene, marker, colour in (("Cacng8", "o", RED), ("Gria1", "s", DARK_BLUE)):
+        ax.scatter(
+            summary[f"rank_p9_{gene}"],
+            np.arange(len(summary)),
+            marker=marker,
+            s=36,
+            color=colour,
+            label=gene,
+            zorder=2,
+        )
+    for i, (_, r) in enumerate(summary.iterrows()):
+        ax.text(
+            r["rank_p9_Gria1"] + 1,
+            i,
+            f"{int(r['rank_p9_Gria1'])}",
+            va="center",
+            fontsize=7,
+            color=DARK_BLUE,
+        )
+    ax.set_ylim(len(summary) - 0.5, -0.5)
+    ax.set_yticks([])
+    top = float(np.nanmax(summary["rank_p9_Gria1"]))
+    ax.set_xlim(0, top + 6)
+    ax.set_xlabel("rank among P9's genes (1 = highest rho)")
+    ax.legend(loc="lower right", fontsize=7)
+    panel_title(ax, "B", "Where the two genes sit", "")
+    tidy(ax)
+
+
+def gap_rows_panel(ax: plt.Axes, summary: pd.DataFrame) -> None:
+    """B, right: the Cacng8 - Gria1 gap under each variant."""
+    y = np.arange(len(summary))
+    ax.barh(y, summary["gap"], color=MID_GREY, height=0.55)
+    for i, g in enumerate(summary["gap"]):
+        ax.text(max(g, 0) + 0.005, i, f"{g:+.2f}", va="center", fontsize=7)
+    ax.axvline(0, color="0.3", lw=0.6)
+    ax.set_ylim(len(summary) - 0.5, -0.5)
+    ax.set_yticks([])
+    ax.set_xlim(min(0, summary["gap"].min()) - 0.02, summary["gap"].max() + 0.08)
+    ax.set_xlabel("rho(Cacng8) - rho(Gria1)")
+    tidy(ax)
+
+
+def multiples_panel(
+    axes: list[plt.Axes],
+    robustness: pd.DataFrame,
+    summary: pd.DataFrame,
+    subunits: set[str],
+) -> None:
+    """C: each gene's rho under four variants against its rho in the primary."""
+    primary = robustness[robustness["variant"] == "primary"].set_index("symbol")
+    labels = summary.set_index("variant")["label"]
+    lim = (-0.75, 0.95)
+    for ax, name in zip(axes, SMALL_MULTIPLES):
+        mine = robustness[robustness["variant"] == name].set_index("symbol")
+        genes = sorted(set(mine.index) & set(primary.index))
+        x = primary.loc[genes, "rho"].to_numpy()
+        y = mine.loc[genes, "rho"].to_numpy()
+        p9 = primary.loc[genes, "p9_gene"].to_numpy(bool)
+        sub = np.array([g in subunits for g in genes])
+        ax.plot(lim, lim, color=MID_GREY, lw=0.8, ls=(0, (4, 3)))
+        ax.scatter(x[~p9], y[~p9], s=8, color=LIGHT_GREY, linewidths=0)
+        ax.scatter(x[p9], y[p9], s=14, color=DARK_GREY, linewidths=0)
+        ax.scatter(x[sub], y[sub], s=18, color=DARK_BLUE, linewidths=0)
+        for g in ("Cacng8", "Gria1"):
+            if g in genes:
+                i = genes.index(g)
+                ax.annotate(
+                    g,
+                    (x[i], y[i]),
+                    xytext=(-34, 4),
+                    textcoords="offset points",
+                    fontsize=6.5,
+                    color=gene_colour(g, subunits),
+                )
+        ax.set_xlim(lim)
+        ax.set_ylim(lim)
+        ax.set_aspect("equal")
+        ax.set_title(
+            f"{labels[name]}\nrho {spearmanr(x, y).statistic:.3f}, {len(genes)} genes",
+            fontsize=8,
+        )
+        ax.set_xlabel("rho, primary", fontsize=7.5)
+        tidy(ax)
+    axes[0].set_ylabel("rho, variant", fontsize=7.5)
+
+
+def plot_robustness(
+    summary: pd.DataFrame,
+    robustness: pd.DataFrame,
+    subunits: set[str],
+    save: Path | None = None,
+) -> plt.Figure:
+    """Figure 07: the ranking under other statistics, borders, readings, inputs, sets.
+
+    `summary` is robustness_summary.csv in the order of its rows, `robustness`
+    ranking_robustness.csv.
+    """
+    fig = plt.figure(figsize=(16, 11.5))
+    others = summary[summary["variant"] != "primary"]
+    lo, hi = int(others["rank_p9_Cacng8"].min()), int(others["rank_p9_Cacng8"].max())
+    cacng8 = f"Cacng8 {lo} to {hi}"
+    if hi == 1:
+        cacng8 = "Cacng8 first in every variant"
+    heading(
+        fig,
+        "robustness",
+        "Does the order of the genes, and where Cacng8 and Gria1 sit, change with the "
+        "choices made?",
+        f"{len(others)} variants of the primary ranking; the gene order agrees at "
+        f"{others['agreement_p9'].min():.2f} to {others['agreement_p9'].max():.3f} "
+        f"over P9's genes; Gria1 ranks {int(others['rank_p9_Gria1'].min())} to "
+        f"{int(others['rank_p9_Gria1'].max())}, {cacng8}",
+    )
+    agreement_panel(fig.add_axes([0.27, 0.5, 0.24, 0.38]), summary)
+    ranks_panel(fig.add_axes([0.56, 0.5, 0.2, 0.38]), summary)
+    gap_rows_panel(fig.add_axes([0.8, 0.5, 0.16, 0.38]), summary)
+    fig.axes[-1].set_title("the Cacng8 - Gria1 gap", loc="left", fontsize=9)
+    axes = [fig.add_axes([0.06 + 0.235 * k, 0.1, 0.19, 0.27]) for k in range(4)]
+    multiples_panel(axes, robustness, summary, subunits)
+    axes[0].text(
+        0,
+        1.25,
+        "C.  Gene by gene, four of the variants against the primary (P9's genes "
+        "dark, subunits blue)",
+        transform=axes[0].transAxes,
+        fontsize=9,
+    )
+    footer(
+        fig,
+        [
+            "How to read: each row changes one choice of the primary ranking (Spearman, "
+            "zref with the declared reference, merged profiles after QC, full means, "
+            "the declared structures) and keeps the others;",
+            "the last row is the route of 5 October as it ran. No row has a p: the "
+            "null is drawn on the primary map's structures, and the rows ask about the "
+            "order of the genes.",
+            "What would mean what: an agreement near 1 everywhere: the conclusions do "
+            "not hang on these choices; a row far below the others names the choice "
+            "a conclusion depends on.",
+        ],
+    )
+    return saved(fig, save)
