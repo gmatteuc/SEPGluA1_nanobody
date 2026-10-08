@@ -48,7 +48,7 @@ import pandas as pd
 
 from sepmap.config import DATA, SETTINGS
 from sepmap.ish import panel_build, panel_fetch, regions, reliability, section_qc
-from sepmap.ish.gene_sets import gene_sets
+from sepmap.ish.gene_sets import context_set, gene_sets
 from sepmap.structures import TABLES
 
 # the voxels a gene value needs to be used, the gene the panels must hold
@@ -485,6 +485,23 @@ def gene_labels(
             )
         )
     return pd.DataFrame(rows), members
+
+
+def context_members(symbols: list[str], offline: bool = True) -> list[str]:
+    """The genes of the context group of ish.gene_sets, from the cached GO records.
+
+    The same records, ontology and roles as gene_labels; with `offline` a gene
+    missing from the caches stops the run rather than asking the server.
+    """
+    ontology = read_panel("ontology").drop_duplicates("symbol").set_index("symbol")
+    role = {g: ontology["role"].get(g, "") for g in symbols}
+    records = mygene_records(symbols, offline)
+    parents, _, _ = load_obo(offline)
+    components = {
+        g: with_ancestors(go_annotations(records.get(g, {}), "CC"), parents)
+        for g in symbols
+    }
+    return context_set(symbols, role, components)
 
 
 def exclusion_reasons(experiments: pd.DataFrame) -> pd.DataFrame:

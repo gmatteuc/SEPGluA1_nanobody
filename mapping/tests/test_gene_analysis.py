@@ -1,4 +1,4 @@
-"""Known-answer checks of analyses 1 and 2: gene ranking, divisions."""
+"""Known-answer checks of analyses 1 to 3: gene ranking, divisions, gene sets."""
 
 from pathlib import Path
 
@@ -8,7 +8,7 @@ import pytest
 from scipy.stats import spearmanr
 
 from sepmap import config
-from sepmap.ish import divisions, gene_ranking
+from sepmap.ish import divisions, gene_ranking, gene_sets, panel_test
 
 TABLES = Path(config.DATA) / "adult_v2" / "ish_analysis" / "tables"
 
@@ -138,6 +138,43 @@ def test_gene_sharing_only_the_contrast_between_divisions_has_no_within_rho():
     assert whole > 0.8
     # four divisions of 40 independent structures: the SD of the mean rho is ~0.08
     assert abs(within) < 0.25
+
+
+def test_contrast_leaves_out_genes_on_both_sides():
+    """A gene in a set of each side of a contrast is in neither, and is reported."""
+    members = {name: [] for name in gene_sets.SET_ORDER}
+    members["other postsynaptic"] = ["Dlg4", "Slc32a1"]
+    members["presynaptic"] = ["Syp", "Slc32a1"]
+    first, second, both = gene_sets.contrast_sides(
+        members, "postsynaptic against presynaptic"
+    )
+    assert first == ["Dlg4"]
+    assert second == ["Syp"]
+    assert both == ["Slc32a1"]
+
+
+def test_set_median_null_takes_the_median_over_the_set_per_surrogate():
+    """The null of a set's median is, per surrogate, the median of its genes' rho."""
+    null = np.array([[0.1, 0.5, -0.2], [0.3, -0.1, 0.0], [0.2, 0.2, 0.4]])
+    rho = pd.Series({"a": 0.5, "b": 0.6, "c": 0.7})
+    row, null_median = gene_sets.set_test(
+        ["a", "b", "c"], rho, null, {"a": 0, "b": 1, "c": 2}
+    )
+    assert np.allclose(null_median, [0.2, 0.2, 0.0])
+    assert row["median_rho"] == pytest.approx(0.6)
+    # no surrogate median reaches 0.6, so p is the floor of 3 surrogates
+    assert row["p_spatial"] == pytest.approx(0.25)
+
+
+def test_null_partial_equals_panel_tests_partial():
+    """The vectorised partial rho of a surrogate equals ish.panel_test.partial."""
+    rng = np.random.default_rng(7)
+    composite = rng.standard_normal(50)
+    gene = composite + rng.standard_normal(50)
+    maps = rng.standard_normal((5, 50))
+    fast = gene_sets.null_partial(maps, gene, composite)
+    slow = [panel_test.partial(m, gene, [composite]) for m in maps]
+    assert np.allclose(fast, slow)
 
 
 @pytest.mark.skipif(

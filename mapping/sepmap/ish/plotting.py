@@ -2459,3 +2459,437 @@ def plot_gene_sheet(
         va="top",
     )
     return saved(fig, save)
+
+
+# ===== 09 Which kinds of genes match =====
+
+# sets of at least this many genes get a violin outline; smaller ones only dots
+VIOLIN_MIN = 15
+
+# sets of at most this many genes have every gene named; larger ones their top three
+NAME_ALL_MAX = 16
+
+
+def set_column(
+    ax: plt.Axes,
+    x: float,
+    rows: pd.DataFrame,
+    test: pd.Series | None,
+    colour,
+    rng: np.random.Generator,
+    hollow: bool = False,
+) -> None:
+    """One set: its null band, violin, a dot per gene, the median, the named genes.
+
+    `rows` holds the set's genes (gene_sets.csv), `test` its row of set_tests.csv
+    for the nano map (None for the context group, which has no test).
+    """
+    rho = rows["rho_nano"].to_numpy(float)
+    if test is not None:
+        ax.add_patch(
+            Rectangle(
+                (x - 0.4, test["null_lo"]),
+                0.8,
+                test["null_hi"] - test["null_lo"],
+                color=NULL_BAND,
+                lw=0,
+                zorder=0,
+            )
+        )
+    if len(rho) >= VIOLIN_MIN:
+        parts = ax.violinplot(
+            rho, positions=[x], widths=0.8, showextrema=False, showmedians=False
+        )
+        for body in parts["bodies"]:
+            body.set_facecolor("none")
+            body.set_edgecolor(MID_GREY)
+            body.set_linewidth(0.8)
+            body.set_alpha(1)
+    width = 0.3 if len(rho) >= VIOLIN_MIN else 0.12
+    jitter = rng.uniform(-width, width, len(rho))
+    p9 = rows["p9_gene"].to_numpy(bool)
+    face = "white" if hollow else colour
+    edges = ["0.05" if p else ("0.5" if hollow else colour) for p in p9]
+    ax.scatter(
+        x + jitter,
+        rho,
+        s=16,
+        facecolors=face,
+        edgecolors=edges,
+        linewidths=0.6,
+        zorder=3,
+    )
+    ax.plot([x - 0.32, x + 0.32], [np.median(rho)] * 2, color="0.1", lw=2, zorder=4)
+
+    # the genes named: all of a small set, the top three and the lowest of a large one
+    order = np.argsort(rho)[::-1]
+    if len(rho) <= NAME_ALL_MAX:
+        named = order
+    else:
+        named = np.concatenate([order[:3], order[-1:]])
+    for i in named:
+        ax.text(
+            x + jitter[i] + 0.06,
+            rho[i],
+            rows["symbol"].iloc[i],
+            fontsize=6,
+            va="center",
+            color=DARK_BLUE if colour == DARK_BLUE else "0.15",
+            zorder=5,
+        )
+
+
+def set_panel(
+    ax: plt.Axes,
+    members: pd.DataFrame,
+    tests: pd.DataFrame,
+    order: list[str],
+    context: str,
+    q: float,
+    n_surrogates: int,
+) -> None:
+    """A: one column per set, the context group last, each with its null band."""
+    rng = np.random.default_rng(0)
+    nano = tests[tests["map"] == "nano"].set_index("gene_set")
+    auto = tests[tests["map"] == "auto"].set_index("gene_set")
+    labels = []
+    for k, name in enumerate(order + [context]):
+        rows = members[members["gene_set"] == name]
+        if name == context:
+            set_column(ax, k, rows, None, MID_GREY, rng, hollow=True)
+            labels.append(f"{name}\n(context, not tested)\nn = {len(rows)}")
+            continue
+        test = nano.loc[name]
+        set_column(ax, k, rows, test, SET_COLOURS[name], rng)
+        ax.scatter(
+            k + 0.42,
+            auto.loc[name, "median_rho"],
+            marker="D",
+            s=26,
+            color=AUTO,
+            edgecolors=AUTO_DOT,
+            linewidths=0.6,
+            zorder=4,
+        )
+        if test["tested"]:
+            weight = "bold" if test["q"] < q else "normal"
+            stats = f"{p_text(test['p_spatial'], n_surrogates)}, q {test['q']:.3f}"
+        else:
+            weight = "normal"
+            stats = "too few genes to test"
+        labels.append((f"{name}\nn = {int(test['n_genes'])}\n{stats}", weight))
+    ax.set_xticks(range(len(labels)))
+    ax.set_xticklabels([lab if isinstance(lab, str) else lab[0] for lab in labels])
+    for tick, lab in zip(ax.get_xticklabels(), labels):
+        if not isinstance(lab, str):
+            tick.set_fontweight(lab[1])
+    ax.axhline(0, color="0.6", lw=0.6, zorder=1)
+    ax.set_xlim(-0.6, len(labels) - 0.3)
+    ax.set_ylabel("Spearman rho of the gene with the adult map")
+    handles = [
+        Patch(color=NULL_BAND, label="95% of the set's median over the surrogates"),
+        plt.Line2D([], [], color="0.1", lw=2, label="the set's median"),
+        plt.Line2D(
+            [],
+            [],
+            ls="",
+            marker="o",
+            mfc="white",
+            mec="0.05",
+            label="a gene of P9's panel (black ring)",
+        ),
+        plt.Line2D(
+            [],
+            [],
+            ls="",
+            marker="D",
+            mfc=AUTO,
+            mec=AUTO_DOT,
+            label="the set's median with the autofluorescence map",
+        ),
+    ]
+    ax.legend(handles=handles, loc="lower left", fontsize=7)
+    tidy(ax)
+
+
+def contrast_panel(
+    ax: plt.Axes, row: pd.Series, null: np.ndarray, n_surrogates: int
+) -> None:
+    """B: one contrast named in advance against its surrogate differences."""
+    bins = np.linspace(-0.8, 0.8, 65)
+    ax.hist(null, bins=bins, color=NULL_BAND)
+    ax.axvline(row["difference"], color=RED, lw=1.8)
+    ax.axvline(0, color="0.5", lw=0.6)
+    ax.set_xlabel("difference of the two sets' median rho")
+    ax.set_ylabel("surrogates")
+    ax.set_title(
+        f"{row['contrast']}\n{row['median_first']:+.2f} ({int(row['n_first'])} genes) "
+        f"against {row['median_second']:+.2f} ({int(row['n_second'])}); difference "
+        f"{row['difference']:+.2f}\nspatial {p_text(row['p_spatial'], n_surrogates)}; "
+        f"labels permuted p = {row['p_labels']:.4f}",
+        loc="left",
+        fontsize=8.5,
+    )
+    tidy(ax)
+
+
+def plot_gene_sets(
+    members: pd.DataFrame,
+    tests: pd.DataFrame,
+    contrasts: pd.DataFrame,
+    contrast_nulls: dict[str, np.ndarray],
+    order: list[str],
+    context: str,
+    rules: dict[str, str],
+    q: float,
+    n_surrogates: int,
+    save: Path | None = None,
+) -> plt.Figure:
+    """Figure 09: the gene sets fixed in advance against the map and its null.
+
+    `members`, `tests` and `contrasts` are gene_sets.csv, set_tests.csv and
+    contrasts.csv; `contrast_nulls` the surrogate differences of each contrast;
+    `order` the sets in drawing order, `context` the group drawn last, untested,
+    `rules` where each set comes from.
+    """
+    nano = tests[(tests["map"] == "nano") & tests["tested"]]
+    n_pass = int((nano["q"] < q).sum())
+    fig = plt.figure(figsize=(16, 13))
+    heading(
+        fig,
+        "gene_sets",
+        "Do kinds of genes defined before looking match the map better than others, "
+        "beyond the null?",
+        f"{len(order)} sets from GO and cited marker lists, fixed before any rho on "
+        f"these inputs; {n_pass} of {len(nano)} tested sets past the spatial null at "
+        f"BH q < {q}",
+    )
+    ax = fig.add_axes([0.06, 0.46, 0.9, 0.44])
+    set_panel(ax, members, tests, order, context, q, n_surrogates)
+    panel_title(
+        ax,
+        "A",
+        "One column per set, a dot per gene",
+        "bold set name: its median past the null at the BH level; pale band: where "
+        "the median of the same genes falls with 95% of the surrogates",
+    )
+    for k, (_, row) in enumerate(contrasts.iterrows()):
+        ax_b = fig.add_axes([0.08 + 0.3 * k, 0.09, 0.24, 0.16])
+        contrast_panel(ax_b, row, contrast_nulls[row["contrast"]], n_surrogates)
+    fig.text(
+        0.06,
+        0.335,
+        "B.  The contrasts named in advance, against the surrogates (red: observed)",
+        fontsize=9,
+    )
+    ax_c = fig.add_axes([0.68, 0.06, 0.3, 0.24])
+    ax_c.axis("off")
+    text = "\n".join(f"{name}: {rules.get(name, '')}" for name in order + [context])
+    ax_c.text(
+        0,
+        1,
+        "\n".join(
+            textwrap.fill(line, 70, subsequent_indent="   ") for line in text.split("\n")
+        ),
+        va="top",
+        fontsize=7,
+    )
+    ax_c.set_title("C.  Where each set comes from", loc="left", fontsize=9)
+    footer(
+        fig,
+        [
+            "How to read: a set's median is tested against the medians the same genes "
+            "give with every surrogate of the map, so co-expressed genes stay together "
+            "in the null; the labels-permuted p treats the genes as independent and is "
+            "shown for comparison only.",
+            "What would mean what: postsynaptic above presynaptic and glia beyond the "
+            "null: the map is postsynaptic-like, as any glutamate receptor label should "
+            "be (a sanity check). Localisation genes (transport, anchoring, auxiliary "
+            "subunits) past their band:",
+            "the genes that set surface receptor follow the map, as a surface-fraction "
+            "reading predicts; a set inside its band: its genes look like the map no "
+            "more than a random smooth map would.",
+        ],
+    )
+    return saved(fig, save)
+
+
+# ===== 10 Localisation genes against matched controls =====
+
+
+def strips(
+    ax: plt.Axes,
+    groups: list[tuple[str, np.ndarray, object]],
+    rng: np.random.Generator,
+    ylabel: str,
+) -> None:
+    """Dots of each group in a column, jittered, with the group's median as a bar."""
+    for i, (label, values, colour) in enumerate(groups):
+        ax.scatter(
+            i + rng.uniform(-0.15, 0.15, len(values)),
+            values,
+            s=14,
+            color=colour,
+            linewidths=0,
+            alpha=0.85,
+            zorder=2,
+        )
+        ax.plot([i - 0.3, i + 0.3], [np.median(values)] * 2, color="0.1", lw=2, zorder=3)
+    ax.set_xticks(range(len(groups)))
+    ax.set_xticklabels([f"{g[0]}\n({len(g[1])})" for g in groups])
+    ax.set_xlim(-0.6, len(groups) - 0.4)
+    ax.axhline(0, color="0.85", lw=0.6, zorder=0)
+    ax.set_ylabel(ylabel)
+    tidy(ax)
+
+
+def label_null_panel(ax: plt.Axes, null: np.ndarray, row: pd.Series) -> None:
+    """The label-permutation null of a difference, the observed one, the detectable."""
+    ax.hist(null, bins=60, color=LIGHT_GREY)
+    ax.axvline(row["difference"], color=RED, lw=1.8)
+    for side in (-1, 1):
+        ax.axvline(side * row["detectable"], color=DARK_GREY, ls="--", lw=0.9)
+    ax.set_xlabel("difference of the medians, labels permuted")
+    ax.set_ylabel("permutations")
+    tidy(ax)
+
+
+def plot_localisation(
+    table: pd.DataFrame,
+    summary: pd.DataFrame,
+    nulls: dict[str, np.ndarray],
+    pairs: dict[str, str],
+    p_spatial: float,
+    n_surrogates: int,
+    panel_table: pd.DataFrame | None = None,
+    save: Path | None = None,
+) -> plt.Figure:
+    """Figure 10: localisation genes against expression-matched postsynaptic controls.
+
+    `table` is localisation_test.csv, `summary` localisation_summary.csv, `nulls`
+    each test's label null, `pairs` the matching, `p_spatial` the matched
+    difference's spatial p; `panel_table`, when given, the same genes with the
+    control pool of 5 October, whose positive control panel C draws beside.
+    """
+    rng = np.random.default_rng(0)
+    by = table.set_index("symbol")
+    loc = list(table.loc[table["side"] == "localisation", "symbol"])
+    ctrl = list(table.loc[table["side"] == "control", "symbol"])
+    matched = sorted(set(pairs.values()))
+    test = summary.set_index("test")
+    main = test.loc["matched controls"]
+    positive = test.loc["positive control"]
+    fig = plt.figure(figsize=(16, 10))
+    heading(
+        fig,
+        "localisation",
+        "Once receptor abundance is removed, do the genes that put AMPA receptors at the "
+        "membrane predict the map better than other postsynaptic genes?",
+        f"{len(loc)} localisation genes against {len(matched)} expression-matched "
+        f"controls: difference {main['difference']:+.3f}, p = {main['p_labels']:.3f} "
+        f"(spatial {p_text(p_spatial, n_surrogates)}); positive control "
+        f"{positive['difference']:+.3f}, p = {positive['p_labels']:.4f}",
+    )
+    ax = fig.add_axes([0.06, 0.5, 0.22, 0.36])
+    strips(
+        ax,
+        [
+            ("localisation", by.loc[loc, "rho_partial"].to_numpy(), RED),
+            ("matched\ncontrols", by.loc[matched, "rho_partial"].to_numpy(), DARK_GREY),
+            ("all\ncontrols", by.loc[ctrl, "rho_partial"].to_numpy(), LIGHT_GREY),
+        ],
+        rng,
+        "partial rho with the map, subunit composite removed",
+    )
+    panel_title(
+        ax,
+        "A",
+        "The test",
+        f"medians {main['median_first']:+.3f} against {main['median_second']:+.3f}",
+    )
+    ax = fig.add_axes([0.36, 0.5, 0.26, 0.36])
+    label_null_panel(ax, nulls["matched controls"], main)
+    panel_title(
+        ax,
+        "B",
+        "Its null, labels permuted between the two sets",
+        f"p = {main['p_labels']:.3f}; dashed: the difference detectable at p < 0.05 "
+        f"(±{main['detectable']:.3f})\nthe same difference against the surrogates of "
+        f"the map: spatial {p_text(p_spatial, n_surrogates)}",
+    )
+    ax = fig.add_axes([0.69, 0.5, 0.28, 0.36])
+    groups = []
+    pools = [("GO", table, positive)]
+    if panel_table is not None:
+        pools.append(
+            ("5 Oct.", panel_table, test.loc["5 October's controls, positive control"])
+        )
+    for label, pool, row in pools:
+        controls = pool[pool["side"] == "control"]
+        cut = row["reliability_cut"]
+        high = controls.loc[controls["reliability"] >= cut, "rho"].abs()
+        low = controls.loc[controls["reliability"] < cut, "rho"].abs()
+        groups.append((f"{label}:\nreproducible", high.to_numpy(), DARK_GREY))
+        groups.append((f"{label}:\nunreproducible", low.to_numpy(), LIGHT_GREY))
+    strips(ax, groups, rng, "|rho| with the map")
+    lines = [
+        f"{label} controls split at reliability {row['reliability_cut']:.2f}: "
+        f"{row['difference']:+.3f}, p = {row['p_labels']:.4f}"
+        for label, _, row in pools
+    ]
+    panel_title(
+        ax, "C", "The positive control: a difference that must exist", "\n".join(lines)
+    )
+    ax = fig.add_axes([0.06, 0.15, 0.22, 0.24])
+    level = by["median_energy"]
+    strips(
+        ax,
+        [
+            ("localisation", np.log10(level[loc].to_numpy() + 1e-3), RED),
+            ("matched\ncontrols", np.log10(level[matched].to_numpy() + 1e-3), DARK_GREY),
+            ("all\ncontrols", np.log10(level[ctrl].to_numpy() + 1e-3), LIGHT_GREY),
+        ],
+        rng,
+        "log10 median expression energy",
+    )
+    panel_title(ax, "D", "The matching", "a quiet gene correlates with nothing")
+    ax = fig.add_axes([0.36, 0.11, 0.6, 0.3])
+    ax.axis("off")
+    lines = [
+        f"{r['test']:40s} {r['median_first']:+.3f} ({int(r['n_first']):3d})  "
+        f"{r['median_second']:+.3f} ({int(r['n_second']):3d})  {r['difference']:+.3f}  "
+        f"{r['p_labels']:.4f}"
+        for _, r in summary.iterrows()
+    ]
+    top = table[table["side"] == "localisation"].nlargest(5, "rho_partial")
+    lines += ["", "localisation genes with the highest partial rho:"]
+    lines += [f"  {r['symbol']:10s} {r['rho_partial']:+.3f}" for _, r in top.iterrows()]
+    header = f"{'test':40s} {'first':12s} {'second':12s} {'diff.':7s} p, labels"
+    ax.text(
+        0, 1, header + "\n" + "\n".join(lines), va="top", fontsize=7.5, family="monospace"
+    )
+    ax.set_title(
+        "E.  Every test of the design (first: localisation genes, or the reproducible "
+        "controls)",
+        loc="left",
+        fontsize=9,
+    )
+    footer(
+        fig,
+        [
+            "How to read: partial rho is the rank correlation of a gene with the map "
+            "once the mean rank of the four AMPA subunits has been regressed out of "
+            "both; each localisation gene is paired with the control closest in",
+            "expression (controls: the other postsynaptic genes of "
+            f"{figure_ref('gene_sets')}; 5 Oct.: the ontology panel's "
+            "postsynaptic-density genes, as on 5 October), and labels are permuted "
+            "between the two sets.",
+            "What would mean what: localisation above its matched controls: the genes "
+            "that set surface receptor predict the part of the map receptor abundance "
+            "does not, as a surface-fraction reading predicts.",
+            "A positive control found and the localisation difference not: the "
+            "negative is informative, any well-measured postsynaptic gene predicts the "
+            "map about as well; a positive control missed: the test says nothing.",
+        ],
+    )
+    return saved(fig, save)

@@ -128,6 +128,7 @@ n_boot_mice = 2000         # resamples of the ten adults: each gene's rho spread
 min_division_structures = 8  # structures a division needs, for one gene, to enter the mean within divisions (A6); with fewer, one rho is too noisy to average
 n_perm_within = 10000      # shuffles of structures within divisions: the discussion's cheap first null of analysis 2, reported beside the spatial one, which the figures use
 n_calibration_within = 1000  # random smooth maps (the spatial null's calibration fields) tested inside divisions, to show which within null keeps 5% false positives
+min_set_genes = 5          # genes with a profile a set needs to be tested, as the word test asked
 log2_floor = 0.01          # energy added before the log2 of the Pearson row of the robustness table: between the 1st and 5th percentiles of all structure means (0.006 and 0.05 on 8 October), so a structure with almost no signal does not sit at -30
 
 [ish_panel_test]
