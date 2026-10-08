@@ -1,4 +1,4 @@
-"""Known-answer checks of analysis 4 (beyond)."""
+"""Known-answer checks of analysis 4 (beyond) and analysis 5 (the green channel)."""
 
 from pathlib import Path
 
@@ -10,6 +10,7 @@ from scipy.stats import rankdata, spearmanr
 from sepmap import config
 from sepmap.adult import beyond_calibration as bc
 from sepmap.adult import beyond_density as bd
+from sepmap.adult import sep_channel_check as scc
 
 BEYOND = Path(config.DATA) / "adult_v2" / "ish_analysis" / "beyond"
 N_ADULTS = len(bd.ADULTS)
@@ -171,6 +172,27 @@ def test_calibration_floor_grows_with_the_mismatch_of_the_predictors():
     mismatched = bc.analyse(adults, bd.flexible(noisy), SPLITS[:20])
     assert exact["left"] < 0.08
     assert mismatched["left"] > exact["left"] + 0.1
+
+
+def test_green_channel_rows_are_computed_on_the_structures_all_channels_have():
+    """A structure missing one channel in an adult is left out of that adult's row."""
+    rng = np.random.default_rng(9)
+    structures = [f"s{i}" for i in range(60)]
+    auto = rng.standard_normal(60)
+    per = {}
+    for mouse in scc.ADULTS:
+        sep = auto + 0.1 * rng.standard_normal(60)
+        nano = rng.standard_normal(60)
+        per[mouse] = {
+            "sig": dict(zip(structures, nano)),
+            "auto": dict(zip(structures, auto)),
+            "sep": dict(zip(structures[1:], sep[1:])),
+        }
+    profile = dict(zip(structures, auto))
+    rows = pd.DataFrame(scc.channel_rows(per, profile))
+    assert (rows["n_structures"] == 59).all()
+    assert (rows["rho_sep_auto"] > 0.9).all()
+    assert (rows["rho_sepresid_gria"].abs() < 0.5).all()
 
 
 @pytest.mark.skipif(

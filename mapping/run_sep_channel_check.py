@@ -1,4 +1,4 @@
-"""What the green (SEP) channel reports in this tissue, from the raw channels.
+"""Analysis 5 of the ISH line: what the green channel reports; figure 13.
 
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
@@ -12,30 +12,47 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      8. run_video_compare      young beside adult, plane by plane
      9. run_closeup            close-ups and flatmaps (venv_flat)
     10. run_diagnostics        sheets that audit each step
-    11. run_ish_regions        ISH per structure, 100-gene panel
-    12. run_ish_compare        the adult map against each gene
-    13. run_ish_words          annotation words of the ranking
-    14. run_ish_roles          subunit against localisation genes
-    15. run_adult_arms         the channel arms per adult
-    16. run_ish_arms           the arms against the genes
-    17. run_sep_channel_check  what the green channel reports         <- this script
-    18. run_panel_build        the 390-gene ontology panel
-    19. run_panel_fetch        its ISH grids (network, once)
-    20. run_ish_regions        ISH per structure, ontology panel
-    21. run_ish_reliability    how reliable one ISH map is
-    22. run_ish_panel_test     localisation against controls
-    23. run_beyond_density     what abundance and density leave
-    24. run_beyond_controls    seven attempts to break it
-    25. run_beyond_figures     the figures of that result
-    26. run_beyond_regression  the regression, shown
+    11. run_panel_build        the 390-gene ontology panel (network, cached)
+    12. run_panel_fetch        its ISH grids (network, once)
+    13. run_structure_set      A1: the declared structures, the
+                               adult profiles; figure 01
+    14. run_ish_section_qc     A2: the experiments of both panels
+                               and the repair (network, once);
+                               section QC; QC sheets
+    15. run_ish_gene_table     A9: region means, the gene table,
+                               merged profiles, gene sets,
+                               documentation; figure 02
+    16. run_ish_spatial_null   A7: surrogate maps and their checks
+    17. run_ish_gene_ranking   analysis 1: each gene against the
+                               map, the null, autofluorescence (A8),
+                               the Cacng8 - Gria1 gap; figures 03 to 06
+    18. run_ish_robustness     A3: the ranking under other choices;
+                               figure 07
+    19. run_ish_divisions      analysis 2 (A6): between or within
+                               divisions; figure 08, gene sheets
+    20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
+                               against matched controls; figures 09, 10
+    21. run_beyond_density     analysis 4: what receptor mRNA and
+                               synaptic density leave; the leftover
+    22. run_beyond_controls    seven attempts to break it
+    23. run_beyond_calibration the same model on maps whose answer
+                               is known
+    24. run_beyond_regression  the regression, per structure
+    25. run_beyond_figures     figures 11 and 12
+    26. run_sep_channel_check  analysis 5: what the green channel   <- this script
+                               reports; figure 13
+    27. run_ish_overview       figures 00 and 14; the numbers for the text
 
-Per adult: the dynamic range of each channel, what each tracks across
-structures, and the SEP residual once autofluorescence is regressed out; the
-method is in sepmap/adult/sep_channel_check.py. Writes, in adult_v2/arms/ under
-the data root:
+Per adult, on the declared structures: the dynamic range of each raw channel, what
+each follows across structures (the others, and Gria1 mRNA), and what is left of
+the green channel once its autofluorescence part is regressed out; no ratio of
+channels is taken. The method is in sepmap/adult/sep_channel_check.py. Writes, under
+adult_v2/ish_analysis/ in the data root:
 
-    sep_channel_check.csv    the per-mouse numbers behind the figure
-    sep_channel_check.png    the figure
+    green_channel/sep_channel_check.csv   per adult: the ranges and correlations
+    green_channel/sep_channel_check.png   the working figure
+    tables/numbers_green_channel.csv      the numbers of analysis 5, for the text
+    figures/13_green_channel.png          the guided figure
 
     python run_sep_channel_check.py
 """
@@ -43,25 +60,78 @@ the data root:
 import argparse
 
 import matplotlib
+import matplotlib.pyplot as plt
+import pandas as pd
 
-from sepmap import config
+from sepmap import config, plotting
 from sepmap.adult import sep_channel_check
+from sepmap.ish import planes
+from sepmap.ish import plotting as ish_plotting
+from sepmap.structures import TABLES
+
+ISH_FIGURES = config.SETTINGS["ish_figures"]
+ISH = config.SETTINGS["ish"]
+
+FIGURES = config.DATA / "adult_v2" / "ish_analysis" / "figures"
+
+
+def numbers_table(rows: pd.DataFrame, n_structures: int) -> pd.DataFrame:
+    """The numbers of analysis 5 that the text quotes, one row each."""
+    out = [
+        ("adults", len(rows), "adults measured"),
+        ("structures", n_structures, "declared structures"),
+    ]
+    for column in rows.columns:
+        if column in ("mouse", "n_structures"):
+            continue
+        v = rows[column]
+        out += [
+            (
+                f"{column}_mean",
+                round(float(v.mean()), 3),
+                f"{column}, mean of the adults",
+            ),
+            (f"{column}_min", round(float(v.min()), 3), f"{column}, lowest adult"),
+            (f"{column}_max", round(float(v.max()), 3), f"{column}, highest adult"),
+        ]
+    return pd.DataFrame(out, columns=["name", "value", "what"], dtype=object)
 
 
 def main():
-    """Print the settings in force, then measure what the green channel reports."""
-    # settings in force
+    """Print the settings, measure the channels per adult, draw figure 13."""
     config.print_settings({})
+    per, rows = sep_channel_check.main()
+    rows = pd.DataFrame(rows)
+    n_structures = int(rows["n_structures"].iloc[0])
+    numbers_table(rows, n_structures).to_csv(
+        TABLES / "numbers_green_channel.csv", index=False
+    )
 
-    # channel check
-    sep_channel_check.main()
+    # figure 13: the first adult's raw channels on the plane of the guided figures
+    plane = ISH_FIGURES["plane"]
+    mouse = sep_channel_check.ADULTS[0]
+    fig = ish_plotting.plot_green_channel(
+        rows,
+        planes.channel_planes(mouse, plane),
+        planes.label_plane(plane),
+        mouse,
+        plane,
+        n_structures,
+        ISH["control_gene"],
+        save=FIGURES / ish_plotting.figure_file("green_channel"),
+    )
+    plt.close(fig)
+    print(f"figure 13 in {FIGURES}")
 
 
 if __name__ == "__main__":
     # figures go to files, never to a window
     matplotlib.use("Agg")
+    plotting.set_style()
 
     # no options; parsing still gives the script its --help
-    parser = argparse.ArgumentParser(description="what the green channel reports")
+    parser = argparse.ArgumentParser(
+        description="analysis 5: what the green channel reports"
+    )
     parser.parse_args()
     main()

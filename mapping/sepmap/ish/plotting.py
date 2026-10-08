@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.colors import ListedColormap
-from matplotlib.patches import Patch, Rectangle
+from matplotlib.patches import FancyBboxPatch, Patch, Rectangle
 from scipy.stats import rankdata, spearmanr
 
 from sepmap.ish.section_qc import ISH_QC, SECTION_AXIS
@@ -44,6 +44,9 @@ from sepmap.plotting import (
     NULL_BAND,
     PAIR_LINE,
     RED,
+    SEP,
+    SEP_DOT,
+    SEP_REMAINDER,
     SET_COLOURS,
     bars_grey,
     boundaries,
@@ -3639,6 +3642,295 @@ def plot_beyond_where(
             "A claim about one structure needs its own null; the bars say where the "
             "leftover is largest and how steady it is across the adults, not that a "
             "structure stands out.",
+        ],
+    )
+    return saved(fig, save)
+
+
+# ===== 13 What the green channel reports =====
+
+# the three channels as figure 13 names and draws them: name, what it records, the
+# box colour and the per-mouse dot colour
+CHANNEL_BOXES = {
+    "nano": ("nanobody against the tag;\nsections not permeabilised", NANO, NANO_DOT),
+    "SEP": (
+        "the tag's own green fluorescence;\nexpected to show the tagged\nreceptor "
+        "wherever it sits",
+        SEP,
+        SEP_DOT,
+    ),
+    "auto": ("no label: the tissue's\nautofluorescence", AUTO, AUTO_DOT),
+}
+
+
+def paired_columns(
+    ax: plt.Axes,
+    rows: pd.DataFrame,
+    columns: list[tuple[str, str, str]],
+    x0: float = 0.0,
+    fmt: str = "+.2f",
+) -> list[float]:
+    """A column of dots per (label, table column, colour), one dot per adult.
+
+    Lines join the same adult across the columns; a bar and its value mark the
+    mean, written with `fmt`. Returns the x of each column.
+    """
+    xs = [x0 + i for i in range(len(columns))]
+    values = [rows[key].to_numpy(float) for _, key, _ in columns]
+    for m in range(len(rows)):
+        ax.plot(xs, [v[m] for v in values], color=PAIR_LINE, lw=0.7, zorder=1)
+    for x, v, (_, _, colour) in zip(xs, values, columns):
+        ax.scatter([x] * len(v), v, s=26, color=colour, linewidths=0, zorder=3)
+        ax.plot([x - 0.22, x + 0.22], [v.mean()] * 2, color="0.1", lw=2, zorder=4)
+        ax.text(x + 0.26, v.mean(), format(v.mean(), fmt), fontsize=7.5, va="center")
+    return xs
+
+
+def channel_diagram(ax: plt.Axes, rows: pd.DataFrame) -> None:
+    """A: the three channels, and how each pair agrees across structures."""
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.axis("off")
+    where = {"nano": (0.17, 0.78), "SEP": (0.83, 0.78), "auto": (0.5, 0.2)}
+    edges = (
+        ("nano", "SEP", "rho_sep_nano", (0.5, 0.86)),
+        ("SEP", "auto", "rho_sep_auto", (0.8, 0.45)),
+        ("nano", "auto", "rho_nano_auto", (0.2, 0.45)),
+    )
+    for a, b, key, (tx, ty) in edges:
+        v = rows[key].to_numpy(float)
+        strong = key == "rho_sep_auto"
+        ax.plot(
+            [where[a][0], where[b][0]],
+            [where[a][1], where[b][1]],
+            color=DARK_GREY if strong else LIGHT_GREY,
+            lw=3.0 if strong else 1.4,
+            zorder=1,
+        )
+        ax.text(
+            tx,
+            ty,
+            f"rho {v.mean():+.2f}\n({v.min():+.2f} to {v.max():+.2f})",
+            ha="center",
+            va="center",
+            fontsize=8,
+            zorder=5,
+            fontweight="bold" if strong else "normal",
+            bbox=dict(fc="white", ec="none", pad=1.5),
+        )
+    for name, (x, y) in where.items():
+        body, colour, _ = CHANNEL_BOXES[name]
+        ax.add_patch(
+            FancyBboxPatch(
+                (x - 0.15, y - 0.11),
+                0.3,
+                0.22,
+                boxstyle="round,pad=0.01,rounding_size=0.02",
+                fc="white",
+                ec=colour,
+                lw=2.2,
+                zorder=3,
+            )
+        )
+        ax.text(
+            x,
+            y + 0.06,
+            name,
+            ha="center",
+            va="center",
+            fontsize=11,
+            fontweight="bold",
+            zorder=4,
+        )
+        ax.text(
+            x,
+            y - 0.035,
+            body,
+            ha="center",
+            va="center",
+            fontsize=7.4,
+            color="0.25",
+            zorder=4,
+            linespacing=1.2,
+        )
+
+
+def raw_planes(
+    fig: plt.Figure,
+    axes: list[plt.Axes],
+    images: dict[str, np.ndarray],
+    lab: np.ndarray,
+    one: pd.Series,
+) -> None:
+    """B: one adult's three raw channels on the plane, each on its own scale."""
+    titles = {
+        "sig": f"nano (with autofluorescence: rho {one['rho_nano_auto']:+.2f} here)",
+        "sep": f"SEP (with autofluorescence: rho {one['rho_sep_auto']:+.2f} here)",
+        "auto": "autofluorescence",
+    }
+    for ax, key in zip(axes, ("sig", "sep", "auto")):
+        img = images[key]
+        inside = np.isfinite(img) & (lab > 0)
+        lo, hi = np.percentile(img[inside], [1, 99])
+        image = draw_plane(ax, img, lab, hot_cut(), lo, hi)
+        colour_bar(fig, ax, image, "counts above background")
+        ax.set_title(titles[key], fontsize=9)
+
+
+def plot_green_channel(
+    rows: pd.DataFrame,
+    images: dict[str, np.ndarray],
+    lab: np.ndarray,
+    mouse: str,
+    plane: int,
+    n_structures: int,
+    gene: str,
+    save: Path | None = None,
+) -> plt.Figure:
+    """Figure 13: whether the green channel reports the tag or the tissue.
+
+    `rows` is sep_channel_check.csv (one row per adult), `images` the raw channels
+    (sig, sep, auto) of `mouse` on CCF plane `plane` with its labels `lab`;
+    `gene` is the gene the channels are compared with (Gria1).
+    """
+    fig = plt.figure(figsize=(16, 16))
+    sep_auto = rows["rho_sep_auto"]
+    nano_auto = rows["rho_nano_auto"]
+    heading(
+        fig,
+        "green_channel",
+        "Does the green channel report the tagged receptor, or the tissue?",
+        f"{len(rows)} adults, {n_structures} declared structures: SEP follows "
+        f"autofluorescence at {sep_auto.min():.2f} to {sep_auto.max():.2f} in every "
+        f"adult, nano at {nano_auto.min():.2f} to {nano_auto.max():.2f}",
+    )
+
+    # A: the three channels; C: what each tracks, adult by adult
+    ax = fig.add_axes([0.03, 0.6, 0.4, 0.3])
+    channel_diagram(ax, rows)
+    panel_title(
+        ax,
+        "A",
+        "Three channels of the same sections, and how they agree",
+        "Spearman across structures, mean over the adults (range); no ratio of "
+        "channels is taken",
+    )
+    ax = fig.add_axes([0.55, 0.62, 0.42, 0.26])
+    paired_columns(
+        ax,
+        rows,
+        [
+            ("SEP with\nautofluorescence", "rho_sep_auto", SEP_DOT),
+            ("SEP with\nnano", "rho_sep_nano", SEP_DOT),
+            ("nano with\nautofluorescence", "rho_nano_auto", NANO_DOT),
+        ],
+    )
+    ax.set_xticks(range(3))
+    ax.set_xticklabels(
+        ["SEP with\nautofluorescence", "SEP with\nnano", "nano with\nautofluorescence"]
+    )
+    ax.axhline(0, color="0.8", lw=0.7, zorder=0)
+    ax.set_xlim(-0.6, 2.8)
+    ax.set_ylim(
+        min(
+            -0.05,
+            float(rows[["rho_sep_auto", "rho_sep_nano", "rho_nano_auto"]].min().min())
+            - 0.05,
+        ),
+        1.0,
+    )
+    ax.set_ylabel("Spearman rho across structures, per adult")
+    panel_title(
+        ax,
+        "C",
+        "Whom each channel follows, adult by adult",
+        "one dot per adult, lines join the same adult; bar: the mean",
+    )
+    tidy(ax)
+
+    # B: the raw channels of one adult
+    axes = [fig.add_axes([0.03 + i * 0.33, 0.33, 0.27, 0.22]) for i in range(3)]
+    one = rows.set_index("mouse").loc[mouse]
+    raw_planes(fig, axes, images, lab, one)
+    fig.text(
+        0.03,
+        0.565,
+        f"B.  The three raw channels of one adult ({mouse.split('_')[0]}), CCF plane "
+        f"{plane}, each on its own scale (1st to 99th percentile in the brain)",
+        fontsize=9,
+        va="bottom",
+    )
+
+    # D: the range of each channel; E: against Gria1, and what is left of SEP
+    ax = fig.add_axes([0.06, 0.1, 0.3, 0.18])
+    paired_columns(
+        ax,
+        rows,
+        [
+            ("nano", "range_nano", NANO_DOT),
+            ("autofluorescence", "range_auto", AUTO_DOT),
+            ("SEP", "range_sep", SEP_DOT),
+        ],
+        fmt=".2f",
+    )
+    ax.set_xticks(range(3))
+    ax.set_xticklabels(["nano", "autofluorescence", "SEP"])
+    ax.set_xlim(-0.6, 2.8)
+    ax.set_ylim(bottom=0)
+    ax.set_ylabel("p90 - p10 across structures (log2)")
+    panel_title(
+        ax,
+        "D",
+        "How much each channel varies across the brain",
+        "a channel reporting the receptor should vary about as much as nano",
+    )
+    tidy(ax)
+    ax = fig.add_axes([0.45, 0.1, 0.52, 0.18])
+    gria = [
+        ("nano", "rho_nano_gria", NANO_DOT),
+        ("autofluo-\nrescence", "rho_auto_gria", AUTO_DOT),
+        ("SEP", "rho_sep_gria", SEP_DOT),
+        ("SEP minus its\nautofluo. part", "rho_sepresid_gria", SEP_REMAINDER),
+    ]
+    xs = paired_columns(ax, rows, gria)
+    xs += paired_columns(
+        ax,
+        rows,
+        [("SEP minus its\nautofluo. part", "rho_sepresid_nano", SEP_REMAINDER)],
+        x0=len(gria) + 0.8,
+    )
+    ax.set_xticks(xs)
+    ax.set_xticklabels([g[0] for g in gria] + ["SEP minus its\nautofluo. part"])
+    ax.text(1.5, 1.0, f"with {gene} mRNA", ha="center", fontsize=8.5, color=DARK_GREY)
+    ax.text(xs[-1], 1.0, "with nano", ha="center", fontsize=8.5, color=DARK_GREY)
+    ax.axhline(0, color="0.8", lw=0.7, zorder=0)
+    ax.set_xlim(-0.6, xs[-1] + 0.8)
+    ax.set_ylim(min(-0.1, float(rows[[g[1] for g in gria]].min().min()) - 0.05), 1.05)
+    ax.set_ylabel("Spearman rho across structures, per adult")
+    panel_title(
+        ax,
+        "E",
+        f"Against {gene} mRNA, and what is left of SEP once autofluorescence "
+        "is taken out",
+        "SEP minus its autofluorescence part: the residual of log2 SEP regressed on "
+        "log2 autofluorescence, in each adult",
+    )
+    tidy(ax)
+    footer(
+        fig,
+        [
+            "How to read: one value per declared structure and adult, the mean of a "
+            "raw channel (counts above its off-tissue background), in log2; no ratio "
+            "of channels is taken anywhere.",
+            "What would mean what: SEP following nano and Gria1 more than "
+            "autofluorescence: the green channel reports the tag. SEP following "
+            "autofluorescence in every adult: it reports mostly the tissue,",
+            "and whether receptor at the membrane and receptor anywhere differ across "
+            "the brain cannot be read from these channels; a total-GluA1 stain on the "
+            "same brains would answer it.",
+            "What is left of SEP once its autofluorescence part is taken out may be tag "
+            "that survived, or nano's fluorescence leaking into the green channel; the "
+            "filter sets decide which.",
         ],
     )
     return saved(fig, save)

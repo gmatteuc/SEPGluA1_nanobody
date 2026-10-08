@@ -146,8 +146,11 @@ Each is defined in one place; never copy a value into a script.
   `#555555`), the gene sets (`SET_COLOURS`: subunits dark blue, localisation
   red, other postsynaptic `#555555`, presynaptic `#9a9a9a`, GABAergic markers
   `#7f9cc9`, glia `#c8c8c8`), the 95% band of a null distribution behind the
-  data (`NULL_BAND`, `#c9d6ea`) and the density step of a variance budget
-  (`DENSITY_BLUE`, `#7f9cc9`). `plotting.bars_grey(t, t_max)` is
+  data (`NULL_BAND`, `#c9d6ea`), the density step of a variance budget
+  (`DENSITY_BLUE`, `#7f9cc9`), and the green (SEP) channel in blue so the three
+  channels stay apart (`SEP` `#3a6db5`, its per-mouse dots `SEP_DOT` `#24427f`,
+  what is left of it once autofluorescence is regressed out `SEP_REMAINDER`
+  `#8fb3e0`). `plotting.bars_grey(t, t_max)` is
   `sep_palette('bars')`: grey 0.78 at t = 0 to black at t_max.
 - Scatter plots of many structures: 35-point dots, no edge, alpha 0.85.
 - Counts in titles are computed, never typed. Coronal planes are drawn dorsal

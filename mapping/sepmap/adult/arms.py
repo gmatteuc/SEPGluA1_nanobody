@@ -4,11 +4,12 @@ The gene ranking alone cannot say whether the nanobody reports receptor on the
 membrane or receptor anywhere: Gria1, Cacng8, Dlg2 and Grip1 are all postsynaptic,
 so no grouping of genes (ours, GO's or SynGO's) separates the two. A contrast
 between channels could, and the SEP channel that run_add_sep_channel carries into
-registered space gives three arms:
+registered space gives three arms, each a ratio of two channels, and what each was
+meant to follow:
 
-    sepauto    SEP / autofluorescence     total receptor, however it is localised
-    ratio      nano / autofluorescence    receptor at the surface
-    sepratio   nano / SEP                 the surface fraction
+    sepauto    SEP / autofluorescence     the tagged receptor wherever it sits
+    ratio      nano / autofluorescence    the tag at the membrane
+    sepratio   nano / SEP                 the share of the tag at the membrane
 
 In log space
 
@@ -24,12 +25,12 @@ The premise does not hold in this tissue. SEP is superecliptic pHluorin on GluA1
 so in a living cell it reports the surface pool; fixed and mounted tissue
 has lost its pH gradients, so the green channel was expected to report the
 receptor wherever it sits. It does not: adult.sep_channel_check finds that it
-tracks the autofluorescence channel at rho 0.79 +- 0.04 across the ten adults,
-with a dynamic range of 0.95 log2 against nano's 1.93; whatever tag survives the
-protocol, autofluorescence dominates what is left. The table is still correct
-arithmetic, but sepauto is not total receptor and sepratio is not a surface
-fraction. They are kept because they are how that was established, and because
-ratio and the consistency check are needed either way; read
+tracks the autofluorescence channel in every adult and varies across the brain
+less than autofluorescence does; whatever tag survives the protocol,
+autofluorescence dominates what is left. The table is still correct arithmetic, but
+sepauto does not follow the tagged receptor and sepratio does not measure a share
+at the membrane. They are kept because they are how that was established, and
+because ratio and the consistency check are needed either way; read
 adult.sep_channel_check before using either.
 
 The arithmetic is the same as young_vs_adult.region_plot's: the same 20 um

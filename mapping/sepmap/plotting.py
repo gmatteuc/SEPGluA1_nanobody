@@ -20,8 +20,8 @@ The ISH figures add the two channels and their per-mouse dots (orange for nano,
 yellow for autofluorescence, as sep_palette in MATLAB), four colours for the
 groups of divisions in a scatter of structures (cortex, hippocampal formation,
 thalamus, the rest), the colours of the gene sets, a pale blue for the band of a
-null distribution, and bars_grey, the grey of a bar whose darkness says how
-reliable its value is.
+null distribution, the blues of the green (SEP) channel, and bars_grey, the grey
+of a bar whose darkness says how reliable its value is.
 
 Only numpy, scipy, matplotlib and config are imported, so the flatmap
 environment (young_vs_adult.closeup) can import this module too. Imported by
@@ -100,6 +100,13 @@ NULL_BAND = "#c9d6ea"
 
 # the density step of the variance budget, beside the orange of abundance
 DENSITY_BLUE = "#7f9cc9"
+
+# the third channel, the tag's own green (SEP) fluorescence, in blue so the three
+# channels stay apart: its bars and boxes, its per-mouse dots, and what is left of it
+# once autofluorescence is regressed out
+SEP = "#3a6db5"
+SEP_DOT = "#24427f"
+SEP_REMAINDER = "#8fb3e0"
 
 
 def set_style() -> None:

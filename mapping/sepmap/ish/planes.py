@@ -12,6 +12,9 @@ cortex, hippocampus and thalamus in one section). Three grids meet there:
     ISH section  an Allen 200 um grid, section k / 20, each 20 um pixel taking its
                  nearest 200 um voxel, so nothing is interpolated; sections set
                  missing by the section QC stay missing
+    one adult    a raw channel of one adult's per-mouse file (counts above the
+                 channel's off-tissue background), on the adult crop like the
+                 labels, NaN outside that brain's tissue
 
 Nothing here computes a result: these are the images a figure puts beside the
 structure values it shows.
@@ -24,6 +27,7 @@ import numpy as np
 from sepmap.config import DATA
 from sepmap.ish import section_qc
 from sepmap.ish.regions import read_energy
+from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 from sepmap.volumes.per_mouse import annotation_20
 
 # the first 10 um CCF plane of the adult crop (volumes.per_mouse.atlas_grid)
@@ -38,6 +42,22 @@ ADULT_MAP = DATA / "comparisons_v2" / "ccf" / "adult"
 def label_plane(plane: int) -> np.ndarray:
     """CCF parcellation indices of one 10 um plane, on the 20 um grid, (DV, ML)."""
     return np.asarray(annotation_20("ccf")[(plane - CROP_START) // 2])
+
+
+def channel_planes(
+    mouse: str, plane: int, channels: tuple[str, ...] = ("sig", "sep", "auto")
+) -> dict[str, np.ndarray]:
+    """One adult's raw channels on one 10 um plane, {channel: (DV, ML)}.
+
+    Counts above each channel's background, NaN outside the brain's tissue mask.
+    """
+    z = np.load(PER_MOUSE / f"{mouse}.npz")
+    k = (plane - CROP_START) // 2
+    tissue = np.asarray(z["tissue"][k])
+    return {
+        c: np.where(tissue, np.asarray(z[c][k], dtype=np.float32), np.nan)
+        for c in channels
+    }
 
 
 def nano_plane(plane: int) -> np.ndarray:

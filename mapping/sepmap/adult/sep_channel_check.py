@@ -1,114 +1,105 @@
-"""Whether the green channel reports tagged receptor or the tissue.
+"""What the green channel reports in this tissue: the tag, or the tissue (analysis 5).
 
-The three-arm argument of ish.arms rests on one premise, that ex vivo the SEP
-channel reports total GluA1, and the arm built on it behaved strangely: SEP / auto
-correlates with Gria1 expression at -0.11, while plain nano reaches +0.62. Either
-the premise or the arm is wrong, and that is settled on the channels themselves
-before any ratio is taken: one mean per structure per adult, in log2, straight from
-the per-mouse files, with no denominator anywhere. Three things decide it.
+Each adult brain was imaged in three channels: nano (the nanobody against the SEP
+tag, on sections that were not permeabilised), SEP (the tag's own green
+fluorescence) and auto (a channel with no label, the tissue's autofluorescence).
+The three-channel design of September read receptor at the membrane against
+receptor anywhere from ratios of these channels, and assumed that ex vivo the green
+channel reports the tagged receptor wherever it sits. That premise is checked here
+on the raw channels, before any ratio is taken: one mean per structure and adult, in
+log2, from the adult profiles (adult.profiles), with no denominator anywhere. Three
+things decide it.
 
-    dynamic range   how much a channel varies across the brain. Total receptor is
-                    not flat (hippocampus against thalamus is a large, well known
-                    difference), so a channel reporting it should have a range
-                    comparable to the nanobody's.
-    who it tracks   if the green channel is tag, its spatial profile should look
-                    like the nanobody's and like Gria1's; if it is tissue, like
-                    the autofluorescence channel's.
+    dynamic range   how much a channel varies across the brain (p90 - p10 of log2
+                    over the declared structures). Receptor is not flat
+                    (hippocampus against thalamus is a large, well known difference),
+                    so a channel reporting it should have a range comparable to the
+                    nanobody's.
+    who it tracks   if the green channel is the tag, its profile across structures
+                    should look like the nanobody's and like Gria1 mRNA's; if it is
+                    the tissue, like the autofluorescence channel's.
     what is left    log2(SEP) regressed on log2(auto), and the residual asked
-                    whether it still carries a receptor map: if the tag survives
-                    under the autofluorescence, an unmixed SEP could still serve
-                    as the total-receptor arm, and this says how much is there.
+                    whether it still follows the nanobody and Gria1: how much tag
+                    survives under the autofluorescence.
 
 The answer is a property of this tissue, fixed and mounted, neither cleared nor
 permeabilised, not of SEP-GluA1 mice. Superecliptic pHluorin is quenched in acidic
 compartments in a living cell, which makes it a surface reporter in vivo; after
 fixation the pH gradients are gone, and whatever green emission survives the
-protocol is what these volumes contain.
+protocol is what these volumes contain. Whether surface and all receptor differ
+across the brain needs a total-GluA1 stain on the same brains; these data cannot say.
 
-Writes, in adult_v2/arms/ under the data root:
+The inputs are those of the rest of the ISH line: the declared structures
+(sepmap.structures), the channel means of adult.profiles, and Gria1's merged
+profile from the gene table (ish.gene_table, section QC applied). The September
+version took every structure each adult measured and Gria1's single experiment of
+the 100-gene panel; the arithmetic is unchanged.
 
-    sep_channel_check.csv    the per-mouse numbers behind the figure
-    sep_channel_check.png    the figure
+Writes, in adult_v2/ish_analysis/green_channel/ under the data root:
 
-Run by run_sep_channel_check.py.
+    sep_channel_check.csv    per adult: the ranges and the correlations
+    sep_channel_check.png    the working figure (guided figure 13 is the one to show)
+
+Run by run_sep_channel_check.py, which also draws guided figure 13.
 """
 
-import csv
 import math
-from collections import defaultdict
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from scipy.stats import spearmanr
 
+from sepmap.adult import profiles
 from sepmap.adult.beyond_density import residual
-from sepmap.config import SETTINGS
+from sepmap.config import DATA, SETTINGS
+from sepmap.ish import gene_table
 from sepmap.plotting import RED, tidy
-from sepmap.volumes.cohort import NAIVE, RWS
-from sepmap.volumes.per_mouse import DATA, MICE, annotation_20, structure_terms
-from sepmap.volumes.per_mouse import OUT as PER_MOUSE
+from sepmap.structures import declared_structures
 
-# the smallest structure kept, as in young_vs_adult.region_plot; the ISH voxels a
-# structure needs for its gene value to be used, and the gene the channels are
-# compared with (Gria1)
-REGION_TABLES = SETTINGS["region_tables"]
+# the gene the channels are compared with (Gria1)
 ISH = SETTINGS["ish"]
 
-OUT = DATA / "adult_v2" / "arms"
-GENES = DATA / "adult_v2" / "ish" / "gene_region_table.csv"
+OUT = DATA / "adult_v2" / "ish_analysis" / "green_channel"
+TABLE = OUT / "sep_channel_check.csv"
 
 # the ten adults, naive and rws pooled
-ADULTS = NAIVE + RWS
+ADULTS = profiles.ADULTS
 
-# the three raw channels of the per-mouse files
+# the three raw channels, by the name the per-mouse files give them, and the column
+# of the adult profiles that holds each
 CHANNELS = ("sig", "auto", "sep")
+COLUMNS = {"sig": "nano_mean", "auto": "auto_mean", "sep": "sep_mean"}
 
 
-def mouse_channels(mouse: str, names: dict[int, str]) -> dict[str, dict[str, float]]:
-    """{channel: {structure: log2 mean}} for one adult, raw, no denominators.
+def channel_means(
+    table: pd.DataFrame, structures: list[str] | None = None
+) -> dict[str, dict[str, dict[str, float]]]:
+    """{adult: {channel: {structure: log2 mean}}}, raw, no denominators.
 
-    The layer indices of a structure are pooled by name; a structure under
-    region_tables.min_vox20 voxels, or with no signal, is left out.
+    `table` is the per-adult table of adult.profiles (structures under
+    region_tables.min_vox20 voxels already left out); a mean not above background
+    is left out. With `structures`, only those.
     """
-    z = np.load(PER_MOUSE / (mouse + ".npz"))
-    tissue = z["tissue"]
-    annotation = annotation_20(MICE[mouse][1])
-    labels = annotation[tissue]
-    n = np.bincount(labels, minlength=int(annotation.max()) + 1)
-
+    if structures is not None:
+        table = table[table["structure"].isin(set(structures))]
     out = {}
-    for key in CHANNELS:
-        s = np.bincount(
-            labels, weights=z[key].astype(np.float32)[tissue], minlength=len(n)
-        )
-
-        # pool the indices by structure name (index 0 is outside the brain)
-        acc = defaultdict(lambda: [0, 0.0])
-        for i in np.nonzero(n)[0]:
-            if i == 0:
-                continue
-            a = acc[names.get(int(i), f"id{i}")]
-            a[0] += int(n[i])
-            a[1] += s[i]
-        out[key] = {
-            k: math.log2(t / c)
-            for k, (c, t) in acc.items()
-            if c >= REGION_TABLES["min_vox20"] and t > 0
+    for mouse in ADULTS:
+        mine = table[table["mouse"] == mouse]
+        out[mouse] = {
+            key: {
+                s: math.log2(v)
+                for s, v in zip(mine["structure"], mine[COLUMNS[key]])
+                if v > 0
+            }
+            for key in CHANNELS
         }
     return out
 
 
 def gria1_profile() -> dict[str, float]:
-    """Gria1 ISH mean per structure, where the structure has ish.min_voxels voxels."""
-    prof = {}
-    with open(GENES, newline="", encoding="utf-8") as fh:
-        for r in csv.DictReader(fh):
-            if (
-                r["symbol"] == ISH["control_gene"]
-                and int(r["n_voxels"]) >= ISH["min_voxels"]
-            ):
-                prof[r["structure"]] = float(r["ish_mean"])
-    return prof
+    """Gria1's merged profile from the gene table: {structure: mean rank}."""
+    return gene_table.load_profiles()[ISH["control_gene"]]
 
 
 def channel_rows(
@@ -116,7 +107,7 @@ def channel_rows(
 ) -> list[dict]:
     """Per adult: the channels' ranges, their correlations, and with Gria1.
 
-    Over the structures all three channels have; one row of
+    Over the structures all three channels have in that adult; one row of
     sep_channel_check.csv per adult.
     """
     rows = []
@@ -128,36 +119,38 @@ def channel_rows(
         gria1 = np.array([profile[s] for s in with_gria1])
         idx = [common.index(s) for s in with_gria1]
         res = residual(v["sep"], [v["auto"]])
-        row = dict(
-            mouse=mouse,
-            n_structures=len(common),
-            range_nano=float(np.diff(np.percentile(v["sig"], [10, 90]))[0]),
-            range_auto=float(np.diff(np.percentile(v["auto"], [10, 90]))[0]),
-            range_sep=float(np.diff(np.percentile(v["sep"], [10, 90]))[0]),
-            rho_sep_auto=float(spearmanr(v["sep"], v["auto"]).statistic),
-            rho_sep_nano=float(spearmanr(v["sep"], v["sig"]).statistic),
-            rho_nano_auto=float(spearmanr(v["sig"], v["auto"]).statistic),
-            rho_nano_gria=float(spearmanr(v["sig"][idx], gria1).statistic),
-            rho_auto_gria=float(spearmanr(v["auto"][idx], gria1).statistic),
-            rho_sep_gria=float(spearmanr(v["sep"][idx], gria1).statistic),
-            rho_sepresid_gria=float(spearmanr(res[idx], gria1).statistic),
-            rho_sepresid_nano=float(spearmanr(res, v["sig"]).statistic),
+        rows.append(
+            dict(
+                mouse=mouse,
+                n_structures=len(common),
+                range_nano=float(np.diff(np.percentile(v["sig"], [10, 90]))[0]),
+                range_auto=float(np.diff(np.percentile(v["auto"], [10, 90]))[0]),
+                range_sep=float(np.diff(np.percentile(v["sep"], [10, 90]))[0]),
+                rho_sep_auto=float(spearmanr(v["sep"], v["auto"]).statistic),
+                rho_sep_nano=float(spearmanr(v["sep"], v["sig"]).statistic),
+                rho_nano_auto=float(spearmanr(v["sig"], v["auto"]).statistic),
+                rho_nano_gria=float(spearmanr(v["sig"][idx], gria1).statistic),
+                rho_auto_gria=float(spearmanr(v["auto"][idx], gria1).statistic),
+                rho_sep_gria=float(spearmanr(v["sep"][idx], gria1).statistic),
+                rho_sepresid_gria=float(spearmanr(res[idx], gria1).statistic),
+                rho_sepresid_nano=float(spearmanr(res, v["sig"]).statistic),
+            )
         )
-        rows.append(row)
     return rows
 
 
 def write_table(rows: list[dict]) -> None:
     """Write sep_channel_check.csv, floats to four decimals, and say where."""
-    path = OUT / "sep_channel_check.csv"
-    with open(path, "w", newline="", encoding="utf-8") as fh:
-        writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
-        writer.writeheader()
-        writer.writerows(
-            {k: (f"{v:.4f}" if isinstance(v, float) else v) for k, v in r.items()}
-            for r in rows
-        )
-    print(f"\n{len(rows)} mice -> {path}")
+    table = pd.DataFrame(rows)
+    table.to_csv(TABLE, index=False, float_format="%.4f")
+    print(f"\n{len(rows)} adults -> {TABLE}")
+
+
+def load_table() -> pd.DataFrame:
+    """The table run_sep_channel_check wrote."""
+    if not TABLE.exists():
+        raise FileNotFoundError(f"{TABLE} not found: run run_sep_channel_check.py first")
+    return pd.read_csv(TABLE)
 
 
 def col(rows: list[dict], k: str) -> np.ndarray:
@@ -166,34 +159,25 @@ def col(rows: list[dict], k: str) -> np.ndarray:
 
 
 def say(rows: list[dict], k: str) -> str:
-    """A column's mean +- SD over the adults, as printed."""
-    return f"{np.mean(col(rows, k)):+.3f} +- {np.std(col(rows, k)):.3f}"
+    """A column's mean +- SD over the adults, and its range, as printed."""
+    v = col(rows, k)
+    return f"{np.mean(v):+.3f} +- {np.std(v):.3f}  ({v.min():+.2f} to {v.max():+.2f})"
 
 
 def print_summary(rows: list[dict]) -> None:
-    """Print the summary over the adults, mean +- SD."""
-    print(
-        f"\ndynamic range across structures, p90-p10 of log2, "
-        f"mean over {len(rows)} adults"
-    )
+    """Print the summary over the adults."""
+    print(f"\ndynamic range across structures, p90-p10 of log2, over {len(rows)} adults")
     for k, label in (
         ("range_nano", "nano"),
         ("range_auto", "autofluo"),
         ("range_sep", "SEP"),
     ):
         print(f"  {label:10s} {np.mean(col(rows, k)):.2f} +- {np.std(col(rows, k)):.2f}")
-    print("\nwhat the green channel tracks (per mouse, over structures)")
+    print("\nwhat the green channel tracks (per adult, over structures)")
     print(f"  SEP  ~ autofluo   {say(rows, 'rho_sep_auto')}")
     print(f"  SEP  ~ nano       {say(rows, 'rho_sep_nano')}")
-
-    # nano is its own channel only if it tracks the autofluorescence less than SEP does
-    own = np.mean(col(rows, "rho_nano_auto")) < np.mean(col(rows, "rho_sep_auto"))
-    note = "its own thing" if own else "as tied to autofluo as SEP is"
-    print(
-        f"  nano ~ autofluo   {say(rows, 'rho_nano_auto')}   "
-        f"<- the nano channel is {note}"
-    )
-    print(f"\nagainst {ISH['control_gene']} expression")
+    print(f"  nano ~ autofluo   {say(rows, 'rho_nano_auto')}")
+    print(f"\nagainst {ISH['control_gene']} mRNA")
     for k, label in (
         ("rho_nano_gria", "nano"),
         ("rho_auto_gria", "autofluo"),
@@ -242,7 +226,6 @@ def panels_first_adult(
         f"{mouse}\nSEP against autofluo, rho = {spearmanr(x, y).statistic:+.2f}",
         fontsize=9,
     )
-
     ax = axes[2]
     nano = np.array([ch["sig"][s] for s in common])
     ax.scatter(nano, y, s=10, facecolor="0.55", edgecolor="0.25", linewidth=0.3)
@@ -254,7 +237,7 @@ def panels_first_adult(
 
 
 def panel_gria1(ax: plt.Axes, rows: list[dict], rng: np.random.Generator) -> None:
-    """Draw each channel's correlation with Gria1 expression, a dot per adult."""
+    """Draw each channel's correlation with Gria1 mRNA, a dot per adult."""
     keys = ("rho_nano_gria", "rho_auto_gria", "rho_sep_gria", "rho_sepresid_gria")
     labels = ["nano", "autofluo", "SEP", "SEP minus\nautofluo"]
     for i, k in enumerate(keys):
@@ -272,15 +255,16 @@ def panel_gria1(ax: plt.Axes, rows: list[dict], rng: np.random.Generator) -> Non
     ax.axhline(0, color="0.8", lw=0.7, zorder=0)
     ax.set_xticks(range(len(keys)))
     ax.set_xticklabels(labels, fontsize=8)
-    ax.set_ylabel(f"Spearman with {ISH['control_gene']} expression", fontsize=8)
+    ax.set_ylabel(f"Spearman with {ISH['control_gene']} mRNA", fontsize=8)
     ax.set_title(
-        "if the green channel were total receptor,\nit would beat nano here",
+        "a channel that reports the tagged receptor\nshould follow Gria1 at least as "
+        "nano does",
         fontsize=9,
     )
 
 
 def figure(per: dict[str, dict[str, dict[str, float]]], rows: list[dict]) -> None:
-    """Draw sep_channel_check.png: the ranges, the first adult, the Gria1 correlations.
+    """Draw the working figure: the ranges, the first adult, the Gria1 correlations.
 
     One jitter generator for the figure, drawn from in panel order.
     """
@@ -303,23 +287,27 @@ def figure(per: dict[str, dict[str, dict[str, float]]], rows: list[dict]) -> Non
     print(f"\n{path}")
 
 
-def main() -> None:
-    """Measure the three channels per adult, write the table, print and draw it."""
+def main_inputs() -> tuple[dict, dict[str, float], list[str]]:
+    """The channel means on the declared structures, Gria1's profile, the structures."""
+    structures = declared_structures()
+    per = channel_means(profiles.load_per_mouse(), structures)
+    return per, gria1_profile(), structures
+
+
+def main() -> tuple[dict, list[dict]]:
+    """Measure the three channels per adult, write the table, print and draw it.
+
+    Returns the channel means and the rows, for guided figure 13.
+    """
     OUT.mkdir(parents=True, exist_ok=True)
-
-    # structure means of the three channels per adult
-    names, _, _ = structure_terms()
-    per = {}
-    for mouse in ADULTS:
-        per[mouse] = mouse_channels(mouse, names)
-        print(f"{mouse:20s} {len(per[mouse]['sep'])} structures", flush=True)
-
-    # per adult: range, correlations between channels and with Gria1, over the
-    # structures all three channels have
-    profile = gria1_profile()
+    per, profile, structures = main_inputs()
+    print(
+        f"{len(structures)} declared structures, {len(ADULTS)} adults; "
+        f"{ISH['control_gene']} has a profile in "
+        f"{sum(s in profile for s in structures)} of them"
+    )
     rows = channel_rows(per, profile)
     write_table(rows)
-
-    # the summary over adults, mean +- SD, and the figure
     print_summary(rows)
     figure(per, rows)
+    return per, rows
