@@ -114,7 +114,7 @@ def numbers_table(experiments, summary):
             "P9's own experiments with a section set missing",
         )
     )
-    return pd.DataFrame(rows, columns=["name", "value", "what"])
+    return pd.DataFrame(rows, columns=["name", "value", "what"], dtype=object)
 
 
 def draw_sheets(sections, summary, shape, redraw):

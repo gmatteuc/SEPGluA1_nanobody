@@ -152,7 +152,9 @@ def channel_table(
 
 def read_table(path) -> pd.DataFrame:
     """A per-adult table as written, eroded_is_plain back to a boolean."""
-    table = pd.read_csv(path, keep_default_na=False, na_values=[""])
+    table = pd.read_csv(
+        path, keep_default_na=False, na_values=[""], float_precision="round_trip"
+    )
     table["eroded_is_plain"] = table["eroded_is_plain"].astype(str) == "True"
     return table
 

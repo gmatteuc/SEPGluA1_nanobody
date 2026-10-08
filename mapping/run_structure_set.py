@@ -123,7 +123,7 @@ def numbers_table(set_table, reference, centroids, agreement):
         rows.append(
             (f"declared_{division}", int(n), f"declared structures in {division}")
         )
-    return pd.DataFrame(rows, columns=["name", "value", "what"])
+    return pd.DataFrame(rows, columns=["name", "value", "what"], dtype=object)
 
 
 def stored_agreement(profile):

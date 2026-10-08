@@ -112,7 +112,7 @@ def numbers_table(experiments, rel, members, labels, release):
         experiments.loc[experiments["excluded"], "exclude_reason"].value_counts().items()
     ):
         rows.append(("excluded", int(n), reason))
-    return pd.DataFrame(rows, columns=["name", "value", "what"])
+    return pd.DataFrame(rows, columns=["name", "value", "what"], dtype=object)
 
 
 def main(offline):
