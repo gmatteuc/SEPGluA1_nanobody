@@ -65,7 +65,7 @@ from sepmap.adult.beyond_density import (
 )
 from sepmap.config import SETTINGS
 from sepmap.plotting import RED, tidy
-from sepmap.volumes.per_mouse import annotation_20, structure_terms
+from sepmap.structures import ccf_centroids
 from sepmap.young_vs_adult.region_plot import REGION_MEANS
 
 # the largest gene-space model of control F, and the threshold of each verdict
@@ -73,53 +73,6 @@ BEYOND_CONTROLS = SETTINGS["beyond_controls"]
 
 
 # ===== Utilities =====
-
-
-def centroids(structures: list[str]) -> dict[str, np.ndarray]:
-    """Mean (AP, DV, ML) position of each structure, in mm, from the CCF itself.
-
-    Needed by control A: if the leftover were an imaging artefact it would vary
-    smoothly with position in the block, so the first thing to ask of it is how
-    much a smooth function of position can explain. A structure not in the atlas
-    gets NaN; when none of them is, ValueError, since control A and the artefact
-    figure both read every structure's centroid.
-    """
-    # the structure name of each annotation index, and the CCF annotation at 20 um
-    names, _, _ = structure_terms()
-    annotation = annotation_20("ccf")
-    coords = {}
-
-    # the annotation indices of each structure name (0 is outside the brain)
-    per_name = defaultdict(list)
-    for idx in np.unique(annotation):
-        if idx == 0 or int(idx) not in names:
-            continue
-        per_name[names[int(idx)]].append(int(idx))
-
-    # the indices of the structures asked for, each mapped back to its structure
-    wanted = {s: per_name.get(s, []) for s in structures}
-    flat = {i: s for s, ids in wanted.items() for i in ids}
-    if not flat:
-        raise ValueError(
-            f"none of the {len(structures)} structures is in the CCF annotation, "
-            "so they have no centroids"
-        )
-
-    # sum the voxel coordinates and count the voxels of each structure; 20 um voxels
-    mask = np.isin(annotation, list(flat))
-    ap, dv, ml = np.nonzero(mask)
-    labels = annotation[mask]
-    sums = defaultdict(lambda: np.zeros(4))
-    for a, d, m, lab in zip(ap, dv, ml, labels):
-        sums[flat[int(lab)]] += (a, d, m, 1)
-
-    # the mean position in mm (a voxel is 0.02 mm), NaN for a structure with no voxels
-    for s in structures:
-        v = sums.get(s)
-        coords[s] = (
-            (v[:3] / v[3]) * 0.02 if v is not None and v[3] else np.full(3, np.nan)
-        )
-    return coords
 
 
 def replication(
@@ -172,7 +125,7 @@ def control_a_space(
 
     # the structures with a centroid; on too few, a fit of six position terms would
     # explain much of the leftover by chance
-    coords = centroids(structures)
+    coords = ccf_centroids(structures)
     xyz = np.array([coords[s] for s in structures])
     ok = np.all(np.isfinite(xyz), axis=1)
     if ok.sum() < BEYOND_CONTROLS["min_centroids"]:
@@ -862,7 +815,7 @@ def main() -> None:
     # the seven controls, each returning its verdict row (None when skipped) and
     # what its figure draws; the centroids are for the figure of A to D
     verdicts = []
-    coords = centroids(structures)
+    coords = ccf_centroids(structures)
     verdicts.append(control_a_space(res, structures, y, covariates, nano, splits))
     verdicts.append(control_b_size(res, structures, size_mean))
     vc, per_mouse, pairs = control_c_mice(nano, structures, covariates)

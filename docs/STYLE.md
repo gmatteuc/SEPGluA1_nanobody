@@ -139,6 +139,16 @@ Each is defined in one place; never copy a value into a script.
   receptor subunits dark blue `#1f3b73` (`plotting.DARK_BLUE`). New colours
   extend this orange, yellow, blue, red and grey family: no green, pink or
   purple outside the colormaps above.
+- In Python the channels are `plotting.NANO`, `AUTO`, `NANO_DOT`, `AUTO_DOT`
+  and `PAIR_LINE`. The ISH figures add the groups of divisions of a scatter of
+  structures (`DIVISION_GROUP`, `DIVISION_GROUP_COLOURS`: cortex `#e07b00`,
+  hippocampal formation `#c0392b`, thalamus `#3a6db5`, other grey matter
+  `#555555`), the gene sets (`SET_COLOURS`: subunits dark blue, localisation
+  red, other postsynaptic `#555555`, presynaptic `#9a9a9a`, GABAergic markers
+  `#7f9cc9`, glia `#c8c8c8`), the 95% band of a null distribution behind the
+  data (`NULL_BAND`, `#c9d6ea`) and the density step of a variance budget
+  (`DENSITY_BLUE`, `#7f9cc9`). `plotting.bars_grey(t, t_max)` is
+  `sep_palette('bars')`: grey 0.78 at t = 0 to black at t_max.
 - Scatter plots of many structures: 35-point dots, no edge, alpha 0.85.
 - Counts in titles are computed, never typed. Coronal planes are drawn dorsal
   up, (DV, ML), never transposed. White background, except image panels.
@@ -434,9 +444,13 @@ def fit_all(matrix, return_flags=False):
   function and the figure functions: `plot_<what>(data, ..., save=None)`
   returns the figure, or with `ax=None` draws one panel and returns the axes.
   `mapping/sepmap/plotting.py` has the constants (`RED`, `DARK_GREY`,
-  `MID_GREY`, `DARK_BLUE`, `NO_DATA_GREY`, `GROUP_COLOURS`), the colormaps
-  (`hot_cut`, `transparent_bad`), the save function and `tidy` for the axes;
-  it has no `set_style()` yet.
+  `MID_GREY`, `DARK_BLUE`, `NO_DATA_GREY`, `GROUP_COLOURS` and the ISH
+  additions above), the colormaps (`hot_cut`, `transparent_bad`),
+  `set_style()` (white ground, fonts of 7 to 10 points, no top or right
+  spine, Type 42 fonts in an EPS), `bars_grey`, `draw_plane` (one coronal
+  plane in a panel: the atlas dark grey under the data, borders on top), the
+  save function and `tidy` for the axes. The figure functions of the ISH
+  analysis are in `mapping/sepmap/ish/plotting.py`.
 - The save function closes the figure after `fig.savefig(save, dpi=150,
   bbox_inches="tight")`; new figures use its dpi, existing ones keep theirs.
   The route's `plotting.save_figure(fig, path, dpi)` writes the PNG and, by

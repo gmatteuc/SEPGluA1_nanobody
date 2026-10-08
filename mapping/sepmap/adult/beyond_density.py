@@ -103,14 +103,16 @@ from scipy.stats import rankdata, spearmanr
 from sepmap.config import SETTINGS
 from sepmap.ish.reliability import merged_profiles
 from sepmap.plotting import DARK_BLUE, RED, tidy
+from sepmap.structures import keep_structure
 from sepmap.volumes.cohort import NAIVE, RWS
 from sepmap.volumes.per_mouse import DATA, MICE, annotation_20, structure_terms
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 from sepmap.young_vs_adult.region_plot import REGION_MEANS
 
-# the reading, the half-cohorts, the grey-matter divisions and the gene sets; the
-# smallest structure kept, as in young_vs_adult.region_plot; the agreement a
-# leftover needs to count as replicating, as in adult.beyond_controls
+# the reading, the half-cohorts and the gene sets (the grey-matter divisions are in
+# [structures], read by keep_structure); the smallest structure kept, as in
+# young_vs_adult.region_plot; the agreement a leftover needs to count as
+# replicating, as in adult.beyond_controls
 BEYOND = SETTINGS["beyond"]
 REGION_TABLES = SETTINGS["region_tables"]
 BEYOND_CONTROLS = SETTINGS["beyond_controls"]
@@ -120,29 +122,13 @@ OUT = DATA / "adult_v2" / "beyond"
 # the ten adults, naive and rws pooled
 ADULTS = NAIVE + RWS
 
-# the grey-matter divisions as a set, and the gene sets standing in for the two
-# explanations (receptor abundance, synaptic density) as tuples, as other modules use
-# them
-GREY = set(BEYOND["grey"])
+# the gene sets standing in for the two explanations (receptor abundance, synaptic
+# density) as tuples, as other modules use them
 SUBUNITS = tuple(BEYOND["subunits"])
 MARKERS = tuple(BEYOND["markers"])
 
 
 # ===== Loading =====
-
-
-def keep_structure(name: str, division: str) -> tuple[bool, str]:
-    """Whether a structure is in the analysis: (keep, reason why not).
-
-    Two rules, both applied before any fitting so neither can be tuned to the
-    answer: grey matter only, by division; and no "..., unassigned" entries,
-    which are voxels the atlas could not place rather than structures.
-    """
-    if "unassigned" in name.lower():
-        return False, "catch-all label, not a structure"
-    if division not in GREY:
-        return False, f"division {division} is not grey matter"
-    return True, ""
 
 
 def nano_per_mouse() -> tuple[dict[str, dict[str, float]], dict[str, str]]:

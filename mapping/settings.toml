@@ -66,6 +66,17 @@ smooth = [3.0, 1.0, 1.0]
 vmax = { zref = 0.9, cref = 2.0, subref = 2.0, ratio = 2.0, sepratio = 0.6 }
 dlim = { zref = 0.5, cref = 1.0, subref = 1.0, ratio = 1.0, sepratio = 1.0 }
 
+# the declared structure set (structures, A1): every analysis of the ISH line, and
+# adult.beyond_density, reads it
+[structures]
+min_adults = 10            # adults a structure must be measured in: all ten (S1); structures seen in 1 to 4 adults, mostly pons and medulla, do not replicate across mice (leave-one-out rho about 0.14, against 0.93 in the forebrain)
+# divisions that are grey matter; everything else (the fibre tracts lfbs, mfbs, eps,
+# scwm, cbf and cm, the ventricles VL, V3 and AQ, the brain-wide catch-all) is dropped,
+# because receptor and synapse maps mean nothing in white matter or in CSF
+grey = ["Isocortex", "OLF", "HPF", "CTXsp", "STR", "PAL", "TH", "HY", "MB", "P", "MY", "CB"]
+# the nine divisions of P9, a row of the sensitivity table (ish.robustness)
+p9_divisions = ["Isocortex", "OLF", "HPF", "CTXsp", "STR", "PAL", "TH", "HY", "MB"]
+
 # the ISH chain (ish.*, and adult.sep_channel_check for the gene it compares with)
 [ish]
 min_voxels = 10            # 200 um voxels a structure's gene value needs to be used
@@ -103,10 +114,6 @@ min_control_genes = 30     # control genes with a reliability that the positive 
 [beyond]
 reading = "zref"           # the reading analysed
 half = 5                   # animals per half when the cohort is split
-# divisions that are grey matter; everything else (the fibre tracts lfbs, mfbs, eps,
-# scwm, cbf and cm, the ventricles VL and V3, the brain-wide catch-all) is dropped,
-# because a synaptic-density covariate means nothing in white matter or in CSF
-grey = ["Isocortex", "OLF", "HPF", "CTXsp", "STR", "PAL", "TH", "HY", "MB", "P", "MY", "CB"]
 # the gene sets standing in for the two explanations: receptor abundance, and
 # synaptic density (Syp to Syt1 presynaptic, Dlg4 to Camk2a postsynaptic)
 subunits = ["Gria1", "Gria2", "Gria3", "Gria4"]
@@ -139,6 +146,10 @@ planes = [215, 265, 315]
 # the data and rank 1 lands about a tenth of the way up the colormap
 floor = 0.12
 diagnostic_p = 0.05        # panel E: a tilt or a fan of the residuals against the prediction (Spearman) below this p reads as a mis-specified model
+
+# the guided figures of the ISH analysis (ish.plotting)
+[ish_figures]
+plane = 700                # CCF plane at 10 um of every coronal panel (ISH section 35): cortex, hippocampus and thalamus in one section, the plane of the discussion's Figure 1
 
 # The ISH chain runs twice: on the hand-written 100-gene panel, then on the
 # 390-gene ontology panel that run_panel_build writes. run_ish_regions.py and
