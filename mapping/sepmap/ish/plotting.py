@@ -36,7 +36,9 @@ from sepmap.plotting import (
     DIVISION_GROUP_COLOURS,
     GROUP_COLOURS,
     MID_GREY,
+    NANO,
     NO_DATA_GREY,
+    NULL_BAND,
     PAIR_LINE,
     RED,
     SET_COLOURS,
@@ -870,6 +872,224 @@ def plot_genes(
             "What would mean what: a gene's correlation with the nano map is capped by "
             "its own reliability, so a low rho of an unreliable gene says little, and "
             "genes measured once are only as good as one Allen mouse.",
+        ],
+    )
+    return saved(fig, save)
+
+
+# ===== 04 The spatial null =====
+
+
+def null_rho_panel(ax: plt.Axes, calibration: pd.DataFrame) -> None:
+    """A: rho between independent smooth maps, against rho between shuffled maps."""
+    pairs = calibration[calibration["design"] == "pair"]
+    bins = np.linspace(-1, 1, 41)
+    ax.hist(pairs["rho"], bins=bins, color=DARK_GREY, label="two smooth maps")
+    ax.hist(
+        pairs["rho_shuffled"],
+        bins=bins,
+        histtype="step",
+        color=MID_GREY,
+        lw=1.5,
+        label="one of them shuffled",
+    )
+    ax.set_xlabel("Spearman rho between two independent maps")
+    ax.set_ylabel("pairs of maps")
+    ax.legend(loc="upper left")
+    panel_title(
+        ax,
+        "A",
+        "Unrelated smooth maps correlate by chance",
+        f"{len(pairs)} pairs of random fields; SD of rho {pairs['rho'].std():.2f}, "
+        f"shuffled {pairs['rho_shuffled'].std():.2f}",
+    )
+    tidy(ax)
+
+
+def variogram_panel(ax: plt.Axes, variogram: pd.DataFrame, map_name: str) -> None:
+    """B: the map's variogram, its surrogates' (median and 5 to 95%), a shuffled map's."""
+    sub = variogram[variogram["map"] == map_name]
+    scale = sub["shuffled_median"].mean()
+    h = sub["distance_mm"]
+    ax.fill_between(
+        h,
+        sub["surrogate_p5"] / scale,
+        sub["surrogate_p95"] / scale,
+        color=NULL_BAND,
+        lw=0,
+        label="surrogates, 5 to 95%",
+    )
+    ax.plot(
+        h, sub["surrogate_median"] / scale, color=DARK_GREY, lw=1.2, label="surrogates"
+    )
+    ax.plot(
+        h, sub["shuffled_median"] / scale, color=MID_GREY, ls="--", lw=1, label="shuffled"
+    )
+    ax.plot(
+        h,
+        sub["variogram"] / scale,
+        color=NANO,
+        marker="o",
+        ms=3,
+        lw=1.4,
+        label="nano map",
+    )
+    edge = sub.loc[sub["matched"], "distance_mm"].max()
+    ax.axvline(edge, color=DARK_GREY, ls=":", lw=0.9)
+    ax.text(edge, 0.05, " matched up to here", fontsize=7, color=DARK_GREY)
+    ax.set_ylim(0, None)
+    ax.set_xlabel("distance between structures (mm)")
+    ax.set_ylabel("semivariance of ranks (shuffled map = 1)")
+    ax.legend(loc="upper left", fontsize=7)
+    panel_title(
+        ax,
+        "B",
+        "The surrogates keep the map's smoothness",
+        "near structures alike (low), far ones not; a shuffled map is flat",
+    )
+    tidy(ax)
+
+
+def rates_panel(ax: plt.Axes, calibration: pd.DataFrame) -> None:
+    """D: false positives at p < 0.05, ordinary against spatial p, for both designs."""
+    labels = {"pair": "two random\nsmooth maps", "map": "a random map\nagainst nano"}
+    designs = list(dict.fromkeys(calibration["design"]))
+    for i, design in enumerate(designs):
+        sub = calibration[calibration["design"] == design]
+        for j, (column, colour) in enumerate(
+            (("p_ordinary", LIGHT_GREY), ("p_spatial", DARK_GREY))
+        ):
+            rate = float((sub[column] < 0.05).mean())
+            x = i + (j - 0.5) * 0.38
+            ax.bar(x, rate, width=0.36, color=colour)
+            # above the 5% line when the bar is lower, so the two never overlap
+            ax.text(x, max(rate, 0.05) + 0.012, f"{rate:.1%}", ha="center", fontsize=7.5)
+    ax.axhline(0.05, color=RED, ls="--", lw=1)
+    ax.text(-0.45, 0.062, "5% expected", color=RED, fontsize=7, ha="left")
+    ax.set_xticks(range(len(designs)))
+    ax.set_xticklabels([labels[d] for d in designs])
+    ax.set_ylabel("share of tests with p < 0.05")
+    ax.legend(
+        handles=[
+            Patch(color=LIGHT_GREY, label="ordinary Spearman p"),
+            Patch(color=DARK_GREY, label="spatial p"),
+        ],
+        loc="center",
+    )
+    n_tests = int(calibration["design"].value_counts().iloc[0])
+    panel_title(
+        ax, "D", "False positives on maps with no relation", f"{n_tests} tests per design"
+    )
+    tidy(ax)
+
+
+def surrogate_planes(
+    fig: plt.Figure,
+    axes: list[plt.Axes],
+    map_ranks: dict[str, float],
+    surrogate_ranks: list[dict[str, float]],
+    lab: np.ndarray,
+    names: dict[int, str],
+) -> None:
+    """C: the map and three surrogates on one plane, each as ranks."""
+    panels = [("nano map", map_ranks)]
+    for i, ranks in enumerate(surrogate_ranks):
+        panels.append((f"surrogate {i + 1}", ranks))
+    for ax, (title, values) in zip(axes, panels):
+        image = draw_plane(ax, paint(lab, values, names), lab, hot_cut(), RANK_FLOOR, 1)
+        ax.set_title(title, fontsize=8)
+
+    # one colour bar for the four, beside the last, in an axis of its own so the four
+    # planes keep one size
+    box = axes[len(panels) - 1].get_position()
+    cax = fig.add_axes([box.x1 + 0.005, box.y0 + 0.03, 0.007, box.height - 0.06])
+    cb = fig.colorbar(image, cax=cax)
+    cb.ax.tick_params(labelsize=7)
+    cb.set_label("rank (0 low, 1 high)", fontsize=8)
+    cb.ax.set_ylim(0, 1)
+
+
+def gene_null_panel(ax: plt.Axes, genes: list[tuple]) -> None:
+    """E: each gene's null distribution of rho, its observed rho and p."""
+    bins = np.linspace(-1, 1, 81)
+    for name, observed, null, p in genes:
+        colour = DARK_BLUE if name == "Gria1" else RED
+        ax.hist(null, bins=bins, histtype="step", color=colour, lw=1.2)
+        ax.axvline(observed, color=colour, lw=1.6)
+    top = ax.get_ylim()[1]
+    for k, (name, observed, _, p) in enumerate(genes):
+        colour = DARK_BLUE if name == "Gria1" else RED
+        ax.text(
+            -0.95,
+            top * (0.92 - 0.12 * k),
+            f"{name}: rho {observed:+.2f}, spatial p {p:.4f}",
+            color=colour,
+            fontsize=7.5,
+        )
+    ax.set_xlabel("Spearman rho with a surrogate of the nano map")
+    ax.set_ylabel("surrogates")
+    panel_title(ax, "E", "Two genes against their null", "vertical lines: observed rho")
+    tidy(ax)
+
+
+def plot_spatial_null(
+    variogram: pd.DataFrame,
+    calibration: pd.DataFrame,
+    map_ranks: dict[str, float],
+    surrogate_ranks: list[dict[str, float]],
+    lab: np.ndarray,
+    names: dict[int, str],
+    plane: int,
+    n_surrogates: int,
+    genes: list[tuple] | None = None,
+    save: Path | None = None,
+) -> plt.Figure:
+    """Figure 04: why a spatial null, and the null itself.
+
+    `map_ranks` and each of `surrogate_ranks` give a 0-1 rank per structure; `genes`,
+    when given, holds (name, observed rho, null rhos, p) for panel E, which needs
+    the gene ranking and is left out otherwise.
+    """
+    fig = plt.figure(figsize=(16, 10.5))
+    spatial = {}
+    for design in dict.fromkeys(calibration["design"]):
+        sub = calibration[calibration["design"] == design]
+        spatial[design] = float((sub["p_spatial"] < 0.05).mean())
+    heading(
+        fig,
+        4,
+        "How large a rho do unrelated smooth maps give, and do the surrogates have "
+        "the nano map's smoothness?",
+        f"{n_surrogates} surrogates of the nano map on {len(map_ranks)} structures; "
+        f"spatial p below 0.05 in {spatial.get('pair', np.nan):.1%} of pairs of random "
+        f"maps and {spatial.get('map', np.nan):.1%} of random maps against nano "
+        "(5% expected)",
+    )
+    null_rho_panel(fig.add_axes([0.05, 0.6, 0.25, 0.28]), calibration)
+    variogram_panel(fig.add_axes([0.37, 0.6, 0.27, 0.28]), variogram, "nano")
+    rates_panel(fig.add_axes([0.72, 0.6, 0.25, 0.28]), calibration)
+    plane_axes = [fig.add_axes([0.02 + 0.16 * i, 0.15, 0.15, 0.3]) for i in range(4)]
+    surrogate_planes(fig, plane_axes, map_ranks, surrogate_ranks, lab, names)
+    plane_axes[0].text(
+        0,
+        1.15,
+        f"C.  The nano map and three of its surrogates, CCF plane {plane}",
+        transform=plane_axes[0].transAxes,
+        fontsize=9,
+    )
+    if genes:
+        gene_null_panel(fig.add_axes([0.72, 0.17, 0.25, 0.28]), genes)
+    footer(
+        fig,
+        [
+            "How to read: a surrogate is the nano map's ranks shuffled, smoothed over "
+            "near structures and rescaled until its variogram matches the map's (Burt "
+            "2020). A gene's spatial p is the share of surrogates that correlate with "
+            "it at least as strongly as the map does.",
+            "The calibration tests random smooth maps that have no relation to each "
+            "other; a calibrated p is below 0.05 in about 5% of them.",
+            "What would mean what: spatial p near 5% and ordinary p far above it: the "
+            "null is needed and it works; a spatial p far from 5%: no claim rests on it.",
         ],
     )
     return saved(fig, save)

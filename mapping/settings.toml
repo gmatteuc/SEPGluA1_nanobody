@@ -111,6 +111,16 @@ evidence_p = 0.05          # the within-family permutation p below which the fig
 max_hits = 1000            # genes asked of mygene.info per GO term; a term with more stops the run
 allen_rows = 50            # experiments asked of the Allen API per gene
 
+# spatial null (ish.spatial_null, A7): surrogate maps with the map's own smoothness
+[spatial_null]
+n_surrogates = 10000       # surrogates per map; the smallest p is 1e-4, below the 5e-4 that BH needs for the first of 95 genes at q 0.05
+deltas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]  # shares of the nearest structures over which a shuffled map is smoothed; each surrogate takes the one whose variogram fits best (Burt 2020)
+pv = 25                    # percentile of the distances between structures up to which the variogram is matched: the short range, where the autocorrelation is; figure 04 B shows the fit beyond it
+nh = 25                    # distances at which the smoothed variogram is evaluated (Burt 2020)
+resample = true            # a surrogate takes the map's own values in a new order, so it differs from the map only in where the values sit
+n_calibration = 2000       # independent random smooth maps per design of the false-positive check: the rate's SE is then 0.5%, so 3% can be told from 5% (500 left it at 1%)
+n_calibration_surrogates = 1000  # surrogates per calibration map, enough to place each p against 0.05
+
 [ish_panel_test]
 min_structures = 80        # structures a gene must share with the map and the subunit composite
 min_reliability = 0.3      # reliability a gene needs in the sensitivity run (a gene without one is left out)
