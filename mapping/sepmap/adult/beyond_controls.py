@@ -23,8 +23,12 @@ whether it is:
     F  the choice of predictors?      the strongest version: give the model the
                                       expression of every gene of the gene table
                                       measured in all the structures, as principal
-                                      components, and see whether a leftover
-                                      survives. It is why the leftover is "not
+                                      components (as many as cross-validation
+                                      picks, inside each training fold), and ask
+                                      whether what it leaves stands above what the
+                                      same model leaves of a map made of those
+                                      genes' expression (its own calibration
+                                      floor). It is why the leftover is "not
                                       predicted by receptor mRNA or synaptic
                                       density" and never "beyond gene expression"
     G  zref?                          the same test on the other readings of the
@@ -32,14 +36,26 @@ whether it is:
 
 E and F are cross-validated, because a flexible model always fits better on the
 data it was fitted to; the question is whether it predicts better, and only
-held-out structures can say. Everything is imported from adult.beyond_density, so
-the two modules use the same structures, predictors and arithmetic.
+held-out structures can say. F picks its number of components inside each training
+fold (nested), since the best of many held-out scores is itself optimistic.
+Everything is imported from adult.beyond_density, so the two modules use the same
+structures, predictors and arithmetic.
+
+Beside the controls, the variants: the quoted leftover under other folds (one
+shuffling, single shufflings, ten folds, leave one out, spatial blocks) and on the
+larger set of structures that the rule keeps once the markers measured by a single
+Allen experiment are left out.
 
 Writes, in adult_v2/ish_analysis/beyond/ under the data root:
 
     controls.csv            one row per control, with its number and verdict
     gene_space.csv          control F: per number of components, R2 fitted and held out
+    gene_space_calibration.csv  control F's model on the nano map and on maps made of
+                            the genes' expression, each half of the experiments
+    gene_space_summary.csv  control F's numbers: genes, components picked, nested
+                            share of the ceiling, replication
     readings.csv            control G: per reading, R2 and the two replications
+    variants.csv            the leftover under other folds and structures
     fig4_controls.png       A to D, the four artefact checks
     fig5_model_space.png    E and F, how much any model of this data can explain
     fig6_readings.png       G, the same test on every reading
@@ -54,17 +70,22 @@ import numpy as np
 import pandas as pd
 from scipy.stats import rankdata, spearmanr
 
+from sepmap.adult import beyond_calibration as bc
 from sepmap.adult import profiles
 from sepmap.adult.beyond_density import (
     ADULTS,
+    MARKERS,
     NAIVE_ROWS,
     OUT,
     RWS_ROWS,
     Inputs,
+    block_labels,
+    budget,
     build_covariates,
     ceiling,
     cv_r2,
     flexible,
+    fold_labels,
     full_map,
     half_splits,
     leftover_agreement,
@@ -78,6 +99,7 @@ from sepmap.adult.beyond_density import (
     save,
 )
 from sepmap.config import SETTINGS
+from sepmap.ish import gene_table
 from sepmap.plotting import RED, tidy
 from sepmap.structures import load_centroids
 from sepmap.young_vs_adult.region_plot import REGION_MEANS
@@ -87,7 +109,10 @@ BEYOND_CONTROLS = SETTINGS["beyond_controls"]
 
 CONTROLS = OUT / "controls.csv"
 GENE_SPACE = OUT / "gene_space.csv"
+GENE_SPACE_CALIBRATION = OUT / "gene_space_calibration.csv"
+GENE_SPACE_SUMMARY = OUT / "gene_space_summary.csv"
 READINGS = OUT / "readings.csv"
+VARIANTS = OUT / "variants.csv"
 
 # the readings of control G as the figure names them: the map's own zref, the same
 # with the young-against-adult tables' 17-brain reference, and the stored readings
@@ -333,19 +358,139 @@ def control_e_curvature(
     )
 
 
+def components(m: np.ndarray) -> np.ndarray:
+    """The shared patterns of a set of genes across structures, strongest first.
+
+    `m` is genes x structures of ranks; each gene is z-scored, the mean profile
+    removed, and the rows of vt are returned (components x structures).
+    """
+    m = (m - m.mean(axis=1, keepdims=True)) / m.std(axis=1, keepdims=True)
+    _, _, vt = np.linalg.svd(m - m.mean(axis=0), full_matrices=False)
+    return vt
+
+
+def best_k(y: np.ndarray, pcs: np.ndarray, labels: list[np.ndarray]) -> int:
+    """The number of leading components with the best held-out R2 (folds `labels`)."""
+    scores = [
+        cv_r2(y, list(pcs[:k]), labels) for k in range(1, BEYOND_CONTROLS["max_pcs"] + 1)
+    ]
+    return int(np.argmax(scores)) + 1
+
+
+def nested_cv_r2(
+    y: np.ndarray, pcs: np.ndarray, seed: int = 0
+) -> tuple[float, list[int]]:
+    """Held-out R2 of the gene-space model with its size picked inside each fold.
+
+    beyond_controls.nested_repeats shufflings of five outer folds; in each training
+    part the number of components is picked by its own cross-validation
+    (beyond_controls.nested_repeats inner shufflings), then fitted and the outer
+    fold predicted. Returns the R2 and the numbers of components picked.
+    """
+    n = len(y)
+    repeats = BEYOND_CONTROLS["nested_repeats"]
+    outer = fold_labels(n, repeats=repeats, seed=seed)
+    predicted = np.empty((repeats, n))
+    picked = []
+    for r, label in enumerate(outer):
+        for fold in np.unique(label):
+            test = label == fold
+            train = ~test
+            inner = fold_labels(int(train.sum()), repeats=repeats, seed=seed + 1 + r)
+            k = best_k(y[train], pcs[:, train], inner)
+            picked.append(k)
+            design = np.column_stack(list(pcs[:k]) + [np.ones(n)])
+            beta = np.linalg.lstsq(design[train], y[train], rcond=None)[0]
+            predicted[r, test] = design[test] @ beta
+    missed = np.var(y[None, :] - predicted, axis=1).mean()
+    return float(1 - missed / np.var(y)), picked
+
+
+def gene_space_calibration(inputs: Inputs, seed: int = 0) -> pd.DataFrame:
+    """Control F's own floor: its model on maps made of the genes' expression.
+
+    As adult.beyond_calibration, with control F's model: each gene's experiments
+    in two halves; on the calibration structures, the components of the genes
+    measured there in both halves, from each half. The nano map is read with each
+    half's components; a known map is the model fitted to nano with one half's
+    components (the number picked by cross-validation), analysed with the other
+    half's, beyond_controls.f_draws draws of made-up animals each way. Columns:
+    map, truth_from, predictors_from, draw, n_structures, n_genes, ceiling, cv_r2,
+    left.
+    """
+    halves_a, halves_b, _ = bc.experiment_halves(bc.per_experiment_profiles())
+    halves = {"A": halves_a, "B": halves_b}
+    structures = bc.calibration_structures(inputs.structures, halves)
+    columns = [inputs.structures.index(x) for x in structures]
+    nano = inputs.nano[:, columns]
+    genes = sorted(
+        g
+        for g in halves_a
+        if all(x in halves[h][g] for h in bc.HALVES for x in structures)
+    )
+    pcs = {h: components(gene_matrix(halves[h], structures, genes)) for h in bc.HALVES}
+    splits = half_splits()
+    y = full_map(nano)
+    agreement, explainable = ceiling(nano, splits)
+    h_nano = float(np.mean(agreement))
+    rows = []
+    for h in bc.HALVES:
+        cv, _ = nested_cv_r2(y, pcs[h], seed=seed)
+        rows.append(
+            dict(
+                map=bc.NANO,
+                truth_from="",
+                predictors_from=h,
+                draw=-1,
+                ceiling=explainable,
+                cv_r2=cv,
+                left=1 - cv / explainable,
+            )
+        )
+    children = np.random.SeedSequence(seed).spawn(len(bc.HALVES))
+    for h, child in zip(bc.HALVES, children):
+        other = bc.HALVES[1 - bc.HALVES.index(h)]
+        k = best_k(y, pcs[h], fold_labels(len(y)))
+        truth = y - residual(y, list(pcs[h][:k]))
+        rng = np.random.default_rng(child)
+        for draw in range(BEYOND_CONTROLS["f_draws"]):
+            cohort = bc.fake_cohort(truth, h_nano, rng)
+            _, made_up = ceiling(cohort, splits)
+            cv, _ = nested_cv_r2(full_map(cohort), pcs[other], seed=seed)
+            rows.append(
+                dict(
+                    map="gene space",
+                    truth_from=h,
+                    predictors_from=other,
+                    draw=draw,
+                    ceiling=made_up,
+                    cv_r2=cv,
+                    left=1 - cv / made_up,
+                )
+            )
+    out = pd.DataFrame(rows)
+    out.insert(1, "n_structures", len(structures))
+    out.insert(2, "n_genes", len(genes))
+    return out
+
+
 def control_f_gene_space(
     inputs: Inputs,
     y: np.ndarray,
     explainable: float,
     splits: list[tuple[list[int], list[int]]],
-) -> tuple[dict[str, str], pd.DataFrame, int]:
+) -> tuple[dict[str, str], pd.DataFrame, int, pd.DataFrame, dict]:
     """Control F, the strongest: any combination of the gene table's genes may try.
 
-    The genes measured in every structure are reduced to principal components;
-    models of 1 to beyond_controls.max_pcs components are scored by cross-validation,
-    and the leftover of the best is tested for replication. Returns the verdict
-    row, the curve (n_components, r2 fitted, cv_r2 held out, share_of_ceiling) and
-    the best number of components.
+    The genes measured in every structure are reduced to principal components. The
+    curve of held-out R2 against the number of components (1 to
+    beyond_controls.max_pcs) is drawn; the share quoted picks the number inside
+    each training fold (nested_cv_r2). The verdict reads the model's own
+    calibration (gene_space_calibration): the leftover passes when nano's share
+    left, with either half's components, stands above every draw of a map made of
+    the genes' expression. Returns the verdict row, the curve (n_components, r2
+    fitted, cv_r2 held out, share_of_ceiling), the number of components picked
+    most often, the calibration and a summary (gene_space_summary.csv).
     """
     s = inputs.structures
     genes = sorted(g for g in inputs.expr if all(x in inputs.expr[g] for x in s))
@@ -354,15 +499,13 @@ def control_f_gene_space(
         f"{len(genes)} genes measured in every structure)"
     )
 
-    # each gene's rank profile z-scored and the mean profile removed; the rows of
-    # vt are then the panel's shared patterns across structures, strongest first
-    m = gene_matrix(inputs.expr, s, genes)
-    m = (m - m.mean(axis=1, keepdims=True)) / m.std(axis=1, keepdims=True)
-    _, _, vt = np.linalg.svd(m - m.mean(axis=0), full_matrices=False)
+    # the panel's shared patterns across structures, strongest first
+    vt = components(gene_matrix(inputs.expr, s, genes))
+    labels = fold_labels(len(y))
     rows = []
     for k in range(1, BEYOND_CONTROLS["max_pcs"] + 1):
         pcs = [vt[i] for i in range(k)]
-        cv = cv_r2(y, pcs)
+        cv = cv_r2(y, pcs, labels)
         rows.append(
             dict(
                 n_components=k,
@@ -373,38 +516,139 @@ def control_f_gene_space(
         )
     curve = pd.DataFrame(rows)
 
-    # the best model by held-out R2 (in-sample would always pick the most
-    # components), and whether its leftover still replicates
-    best = curve.loc[curve["cv_r2"].idxmax()]
-    best_k = int(best["n_components"])
-    rep = replication(inputs.nano, [vt[i] for i in range(best_k)], splits)
+    # the share with the number of components picked inside each training fold, and
+    # the leftover's replication with the number picked most often
+    nested, picked = nested_cv_r2(y, vt)
+    k_most = int(pd.Series(picked).mode().iloc[0])
+    rep = replication(inputs.nano, [vt[i] for i in range(k_most)], splits)
+    peak = int(curve.loc[curve["cv_r2"].idxmax(), "n_components"])
     print(
-        f"   the best model by cross-validation uses {best_k} components: CV R2 "
-        f"{best['cv_r2']:.3f}, {best['share_of_ceiling']:.0%} of the ceiling"
+        f"   held-out R2 peaks at {peak} components "
+        f"({curve['share_of_ceiling'].max():.0%} of the ceiling); picked inside each "
+        f"fold ({min(picked)} to {max(picked)}, most often {k_most}): "
+        f"{nested / explainable:.0%} of the ceiling, {1 - nested / explainable:.0%} left"
     )
-    still = "still replicates" if replicates(rep) else "replicates only"
-    print(f"   and the leftover of that model {still} at {rep:.3f}")
+    print(f"   the leftover with {k_most} components replicates at {rep:.3f}")
 
-    # the question is not whether a model this rich predicts a lot (it should) but
-    # whether it predicts the map completely
-    passed = rep >= BEYOND_CONTROLS["replication"]
+    # its own floor: the same model on maps made of the genes' expression
+    calibration = gene_space_calibration(inputs)
+    nano_left = calibration.loc[calibration["map"] == bc.NANO, "left"]
+    known = calibration.loc[calibration["map"] == "gene space", "left"]
+    print(
+        f"   on {int(calibration['n_structures'].iloc[0])} structures and "
+        f"{int(calibration['n_genes'].iloc[0])} genes measured in both halves: nano "
+        f"leaves {nano_left.min():.0%} to {nano_left.max():.0%}; a map made of the "
+        f"genes' expression {known.min():.0%} to {known.max():.0%} "
+        f"({len(known)} draws)"
+    )
+    passed = bool(nano_left.min() > known.max())
     verdict = (
-        "even the whole gene table leaves a leftover that replicates"
+        "even the gene table's components leave more than they leave of a map made "
+        "of those genes"
         if passed
-        else "the gene table accounts for the map; the leftover is gone"
+        else "the gene table accounts for the map as far as Allen mismatch allows"
     )
     print("   verdict: " + verdict)
     return (
         dict(
             control="F whole gene space",
-            number=f"{len(genes)} genes, {best_k} components, CV R2 "
-            f"{best['cv_r2']:.3f} ({best['share_of_ceiling']:.0%} of ceiling), "
-            f"replication {rep:.3f}",
+            number=f"{len(genes)} genes, {k_most} components most often, nested CV R2 "
+            f"{nested:.3f} ({nested / explainable:.0%} of ceiling); nano leaves "
+            f"{nano_left.min():.0%} to {nano_left.max():.0%} against "
+            f"{known.min():.0%} to {known.max():.0%}; replication {rep:.3f}",
             verdict="pass" if passed else "CHECK",
         ),
         curve,
-        best_k,
+        k_most,
+        calibration,
+        dict(
+            genes=len(genes),
+            k_most=k_most,
+            k_min=min(picked),
+            k_max=max(picked),
+            curve_peak=int(curve.loc[curve["cv_r2"].idxmax(), "n_components"]),
+            nested_cv_r2=nested,
+            share=nested / explainable,
+            replication=rep,
+        ),
     )
+
+
+def once_measured_markers() -> list[str]:
+    """The marker genes of beyond.markers measured by a single usable Allen experiment."""
+    genes = gene_table.per_gene(gene_table.load_gene_table()).set_index("symbol")
+    return [g for g in MARKERS if int(genes.loc[g, "n_experiments_used"]) == 1]
+
+
+def variants(
+    inputs: Inputs,
+    covariates: dict[str, np.ndarray],
+    y: np.ndarray,
+    explainable: float,
+    coords: dict[str, np.ndarray],
+) -> pd.DataFrame:
+    """variants.csv: the quoted leftover under other folds and on other structures.
+
+    Rows: the quoted folds (beyond.cv_repeats shufflings of five), the single
+    shuffling of 26 September, single shufflings (beyond_controls.n_single of them:
+    median and 95% range), ten folds, leave one out, folds of spatial blocks, and
+    the model on the structures the rule keeps once the markers measured by one
+    Allen experiment are left out (their ceiling recomputed there).
+    """
+    n = len(y)
+    rng = np.random.default_rng(0)
+    xyz = np.array([coords[x] for x in inputs.structures])
+    folds = [
+        ("quoted: 20 shufflings of five folds", None),
+        ("one shuffling (the folds of 26 September)", fold_labels(n, repeats=1)),
+        ("ten folds", fold_labels(n, folds=10)),
+        ("leave one out", [np.arange(n)]),
+        ("folds of spatial blocks", block_labels(xyz)),
+    ]
+    rows = []
+    for label, labels in folds:
+        left = 1 - budget(y, covariates, explainable, labels=labels)[-1]
+        rows.append(dict(variant=label, n_structures=n, left=left, lo=np.nan, hi=np.nan))
+    single = [
+        1
+        - budget(
+            y,
+            covariates,
+            explainable,
+            labels=fold_labels(n, repeats=1, seed=int(rng.integers(1 << 30))),
+        )[-1]
+        for _ in range(BEYOND_CONTROLS["n_single"])
+    ]
+    rows.insert(
+        2,
+        dict(
+            variant=f"single shufflings ({len(single)})",
+            n_structures=n,
+            left=float(np.median(single)),
+            lo=float(np.percentile(single, 2.5)),
+            hi=float(np.percentile(single, 97.5)),
+        ),
+    )
+
+    # the structures the rule keeps without the markers measured once
+    once = once_measured_markers()
+    markers = [g for g in MARKERS if g not in once]
+    wider = load_inputs(markers)
+    cov, _, _ = build_covariates(
+        wider.expr, wider.role, wider.auto, wider.structures, markers
+    )
+    _, wider_ceiling = ceiling(wider.nano, half_splits())
+    left = 1 - budget(full_map(wider.nano), cov, wider_ceiling)[-1]
+    rows.append(
+        dict(
+            variant=f"markers measured once left out ({', '.join(once)})",
+            n_structures=len(wider.structures),
+            left=left,
+            lo=np.nan,
+            hi=np.nan,
+        )
+    )
+    return pd.DataFrame(rows)
 
 
 def reading_matrices(inputs: Inputs) -> dict[str, np.ndarray]:
@@ -712,7 +956,11 @@ def main() -> None:
     vc, pairs = control_c_mice(inputs.nano, xs)
     vd, naive, rws = control_d_groups(inputs.nano, xs)
     ve, _, cubic, quintic = control_e_curvature(y, covariates)
-    vf, curve, best_k = control_f_gene_space(inputs, y, explainable, splits)
+    vf, curve, best_k, f_calibration, f_summary = control_f_gene_space(
+        inputs, y, explainable, splits
+    )
+    f_calibration.to_csv(GENE_SPACE_CALIBRATION, index=False)
+    pd.DataFrame([f_summary]).to_csv(GENE_SPACE_SUMMARY, index=False)
     vg, readings = control_g_readings(inputs, xs, splits)
     verdicts += [vc, vd, ve, vf, vg]
     write_verdicts(verdicts)
@@ -723,3 +971,11 @@ def main() -> None:
     figure_artefacts(res, s, sizes, pairs, naive, rws, coords, passed)
     figure_model_space(curve, best_k, explainable, cubic, quintic, passed)
     figure_readings(readings, passed["G"])
+
+    # the leftover under other folds and on other structures
+    table = variants(inputs, covariates, y, explainable, coords)
+    table.to_csv(VARIANTS, index=False)
+    print("\nVariants of the quoted leftover:")
+    for r in table.itertuples():
+        spread = f" ({r.lo:.1%} to {r.hi:.1%})" if np.isfinite(r.lo) else ""
+        print(f"   {r.variant:60s} {r.n_structures:4d} structures  {r.left:6.1%}{spread}")

@@ -241,7 +241,8 @@ def f_statistic(values: np.ndarray, group_of_row: np.ndarray) -> np.ndarray:
     """The one-way ANOVA F of every column of `values` (genes x columns) across groups.
 
     `group_of_row` gives each row's group; the same F as scipy's f_oneway, for
-    thousands of columns at once.
+    thousands of columns at once. A column with no spread inside the groups has F
+    infinite (NaN when it has none between them either).
     """
     groups = np.unique(group_of_row)
     n, k = values.shape[0], len(groups)
@@ -253,7 +254,11 @@ def f_statistic(values: np.ndarray, group_of_row: np.ndarray) -> np.ndarray:
         mean = part.mean(axis=0)
         between += len(part) * (mean - grand) ** 2
         within += ((part - mean) ** 2).sum(axis=0)
-    return (between / (k - 1)) / (within / (n - k))
+    between, within = between / (k - 1), within / (n - k)
+    out = np.full(values.shape[1], np.nan)
+    np.divide(between, within, out=out, where=within > 0)
+    out[(within == 0) & (between > 0)] = np.inf
+    return out
 
 
 def headline_null(
@@ -276,7 +281,11 @@ def headline_null(
     rows = []
     for key, label in HEADLINE_ORDER:
         genes = sorted(today.loc[today["group"] == key, "symbol"])
-        row, _ = set_test(genes, rho, null, row_of)
+        if genes:
+            row, _ = set_test(genes, rho, null, row_of)
+        else:
+            row = dict(n_genes=0, median_rho=np.nan, null_lo=np.nan, null_hi=np.nan)
+            row["p_spatial"] = np.nan
         rows.append(dict(group=key, label=label, **row))
     groups = pd.DataFrame(rows)
     groups["tested"] = groups["n_genes"] >= ISH_ANALYSIS["min_set_genes"]

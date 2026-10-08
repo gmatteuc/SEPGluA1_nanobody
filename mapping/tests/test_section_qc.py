@@ -34,6 +34,33 @@ def test_a_tenfold_dimmer_section_is_flagged_and_set_missing():
     assert np.isnan(clean[15]).all()
 
 
+def test_a_run_of_three_failed_sections_is_flagged_whole():
+    """Three dim sections in a row are each flagged: a good section lies on each side."""
+    vol, brain = gradient_grid()
+    vol[14:17] /= 20
+    status = statuses(vol, brain, 0)
+    assert (status[[14, 15, 16]] == "flagged").all()
+    assert (status.drop([14, 15, 16]) == "ok").all()
+
+
+def test_a_step_in_expression_is_not_flagged():
+    """A section that matches the sections behind a large step is anatomy, not a flag."""
+    vol, brain = gradient_grid()
+    vol[15:] /= 50
+    status = statuses(vol, brain, 0)
+    assert "flagged" not in set(status)
+
+
+def test_sections_among_faint_neighbours_are_not_judged():
+    """Among neighbours below ish_qc.min_reference, a drop is noise, not a flag."""
+    vol, brain = gradient_grid()
+    vol *= 0.01 / vol.max()
+    vol[15] /= 10
+    table = section_qc.flag_sections(section_qc.section_profile(vol, brain, 0), set())
+    status = table.set_index("section")["status"]
+    assert (status == "faint neighbours").all()
+
+
 def test_a_smooth_gradient_is_not_flagged():
     """A tenfold gradient across the brain is anatomy, and no section is flagged."""
     vol, brain = gradient_grid()

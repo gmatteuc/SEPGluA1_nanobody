@@ -24,12 +24,21 @@ same steps with its own surrogates (A8). Were the ranking the tissue's rather th
 the label's, autofluorescence would order the genes as nano does.
 
 The Cacng8 - Gria1 gap (named in advance, S5) is rho(Cacng8) - rho(Gria1) on the
-structures both genes have, tested against the same difference for every
-surrogate: the gap a map with the brain's smoothness and no relation to either gene
-gives, the two genes' own correlation kept. A map related to both genes alike would
-give a narrower spread (correlations near 1 vary less), so this p errs on the
-conservative side. Beside it, the gap's interval over the adult bootstrap, and the
-gap for each pairing of the two genes' Allen experiments, each one Allen mouse.
+structures both genes have. The question is whether the map is more closely related
+to one gene than to the other, so its null is a map related to both alike: each
+null map is
+
+    c z(Cacng8 + Gria1) + sqrt(1 - c^2) z(surrogate)
+
+the two genes' standardised ranks added, plus a surrogate of the nano map for the
+rest, with c set so that the null maps' mean rho with the two genes equals the
+observed mean of the two rhos. The gap of every null map gives the distribution a
+gap takes when the map follows both genes equally, with the brain's smoothness;
+correlations near 0.7 vary less than correlations near 0, so this null is narrower
+than that of a map unrelated to both. That second null (the surrogates themselves,
+the two genes' own correlation kept) is kept beside it as a conservative bound.
+Beside them, the gap's interval over the adult bootstrap, and the gap for each
+pairing of the two genes' Allen experiments, each one Allen mouse.
 
 Every gene's rho with every surrogate is kept (null_rho.npz), so the set tests of
 analysis 3 read the same null as the genes.
@@ -39,7 +48,7 @@ Run by run_ish_gene_ranking.py.
 
 import numpy as np
 import pandas as pd
-from scipy.stats import false_discovery_control, spearmanr
+from scipy.stats import false_discovery_control, rankdata, spearmanr
 
 from sepmap.config import SETTINGS
 from sepmap.ish.spatial_null import null_rho, spatial_p
@@ -221,6 +230,47 @@ def per_adult_table(
 # ===== The Cacng8 - Gria1 gap =====
 
 
+def standardise_rows(x: np.ndarray) -> np.ndarray:
+    """Ranks along the last axis, centred and scaled to unit SD."""
+    r = rankdata(x, axis=-1).astype(float)
+    r = r - r.mean(axis=-1, keepdims=True)
+    return r / r.std(axis=-1, keepdims=True)
+
+
+# surrogates used to set the weight of the shared part of the equal null, and the
+# bisection steps that set it
+EQUAL_FIT = 1000
+EQUAL_STEPS = 40
+
+
+def equal_null(
+    first: np.ndarray, second: np.ndarray, surr: np.ndarray, target: float
+) -> tuple[np.ndarray, float]:
+    """Null gaps of maps equally related to both genes, and the weight c used.
+
+    Each null map is c z(z(first) + z(second)) + sqrt(1 - c^2) z(surrogate), on
+    ranks; c is found by bisection so that the mean, over the first EQUAL_FIT
+    surrogates, of the null maps' average rho with the two genes equals `target`.
+    """
+    shared = standardise_rows(standardise_rows(first) + standardise_rows(second))
+    noise = standardise_rows(surr)
+
+    def mean_rho(c: float, rows: np.ndarray) -> np.ndarray:
+        maps = c * shared[None, :] + np.sqrt(1 - c**2) * rows
+        return (null_rho(maps, first) + null_rho(maps, second)) / 2
+
+    lo, hi = 0.0, 1.0
+    for _ in range(EQUAL_STEPS):
+        c = (lo + hi) / 2
+        if mean_rho(c, noise[:EQUAL_FIT]).mean() < target:
+            lo = c
+        else:
+            hi = c
+    c = (lo + hi) / 2
+    maps = c * shared[None, :] + np.sqrt(1 - c**2) * noise
+    return null_rho(maps, first) - null_rho(maps, second), c
+
+
 def gap_row(
     map_values: np.ndarray,
     surr: np.ndarray,
@@ -228,11 +278,13 @@ def gap_row(
     first: dict[str, float],
     second: dict[str, float],
     structures: list[str],
-) -> tuple[dict, np.ndarray]:
-    """The gap rho(first) - rho(second) on the structures both have, and its null.
+) -> tuple[dict, np.ndarray, np.ndarray]:
+    """The gap rho(first) - rho(second) on the structures both have, and its nulls.
 
-    Returns a row (n_structures, rho of each, gap, spatial p, adult bootstrap
-    interval) and the null gaps, one per surrogate.
+    Returns a row (n_structures, rho of each, gap, its p against maps equally
+    related to both genes and against maps unrelated to both, both bands, the adult
+    bootstrap interval), the null gaps of the equal null and those of the unrelated
+    one, one per surrogate.
     """
     shared = [
         i
@@ -244,7 +296,8 @@ def gap_row(
     b = np.array([second[structures[i]] for i in shared])
     rho_a = float(spearmanr(map_values[columns], a).statistic)
     rho_b = float(spearmanr(map_values[columns], b).statistic)
-    null = null_rho(surr[:, columns], a) - null_rho(surr[:, columns], b)
+    unrelated = null_rho(surr[:, columns], a) - null_rho(surr[:, columns], b)
+    equal, weight = equal_null(a, b, surr[:, columns], (rho_a + rho_b) / 2)
     boot_gap = null_rho(boot[:, columns], a) - null_rho(boot[:, columns], b)
     gap = rho_a - rho_b
     row = dict(
@@ -252,13 +305,17 @@ def gap_row(
         rho_first=rho_a,
         rho_second=rho_b,
         gap=gap,
-        p_spatial=spatial_p(gap, null),
-        null_lo=float(np.percentile(null, BAND[0])),
-        null_hi=float(np.percentile(null, BAND[1])),
+        p_equal=spatial_p(gap, equal),
+        equal_lo=float(np.percentile(equal, BAND[0])),
+        equal_hi=float(np.percentile(equal, BAND[1])),
+        equal_weight=weight,
+        p_spatial=spatial_p(gap, unrelated),
+        null_lo=float(np.percentile(unrelated, BAND[0])),
+        null_hi=float(np.percentile(unrelated, BAND[1])),
         boot_lo=float(np.percentile(boot_gap, BAND[0])),
         boot_hi=float(np.percentile(boot_gap, BAND[1])),
     )
-    return row, null
+    return row, equal, unrelated
 
 
 def gap_table(
@@ -274,16 +331,18 @@ def gap_table(
 
     `per_experiment` is {gene: {experiment: {structure: energy}}}
     (ish.gene_table.experiment_profiles). Returns the table and the null gaps of
-    the merged profiles.
+    the merged profiles, equal null then unrelated null, 2 x surrogates.
     """
     first, second = genes
-    row, null = gap_row(map_values, surr, boot, merged[first], merged[second], structures)
+    row, equal, unrelated = gap_row(
+        map_values, surr, boot, merged[first], merged[second], structures
+    )
     rows = [
         dict(kind="merged profiles", first_experiment="", second_experiment="", **row)
     ]
     for ea, pa in sorted(per_experiment[first].items()):
         for eb, pb in sorted(per_experiment[second].items()):
-            pair, _ = gap_row(map_values, surr, boot, pa, pb, structures)
+            pair, _, _ = gap_row(map_values, surr, boot, pa, pb, structures)
             rows.append(
                 dict(
                     kind="experiment pairing",
@@ -295,7 +354,7 @@ def gap_table(
     out = pd.DataFrame(rows)
     out.insert(1, "first", first)
     out.insert(2, "second", second)
-    return out, null
+    return out, np.vstack([equal, unrelated])
 
 
 # ===== Reading back =====
@@ -315,8 +374,8 @@ def load_ranking() -> pd.DataFrame:
 def load_null_rho(map_name: str) -> tuple[np.ndarray, list[str]]:
     """Every gene's rho with every surrogate of one map, and the genes of its rows.
 
-    `map_name` gap gives the Cacng8 - Gria1 gap of every surrogate of the nano map,
-    one row.
+    `map_name` gap gives the Cacng8 - Gria1 gap of every null map, two rows: maps
+    equally related to both genes, then the surrogates of the nano map.
     """
     if not NULL_RHO.exists():
         raise FileNotFoundError(

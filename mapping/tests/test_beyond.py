@@ -208,3 +208,45 @@ def test_todays_tables_hold_the_model_the_april_row_and_the_calibration():
     calibration = pd.read_csv(BEYOND / "calibration.csv")
     counts = calibration["map"].value_counts()
     assert counts[bc.ABUNDANCE_DENSITY] == counts[bc.GRIA1] > 0
+
+
+def test_the_first_shuffling_is_the_single_one_of_26_september():
+    """fold_labels' first shuffling deals the folds as the single seeded one did."""
+    n = 126
+    order = np.random.default_rng(0).permutation(n)
+    label = bd.fold_labels(n, repeats=3)[0]
+    for k in range(5):
+        assert set(np.nonzero(label == k)[0]) == set(order[k::5])
+
+
+def test_spatial_blocks_keep_neighbours_in_one_fold():
+    """Structures of one k-means block always share a fold, and every fold is used."""
+    rng = np.random.default_rng(10)
+    centres = rng.uniform(0, 10, (20, 3))
+    xyz = np.repeat(centres, 6, axis=0) + 0.05 * rng.standard_normal((120, 3))
+    for label in bd.block_labels(xyz, n_blocks=20, repeats=3):
+        assert len(np.unique(label)) == 5
+        for i in range(20):
+            assert len(np.unique(label[6 * i : 6 * i + 6])) == 1
+
+
+def test_repeated_folds_score_a_known_model_as_one_shuffling_does_on_average():
+    """The mean over shufflings sits inside the spread of single shufflings."""
+    xs, truth = predictors_and_truth(n=150, seed=11)
+    y = rankdata(truth + np.random.default_rng(12).normal(0, 0.5, len(truth)))
+    single = [
+        bd.cv_r2(y, bd.flexible(xs), bd.fold_labels(len(y), repeats=1, seed=s))
+        for s in range(30)
+    ]
+    repeated = bd.cv_r2(y, bd.flexible(xs), bd.fold_labels(len(y), repeats=30))
+    assert min(single) <= repeated <= max(single)
+
+
+def test_jackknife_sd_of_a_mean_matches_its_standard_error():
+    """For a mean, the delete-d jackknife SD is close to SD / sqrt(n)."""
+    rng = np.random.default_rng(13)
+    x = rng.standard_normal(100)
+    d = 20
+    values = [np.delete(x, rng.choice(100, d, replace=False)).mean() for _ in range(2000)]
+    # 2000 subsamples: the jackknife SD is known to within about 3%
+    assert bc.jackknife_sd(values, 100, d) == pytest.approx(x.std(ddof=1) / 10, rel=0.08)

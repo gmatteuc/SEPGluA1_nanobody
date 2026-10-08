@@ -2775,7 +2775,7 @@ def label_null_panel(ax: plt.Axes, null: np.ndarray, row: pd.Series) -> None:
     ax.hist(null, bins=60, color=LIGHT_GREY)
     ax.axvline(row["difference"], color=RED, lw=1.8)
     for side in (-1, 1):
-        ax.axvline(side * row["detectable"], color=DARK_GREY, ls="--", lw=0.9)
+        ax.axvline(side * row["critical"], color=DARK_GREY, ls="--", lw=0.9)
     ax.set_xlabel("difference of the medians, labels permuted")
     ax.set_ylabel("permutations")
     tidy(ax)
@@ -2788,6 +2788,7 @@ def plot_localisation(
     pairs: dict[str, str],
     p_spatial: float,
     n_surrogates: int,
+    power: pd.DataFrame | None = None,
     panel_table: pd.DataFrame | None = None,
     save: Path | None = None,
 ) -> plt.Figure:
@@ -2839,7 +2840,7 @@ def plot_localisation(
         "B",
         "Its null, labels permuted between the two sets",
         f"p = {main['p_labels']:.3f}; dashed: the difference detectable at p < 0.05 "
-        f"(±{main['detectable']:.3f})\nthe same difference against the surrogates of "
+        f"(±{main['critical']:.3f})\nthe same difference against the surrogates of "
         f"the map: spatial {p_text(p_spatial, n_surrogates)}",
     )
     ax = fig.add_axes([0.69, 0.5, 0.28, 0.36])

@@ -51,8 +51,12 @@ the model of run_beyond_density; the real map read the same way. The method is i
 sepmap/adult/beyond_calibration.py. Writes, in adult_v2/ish_analysis/beyond/ under
 the data root:
 
-    calibration.csv    per map, direction and draw: the ceiling, the CV R2, the
-                       share left and the leftover's replication
+    calibration.csv            per folds (random, spatial blocks), map, direction
+                               and draw: the ceiling, the CV R2, the share left
+                               and the leftover's replication
+    calibration_jackknife.csv  per subsample of the calibration structures: the
+                               nano map's share left, the floor's, the Gria1
+                               map's, and the differences
 
     python run_beyond_calibration.py
 """

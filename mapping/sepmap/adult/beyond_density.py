@@ -21,16 +21,18 @@ The steps, each printing its numbers (the working figures fig0 to fig3 draw them
                         and the fit alone imply it would replicate at
     4  where it lives   which structures carry it and how consistently across
                         half-cohorts, and which genes' maps follow it, against the
-                        leftover's own spatial null
+                        leftover's own spatial null with the model removed from
+                        every surrogate (leftover_genes)
 
 Everything is one number per structure, on ranks:
 
     y            the ten adults' mean zref per structure (the declared reference,
                  A1), ranked
     abundance    the four AMPA receptor subunits Gria1, Gria2, Gria3 and Gria4, each
-                 its own term. The April model averaged their ranks into one
-                 composite; Gria4 runs against the map, so the average diluted
-                 Gria1. The composite stays as a check row (the April model)
+                 its own term. The model of 26 September (run again on 5 October)
+                 averaged their ranks into one composite; Gria4 runs against the
+                 map, so the average diluted Gria1. The composite stays as a check
+                 row (the composite model)
     density      the mean rank of the synaptic marker genes ([beyond] markers), and
                  the first principal component of the postsynaptic-density genes of
                  the ontology panel (role control_psd) that have a value in every
@@ -42,9 +44,13 @@ Everything is one number per structure, on ranks:
                  leftover; control E (adult.beyond_controls) checks that bending
                  further buys nothing
     CV R2        each structure predicted from a fit that never saw it: the
-                 structures are shuffled once with a fixed seed, cut into five
-                 folds, and each fold predicted from the other four. In-sample R2
-                 always grows with terms, so the held-out one is quoted
+                 structures are shuffled, cut into five folds, and each fold
+                 predicted from the other four; the share of variance missed is
+                 averaged over beyond.cv_repeats such shufflings (seeded), since
+                 one shuffling alone moves the leftover by several points.
+                 In-sample R2 always grows with terms, so the held-out one is
+                 quoted. Folds of spatial blocks (beyond.cv_blocks clusters of
+                 neighbouring structures) are a variant (adult.beyond_controls)
 
 The ceiling: the ten adults are split into two fives every possible way (126
 splits), the two half-maps are correlated, and Spearman-Brown turns their mean
@@ -53,16 +59,17 @@ agreement r into the reliability of the ten-adult map,
     ceiling = 2 r / (1 + r)
 
 A reliability is already a share of variance (true over observed), so the ceiling is
-not squared; the April code squared it once more. Then
+not squared; the code of 26 September squared it once more. Then
 
     explained    CV R2 / ceiling        the share of the reproducible map predicted
     left         1 - CV R2 / ceiling    the share not predicted: the leftover
 
-The leftover is quoted as a range (adult.beyond_figures resamples the structures)
-beside the calibration floor of adult.beyond_calibration: what the same model leaves
-of a map that is exactly receptor mRNA and synaptic density, measured with other
-Allen experiments. Part of any leftover is one Allen map disagreeing with another,
-and the floor says how much.
+The leftover is quoted as a range (adult.beyond_figures, a jackknife over the
+structures) beside the calibration floor of adult.beyond_calibration: what the same
+model leaves of a map that is exactly receptor mRNA and synaptic density, measured
+with other Allen experiments. Part of any leftover is one Allen map disagreeing with
+another, and the floor says how much; the difference between the two is taken on the
+same structures and resampled with them.
 
 The leftover replicating across mice is not separate evidence. If the map
 replicates, what is left of it once a smooth fit is removed must replicate too;
@@ -70,7 +77,8 @@ implied_replication gives the value that the ceiling and the fit alone predict, 
 the figures show it beside the observed one.
 
 The words: the leftover is "not predicted by receptor mRNA or synaptic density",
-never "beyond gene expression" (control F gives the model the whole gene panel).
+never "beyond gene expression" (control F gives the model the components of every
+gene measured in all the structures).
 Nothing here measures what the leftover is. The surface fraction of the receptor is
 the reading the data support; translation, turnover, subunit composition or
 nanobody access would land in the same place, and a total-GluA1 stain on the same
@@ -115,6 +123,7 @@ from dataclasses import dataclass
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy.cluster.vq import kmeans2
 from scipy.stats import rankdata, spearmanr
 
 from sepmap.adult import profiles
@@ -186,7 +195,10 @@ class Inputs:
 
 
 def structure_rows(
-    set_table: pd.DataFrame, expr: dict[str, dict[str, float]], auto_ok: pd.Series
+    set_table: pd.DataFrame,
+    expr: dict[str, dict[str, float]],
+    auto_ok: pd.Series,
+    markers: Sequence[str] = MARKERS,
 ) -> pd.DataFrame:
     """Every structure of the adult table: used by the fit or not, and why.
 
@@ -195,7 +207,7 @@ def structure_rows(
     adult has autofluorescence above background (`auto_ok`, by structure).
     Columns: structure, acronym, division, used, reason, missing_genes.
     """
-    needed = SUBUNITS + MARKERS
+    needed = SUBUNITS + tuple(markers)
     rows = []
     for r in set_table.itertuples():
         missing = [g for g in needed if r.structure not in expr.get(g, {})]
@@ -221,8 +233,11 @@ def structure_rows(
     return pd.DataFrame(rows)
 
 
-def load_inputs() -> Inputs:
-    """The adult profiles, the gene table's profiles and the structures of the fit."""
+def load_inputs(markers: Sequence[str] = MARKERS) -> Inputs:
+    """The adult profiles, the gene table's profiles and the structures of the fit.
+
+    `markers` replaces beyond.markers in the rule for the structures (a variant).
+    """
     per_mouse = profiles.load_per_mouse()
     set_table = load_structure_set()
     expr = gene_table.load_profiles()
@@ -233,7 +248,7 @@ def load_inputs() -> Inputs:
     # autofluorescence above background in every adult, by structure
     auto = per_mouse.pivot(index="mouse", columns="structure", values="zref_auto")
     auto_ok = auto.reindex(index=ADULTS).notna().all(axis=0)
-    rows = structure_rows(set_table, expr, auto_ok)
+    rows = structure_rows(set_table, expr, auto_ok, markers)
     used = sorted(rows.loc[rows["used"], "structure"])
     return Inputs(
         structures=used,
@@ -304,36 +319,102 @@ def flexible(predictors: Sequence[np.ndarray]) -> list[np.ndarray]:
     return list(predictors) + [x**2 for x in predictors] + [x**3 for x in predictors]
 
 
-def cv_predict(
-    y: np.ndarray, predictors: Sequence[np.ndarray], folds: int = 5
-) -> np.ndarray:
-    """Each structure's prediction from a fit that never saw it.
+def fold_labels(
+    n: int, folds: int = 5, repeats: int | None = None, seed: int = 0
+) -> list[np.ndarray]:
+    """The fold of each of n structures, one array per shuffling.
 
-    Structures are shuffled once with a fixed seed, cut into folds, and each fold
-    predicted from a least-squares fit on the others.
+    Each shuffling orders the structures at random and deals them into the folds in
+    turn; the first, with seed 0, is the single shuffling of 26 September.
+    beyond.cv_repeats shufflings by default.
+    """
+    if repeats is None:
+        repeats = BEYOND["cv_repeats"]
+    rng = np.random.default_rng(seed)
+    out = []
+    for _ in range(repeats):
+        order = rng.permutation(n)
+        label = np.empty(n, dtype=int)
+        label[order] = np.arange(n) % folds
+        out.append(label)
+    return out
+
+
+def block_labels(
+    xyz: np.ndarray,
+    n_blocks: int | None = None,
+    folds: int = 5,
+    repeats: int | None = None,
+    seed: int = 0,
+) -> list[np.ndarray]:
+    """Folds of spatial blocks: neighbouring structures held out together.
+
+    The structures' centroids (xyz, structures x 3, mm) are cut into
+    beyond.cv_blocks clusters (k-means, seeded); each shuffling deals the clusters
+    into the folds in turn. A structure is then predicted from a fit that saw none
+    of its neighbours, so smooth gradients cannot carry the prediction across.
+    """
+    if n_blocks is None:
+        n_blocks = BEYOND["cv_blocks"]
+    if repeats is None:
+        repeats = BEYOND["cv_repeats"]
+    _, block = kmeans2(np.asarray(xyz, float), n_blocks, seed=seed, minit="++")
+    rng = np.random.default_rng(seed)
+    out = []
+    for _ in range(repeats):
+        fold_of_block = np.empty(n_blocks, dtype=int)
+        fold_of_block[rng.permutation(n_blocks)] = np.arange(n_blocks) % folds
+        out.append(fold_of_block[block])
+    return out
+
+
+def cv_predictions(
+    y: np.ndarray,
+    predictors: Sequence[np.ndarray],
+    labels: list[np.ndarray] | None = None,
+) -> np.ndarray:
+    """Each structure's prediction from fits that never saw it, shufflings x structures.
+
+    `labels` holds the fold of each structure per shuffling (fold_labels by default);
+    each fold is predicted from a least-squares fit on the others.
     """
     n = len(y)
-    order = np.random.default_rng(0).permutation(n)
+    if labels is None:
+        labels = fold_labels(n)
     design = np.column_stack(list(predictors) + [np.ones(n)])
-    predicted = np.empty(n)
-    for k in range(folds):
-        test = order[k::folds]
-        train = np.setdiff1d(order, test)
-        predicted[test] = (
-            design[test] @ np.linalg.lstsq(design[train], y[train], rcond=None)[0]
-        )
-    return predicted
+    out = np.empty((len(labels), n))
+    for r, label in enumerate(labels):
+        for k in np.unique(label):
+            test = label == k
+            beta = np.linalg.lstsq(design[~test], y[~test], rcond=None)[0]
+            out[r, test] = design[test] @ beta
+    return out
 
 
-def cv_r2(y: np.ndarray, predictors: Sequence[np.ndarray], folds: int = 5) -> float:
-    """Variance explained on structures the fit has never seen (cv_predict).
+def cv_predict(
+    y: np.ndarray,
+    predictors: Sequence[np.ndarray],
+    labels: list[np.ndarray] | None = None,
+) -> np.ndarray:
+    """Each structure's held-out prediction, the mean over the shufflings."""
+    return cv_predictions(y, predictors, labels).mean(axis=0)
+
+
+def cv_r2(
+    y: np.ndarray,
+    predictors: Sequence[np.ndarray],
+    labels: list[np.ndarray] | None = None,
+) -> float:
+    """Variance explained on structures the fit has never seen (cv_predictions).
 
     The number to quote once a model has many terms: adding predictors always
     improves the in-sample fit, and only held-out structures can say whether it
-    improved the prediction.
+    improved the prediction. 1 minus the variance missed, averaged over the
+    shufflings, over the variance of y.
     """
-    predicted = cv_predict(y, predictors, folds)
-    return float(1 - np.var(y - predicted) / np.var(y))
+    predicted = cv_predictions(y, predictors, labels)
+    missed = np.var(y[None, :] - predicted, axis=1).mean()
+    return float(1 - missed / np.var(y))
 
 
 def half_splits() -> list[tuple[list[int], list[int]]]:
@@ -430,13 +511,15 @@ def build_covariates(
     role: dict[str, str],
     auto: np.ndarray,
     structures: list[str],
+    markers: Sequence[str] = MARKERS,
 ) -> tuple[dict[str, np.ndarray], list[str], float]:
     """Every predictor by name, built in one place so every module builds them alike.
 
-    Gria1 to Gria4 each ranked, their April composite (abundance_composite), the
-    marker composite, psd_pc1 and autofluo (the ranked mean of `auto`, adults x
-    structures). Returns the predictors, the postsynaptic-density genes behind
-    psd_pc1 and the share of their variance it carries.
+    Gria1 to Gria4 each ranked, their composite (abundance_composite, the model of
+    26 September), the marker composite, psd_pc1 and autofluo (the ranked mean of
+    `auto`, adults x structures). Returns the predictors, the postsynaptic-density
+    genes behind psd_pc1 and the share of their variance it carries. `markers`
+    replaces beyond.markers (a variant of adult.beyond_controls).
     """
     psd = sorted(
         g
@@ -446,7 +529,7 @@ def build_covariates(
     psd_pc1, share = first_pc(psd, expr, structures)
     out = {g: rankdata([expr[g][s] for s in structures]) for g in SUBUNITS}
     out["abundance_composite"] = composite(SUBUNITS, expr, structures)
-    out["markers"] = composite(MARKERS, expr, structures)
+    out["markers"] = composite(markers, expr, structures)
     out["psd_pc1"] = psd_pc1
     out["autofluo"] = rankdata(auto.mean(axis=0))
     return out, psd, share
@@ -459,7 +542,8 @@ def predictors(
 ) -> list[np.ndarray]:
     """The straight predictors of the groups named, in the order of the budget.
 
-    With `composite_abundance`, abundance is the April composite, one term.
+    With `composite_abundance`, abundance is the composite of 26 September, one
+    term.
     """
     names = []
     for group in groups:
@@ -490,14 +574,15 @@ def budget(
     covariates: dict[str, np.ndarray],
     explainable: float,
     composite_abundance: bool = False,
+    labels: list[np.ndarray] | None = None,
 ) -> list[float]:
     """The cumulative share of the explainable variance: abundance, + density, + auto.
 
-    Each step is the CV R2 of the bent model so far over the ceiling. The leftover
-    is 1 minus the last.
+    Each step is the CV R2 of the bent model so far over the ceiling (folds
+    `labels`, fold_labels by default). The leftover is 1 minus the last.
     """
     return [
-        cv_r2(y, model(covariates, ORDER[:k], composite_abundance)) / explainable
+        cv_r2(y, model(covariates, ORDER[:k], composite_abundance), labels) / explainable
         for k in range(1, len(ORDER) + 1)
     ]
 
@@ -626,7 +711,7 @@ def partition_models(c: dict[str, np.ndarray]) -> list[tuple[str, str, list]]:
         ("model", "abundance + density + autofluorescence", model(c)),
         (
             "april",
-            "April model: Gria1-4 composite + density + autofluorescence",
+            "model of 26 September: Gria1-4 composite + density + autofluorescence",
             model(c, composite_abundance=True),
         ),
     ]
@@ -846,11 +931,17 @@ def leftover_genes(
 
     The leftover is a map of its own, with its own smoothness, so a gene's rho with
     it is tested as in analysis 1: against the leftover's surrogates (Burt 2020, on
-    the structures' one-hemisphere centroids). Genes in the model correlate with
-    the leftover near zero by construction (in_model says which); a gene that
-    follows it predicts what receptor mRNA and synaptic density leave. The gene sets
-    of analysis 3 are read the same way. None of these tests was named before the
-    leftover was seen; they describe it.
+    the structures' one-hemisphere centroids). The leftover is what a fit leaves,
+    so it carries nothing of the model's columns; a surrogate drawn from it does
+    (about a third of its variance), and against it a gene sharing the model's
+    pattern would meet a null far too wide. So each surrogate goes through the same
+    fit and only its residual is kept (a Freedman-Lane null with spatial
+    surrogates). The subunits and markers enter the model directly and correlate
+    with the leftover near zero by construction; the postsynaptic-density genes
+    enter only through their first component, and need not (in_model says which).
+    A gene that follows the leftover predicts what receptor mRNA and synaptic
+    density leave. The gene sets of analysis 3 are read the same way. None of these
+    tests was named before the leftover was seen; they describe it.
 
     Returns the gene table, the set table, the surrogates, every gene's null rho
     (genes x surrogates) and the genes in the order of its rows.
@@ -859,12 +950,14 @@ def leftover_genes(
     centroids = load_centroids().loc[s]
     d = spatial_null.distance_matrix(centroids)
     surr = spatial_null.surrogates(res, d, seed=0)
+    design = np.column_stack(list(xs) + [np.ones(len(res))])
+    surr = surr - surr @ (design @ np.linalg.pinv(design)).T
     boot = leftover_boot(inputs.nano, xs)
     vectors = gene_ranking.gene_vectors(inputs.expr, s)
     table, null = gene_ranking.rank_genes(res, surr, boot, vectors)
     table = gene_ranking.with_q_and_ranks(table, inputs.p9_genes)
     in_model = {g: "abundance" for g in SUBUNITS}
-    in_model.update({g: "psd_pc1" for g in psd})
+    in_model.update({g: "PSD component" for g in psd})
     in_model.update({g: "markers" for g in MARKERS})
     table["in_model"] = table["symbol"].map(in_model).fillna("")
     table["p9_gene"] = table["symbol"].isin(inputs.p9_genes)

@@ -1,3 +1,2 @@
 symbol,experiment_id,sections,reason,status
-Tac1,1038,4 5,"the two most anterior judged sections, near zero where the profile rises slowly from the olfactory bulb; anterior Tac1 named as a true absence in the A2 specification",proposed
-Glra1,72108824,15 16 61,"15 and 16 lie in sections 13 to 43, where the forebrain has almost no Glra1; 61 lies between low sections 60 and 62; posterior Glra1 named as a true absence in the A2 specification",proposed
+Glra1,72108824,61,"61 is five-fold below the sections on both sides of it (0.05 against 0.28 before and 1.06 after), at the posterior end where Glra1 is low; posterior Glra1 named as a true absence in the A2 specification",proposed

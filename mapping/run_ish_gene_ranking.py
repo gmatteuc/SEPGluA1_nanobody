@@ -132,11 +132,18 @@ def numbers_table(ranking, gap, per_adult):
     rows += [
         ("gap", round(merged["gap"], 3), "rho(Cacng8) - rho(Gria1), merged profiles"),
         ("gap_structures", int(merged["n_structures"]), "structures both genes have"),
-        ("gap_p", round(merged["p_spatial"], 5), "the gap's spatial p"),
+        ("gap_p", round(merged["p_equal"], 5), "its p, maps related to both alike"),
+        ("gap_equal_lo", round(merged["equal_lo"], 3), "2.5% of that null"),
+        ("gap_equal_hi", round(merged["equal_hi"], 3), "97.5% of that null"),
+        ("gap_p_unrelated", round(merged["p_spatial"], 5), "its p, unrelated maps"),
+        ("gap_unrelated_lo", round(merged["null_lo"], 3), "2.5% of that null"),
+        ("gap_unrelated_hi", round(merged["null_hi"], 3), "97.5% of that null"),
         ("gap_boot_lo", round(merged["boot_lo"], 3), "2.5% over resampled adults"),
         ("gap_boot_hi", round(merged["boot_hi"], 3), "97.5% over resampled adults"),
         ("gap_pairs_min", round(pairs["gap"].min(), 3), "smallest over pairings"),
         ("gap_pairs_max", round(pairs["gap"].max(), 3), "largest over pairings"),
+        ("gap_pairs_p_min", round(pairs["p_equal"].min(), 5), "smallest p over pairings"),
+        ("gap_pairs_p_max", round(pairs["p_equal"].max(), 5), "largest p over pairings"),
     ]
     for gene in ("Gria1", "Cacng8"):
         mine = per_adult[per_adult["symbol"] == gene]
@@ -267,8 +274,10 @@ def main():
     np.savez(gene_ranking.NULL_RHO, genes=np.array(list(vectors)), gap=gap_null, **nulls)
     first = gap.iloc[0]
     print(
-        f"gap: {first['gap']:+.3f} on {first['n_structures']} structures, spatial p "
-        f"{first['p_spatial']:.4f}; {len(gap) - 1} pairings of experiments"
+        f"gap: {first['gap']:+.3f} on {first['n_structures']} structures, p "
+        f"{first['p_equal']:.4f} against maps related to both alike (c "
+        f"{first['equal_weight']:.3f}), {first['p_spatial']:.4f} against unrelated "
+        f"maps; {len(gap) - 1} pairings of experiments"
     )
 
     # the numbers for the text

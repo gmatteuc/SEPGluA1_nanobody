@@ -45,13 +45,17 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                the numbers for the text
 
 Spatial gradient, structure size, single animals, the whisker manipulation,
-curvature, the whole gene space and the reading; the controls are described in
+curvature, the whole gene space and the reading, and the variants of the quoted
+leftover under other folds and structures; described in
 sepmap/adult/beyond_controls.py. Writes, in adult_v2/ish_analysis/beyond/ under the
 data root:
 
     controls.csv            one row per control, with its number and verdict
     gene_space.csv          control F, per number of components
+    gene_space_calibration.csv  control F's own floor
+    gene_space_summary.csv  control F's numbers
     readings.csv            control G, per reading
+    variants.csv            the leftover under other folds and structures
     fig4_controls.png, fig5_model_space.png, fig6_readings.png   working figures
 
     python run_beyond_controls.py

@@ -21,7 +21,18 @@ and interpolation invents values. So here (A2):
                    ish_qc.neighbours on each side (600 um each way): wider than one
                    failed section, narrower than the brain's large gradients
     flagged        a judged section whose median is below ish_qc.local_fraction of
-                   its local reference, five-fold dimmer than its neighbours
+                   its local reference, five-fold dimmer than its neighbours, and
+                   also below that share of the brightest judged section within
+                   ish_qc.neighbours on each side (on the one side there is, at the
+                   end of a series). A failed section, or a run of up to three, is
+                   outshone on both sides; a section outshone on one side only sits
+                   at a step in expression (Cnih3 going from the forebrain into the
+                   midbrain, Nrgn into the cerebellum), which is anatomy
+    faint          a section whose local reference is below ish_qc.min_reference is
+                   not judged: its neighbours are themselves at the noise of the grids,
+                   and a five-fold drop there is a change in noise, not a failure.
+                   An experiment whose median section is below that level is
+                   labelled near zero (no detectable expression)
 
 A flagged section is set missing (NaN), as the grid's own -1 voxels are, and every
 other voxel is left as it was: nothing is interpolated. The structure means then
@@ -68,6 +79,7 @@ FLAGGED = "flagged"
 ABSENCE = "absence kept"
 NO_DATA = "no data"
 TOO_LITTLE_BRAIN = "too little brain"
+FAINT = "faint neighbours"
 
 
 def section_profile(vol: np.ndarray, brain: np.ndarray, axis: int) -> pd.DataFrame:
@@ -112,23 +124,57 @@ def local_reference(medians: np.ndarray, judged: np.ndarray) -> np.ndarray:
     return out
 
 
+def side_references(medians: np.ndarray, judged: np.ndarray) -> np.ndarray:
+    """Per section, the brightest judged section before it and after it, sections x 2.
+
+    Within ish_qc.neighbours on each side, the section itself left out; NaN on a
+    side with no judged section.
+    """
+    k_max = ISH_QC["neighbours"]
+    n = len(medians)
+    out = np.full((n, 2), np.nan)
+    for k in range(n):
+        before = [medians[j] for j in range(max(0, k - k_max), k) if judged[j]]
+        after = [medians[j] for j in range(k + 1, min(n, k + k_max + 1)) if judged[j]]
+        if before:
+            out[k, 0] = float(np.max(before))
+        if after:
+            out[k, 1] = float(np.max(after))
+    return out
+
+
 def flag_sections(profile: pd.DataFrame, kept_absent: set[int]) -> pd.DataFrame:
-    """The profile with its local reference and each section's status and reason.
+    """The profile with its references and each section's status and reason.
 
     `kept_absent` holds the sections an exception keeps as true absence. A status
-    is ok, flagged, absence kept, no data (no voxel with data in the brain) or too
-    little brain (fewer than ish_qc.min_plane_voxels in-brain voxels).
+    is ok, flagged, absence kept, no data (no voxel with data in the brain), too
+    little brain (fewer than ish_qc.min_plane_voxels in-brain voxels) or faint
+    neighbours (a local reference below ish_qc.min_reference). Columns added:
+    local_reference, and the brightest neighbour before and after
+    (brightest_before, brightest_after).
     """
     out = profile.copy()
     big = out["n_brain"].to_numpy() >= ISH_QC["min_plane_voxels"]
     has_data = out["n_valid"].to_numpy() > 0
-    judged = big & has_data
+    candidate = big & has_data
     medians = out["median_energy"].to_numpy()
-    ref = local_reference(medians, judged)
+    ref = local_reference(medians, candidate)
+    sides = side_references(medians, candidate)
     out["local_reference"] = ref
+    out["brightest_before"] = sides[:, 0]
+    out["brightest_after"] = sides[:, 1]
+    with np.errstate(invalid="ignore"):
+        faint = candidate & np.isfinite(ref) & (ref < ISH_QC["min_reference"])
+    judged = candidate & ~faint
 
-    # a judged section five-fold dimmer than its neighbours, unless reviewed as absence
-    dim = judged & np.isfinite(ref) & (medians < ISH_QC["local_fraction"] * ref)
+    # five-fold dimmer than its neighbours, and outshone on both sides (the side
+    # there is at the end of a series), unless reviewed as absence
+    fraction = ISH_QC["local_fraction"]
+    lowest_side = np.nanmin(np.where(np.isfinite(sides), sides, np.inf), axis=1)
+    with np.errstate(invalid="ignore"):
+        dim = judged & np.isfinite(ref) & (medians < fraction * ref)
+        step = dim & ~(medians < fraction * lowest_side)
+    dim = dim & ~step
     status, reason = [], []
     for k in range(len(out)):
         if not big[k]:
@@ -137,14 +183,20 @@ def flag_sections(profile: pd.DataFrame, kept_absent: set[int]) -> pd.DataFrame:
         elif not has_data[k]:
             status.append(NO_DATA)
             reason.append("no voxel with data in the brain")
+        elif faint[k]:
+            status.append(FAINT)
+            reason.append(
+                f"reference {ref[k]:.3g} below {ISH_QC['min_reference']}: noise level"
+            )
         elif dim[k] and k in kept_absent:
             status.append(ABSENCE)
             reason.append("dim, but listed as a true absence")
         elif dim[k]:
             status.append(FLAGGED)
-            reason.append(
-                f"median {medians[k]:.3g} below {ISH_QC['local_fraction']} x {ref[k]:.3g}"
-            )
+            reason.append(f"median {medians[k]:.3g} below {fraction} x {ref[k]:.3g}")
+        elif step[k]:
+            status.append(OK)
+            reason.append("dim against one side only: a step in expression")
         else:
             status.append(OK)
             reason.append("")
@@ -219,6 +271,8 @@ def experiment_qc(
         n_absence_kept=0,
         absence_sections="",
         exception_status="",
+        median_energy=np.nan,
+        near_zero=False,
     )
     try:
         vol = read_grid(eid, brain.shape)
@@ -249,6 +303,12 @@ def experiment_qc(
             str(k) for k in table.loc[table["status"] == ABSENCE, "section"]
         ),
         exception_status=exception.get("status", ""),
+    )
+    ok = table["status"].isin([OK, FLAGGED, ABSENCE, FAINT])
+    level = float(table.loc[ok, "median_energy"].median()) if ok.any() else np.nan
+    summary.update(
+        median_energy=level,
+        near_zero=bool(np.isfinite(level) and level < ISH_QC["min_reference"]),
     )
     return table, summary
 

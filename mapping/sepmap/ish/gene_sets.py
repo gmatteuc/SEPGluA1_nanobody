@@ -61,14 +61,35 @@ co-expression of a set's genes is kept in its null:
                    independent draws (the kind of null of the word test of April)
     localisation   ish.panel_test's design on the new inputs: each gene's partial
                    rho with the map once the subunit composite (the mean rank of
-                   the subunits) is removed from both; the localisation genes
-                   against the same number of other postsynaptic genes matched on
-                   expression (greedily, on log median energy), labels permuted
-                   between the two; a positive control (control genes with a
-                   reproducible map against those without, on |rho|) that must
-                   come out, or the test detects nothing; and the matched
-                   difference against the surrogates, each surrogate in place of
-                   the map
+                   the subunits, the design of 5 October) is removed from both; the
+                   localisation genes against the same number of other
+                   postsynaptic genes matched on expression (greedily, on log
+                   median energy), labels permuted between the two (a difference
+                   beyond the permutations' 95% reaches p < 0.05). Beside it: the
+                   same with the four subunits removed as separate terms (the
+                   abundance term of analysis 4, where the composite is diluted by
+                   Gria4), all controls, before partialling, reliable genes only,
+                   and the control pool of 5 October (secondary: it was added after
+                   the positive control failed with the GO pool)
+    its power      what the test can find: maps whose remainder, once the composite
+                   is removed, is a surrogate of the real remainder (its
+                   smoothness) plus c times the pattern that sets the localisation
+                   genes apart from their matched controls (the mean of their
+                   standardised partial profiles minus that of the controls), for
+                   a range of c; the share of such maps on which the label test gives
+                   p < 0.05 at each c, and the matched difference it then sees. At
+                   c = 0 the same share is the label test's false-positive rate on
+                   smooth maps. The smallest difference found in 80% of maps is
+                   what the test could detect
+    spatial p      the matched difference against maps whose remainder is a
+                   surrogate of the real remainder, the composite part kept (a
+                   Freedman-Lane null: the map's relation to the composite is not
+                   randomised, only the rest)
+    positive ctl   control genes with a reproducible map against those without, on
+                   |rho|: a difference that must exist, kept from April's design.
+                   It tests another statistic on other genes, so it shows that the
+                   permutation finds a real difference, not the power of the
+                   localisation test itself, which is what the power check gives
 
 Membership is computed by run_ish_gene_table.py, with the gene table; the context
 group by run_ish_gene_sets.py, from the same cached GO records. The tests are run by
@@ -94,6 +115,10 @@ SET_TESTS = TABLES / "set_tests.csv"
 CONTRAST_TESTS = TABLES / "contrasts.csv"
 LOCALISATION = TABLES / "localisation_test.csv"
 LOCALISATION_SUMMARY = TABLES / "localisation_summary.csv"
+LOCALISATION_POWER = TABLES / "localisation_power.csv"
+
+# the matched test with the four subunits removed as separate terms
+FOUR_SUBUNITS = "matched controls, four subunits removed"
 
 # the percentiles of a null distribution that a value must leave to pass at 0.05
 BAND = (2.5, 97.5)
@@ -371,11 +396,12 @@ def contrast_tests(
 
 def subunit_composite(
     subunits: list[str], profiles: dict[str, dict[str, float]], structures: list[str]
-) -> tuple[list[str], np.ndarray]:
-    """The structures every subunit has, and the mean of the subunits' ranks there."""
+) -> tuple[list[str], np.ndarray, list[np.ndarray]]:
+    """The structures every subunit has, the mean of the subunits' ranks there, and
+    each subunit's ranks."""
     common = [s for s in structures if all(s in profiles[g] for g in subunits)]
     ranks = [rankdata([profiles[g][s] for s in common]) for g in subunits]
-    return common, np.mean(ranks, axis=0)
+    return common, np.mean(ranks, axis=0), ranks
 
 
 def partial_rows(
@@ -386,12 +412,15 @@ def partial_rows(
     profiles: dict[str, dict[str, float]],
     reliability: dict[str, float],
     level: dict[str, float],
+    subunit_ranks: list[np.ndarray] | None = None,
 ) -> pd.DataFrame:
     """Plain and partial rho of each gene with the map, the composite removed.
 
     `genes` maps each gene to its side (localisation or control) and `map_values`
     holds the map on the `common` structures; a gene with fewer than
-    ish_panel_test.min_structures of them has no row.
+    ish_panel_test.min_structures of them has no row. With `subunit_ranks` (each
+    subunit's ranks on `common`), rho_partial_four is the partial rho with the four
+    subunits removed as separate terms.
     """
     rows = []
     for gene, side in genes.items():
@@ -407,6 +436,11 @@ def partial_rows(
                 n_structures=len(positions),
                 rho=float(spearmanr(x, values).statistic),
                 rho_partial=partial(x, values, [composite[positions]]),
+                rho_partial_four=(
+                    partial(x, values, [r[positions] for r in subunit_ranks])
+                    if subunit_ranks is not None
+                    else np.nan
+                ),
                 reliability=reliability.get(gene, np.nan),
                 median_energy=level.get(gene, np.nan),
             )
@@ -454,10 +488,11 @@ def localisation_tests(
     `table` is partial_rows' table, `pairs` each localisation gene's matched
     control. Rows: against the matched controls (the test), against all controls,
     before partialling, on the genes with a reproducible map only, and the positive
-    control. Each test has a generator of its own. Returns the table and each
+    control. Each test has a generator of its own; `critical` is the difference
+    beyond which the label permutation gives p < 0.05. Returns the table and each
     test's label-permutation null.
     """
-    seeds = np.random.SeedSequence(seed).spawn(5)
+    seeds = np.random.SeedSequence(seed).spawn(6)
     by = table.set_index("symbol")
     loc = list(table.loc[table["side"] == "localisation", "symbol"])
     ctrl = list(table.loc[table["side"] == "control", "symbol"])
@@ -471,6 +506,7 @@ def localisation_tests(
     low = [g for g in have if by.loc[g, "reliability"] < cut]
     tests = (
         ("matched controls", loc, matched, "rho_partial", False),
+        (FOUR_SUBUNITS, loc, matched, "rho_partial_four", False),
         ("all controls", loc, ctrl, "rho_partial", False),
         ("before partialling", loc, matched, "rho", False),
         (f"reliability {min_rel} or more", good_loc, good_ctrl, "rho_partial", False),
@@ -495,11 +531,42 @@ def localisation_tests(
                 median_second=float(np.median(b)),
                 difference=difference,
                 p_labels=p,
-                detectable=float(np.percentile(np.abs(null), 95)),
+                critical=float(np.percentile(np.abs(null), 95)),
                 reliability_cut=cut if absolute else np.nan,
             )
         )
     return pd.DataFrame(rows), nulls
+
+
+def remainder(map_values: np.ndarray, composite: np.ndarray) -> np.ndarray:
+    """The map's ranks once the composite's ranks and a constant are regressed out."""
+    design = np.column_stack([rankdata(composite), np.ones(len(composite))])
+    return residual_ranks(map_values, design)
+
+
+def gene_partials(
+    genes: list[str],
+    maps: np.ndarray,
+    common: list[str],
+    composite: np.ndarray,
+    profiles: dict[str, dict[str, float]],
+) -> np.ndarray:
+    """The partial rho of each gene with each map (a row of `maps`), genes x maps.
+
+    As partial_rows: each gene on the structures of `common` it has, the
+    composite removed from both sides.
+    """
+    out = []
+    for gene in genes:
+        positions = [i for i, s in enumerate(common) if s in profiles[gene]]
+        values = np.array([profiles[gene][common[i]] for i in positions])
+        out.append(null_partial(maps[:, positions], values, composite[positions]))
+    return np.array(out)
+
+
+def matched_difference(partials: np.ndarray, n_first: int) -> np.ndarray:
+    """Median partial rho of the first n_first rows minus that of the rest, per map."""
+    return np.median(partials[:n_first], axis=0) - np.median(partials[n_first:], axis=0)
 
 
 def matched_spatial(
@@ -510,26 +577,137 @@ def matched_spatial(
     composite: np.ndarray,
     profiles: dict[str, dict[str, float]],
 ) -> tuple[float, np.ndarray]:
-    """The matched difference against the surrogates, each one in place of the map.
+    """The matched difference against maps whose remainder is a surrogate.
 
-    `surr` holds the surrogates on the `common` structures, one per row. Returns
-    the two-sided p and the surrogate differences.
+    `surr` holds surrogates of the map's remainder (remainder()) on the `common`
+    structures, one per row; each is regressed on the composite again before the
+    partial rho, so the composite part of the map is kept and only the rest is
+    randomised. Returns the two-sided p and the surrogate differences.
     """
     loc = list(table.loc[table["side"] == "localisation", "symbol"])
     matched = sorted(set(pairs.values()))
-    partials = {}
-    for gene in loc + matched:
-        positions = [i for i, s in enumerate(common) if s in profiles[gene]]
-        values = np.array([profiles[gene][common[i]] for i in positions])
-        partials[gene] = null_partial(surr[:, positions], values, composite[positions])
-    first = np.median([partials[g] for g in loc], axis=0)
-    second = np.median([partials[g] for g in matched], axis=0)
+    partials = gene_partials(loc + matched, surr, common, composite, profiles)
     by = table.set_index("symbol")
     observed = float(
         np.median(by.loc[loc, "rho_partial"]) - np.median(by.loc[matched, "rho_partial"])
     )
-    null = first - second
+    null = matched_difference(partials, len(loc))
     return spatial_p(observed, null), null
+
+
+def shared_pattern(
+    genes: list[str],
+    common: list[str],
+    composite: np.ndarray,
+    profiles: dict[str, dict[str, float]],
+) -> np.ndarray:
+    """The mean of the genes' standardised partial profiles on `common`, standardised.
+
+    Each gene's ranks over the structures it has, the composite regressed out,
+    scaled to unit SD; the mean over the genes that have a value (0 where none
+    has), then scaled to mean 0 and SD 1.
+    """
+    total = np.zeros(len(common))
+    count = np.zeros(len(common))
+    for gene in genes:
+        positions = np.array([i for i, s in enumerate(common) if s in profiles[gene]])
+        values = np.array([profiles[gene][common[i]] for i in positions])
+        r = remainder(values, composite[positions])
+        total[positions] += r / r.std()
+        count[positions] += 1
+    pattern = np.divide(total, count, out=np.zeros_like(total), where=count > 0)
+    return (pattern - pattern.mean()) / pattern.std()
+
+
+def label_p(values: np.ndarray, n_first: int, order: np.ndarray) -> np.ndarray:
+    """Label-permutation p of the median difference, for every column of `values`.
+
+    `values` is genes x maps, the first n_first rows one side; `order` holds the
+    permutations of the rows (permutations x genes), the same for every map.
+    Two-sided, one added to both counts.
+    """
+    observed = matched_difference(values, n_first)
+    shuffled = values[order]
+    null = np.median(shuffled[:, :n_first], axis=1) - np.median(
+        shuffled[:, n_first:], axis=1
+    )
+    k = (np.abs(null) >= np.abs(observed)[None, :]).sum(axis=0)
+    return (k + 1) / (len(order) + 1)
+
+
+def power_curve(
+    table: pd.DataFrame,
+    pairs: dict[str, str],
+    surr: np.ndarray,
+    common: list[str],
+    map_values: np.ndarray,
+    composite: np.ndarray,
+    profiles: dict[str, dict[str, float]],
+    seed: int = 0,
+) -> pd.DataFrame:
+    """What the matched test finds when the localisation genes do shape the map.
+
+    For each effect c of ish_analysis.power_effects, ish_analysis.power_maps maps:
+    the map's composite part, plus its remainder's SD times (a surrogate of the
+    remainder, standardised, + c x the pattern that sets the localisation genes
+    apart from their controls: the difference of the two sets' shared patterns,
+    standardised). Per
+    effect: the median matched difference over the maps, the share with a label
+    p < 0.05 (ish_analysis.power_perm permutations) and the share beyond the 95%
+    band of the c = 0 maps' differences (the spatial test). Columns: effect,
+    median_difference, power_labels, power_spatial.
+    """
+    loc = list(table.loc[table["side"] == "localisation", "symbol"])
+    matched = sorted(set(pairs.values()))
+    genes = loc + matched
+    ranks = rankdata(map_values).astype(float)
+    rest = remainder(map_values, composite)
+    fitted = ranks - rest
+    pattern = shared_pattern(loc, common, composite, profiles) - shared_pattern(
+        matched, common, composite, profiles
+    )
+    pattern = (pattern - pattern.mean()) / pattern.std()
+    noise = surr[: ISH_ANALYSIS["power_maps"]].astype(float)
+    noise = (noise - noise.mean(axis=1, keepdims=True)) / noise.std(axis=1, keepdims=True)
+    rng = np.random.default_rng(seed)
+    order = np.array(
+        [rng.permutation(len(genes)) for _ in range(ISH_ANALYSIS["power_perm"])]
+    )
+    rows, band = [], None
+    for c in ISH_ANALYSIS["power_effects"]:
+        maps = fitted[None, :] + rest.std() * (noise + c * pattern[None, :])
+        partials = gene_partials(genes, maps, common, composite, profiles)
+        difference = matched_difference(partials, len(loc))
+        p = label_p(partials, len(loc), order)
+        if band is None:
+            band = np.percentile(np.abs(difference), 95)
+        rows.append(
+            dict(
+                effect=float(c),
+                median_difference=float(np.median(difference)),
+                power_labels=float((p < 0.05).mean()),
+                power_spatial=float((np.abs(difference) > band).mean()),
+            )
+        )
+    return pd.DataFrame(rows)
+
+
+def detectable(power: pd.DataFrame, column: str, level: float = 0.8) -> float:
+    """The median difference at which `level` of the maps are found; NaN if never.
+
+    Interpolated linearly between the two effects that bracket `level`.
+    """
+    power = power.sort_values("effect")
+    found = power[column].to_numpy()
+    difference = power["median_difference"].to_numpy()
+    above = np.nonzero(found >= level)[0]
+    if above.size == 0:
+        return float("nan")
+    k = int(above[0])
+    if k == 0:
+        return float(difference[0])
+    share = (level - found[k - 1]) / (found[k] - found[k - 1])
+    return float(difference[k - 1] + share * (difference[k] - difference[k - 1]))
 
 
 def load_tables() -> dict[str, pd.DataFrame]:
@@ -540,6 +718,7 @@ def load_tables() -> dict[str, pd.DataFrame]:
         contrasts=CONTRAST_TESTS,
         localisation=LOCALISATION,
         summary=LOCALISATION_SUMMARY,
+        power=LOCALISATION_POWER,
     )
     for path in paths.values():
         if not path.exists():

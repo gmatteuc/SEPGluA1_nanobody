@@ -8,6 +8,7 @@ import pytest
 from scipy.stats import spearmanr
 
 from sepmap import config
+from sepmap.ish.spatial_null import null_rho
 from sepmap.ish import divisions, gene_ranking, gene_sets, panel_test
 
 TABLES = Path(config.DATA) / "adult_v2" / "ish_analysis" / "tables"
@@ -79,7 +80,9 @@ def test_gap_uses_only_structures_both_genes_have():
     first = {s: v for s, v in zip(structures[:70], m[:70])}
     second = {s: v for s, v in zip(structures[20:], rng.standard_normal(60))}
     surr = np.array([rng.permutation(m) for _ in range(100)])
-    row, null = gene_ranking.gap_row(m, surr, surr[:10], first, second, structures)
+    row, equal, unrelated = gene_ranking.gap_row(
+        m, surr, surr[:10], first, second, structures
+    )
     assert row["n_structures"] == 50
     shared = list(range(20, 70))
     expected = (
@@ -87,7 +90,27 @@ def test_gap_uses_only_structures_both_genes_have():
         - spearmanr(m[shared], [second[structures[i]] for i in shared]).statistic
     )
     assert row["gap"] == pytest.approx(expected)
-    assert null.shape == (100,)
+    assert equal.shape == unrelated.shape == (100,)
+
+
+def test_equal_null_matches_the_observed_level_and_is_narrower():
+    """Maps related to both genes alike reach the observed mean rho, and their gaps
+    centre on zero with a narrower spread than those of unrelated maps."""
+    rng = np.random.default_rng(4)
+    _, a = smooth_map(150, seed=1)
+    _, b = smooth_map(150, seed=2)
+    surr = np.array([rng.permutation(a) for _ in range(400)])
+    target = 0.7
+    gaps, c = gene_ranking.equal_null(a, b, surr, target)
+    shared = gene_ranking.standardise_rows(
+        gene_ranking.standardise_rows(a) + gene_ranking.standardise_rows(b)
+    )
+    maps = c * shared + np.sqrt(1 - c**2) * gene_ranking.standardise_rows(surr)
+    level = (null_rho(maps, a) + null_rho(maps, b)) / 2
+    assert level.mean() == pytest.approx(target, abs=0.01)
+    assert abs(np.median(gaps)) < 0.02
+    unrelated = null_rho(surr, a) - null_rho(surr, b)
+    assert gaps.std() < unrelated.std()
 
 
 def test_division_only_map_has_one_value_per_division():
@@ -189,3 +212,30 @@ def test_todays_ranking_is_complete_and_consistent():
         assert int(mine["p9_gene"].sum()) == 100
         assert mine["q_all"].between(0, 1).all()
         assert (mine["p_spatial"] > 0).all()
+
+
+def test_vectorised_label_p_agrees_with_the_permutation_of_april():
+    """label_p gives panel_test.two_sample's p on the same data, within Monte Carlo."""
+    rng = np.random.default_rng(14)
+    a = rng.normal(0.2, 0.3, 40)
+    b = rng.normal(0.0, 0.3, 40)
+    values = np.concatenate([a, b])[:, None]
+    order = np.array([rng.permutation(80) for _ in range(4000)])
+    p_fast = gene_sets.label_p(values, 40, order)[0]
+    _, p_slow, _ = panel_test.two_sample(a, b, np.random.default_rng(15))
+    # 4000 and ish_panel_test.n_perm permutations: within about 0.02 near p 0.01
+    assert abs(p_fast - p_slow) < 0.02
+
+
+def test_detectable_difference_is_interpolated_at_80_percent():
+    """Between 60% at a difference of 0.06 and 100% at 0.10, 80% falls at 0.08."""
+    power = pd.DataFrame(
+        dict(
+            effect=[0.0, 0.5, 1.0],
+            median_difference=[0.0, 0.06, 0.10],
+            power_labels=[0.05, 0.6, 1.0],
+        )
+    )
+    assert gene_sets.detectable(power, "power_labels") == pytest.approx(0.08)
+    power["power_labels"] = [0.05, 0.2, 0.5]
+    assert np.isnan(gene_sets.detectable(power, "power_labels"))

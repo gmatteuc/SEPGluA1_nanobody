@@ -61,7 +61,9 @@ Writes, in adult_v2/ish_analysis/ under the data root:
                                        expression, its match
     tables/localisation_summary.csv    every test of the localisation design, and
                                        the test and positive control with the
-                                       control pool of 5 October
+                                       control pool of 5 October (secondary)
+    tables/localisation_power.csv      what the test finds when localisation genes
+                                       do shape the map, per effect size
     tables/numbers_gene_sets.csv       the numbers of this step, for the text
     figures/08_gene_sets.png           the sets against the null
     figures/09_localisation.png        localisation against matched controls
@@ -79,14 +81,16 @@ import pandas as pd
 from sepmap import config, plotting, structures
 from sepmap.adult import profiles
 from sepmap.ish import gene_ranking, gene_sets, gene_table, spatial_null
+from sepmap.structures import load_centroids
 from sepmap.ish import plotting as ish_plotting
 
 ISH_ANALYSIS = config.SETTINGS["ish_analysis"]
+SPATIAL_NULL = config.SETTINGS["spatial_null"]
 
 OUT = config.DATA / "adult_v2" / "ish_analysis"
 
 
-def numbers_table(members, tests, contrasts, summary):
+def numbers_table(members, tests, contrasts, summary, power):
     """The numbers of this step that the text quotes, one row each."""
     rows = []
     for name, symbols in members.items():
@@ -111,12 +115,30 @@ def numbers_table(members, tests, contrasts, summary):
         rows += [
             (f"localisation_{key}_difference", round(r["difference"], 4), r["test"]),
             (f"localisation_{key}_p", round(r["p_labels"], 5), r["test"]),
-            (f"localisation_{key}_detectable", round(r["detectable"], 4), r["test"]),
+            (f"localisation_{key}_critical", round(r["critical"], 4), r["test"]),
         ]
     main = summary.set_index("test").loc["matched controls"]
     rows.append(
         ("localisation_p_spatial", round(main["p_spatial"], 5), "matched, surrogates")
     )
+    zero = power[power["effect"] == 0].iloc[0]
+    rows += [
+        (
+            "localisation_label_fpr",
+            round(zero["power_labels"], 3),
+            "label test p < 0.05 on smooth maps with no effect",
+        ),
+        (
+            "localisation_detectable_labels",
+            round(gene_sets.detectable(power, "power_labels"), 4),
+            "smallest matched difference the label test finds in 80% of maps",
+        ),
+        (
+            "localisation_detectable_spatial",
+            round(gene_sets.detectable(power, "power_spatial"), 4),
+            "smallest matched difference the spatial test finds in 80% of maps",
+        ),
+    ]
     return pd.DataFrame(rows, columns=["name", "value", "what"], dtype=object)
 
 
@@ -174,13 +196,15 @@ def main():
     declared = structures.declared_structures()
     profile = profiles.load_profile()
     merged = gene_table.load_profiles()
-    common, composite = gene_sets.subunit_composite(members["subunits"], merged, declared)
+    common, composite, subunit_ranks = gene_sets.subunit_composite(
+        members["subunits"], merged, declared
+    )
     reliability, level = gene_levels(table)
     map_common = profile.loc[common, "zref_nano"].to_numpy(float)
     sides = {g: "localisation" for g in members["localisation"]}
     sides.update({g: "control" for g in members["other postsynaptic"]})
     loc_table = gene_sets.partial_rows(
-        sides, common, map_common, composite, merged, reliability, level
+        sides, common, map_common, composite, merged, reliability, level, subunit_ranks
     )
     pairs = gene_sets.matched_controls(loc_table, level)
     loc_table["matched_to"] = loc_table["symbol"].map(pairs).fillna("")
@@ -201,18 +225,29 @@ def main():
         panel_summary["test"].isin(["matched controls", "positive control"])
     ].copy()
     panel_summary["test"] = "5 October's controls, " + panel_summary["test"]
+    summary["role"] = "check"
+    summary.loc[summary["test"] == "matched controls", "role"] = "the test"
+    summary.loc[summary["test"] == "positive control", "role"] = "positive control"
+    panel_summary["role"] = "secondary"
     summary = pd.concat([summary, panel_summary], ignore_index=True)
 
-    # the matched difference against the map's surrogates
-    surr, listed = spatial_null.load_surrogates("nano")
-    if listed != declared:
-        raise ValueError(
-            "the surrogates were drawn on other structures than the declared set; "
-            "run run_ish_spatial_null.py --recompute"
-        )
-    columns = [listed.index(s) for s in common]
+    # the matched difference against maps whose remainder, once the composite is
+    # removed, is a surrogate of the real remainder; and the test's power
+    d = spatial_null.distance_matrix(load_centroids().loc[common])
+    rest = gene_sets.remainder(map_common, composite)
+    surr = spatial_null.surrogates(rest, d, seed=1)
     p_spatial, _ = gene_sets.matched_spatial(
-        loc_table, pairs, surr[:, columns], common, composite, merged
+        loc_table, pairs, surr, common, composite, merged
+    )
+    power = gene_sets.power_curve(
+        loc_table, pairs, surr, common, map_common, composite, merged
+    )
+    power.to_csv(gene_sets.LOCALISATION_POWER, index=False)
+    print(
+        "power: label test p < 0.05 on "
+        f"{power['power_labels'].iloc[0]:.1%} of maps with no effect; 80% found at a "
+        f"matched difference of {gene_sets.detectable(power, 'power_labels'):+.3f} "
+        f"(labels), {gene_sets.detectable(power, 'power_spatial'):+.3f} (spatial)"
     )
     summary["p_spatial"] = np.where(
         summary["test"] == "matched controls", p_spatial, np.nan
@@ -234,7 +269,7 @@ def main():
     )
 
     # the numbers for the text
-    numbers = numbers_table(shown, tests, contrasts, summary)
+    numbers = numbers_table(shown, tests, contrasts, summary, power)
     numbers.to_csv(tables / "numbers_gene_sets.csv", index=False)
 
     # figures 08 and 09
@@ -261,6 +296,7 @@ def main():
         pairs,
         p_spatial,
         n_surrogates,
+        power=power,
         panel_table=panel_table,
         save=figures / ish_plotting.figure_file("localisation"),
     )

@@ -44,12 +44,12 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     27. run_ish_overview       figures 00 and 14, the figure index;
                                the numbers for the text
 
-Bootstrap intervals over structures, the noise band of the replication, the
+Jackknife intervals over structures, the noise band of the replication, the
 numbers the text quotes, and the two figures; it reads the tables of steps 21 to
 24. The method is in sepmap/adult/beyond_figures.py. Writes, under
 adult_v2/ish_analysis/ in the data root:
 
-    beyond/bootstrap.csv                per replicate, the ceiling and the shares
+    beyond/jackknife.csv                per subsample, the ceiling and the shares
     beyond/numbers_for_the_caption.txt  the figures' numbers as sentences
     tables/numbers_beyond.csv           the numbers of analysis 4, for the text
     figures/03_beyond_budget.png        what receptor mRNA and density predict
