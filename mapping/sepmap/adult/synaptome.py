@@ -1,6 +1,6 @@
 """The measured synapse density: PSD95 puncta per structure in one adult mouse (Zhu 2018).
 
-Analysis 4 asks how much of the nano map receptor mRNA and synaptic density leave.
+Analysis 4 asks how much of the nano map Gria1 and synapse density leave.
 Its density terms so far are Allen ISH maps, and mRNA sits in cell bodies: a
 presynaptic marker's mRNA marks where the neurons that make the synapses sit, not
 where their synapses are. Zhu et al. 2018 counted excitatory synapses where they

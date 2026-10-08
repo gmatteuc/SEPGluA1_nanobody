@@ -73,7 +73,7 @@ DIVISION_ORDER = ["Isocortex", "OLF", "CTXsp", "HPF", "STR", "PAL", "TH", "HY", 
 DIVISION_ORDER += ["P", "MY", "CB"]
 
 # the guided figures in reading order, which is the order of the argument: the question
-# (00), the inputs (01, 02), how much of the map receptor mRNA and synaptic density
+# (00), the inputs (01, 02), how much of the map Gria1 and synapse density
 # leave (03, 04), whether the genes that set surface receptor follow the map better
 # than abundance genes, and the leftover itself (05 to 11), the controls and limits
 # (12 to 14), and the April headline as an appendix (15). A
@@ -107,7 +107,7 @@ QUESTIONS = {
     "structures": "Which structures enter every comparison, and how much does the "
     "declared reference move zref?",
     "genes": "Which genes, which Allen experiments, and how trustworthy is each map?",
-    "beyond_budget": "How much of the nano map do receptor mRNA and synaptic density "
+    "beyond_budget": "How much of the nano map do Gria1 and synapse density "
     "predict, and is what they leave real?",
     "beyond_where": "Where does the leftover live?",
     "one_comparison": "What does a gene's rho with the map mean, concretely?",
@@ -3381,7 +3381,7 @@ def plot_localisation(
     return saved(fig, save)
 
 
-# ===== 03 How much of the map receptor mRNA and synaptic density predict =====
+# ===== 03 How much of the map Gria1 and synapse density predict =====
 
 # the steps of the variance budget: abundance in the subunits' dark blue, density in
 # the pale blue of DENSITY_BLUE, autofluorescence in its channel's yellow, what is left
@@ -3392,6 +3392,26 @@ BUDGET_COLOURS = {
     "autofluorescence": AUTO,
     "components": MID_GREY,
     "left": RED,
+}
+
+# the variants of figure 03 G by their key in variants.csv, short; the number of
+# structures follows a row on other structures than the main model's
+VARIANT_LABELS = {
+    "main": "the main model",
+    "one_shuffling": "one shuffling of the folds",
+    "single_shufflings": "single shufflings (95%)",
+    "ten_folds": "ten folds",
+    "leave_one_out": "leave one out",
+    "spatial_blocks": "folds of spatial blocks",
+    "psd95": "density: PSD95 puncta",
+    "panel": "density: mRNA panel",
+    "panel_all": "density: mRNA panel",
+    "psd95_and_panel": "density: PSD95 and panel",
+    "panel_postsynaptic": "panel, postsynaptic markers",
+    "sap102": "density: SAP102 puncta",
+    "all_puncta": "density: every punctum",
+    "four_subunits": "abundance: Gria1 to Gria4",
+    "markers_once": "markers measured once out",
 }
 
 # structures named on the scatter of the whole model: this many each way
@@ -3470,23 +3490,30 @@ def hatched(ax: plt.Axes, y: float, start: float, width: float) -> None:
 
 
 def budget_panel(ax: plt.Axes, n: dict) -> None:
-    """D: the variance budget of the model, of the composite model and of control F.
+    """D: the variance budget of the main model, of its four-subunit variant and of
+    control F.
 
-    The model's leftover carries a bracket with its share and jackknife interval,
-    the calibration floor hatched at its start, and a dark blue mark where the
-    leftover would begin if the map left as much as a map of one Allen Gria1
+    The main model's leftover carries a bracket with its share and jackknife
+    interval, the calibration floor hatched at its start, and a dark blue mark where
+    the leftover would begin if the map left as much as a map of one Allen Gria1
     experiment does.
     """
-    steps, april = n["steps"], n["april_steps"]
+    steps = n["steps"]
     floor = n["floor"]
     end_model = steps[2]
-    end_april = april[2]
+    four = n["variants"].set_index("key").loc["four_subunits"]
+    four_steps = [
+        four["abundance"],
+        four["abundance"] + four["plus_density"],
+        1 - four["left"],
+    ]
+    end_four = four_steps[2]
     rows = [
         (
             2,
-            "the model\n(Gria1-4 as four terms)",
+            f"the main model\n({n['abundance']}, synapse density,\nautofluorescence)",
             [
-                ("abundance", 0, steps[0], f"Gria1-4\n{steps[0]:.0%}"),
+                ("abundance", 0, steps[0], f"{n['abundance']}\n{steps[0]:.0%}"),
                 (
                     "density",
                     steps[0],
@@ -3499,17 +3526,17 @@ def budget_panel(ax: plt.Axes, n: dict) -> None:
         ),
         (
             1,
-            "the composite model of 26 September\n(Gria1-4 averaged into one term)",
+            "check row: Gria1 to Gria4\nin place of Gria1, four terms",
             [
-                ("abundance", 0, april[0], f"Gria1-4\n{april[0]:.0%}"),
+                ("abundance", 0, four_steps[0], f"Gria1-4\n{four_steps[0]:.0%}"),
                 (
                     "density",
-                    april[0],
-                    min(april[1], end_april),
-                    f"+ density\n{april[1] - april[0]:.0%}",
+                    four_steps[0],
+                    min(four_steps[1], end_four),
+                    f"+ density\n{four_steps[1] - four_steps[0]:.0%}",
                 ),
-                ("autofluorescence", april[1], end_april, ""),
-                ("left", end_april, 1, f"left\n{1 - end_april:.0%}"),
+                ("autofluorescence", four_steps[1], end_four, ""),
+                ("left", end_four, 1, f"left\n{1 - end_four:.0%}"),
             ],
         ),
         (
@@ -3626,7 +3653,7 @@ def calibration_panel(ax: plt.Axes, calibration: pd.DataFrame, n: dict) -> None:
             "s",
             DARK_GREY,
             DARK_GREY,
-            "known answer: receptor mRNA + density (the floor)",
+            "known answer: Gria1 + synapse density (the floor)",
         ),
         (
             "Gria1 mRNA",
@@ -3686,7 +3713,8 @@ def calibration_panel(ax: plt.Axes, calibration: pd.DataFrame, n: dict) -> None:
         elinewidth=1.4,
         capsize=3,
         zorder=5,
-        label=f"nano, the model ({n['n_structures']} structures; 95% over structures)",
+        label=f"nano, the main model ({n['n_structures']} structures; 95% over "
+        "structures)",
     )
     ax.set_xlim(0, max(0.5, calibration["left"].max() + 0.04))
     ax.set_ylim(min(0.6, calibration["replication"].min() - 0.03), 1.0)
@@ -3749,11 +3777,18 @@ def replication_panel(ax: plt.Axes, replication: pd.DataFrame, n: dict) -> None:
 
 
 def variants_panel(ax: plt.Axes, n: dict) -> None:
-    """G: the leftover under other folds and structures, the quoted one red."""
+    """G: the leftover under other folds, models and structures, the main one red.
+
+    A row on structures other than the main model's names their number; a dotted
+    line separates the kinds of variant.
+    """
     table = n["variants"].reset_index(drop=True)
     y = np.arange(len(table))
+    for i in range(1, len(table)):
+        if table.loc[i, "kind"] != table.loc[i - 1, "kind"]:
+            ax.axhline(i - 0.5, color=MID_GREY, lw=0.6, ls=(0, (1, 2)), zorder=0)
     for i, r in table.iterrows():
-        colour = RED if r["variant"].startswith("quoted") else "0.15"
+        colour = RED if r["kind"] == "main" else "0.15"
         if np.isfinite(r["lo"]):
             ax.plot([r["lo"], r["hi"]], [i, i], color=MID_GREY, lw=2, zorder=1)
         ax.scatter(r["left"], i, s=30, color=colour, zorder=2)
@@ -3766,14 +3801,14 @@ def variants_panel(ax: plt.Axes, n: dict) -> None:
             va="bottom",
             color=colour,
         )
-    labels = [
-        f"{r['variant']}, {int(r['n_structures'])}"
-        if r["n_structures"] != table["n_structures"].iloc[0]
-        else r["variant"]
-        for _, r in table.iterrows()
-    ]
+    labels = []
+    for _, r in table.iterrows():
+        label = VARIANT_LABELS.get(r["key"], r["variant"])
+        if r["n_structures"] != table["n_structures"].iloc[0]:
+            label += f", {int(r['n_structures'])}"
+        labels.append(label)
     ax.set_yticks(y)
-    ax.set_yticklabels([textwrap.fill(t, 34) for t in labels], fontsize=7)
+    ax.set_yticklabels(labels, fontsize=7)
     ax.set_ylim(len(table) - 0.4, -0.8)
     ax.set_xlim(0, 0.6)
     ticks = np.arange(0, 0.61, 0.2)
@@ -3796,7 +3831,7 @@ def plot_beyond_budget(
     replication: pd.DataFrame,
     save: Path | None = None,
 ) -> plt.Figure:
-    """Figure 03: how much of the map receptor mRNA and synaptic density predict.
+    """Figure 03: how much of the map Gria1 and synapse density predict.
 
     `y` is the map's ranks on `structures`, `gria1` Gria1's, `held_out` each
     structure's prediction by the density model and by the whole model from fits
@@ -3840,7 +3875,8 @@ def plot_beyond_budget(
         "A",
         "The nano map against Gria1 mRNA",
         f"rho {rho_g:+.2f} on the fit's {n['n_structures']} structures; Gria1 "
-        f"alone,\nbent, predicts {n['partition']['gria1']:.0%} of the reproducible map",
+        f"alone,\nbent, predicts {n['partition']['abundance']:.0%} of the reproducible "
+        "map",
     )
     ax = fig.add_axes([0.39, top, size, size * 16 / 19])
     map_scatter(
@@ -3848,15 +3884,14 @@ def plot_beyond_budget(
         held_out["density"],
         y,
         groups,
-        "what synaptic density predicts (held out), rank",
+        "what synapse density predicts (held out), rank",
     )
     panel_title(
         ax,
         "B",
-        "The nano map against synaptic density",
-        f"{n['n_markers']} marker genes and the first component of {n['psd_genes']}\n"
-        f"postsynaptic-density genes, bent: {n['partition']['density']:.0%} of the "
-        "reproducible map",
+        "The nano map against synapse density",
+        f"{textwrap.fill(n['density_label'], 60)},\nbent: "
+        f"{n['partition']['density']:.0%} of the reproducible map",
     )
     ax = fig.add_axes([0.72, top, size, size * 16 / 19])
     map_scatter(
@@ -3879,8 +3914,9 @@ def plot_beyond_budget(
         ax,
         "C",
         "The nano map against the whole model",
-        f"Gria1-4, density and autofluorescence, bent: {n['steps'][2]:.0%} of\nthe "
-        "reproducible map; the spread off the diagonal is the leftover",
+        f"{n['abundance']}, synapse density and autofluorescence, bent: "
+        f"{n['steps'][2]:.0%} of\nthe reproducible map; the spread off the diagonal is "
+        "the leftover",
     )
 
     # D: the budget; G: its variants
@@ -3889,8 +3925,8 @@ def plot_beyond_budget(
     fig.text(
         0.06,
         0.635,
-        "D.  The variance budget, on structures the fit has not seen: what the four "
-        "subunits predict, what synaptic density adds, what is left",
+        f"D.  The variance budget, on structures the fit has not seen: what "
+        f"{n['abundance']} predicts, what synapse density adds, what is left",
         fontsize=9,
         va="bottom",
     )
@@ -3900,7 +3936,7 @@ def plot_beyond_budget(
     panel_title(
         ax,
         "G",
-        "The leftover under other choices",
+        "Other folds, models, structures",
         f"spatial blocks on the {n['cal_n']}\nstructures: nano {blocks['nano']:.0%}, "
         f"floor {blocks['floor']:.0%},\nGria1 map {blocks['gria1']:.0%}",
     )
@@ -3945,7 +3981,7 @@ def plot_beyond_budget(
             "everywhere predict most of the map, though no single gene or set follows "
             f"the leftover ({figure_ref('leftover_genes')}).",
             "What would mean what: a leftover well above the floor: part of the map is "
-            "set by something receptor mRNA and synaptic density do not predict; no "
+            "set by something Gria1 expression and synapse density do not predict; no "
             "larger than a one-gene map's: its size is within",
             "what one Allen experiment disagreeing with another produces. Either way it "
             "is what the model does not predict, not a measurement of the surface "
@@ -3972,7 +4008,7 @@ LEFTOVER_NAMED = ("Cacng8", "Gria1", "Dlg2")
 def leftover_planes(fig: plt.Figure, grid, planes: list[dict], span: float) -> list:
     """A: map, prediction and leftover on each plane; returns the two images to key."""
     images = []
-    titles = ("the nano map", "what receptor mRNA and density predict", "the leftover")
+    titles = ("the nano map", "what Gria1 and synapse density predict", "the leftover")
     for r, plane in enumerate(planes):
         lab = plane["lab"]
         no_value = np.isnan(plane["map"]) & (lab > 0)
@@ -4175,8 +4211,8 @@ def plot_beyond_where(
     footer(
         fig,
         [
-            "How to read: the leftover is the nano rank minus the rank receptor mRNA, "
-            "synaptic density and autofluorescence predict (in-sample fit), on the "
+            "How to read: the leftover is the nano rank minus the rank Gria1, synapse "
+            "density and autofluorescence predict (in-sample fit), on the "
             "structures of the fit; the bars' grey says how steady it is across the "
             "ten adults' own leftovers.",
             "What would mean what: a structure far from prediction in every adult is "
@@ -4243,12 +4279,12 @@ def plot_leftover_genes(
             "How to read: the leftover is a fit's residual, so it carries nothing of "
             "the model's columns; each surrogate goes through the same fit before it "
             "is correlated (a Freedman-Lane null), so a gene sharing the model's",
-            "pattern meets a null of the right width. The subunits and markers enter "
+            "pattern meets a null of the right width. Gria1 and the markers enter "
             "the model and sit near zero by construction; the PSD genes enter only "
             "through their first component and need not.",
-            "None of these tests was named before the leftover was seen. What would "
-            "mean what: a gene or a set past its band follows what receptor mRNA and "
-            "density leave, a lead on what the leftover is, to be tested afresh;",
+            "Cacng8 and the AMPA receptor complex family were named for the leftover in "
+            "advance; every other gene here is exploratory. What would mean what: a gene "
+            "or a set past its band follows what Gria1 and synapse density leave;",
             "nothing past its band: no map in the gene table looks like the leftover.",
         ],
     )

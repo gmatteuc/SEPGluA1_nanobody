@@ -1,9 +1,9 @@
-"""Seven attempts to break the result of adult.beyond_density.
+"""Seven attempts to break the result of adult.beyond_density, and its check rows.
 
 That module finds part of the adult map's reproducible pattern not predicted by
-receptor mRNA or synaptic density, with a leftover that replicates across mice. Each
-control below is a specific way that could be an artefact, with the number that says
-whether it is:
+Gria1 expression or synapse density, with a leftover that replicates across mice.
+Each control below is a specific way that could be an artefact, with the number that
+says whether it is:
 
     A  a smooth spatial gradient?     an illumination artefact would look like
                                       one; anatomy would not. Positions are the
@@ -29,7 +29,7 @@ whether it is:
                                       same model leaves of a map made of those
                                       genes' expression (its own calibration
                                       floor). It is why the leftover is "not
-                                      predicted by receptor mRNA or synaptic
+                                      predicted by Gria1 expression or synapse
                                       density" and never "beyond gene expression"
     G  zref?                          the same test on the other readings of the
                                       map, and on zref with the 17-brain reference
@@ -41,10 +41,22 @@ fold (nested), since the best of many held-out scores is itself optimistic.
 Everything is imported from adult.beyond_density, so the two modules use the same
 structures, predictors and arithmetic.
 
-Beside the controls, the variants: the quoted leftover under other folds (one
-shuffling, single shufflings, ten folds, leave one out, spatial blocks) and on the
-larger set of structures that the rule keeps once the markers measured by a single
-Allen experiment are left out.
+Beside the controls, the variants, each with its own ceiling and budget on its
+own structures:
+
+    folds        the main model under other folds: one shuffling, single
+                 shufflings, ten folds, leave one out, spatial blocks
+    model        the check rows of [beyond.variants], fixed with the main model on
+                 8 October, each changing one thing of it: the density measure
+                 (PSD95 puncta, SAP102 puncta or every punctum, on the structures
+                 where it is measured; the mRNA panel on those same structures, so
+                 the two measures meet on equal ground; PSD95 and the panel
+                 together, the conservative bound, since one measured map in place
+                 of the panel's two terms gives the model fewer terms; the panel
+                 without its presynaptic markers), or the abundance (Gria1 to Gria4,
+                 four terms). The row that is the main model is not repeated
+    structures   the larger set of structures that the rule keeps once the markers
+                 measured by a single Allen experiment are left out
 
 Writes, in adult_v2/ish_analysis/beyond/ under the data root:
 
@@ -55,7 +67,8 @@ Writes, in adult_v2/ish_analysis/beyond/ under the data root:
     gene_space_summary.csv  control F's numbers: genes, components picked, nested
                             share of the ceiling, replication
     readings.csv            control G: per reading, R2 and the two replications
-    variants.csv            the leftover under other folds and structures
+    variants.csv            the main model and every variant: structures, budget,
+                            density alone, share left
     fig4_controls.png       A to D, the four artefact checks
     fig5_model_space.png    E and F, how much any model of this data can explain
     fig6_readings.png       G, the same test on every reading
@@ -74,15 +87,20 @@ from sepmap.adult import beyond_calibration as bc
 from sepmap.adult import profiles
 from sepmap.adult.beyond_density import (
     ADULTS,
+    BEYOND,
     MARKERS,
+    MEASURED,
     NAIVE_ROWS,
     OUT,
+    PANEL,
+    PRESYNAPTIC,
     RWS_ROWS,
+    SUBUNITS,
     Inputs,
     block_labels,
     budget,
-    build_covariates,
     ceiling,
+    covariates_for,
     cv_r2,
     flexible,
     fold_labels,
@@ -91,11 +109,13 @@ from sepmap.adult.beyond_density import (
     leftover_agreement,
     load_inputs,
     model,
+    model_terms,
     per_adult_leftovers,
     predictors,
     r_squared,
     replicates,
     residual,
+    restrict,
     save,
 )
 from sepmap.config import SETTINGS
@@ -322,16 +342,17 @@ def control_d_groups(
 
 
 def control_e_curvature(
-    y: np.ndarray, covariates: dict[str, np.ndarray]
+    y: np.ndarray, covariates: dict[str, np.ndarray], terms: dict[str, tuple[str, ...]]
 ) -> tuple[dict[str, str], float, float, float]:
     """Control E: whether the bent model bends enough.
 
-    The predictors straight, to cubes (the model) and to fifth powers, each scored
-    on held-out structures. If fifth powers still buy prediction, part of the
-    leftover is the model's failing. Returns the verdict row and the three CV R2.
+    The main model's predictors (`terms`) straight, to cubes (the model) and to
+    fifth powers, each scored on held-out structures. If fifth powers still buy
+    prediction, part of the leftover is the model's failing. Returns the verdict
+    row and the three CV R2.
     """
     print("\nE  is the model bent enough? (does more curvature keep paying?)")
-    xs = predictors(covariates)
+    xs = predictors(covariates, terms)
     linear = cv_r2(y, xs)
     cubic = cv_r2(y, flexible(xs))
     quintic = cv_r2(y, flexible(xs) + [x**4 for x in xs] + [x**5 for x in xs])
@@ -580,6 +601,151 @@ def once_measured_markers() -> list[str]:
     return [g for g in MARKERS if int(genes.loc[g, "n_experiments_used"]) == 1]
 
 
+def budget_row(
+    kind: str,
+    key: str,
+    label: str,
+    y: np.ndarray,
+    covariates: dict[str, np.ndarray],
+    terms: dict[str, tuple[str, ...]],
+    explainable: float,
+    labels: list[np.ndarray] | None = None,
+) -> dict:
+    """One row of variants.csv: a model's budget and its density alone, held out.
+
+    The shares are of the reproducible map on the row's own structures (its
+    `explainable` ceiling), with folds `labels` (the main model's by default).
+    """
+    steps = budget(y, covariates, terms, explainable, labels)
+    density = cv_r2(y, model(covariates, terms, ("density",)), labels) / explainable
+    return dict(
+        kind=kind,
+        key=key,
+        variant=label,
+        n_structures=len(y),
+        abundance_terms=" ".join(terms["abundance"]),
+        density_terms=" ".join(terms["density"]),
+        abundance=steps[0],
+        plus_density=steps[1] - steps[0],
+        plus_autofluorescence=steps[2] - steps[1],
+        left=1 - steps[2],
+        lo=np.nan,
+        hi=np.nan,
+        density_alone=density,
+    )
+
+
+def fold_rows(
+    inputs: Inputs,
+    covariates: dict[str, np.ndarray],
+    y: np.ndarray,
+    explainable: float,
+    coords: dict[str, np.ndarray],
+) -> list[dict]:
+    """The main model under its own folds and under others.
+
+    Its folds (beyond.cv_repeats shufflings of five), the single shuffling of 26
+    September, single shufflings (beyond_controls.n_single of them: the median row
+    with the 95% range of the share left), ten folds, leave one out, and folds of
+    spatial blocks.
+    """
+    n = len(y)
+    terms = inputs.terms
+    xyz = np.array([coords[x] for x in inputs.structures])
+    folds = [
+        (
+            "main",
+            f"the main model ({BEYOND['cv_repeats']} shufflings of five folds)",
+            None,
+        ),
+        (
+            "one_shuffling",
+            "one shuffling (the folds of 26 September)",
+            fold_labels(n, repeats=1),
+        ),
+        ("ten_folds", "ten folds", fold_labels(n, folds=10)),
+        ("leave_one_out", "leave one out", [np.arange(n)]),
+        ("spatial_blocks", "folds of spatial blocks", block_labels(xyz)),
+    ]
+    rows = []
+    for key, label, labels in folds:
+        kind = "main" if key == "main" else "folds"
+        rows.append(
+            budget_row(kind, key, label, y, covariates, terms, explainable, labels)
+        )
+
+    # the spread a single shuffling would have
+    rng = np.random.default_rng(0)
+    single = []
+    for _ in range(BEYOND_CONTROLS["n_single"]):
+        labels = fold_labels(n, repeats=1, seed=int(rng.integers(1 << 30)))
+        single.append(
+            budget_row("folds", "", "", y, covariates, terms, explainable, labels)
+        )
+    table = pd.DataFrame(single)
+    row = table.median(numeric_only=True).to_dict()
+    row.update(
+        kind="folds",
+        key="single_shufflings",
+        variant=f"single shufflings ({len(single)})",
+        n_structures=n,
+        abundance_terms=" ".join(terms["abundance"]),
+        density_terms=" ".join(terms["density"]),
+        lo=float(np.percentile(table["left"], 2.5)),
+        hi=float(np.percentile(table["left"], 97.5)),
+    )
+    rows.insert(2, row)
+    return rows
+
+
+def on_measured(inputs: Inputs, measures: Sequence[str]) -> Inputs:
+    """The inputs on the structures where every one of `measures` is measured."""
+    values = inputs.synapses[list(measures)]
+    return restrict(inputs, list(values.index[values.notna().all(axis=1)]))
+
+
+def variant_models(inputs: Inputs) -> list[tuple[str, Inputs, dict, tuple[str, ...]]]:
+    """The check rows of [beyond.variants]: (key, inputs, terms, markers) of each.
+
+    `inputs` are those of the main model, read with the measured densities. A
+    measured density runs on the structures where it is measured; panel_all on
+    every structure of the fit, read without the synaptome. The row identical to
+    the main model (panel_all while the panel is the main density) is left out.
+    """
+    fit = load_inputs(measured=False)
+    psd95 = on_measured(inputs, MEASURED)
+    postsynaptic = tuple(g for g in MARKERS if g not in PRESYNAPTIC)
+    rows = [
+        ("psd95", psd95, model_terms(MEASURED), MARKERS),
+        ("panel", psd95, model_terms(PANEL), MARKERS),
+        ("panel_all", fit, model_terms(PANEL), MARKERS),
+        ("psd95_and_panel", psd95, model_terms(MEASURED + PANEL), MARKERS),
+        ("panel_postsynaptic", inputs, model_terms(PANEL), postsynaptic),
+        ("sap102", on_measured(inputs, ("sap102",)), model_terms(("sap102",)), MARKERS),
+        (
+            "all_puncta",
+            on_measured(inputs, ("all_puncta",)),
+            model_terms(("all_puncta",)),
+            MARKERS,
+        ),
+        (
+            "four_subunits",
+            inputs,
+            model_terms(inputs.terms["density"], SUBUNITS),
+            MARKERS,
+        ),
+    ]
+    return [
+        r
+        for r in rows
+        if not (
+            r[1].structures == inputs.structures
+            and r[2] == inputs.terms
+            and r[3] == MARKERS
+        )
+    ]
+
+
 def variants(
     inputs: Inputs,
     covariates: dict[str, np.ndarray],
@@ -587,67 +753,50 @@ def variants(
     explainable: float,
     coords: dict[str, np.ndarray],
 ) -> pd.DataFrame:
-    """variants.csv: the quoted leftover under other folds and on other structures.
+    """variants.csv: the main model, its other folds, its check rows, its structures.
 
-    Rows: the quoted folds (beyond.cv_repeats shufflings of five), the single
-    shuffling of 26 September, single shufflings (beyond_controls.n_single of them:
-    median and 95% range), ten folds, leave one out, folds of spatial blocks, and
-    the model on the structures the rule keeps once the markers measured by one
-    Allen experiment are left out (their ceiling recomputed there).
+    One row each (kind main, folds, model or structures) with the structures it
+    runs on, its terms, its budget (abundance, + density, + autofluorescence, left),
+    and its density terms alone, held out; every share is of the reproducible map
+    on the row's own structures, its ceiling recomputed there. The last row is the
+    main model on the structures the rule keeps once the markers measured by one
+    Allen experiment are left out (only while the panel is the main density).
     """
-    n = len(y)
-    rng = np.random.default_rng(0)
-    xyz = np.array([coords[x] for x in inputs.structures])
-    folds = [
-        ("quoted: 20 shufflings of five folds", None),
-        ("one shuffling (the folds of 26 September)", fold_labels(n, repeats=1)),
-        ("ten folds", fold_labels(n, folds=10)),
-        ("leave one out", [np.arange(n)]),
-        ("folds of spatial blocks", block_labels(xyz)),
-    ]
-    rows = []
-    for label, labels in folds:
-        left = 1 - budget(y, covariates, explainable, labels=labels)[-1]
-        rows.append(dict(variant=label, n_structures=n, left=left, lo=np.nan, hi=np.nan))
-    single = [
-        1
-        - budget(
-            y,
-            covariates,
-            explainable,
-            labels=fold_labels(n, repeats=1, seed=int(rng.integers(1 << 30))),
-        )[-1]
-        for _ in range(BEYOND_CONTROLS["n_single"])
-    ]
-    rows.insert(
-        2,
-        dict(
-            variant=f"single shufflings ({len(single)})",
-            n_structures=n,
-            left=float(np.median(single)),
-            lo=float(np.percentile(single, 2.5)),
-            hi=float(np.percentile(single, 97.5)),
-        ),
-    )
+    rows = fold_rows(inputs, covariates, y, explainable, coords)
+    splits = half_splits()
+    for key, mine, terms, markers in variant_models(inputs):
+        cov, _, _ = covariates_for(mine, markers)
+        _, mine_ceiling = ceiling(mine.nano, splits)
+        rows.append(
+            budget_row(
+                "model",
+                key,
+                BEYOND["variants"][key],
+                full_map(mine.nano),
+                cov,
+                terms,
+                mine_ceiling,
+            )
+        )
 
     # the structures the rule keeps without the markers measured once
-    once = once_measured_markers()
-    markers = [g for g in MARKERS if g not in once]
-    wider = load_inputs(markers)
-    cov, _, _ = build_covariates(
-        wider.expr, wider.role, wider.auto, wider.structures, markers
-    )
-    _, wider_ceiling = ceiling(wider.nano, half_splits())
-    left = 1 - budget(full_map(wider.nano), cov, wider_ceiling)[-1]
-    rows.append(
-        dict(
-            variant=f"markers measured once left out ({', '.join(once)})",
-            n_structures=len(wider.structures),
-            left=left,
-            lo=np.nan,
-            hi=np.nan,
+    if "markers" in inputs.terms["density"]:
+        once = once_measured_markers()
+        markers = tuple(g for g in MARKERS if g not in once)
+        wider = load_inputs(markers)
+        cov, _, _ = covariates_for(wider, markers)
+        _, wider_ceiling = ceiling(wider.nano, splits)
+        rows.append(
+            budget_row(
+                "structures",
+                "markers_once",
+                f"markers measured once left out ({', '.join(once)})",
+                full_map(wider.nano),
+                cov,
+                wider.terms,
+                wider_ceiling,
+            )
         )
-    )
     return pd.DataFrame(rows)
 
 
@@ -929,8 +1078,8 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     inputs = load_inputs()
     s = inputs.structures
-    covariates, _, _ = build_covariates(inputs.expr, inputs.role, inputs.auto, s)
-    xs = model(covariates)
+    covariates, _, _ = covariates_for(inputs)
+    xs = model(covariates, inputs.terms)
     splits = half_splits()
     y = full_map(inputs.nano)
     res = residual(y, xs)
@@ -955,7 +1104,7 @@ def main() -> None:
     ]
     vc, pairs = control_c_mice(inputs.nano, xs)
     vd, naive, rws = control_d_groups(inputs.nano, xs)
-    ve, _, cubic, quintic = control_e_curvature(y, covariates)
+    ve, _, cubic, quintic = control_e_curvature(y, covariates, inputs.terms)
     vf, curve, best_k, f_calibration, f_summary = control_f_gene_space(
         inputs, y, explainable, splits
     )
@@ -972,10 +1121,15 @@ def main() -> None:
     figure_model_space(curve, best_k, explainable, cubic, quintic, passed)
     figure_readings(readings, passed["G"])
 
-    # the leftover under other folds and on other structures
+    # the main model under other folds, its check rows, and on other structures
     table = variants(inputs, covariates, y, explainable, coords)
     table.to_csv(VARIANTS, index=False)
-    print("\nVariants of the quoted leftover:")
+    print("\nThe main model and its variants (share of the reproducible map):")
     for r in table.itertuples():
         spread = f" ({r.lo:.1%} to {r.hi:.1%})" if np.isfinite(r.lo) else ""
-        print(f"   {r.variant:60s} {r.n_structures:4d} structures  {r.left:6.1%}{spread}")
+        print(
+            f"   {r.variant[:62]:64s} {r.n_structures:4d} structures  abundance "
+            f"{r.abundance:6.1%}, + density {r.plus_density:+6.1%} (alone "
+            f"{r.density_alone:6.1%}), + auto {r.plus_autofluorescence:+5.1%}, "
+            f"left {r.left:6.1%}{spread}"
+        )

@@ -35,8 +35,8 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     21. run_synaptome          the measured synapse density (network,
                                once): PSD95 puncta per structure,
                                its coverage of the fit
-    22. run_beyond_density     analysis 4: what receptor mRNA and
-                               synaptic density leave; the leftover
+    22. run_beyond_density     analysis 4: what Gria1 and synapse
+                               density leave; the leftover
     23. run_beyond_controls    seven attempts to break it
     24. run_beyond_calibration the same model on maps whose answer   <- this script
                                is known
@@ -47,10 +47,11 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     28. run_ish_overview       figures 00 and 15, the figure index;
                                the numbers for the text
 
-Each gene's Allen experiments split in two halves; a map made only of receptor
-mRNA and synaptic density, and a map of one Gria1 experiment, built from one half,
-given ten made-up adults as noisy as ours, and predicted from the other half with
-the model of run_beyond_density; the real map read the same way. The method is in
+Each gene's Allen experiments split in two halves; a map made only of Gria1 and
+synapse density (the floor), and a map of one Gria1 experiment (the benchmark),
+built from one half, given ten made-up adults as noisy as ours, and predicted from
+the other half with the main model of run_beyond_density; the real map read the
+same way, on the same structures. The method is in
 sepmap/adult/beyond_calibration.py. Writes, in adult_v2/ish_analysis/beyond/ under
 the data root:
 

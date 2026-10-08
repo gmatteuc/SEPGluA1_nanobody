@@ -100,18 +100,61 @@ def test_cross_validation_does_not_reward_noise_predictors():
     assert bd.cv_r2(y, xs) < 0.05
 
 
-def test_the_model_bends_the_four_subunits_as_separate_terms():
-    """The quoted model has x, x^2 and x^3 of seven predictors; April's of four."""
-    covariates = {k: np.arange(10.0) for k in bd.SUBUNITS}
-    covariates.update(
-        abundance_composite=np.arange(10.0),
-        markers=np.arange(10.0),
-        psd_pc1=np.arange(10.0),
-        autofluo=np.arange(10.0),
+def test_the_main_model_bends_gria1_the_panel_and_autofluorescence():
+    """x, x^2 and x^3 of four predictors; seven with the four subunits; three with
+    PSD95 in place of the panel."""
+    names = bd.SUBUNITS + ("markers", "psd_pc1", "autofluo", "psd95")
+    covariates = {k: np.arange(10.0) for k in names}
+    main = bd.model_terms()
+    assert main["abundance"] == ("Gria1",)
+    assert len(bd.model(covariates, main)) == 3 * 4
+    assert len(bd.model(covariates, bd.model_terms(abundance=bd.SUBUNITS))) == 3 * 7
+    assert len(bd.model(covariates, bd.model_terms(bd.MEASURED))) == 3 * 3
+    assert len(bd.model(covariates, main, ("abundance",), bend=False)) == 1
+
+
+def test_psd95_replaces_the_panel_only_when_it_covers_enough_of_the_fit():
+    """8 of 10 structures measured is the 80% the rule asks; 7 of 10, or none, is not."""
+    fit = [f"s{i}" for i in range(10)]
+    synapses = pd.DataFrame({"psd95": np.arange(10.0)}, index=fit)
+    synapses.loc[["s0", "s1"], "psd95"] = np.nan
+    terms, used = bd.main_model(fit, synapses)
+    assert terms["density"] == bd.MEASURED
+    assert used == fit[2:]
+    synapses.loc["s2", "psd95"] = np.nan
+    terms, used = bd.main_model(fit, synapses)
+    assert terms["density"] == bd.PANEL
+    assert used == fit
+    terms, used = bd.main_model(fit, pd.DataFrame(index=fit))
+    assert terms["density"] == bd.PANEL
+    assert used == fit
+
+
+def test_a_measured_density_is_a_predictor_only_where_every_structure_has_it():
+    """psd95, measured everywhere, is ranked; sap102, missing in one place, is not."""
+    structures = ["a", "b", "c", "d"]
+    genes = bd.SUBUNITS + bd.MARKERS + ("Psd1", "Psd2")
+    rng = np.random.default_rng(14)
+    expr = {g: dict(zip(structures, rng.standard_normal(4))) for g in genes}
+    role = {"Psd1": bd.PSD_ROLE, "Psd2": bd.PSD_ROLE}
+    synapses = pd.DataFrame(
+        {"psd95": [0.3, 0.1, 0.4, 0.2], "sap102": [0.1, np.nan, 0.2, 0.3]},
+        index=structures,
     )
-    assert len(bd.model(covariates)) == 3 * 7
-    assert len(bd.model(covariates, composite_abundance=True)) == 3 * 4
-    assert len(bd.model(covariates, ("abundance",), bend=False)) == 4
+    auto = rng.standard_normal((N_ADULTS, 4))
+    covariates, psd, _ = bd.build_covariates(
+        expr, role, auto, structures, synapses=synapses
+    )
+    assert psd == ["Psd1", "Psd2"]
+    assert list(covariates["psd95"]) == [3.0, 1.0, 4.0, 2.0]
+    assert "sap102" not in covariates
+
+
+def test_the_genes_measured_once_are_those_of_the_main_model():
+    """A marker with one experiment is listed, a subunit outside the model is not."""
+    split = [g for g in bd.SUBUNITS + bd.MARKERS if g not in ("Gria4", "Shank2")]
+    assert bc.measured_once(split, bd.model_terms()) == ["Shank2"]
+    assert bc.measured_once(split, bd.model_terms(bd.MEASURED)) == ["psd95"]
 
 
 def test_structure_rows_give_the_reason_a_structure_is_left_out():
@@ -198,13 +241,18 @@ def test_green_channel_rows_are_computed_on_the_structures_all_channels_have():
 @pytest.mark.skipif(
     not (BEYOND / "variance_partition.csv").exists(), reason="analysis 4 has not run"
 )
-def test_todays_tables_hold_the_model_the_april_row_and_the_calibration():
-    """The partition has the quoted model and April's; the calibration both maps."""
+def test_todays_tables_hold_the_main_model_its_variants_and_the_calibration():
+    """The partition has the main model of 13 terms; the variants their check rows;
+    the calibration both known maps."""
     partition = pd.read_csv(BEYOND / "variance_partition.csv").set_index("key")
-    assert {"model", "april", "gria1", "density"} <= set(partition.index)
+    assert {"model", "abundance", "subunits", "density"} <= set(partition.index)
     model = partition.loc["model"]
     assert model["left"] == pytest.approx(1 - model["share_of_ceiling"])
-    assert model["terms"] == 22
+    assert model["terms"] == 13
+    variants = pd.read_csv(BEYOND / "variants.csv").set_index("key")
+    assert variants.loc["main", "left"] == pytest.approx(model["left"])
+    assert {"psd95", "panel", "four_subunits"} <= set(variants.index)
+    assert variants.loc["psd95", "n_structures"] == variants.loc["panel", "n_structures"]
     calibration = pd.read_csv(BEYOND / "calibration.csv")
     counts = calibration["map"].value_counts()
     assert counts[bc.ABUNDANCE_DENSITY] == counts[bc.GRIA1] > 0

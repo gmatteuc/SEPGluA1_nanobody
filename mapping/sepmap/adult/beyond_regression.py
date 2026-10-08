@@ -11,14 +11,13 @@ adult.beyond_controls its controls; this module shows the fit itself, three ways
     3  the same three quantities painted back onto the brain (map, prediction and
        leftover), because the leftover is a spatial claim.
 
-What is regressed on what (adult.beyond_density has the reasons):
+What is regressed on what, the main model of 8 October (adult.beyond_density
+has the reasons and the rule that picks the density):
 
     y            the ten adults' mean zref per structure, ranked
-    predictors   seven, one value per structure each, entered as x, x^2 and x^3:
+    predictors   one value per structure each, entered as x, x^2 and x^3:
 
-      Gria1-4    the four AMPA receptor subunit genes, each its own term. The set is
-                 GO:0004971 intersected with GO:0032281, less the delta receptors
-                 Grid1 and Grid2 (ish.panel_build)
+      Gria1      the gene of the stained protein, GluA1: the abundance term
       markers    the synaptic marker genes of [beyond] markers, chosen by hand from
                  the panel, presynaptic and postsynaptic, as the mean of their ranks.
                  A hand-made list is arguable, hence the next predictor
@@ -29,6 +28,9 @@ What is regressed on what (adult.beyond_density has the reasons):
       autofluo   not a gene: the autofluorescence of the same ten brains per
                  structure, the only predictor measured in the tissue the map comes
                  from
+
+    markers and psd_pc1 are synapse density from mRNA, the panel; the measured
+    PSD95 density takes their place when the rule of [beyond] says so.
 
 Guided figure 04 (adult.beyond_figures) draws its maps from regression_table.csv.
 
@@ -47,10 +49,8 @@ import pandas as pd
 from scipy.stats import spearmanr
 
 from sepmap.adult.beyond_density import (
-    MARKERS,
     OUT,
-    SUBUNITS,
-    build_covariates,
+    covariates_for,
     cv_r2,
     full_map,
     load_inputs,
@@ -125,7 +125,7 @@ def draw_fit(
         )
     ax.set_xlim(lim)
     ax.set_ylim(lim)
-    ax.set_xlabel("predicted from receptor mRNA and density (rank)", fontsize=8.5)
+    ax.set_xlabel("predicted from Gria1 and synapse density (rank)", fontsize=8.5)
     ax.set_ylabel("nano map (rank)", fontsize=8.5)
     ax.set_title(f"the fit\nR2 {fitted_r2:.2f} fitted, {cv:.2f} predicted", fontsize=9.5)
     tidy(ax)
@@ -287,7 +287,7 @@ def panel_f(
     maps = [
         ("the nano map", dict(zip(structures, observed)), "hot", None),
         (
-            "predicted from receptor mRNA\nand synaptic density",
+            "predicted from Gria1\nand synapse density",
             dict(zip(structures, predicted)),
             "hot",
             None,
@@ -309,7 +309,7 @@ def panel_f(
 
     fig.suptitle(
         "F.  The same three quantities on the brain.  Red in the third column is "
-        "a higher nano rank than\nreceptor mRNA and density predict, blue is lower.  "
+        "a higher nano rank than\nGria1 and synapse density predict, blue is lower.  "
         "Black is outside the brain, or a structure the\nfit does not use.",
         fontsize=10,
     )
@@ -353,18 +353,16 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     inputs = load_inputs()
     structures = inputs.structures
-    covariates, psd, _ = build_covariates(
-        inputs.expr, inputs.role, inputs.auto, structures
-    )
-    xs = model(covariates)
+    covariates, psd, _ = covariates_for(inputs)
+    xs = model(covariates, inputs.terms)
     observed = full_map(inputs.nano)
     res = residual(observed, xs)
     predicted = observed - res
     fitted, cv = r_squared(observed, xs), cv_r2(observed, xs)
+    terms = [", ".join(inputs.terms[group]) for group in inputs.terms]
     print(
-        f"{len(structures)} structures; predictors: {', '.join(SUBUNITS)} as separate "
-        f"terms, {len(MARKERS)} marker genes, psd_pc1 of {len(psd)} genes, "
-        "autofluorescence, each bent"
+        f"{len(structures)} structures; predictors: {'; '.join(terms)} (psd_pc1 of "
+        f"{len(psd)} genes), each bent"
     )
     print(
         f"  R2 {fitted:.3f} fitted, {cv:.3f} cross-validated; "

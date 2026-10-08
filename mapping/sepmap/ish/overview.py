@@ -30,8 +30,8 @@ groups with a one-way ANOVA, p = 0.032:
 Last, the index of the guided figures (figures/README.md) and the rows of the
 overview figure: for each figure the question, what to look at and what to take
 from it, with the numbers of this run. The figures' order is the argument's: the
-question, the inputs, how much of the map receptor mRNA and synaptic density leave,
-what the leftover looks like through the genes, the controls and the limits.
+question, the inputs, how much of the map Gria1 and synapse density leave, what the
+leftover looks like through the genes, the controls and the limits.
 
 Run by run_ish_overview.py.
 """
@@ -513,36 +513,53 @@ def input_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
     }
 
 
+def variants_text(n: dict[str, str]) -> str:
+    """Part 1's check rows that change the model, in two sentences."""
+    return (
+        "With Gria1 to Gria4 in place of Gria1, "
+        f"{pct(n, 'beyond.variant_left_four_subunits')} is left. On the "
+        f"{n['beyond.variant_structures_psd95']} structures where PSD95 puncta are "
+        "measured, the measured density leaves "
+        f"{pct(n, 'beyond.variant_left_psd95')}, the mRNA panel "
+        f"{pct(n, 'beyond.variant_left_panel')}, both together "
+        f"{pct(n, 'beyond.variant_left_psd95_and_panel')}."
+    )
+
+
 def beyond_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
     """What to look at and what to take from the figures of part 1."""
     above = ", ".join(n["overview.leftover_above"].split())
     below = ", ".join(n["overview.leftover_below"].split())
     return {
         "beyond_budget": (
-            "A to C, the nano map against Gria1 mRNA, against synaptic density and "
-            "against the whole model; D, the variance budget: red is what is left, "
-            "hatched the calibration floor, the dashed mark where the leftover of a map "
-            "that is one Allen Gria1 experiment would begin; E, the leftover beside maps "
-            "whose answer is known (the two Gria1 clusters are the two halves of its "
+            "A to C, the nano map against Gria1 mRNA, against synapse density and "
+            "against the whole main model; D, the variance budget of the main model and "
+            "of its four-subunit check row: red is what is left, hatched the "
+            "calibration floor, the dashed mark where the leftover of a map that is one "
+            "Allen Gria1 experiment would begin; E, the leftover beside maps whose "
+            "answer is known (the two Gria1 clusters are the two halves of its "
             "experiments); F, one half of the cohort's leftover against the other's; "
-            "G, the leftover under other folds and structures.",
-            f"Gria1 mRNA alone predicts {pct(n, 'beyond.share_gria1')} of the map's "
-            f"reproducible pattern, the four subunits {pct(n, 'beyond.share_abundance')}"
-            f", synaptic density alone {pct(n, 'beyond.share_density')}; together, "
-            f"with autofluorescence, {pct(n, 'beyond.share_model')}. "
+            "G, the leftover under other folds, models and structures.",
+            f"Gria1 mRNA alone predicts {pct(n, 'beyond.share_abundance')} of the map's "
+            f"reproducible pattern, synapse density alone "
+            f"{pct(n, 'beyond.share_density')}; the main model, Gria1, synapse density "
+            f"and autofluorescence together, {pct(n, 'beyond.share_model')}. "
             f"{pct(n, 'beyond.left')} is left ({pct(n, 'beyond.left_lo')} to "
             f"{pct(n, 'beyond.left_hi')} over resampled structures), and one half of "
             "the cohort's leftover agrees with the other's at "
-            f"{num(n, 'beyond.replication_leftover'):.2f}. On the "
-            f"{n['beyond.calibration_structures']} structures of the calibration, nano "
-            f"leaves {pct(n, 'beyond.nano_calibration_left')}, a map made only of "
-            f"receptor mRNA and density {pct(n, 'beyond.floor')} (the floor; nano minus "
+            f"{num(n, 'beyond.replication_leftover'):.2f}. " + variants_text(n) + " On "
+            f"the {n['beyond.calibration_structures']} structures of the calibration, "
+            f"nano leaves {pct(n, 'beyond.nano_calibration_left')}, a map made only of "
+            f"Gria1 and synapse density {pct(n, 'beyond.floor')} (the floor; nano minus "
             f"it {num(n, 'beyond.nano_minus_floor'):+.0%}, "
             f"{num(n, 'beyond.nano_minus_floor_lo'):+.0%} to "
             f"{num(n, 'beyond.nano_minus_floor_hi'):+.0%}), and a map that is one Allen "
             f"Gria1 experiment {pct(n, 'beyond.gria1_map_left')} "
             f"({pct(n, 'beyond.gria1_map_left_A')} and "
-            f"{pct(n, 'beyond.gria1_map_left_B')} from the two halves). Control F: the "
+            f"{pct(n, 'beyond.gria1_map_left_B')} from the two halves; nano minus it "
+            f"{num(n, 'beyond.nano_minus_gria1'):+.0%}, "
+            f"{num(n, 'beyond.nano_minus_gria1_lo'):+.0%} to "
+            f"{num(n, 'beyond.nano_minus_gria1_hi'):+.0%}). Control F: the "
             f"components of the {n['beyond.control_f_genes']} genes measured in every "
             f"structure predict {pct(n, 'beyond.control_f_share')}, and on its own "
             f"calibration nano leaves {pct(n, 'beyond.control_f_nano_lo')} to "
@@ -686,8 +703,9 @@ def gene_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
             f"{num(n, 'beyond.leftover_set_glia'):+.2f} (q "
             f"{float(glia_q) if glia_q else float('nan'):.3f}), localisation "
             f"{num(n, 'beyond.leftover_set_localisation'):+.2f} (q "
-            f"{num(n, 'beyond.leftover_set_q_localisation'):.2f}). None of these "
-            "tests was named before the leftover was seen.",
+            f"{num(n, 'beyond.leftover_set_q_localisation'):.2f}). Cacng8 was named "
+            "for this leftover in advance, its uncorrected p the test; the sets and "
+            "the other genes describe it.",
         ),
     }
 
@@ -772,7 +790,8 @@ def part1_verdict(n: dict[str, str]) -> str:
     lo = num(n, "beyond.nano_minus_floor_lo")
     floor = num(n, "beyond.floor")
     gria1 = num(n, "beyond.gria1_map_left")
-    nano_cal = num(n, "beyond.nano_calibration_left")
+    over_gria1 = num(n, "beyond.nano_minus_gria1")
+    over_gria1_lo = num(n, "beyond.nano_minus_gria1_lo")
     if lo >= 0.05:
         above = f"well above the floor ({floor:.0%}) on the same structures"
     elif lo > 0:
@@ -785,10 +804,15 @@ def part1_verdict(n: dict[str, str]) -> str:
             f"above the floor ({floor:.0%}) at its point value, with an interval "
             "that reaches it"
         )
-    if nano_cal <= gria1:
-        benchmark = "no larger than what a map of one Allen Gria1 experiment leaves"
-    else:
+    if over_gria1_lo > 0:
         benchmark = "larger than what a map of one Allen Gria1 experiment leaves"
+    elif over_gria1 > 0:
+        benchmark = (
+            "larger than what a map of one Allen Gria1 experiment leaves at its point "
+            "value, with an interval that reaches it"
+        )
+    else:
+        benchmark = "no larger than what a map of one Allen Gria1 experiment leaves"
     return (
         f"Where it stands: the leftover is real and reproducible, {above}, and "
         f"{benchmark} ({gria1:.0%})."
@@ -849,12 +873,12 @@ def meanings(n: dict[str, str]) -> dict[str, str]:
         "genes": "A gene measured once is only as good as one Allen mouse; a low rho "
         "of an unreliable gene says little.",
         "beyond_budget": f"{num(n, 'beyond.left'):.0%} of the reproducible map is "
-        "not predicted by receptor mRNA or synaptic density. "
+        "not predicted by Gria1 expression or synapse density. "
         + upper_first(part1_verdict(n).removeprefix("Where it stands: "))
         + " What the leftover is, these data do not say: it is what the model does "
         "not predict; the components of many panel genes (control F) predict most of "
         "the map, though no single gene follows the leftover, so the words are 'not "
-        "predicted by receptor mRNA or synaptic density', not 'beyond gene "
+        "predicted by Gria1 expression or synapse density', not 'beyond gene "
         "expression'.",
         "beyond_where": "The departure from prediction sits in particular structures, "
         "steadily across the adults; a claim about one structure needs its own null.",
@@ -927,7 +951,7 @@ def meanings(n: dict[str, str]) -> dict[str, str]:
     glia = bool(glia_q) and float(glia_q) < q
     if int(float(n["beyond.leftover_genes_pass"])) == 0:
         out["leftover_genes"] = (
-            "No single gene follows the leftover past BH"
+            "No single gene follows the leftover past BH over every gene"
             + (
                 "; the glia set does, a test not named in advance, so a lead to test "
                 "afresh, not a finding"
@@ -938,6 +962,12 @@ def meanings(n: dict[str, str]) -> dict[str, str]:
         )
     else:
         out["leftover_genes"] = "Some genes follow the leftover past BH."
+    cacng8_p = num(n, "beyond.leftover_p_Cacng8")
+    if cacng8_p < q:
+        out["leftover_genes"] += (
+            " Cacng8, the one gene named in advance, follows it "
+            f"(p {cacng8_p:.4f}, uncorrected as named)."
+        )
     auto_p = num(n, "gene_ranking.auto_p_Gria1")
     above = int(float(n["overview.adults_nano_above_auto_Gria1"]))
     if auto_p >= q and above == 10:
@@ -974,7 +1004,7 @@ PARTS = (
     ("The question", ("overview",)),
     ("The inputs", ("structures", "genes")),
     (
-        "Part 1: the map is not explained by receptor mRNA or synaptic density",
+        "Part 1: the map is not explained by Gria1 expression or synapse density",
         ("beyond_budget", "beyond_where"),
     ),
     (
@@ -1021,17 +1051,17 @@ is this run's. The story, with what each result means and does not mean, is
 `docs/ISH_ANALYSIS.md` in the code repository.
 
 The figures follow one argument in two parts. Part 1: the adult nano map across
-structures is not satisfactorily explained by Gria1 expression or by synaptic density
-(receptor mRNA, synaptic markers, postsynaptic-density genes); a sizeable,
-reproducible part is left over. Part 2: the reading the data support is the surface
-fraction of the receptor, and the genes that regulate surface AMPA receptors (Cacng8,
-a TARP; trafficking and scaffolding genes) are tested as corroboration of it, against
-abundance genes, unrelated genes and the spatial null. Three tests carry that
-corroboration: the Cacng8 - Gria1 gap ({gap}, panel B), localisation genes against
-matched controls once the subunit composite is removed ({local}), and the genes
-against the leftover itself ({leftover}). The surface fraction is an interpretation,
-not a measurement: a total-GluA1 stain on the same brains would measure it, and the
-green channel cannot ({limit}).
+structures is not satisfactorily explained by Gria1 expression or by synapse density
+(synaptic markers and postsynaptic-density genes, or PSD95 puncta where measured); a
+sizeable, reproducible part is left over. Part 2: the reading the data support is
+the surface fraction of the receptor, and the genes that regulate surface AMPA
+receptors (Cacng8, a TARP; trafficking and scaffolding genes) are tested as
+corroboration of it, against abundance genes, unrelated genes and the spatial null.
+Three tests carry that corroboration: the Cacng8 - Gria1 gap ({gap}, panel B),
+localisation genes against matched controls once the subunit composite is removed
+({local}), and the genes against the leftover itself ({leftover}). The surface
+fraction is an interpretation, not a measurement: a total-GluA1 stain on the same
+brains would measure it, and the green channel cannot ({limit}).
 """
 
 INDEX_TAIL = """## Sheets
@@ -1110,14 +1140,14 @@ def argument_text(n: dict[str, str]) -> list[tuple[str, str]]:
         (
             "Part 1",
             "The map is not satisfactorily explained by Gria1 expression or synapse "
-            f"density. Gria1 mRNA alone predicts {pct(n, 'beyond.share_gria1')} of "
-            "the reproducible map; the four subunits, synaptic density and "
-            f"autofluorescence together {pct(n, 'beyond.share_model')}. "
+            f"density. Gria1 mRNA alone predicts {pct(n, 'beyond.share_abundance')} "
+            "of the reproducible map; Gria1, synapse density and autofluorescence "
+            f"together {pct(n, 'beyond.share_model')}. "
             f"{pct(n, 'beyond.left')} is left ({pct(n, 'beyond.left_lo')} to "
             f"{pct(n, 'beyond.left_hi')}) and it replicates across halves of the "
             f"cohort at {num(n, 'beyond.replication_leftover'):.2f}. On the same "
             f"structures nano leaves {pct(n, 'beyond.nano_calibration_left')}, a map "
-            f"made only of receptor mRNA and density {pct(n, 'beyond.floor')} (the "
+            f"made only of Gria1 and synapse density {pct(n, 'beyond.floor')} (the "
             f"floor; difference {num(n, 'beyond.nano_minus_floor'):+.0%}, "
             f"{num(n, 'beyond.nano_minus_floor_lo'):+.0%} to "
             f"{num(n, 'beyond.nano_minus_floor_hi'):+.0%}), a map that is one Allen "
@@ -1141,8 +1171,9 @@ def argument_text(n: dict[str, str]) -> list[tuple[str, str]]:
             "(a difference of "
             f"{num(n, 'gene_sets.localisation_detectable_labels'):+.2f} would be "
             f"found); {n['beyond.leftover_genes_pass']} of "
-            f"{n['beyond.leftover_genes']} genes follow the leftover.\n"
-            + part2_verdict(n),
+            f"{n['beyond.leftover_genes']} genes follow the leftover past BH, and "
+            "Cacng8, named for it in advance, has spatial p "
+            f"{num(n, 'beyond.leftover_p_Cacng8'):.4f}.\n" + part2_verdict(n),
         ),
         (
             "The limit",
@@ -1183,17 +1214,21 @@ def first_rows(n: dict[str, str]) -> list[dict]:
         ),
         dict(
             part="part 1",
-            title="Part 1: not explained by receptor mRNA or synaptic density",
+            title="Part 1: not explained by Gria1 expression or synapse density",
             figures=figs("beyond_budget", "beyond_where"),
-            question="How much of the map do receptor mRNA and synaptic density "
+            question="How much of the map do Gria1 expression and synapse density "
             "predict, and is what they leave real?",
             lines=[
-                f"Gria1 alone {pct(n, 'beyond.share_gria1')}, Gria1-4 "
-                f"{pct(n, 'beyond.share_abundance')}, density alone "
-                f"{pct(n, 'beyond.share_density')} of the reproducible map",
-                "all together, with autofluorescence, "
-                f"{pct(n, 'beyond.share_model')}: {pct(n, 'beyond.left')} left "
+                f"Gria1 alone {pct(n, 'beyond.share_abundance')}, synapse density "
+                f"alone {pct(n, 'beyond.share_density')} of the reproducible map",
+                "the main model, Gria1, density and autofluorescence: "
+                f"{pct(n, 'beyond.share_model')}, so {pct(n, 'beyond.left')} left "
                 f"({pct(n, 'beyond.left_lo')} to {pct(n, 'beyond.left_hi')})",
+                "check rows: Gria1 to Gria4 "
+                f"{pct(n, 'beyond.variant_left_four_subunits')} left; PSD95 puncta "
+                f"{pct(n, 'beyond.variant_left_psd95')} against the mRNA panel "
+                f"{pct(n, 'beyond.variant_left_panel')} on the "
+                f"{n['beyond.variant_structures_psd95']} structures PSD95 measures",
                 "the leftover replicates across halves of the cohort at "
                 f"{num(n, 'beyond.replication_leftover'):.2f} (the map's reliability "
                 f"alone implies {num(n, 'beyond.replication_implied'):.2f})",
@@ -1312,19 +1347,19 @@ def gene_rows(n: dict[str, str]) -> list[dict]:
             part="part 2",
             title="Part 2: the leftover itself",
             figures=figs("leftover_genes"),
-            question="Does any gene, or any kind of gene, follow what receptor mRNA "
-            "and density leave?",
+            question="Does any gene, or any kind of gene, follow what Gria1 and "
+            "synapse density leave?",
             lines=[
                 f"{n['beyond.leftover_genes_pass']} of {n['beyond.leftover_genes']} "
                 f"genes past BH ({n['beyond.leftover_genes_p05']} below p 0.05); "
                 f"closest {n['beyond.leftover_top_gene']} "
                 f"{num(n, 'beyond.leftover_top_rho'):+.2f}; Cacng8 "
                 f"{num(n, 'beyond.leftover_rho_Cacng8'):+.2f} (p "
-                f"{num(n, 'beyond.leftover_p_Cacng8'):.3f})",
+                f"{num(n, 'beyond.leftover_p_Cacng8'):.4f})",
                 f"glia {num(n, 'beyond.leftover_set_glia'):+.2f} (q "
                 f"{float(glia_q) if glia_q else float('nan'):.3f}), localisation "
-                f"{num(n, 'beyond.leftover_set_localisation'):+.2f}; none named in "
-                "advance",
+                f"{num(n, 'beyond.leftover_set_localisation'):+.2f}; of these, only "
+                "Cacng8 named in advance",
             ],
             open="Whether the glia lead holds, tested afresh on other data.",
         ),

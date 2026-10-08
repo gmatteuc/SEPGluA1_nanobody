@@ -35,8 +35,8 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     21. run_synaptome          the measured synapse density (network,
                                once): PSD95 puncta per structure,
                                its coverage of the fit
-    22. run_beyond_density     analysis 4: what receptor mRNA and
-                               synaptic density leave; the leftover
+    22. run_beyond_density     analysis 4: what Gria1 and synapse
+                               density leave; the leftover
     23. run_beyond_controls    seven attempts to break it
     24. run_beyond_calibration the same model on maps whose answer
                                is known
@@ -55,7 +55,7 @@ adult_v2/ish_analysis/ in the data root:
     beyond/jackknife.csv                per subsample, the ceiling and the shares
     beyond/numbers_for_the_caption.txt  the figures' numbers as sentences
     tables/numbers_beyond.csv           the numbers of analysis 4, for the text
-    figures/03_beyond_budget.png        what receptor mRNA and density predict
+    figures/03_beyond_budget.png        what Gria1 and synapse density predict
     figures/04_beyond_where.png         where the leftover lives
     figures/11_leftover_genes.png       the genes and gene sets against the leftover
 

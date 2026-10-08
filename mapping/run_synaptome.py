@@ -35,8 +35,8 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     21. run_synaptome          the measured synapse density (network,   <- this script
                                once): PSD95 puncta per structure,
                                its coverage of the fit
-    22. run_beyond_density     analysis 4: what receptor mRNA and
-                               synaptic density leave; the leftover
+    22. run_beyond_density     analysis 4: what Gria1 and synapse
+                               density leave; the leftover
     23. run_beyond_controls    seven attempts to break it
     24. run_beyond_calibration the same model on maps whose answer
                                is known
@@ -134,7 +134,7 @@ def main(offline):
     voxels = synaptome.id_voxels(annotation_20("ccf"), parent)
     per_structure = synaptome.structure_density(samples, voxels)
     set_table = load_structure_set()
-    inputs = beyond_density.load_inputs()
+    inputs = beyond_density.load_inputs(measured=False)
     table = synaptome.density_table(
         set_table, inputs.structures, per_structure, samples, ontology, structures
     )

@@ -4,9 +4,9 @@ A leftover is what the model does not predict. Part of it can be real, and part 
 the predictors measuring something slightly different from what the map is made of:
 each Allen experiment is one P56 mouse on a 200 um grid, and two experiments of one
 gene agree at a median rho of about 0.7. So even a map made of nothing but receptor
-mRNA and synaptic density would leave something, because the Allen maps that
+mRNA and synapse density would leave something, because the Allen maps that
 predict it are not the maps it is made of. The calibration measures how much, with
-the production model of adult.beyond_density:
+the main model of adult.beyond_density (Gria1, synapse density, autofluorescence):
 
     two halves    each gene's Allen experiments (those the gene table uses) are
                   split in two, alternately by id (the 1st, 3rd, ... against the
@@ -15,37 +15,40 @@ the production model of adult.beyond_density:
                   so its mismatch is not in the floor, which therefore errs low
                   (Nlgn1, Shank2 and Shank3 of the markers on 8 October). The
                   predictors are built from each half (build_covariates);
-                  autofluorescence, measured in our own brains, is the same in both
-    known maps    abundance and density   the production model fitted to the nano
-                                          map with one half's predictors: exactly
-                                          what receptor mRNA and synaptic density
-                                          predict, with nano's own weights and
-                                          curvature
+                  autofluorescence, measured in our own brains, is the same in
+                  both, and so is the measured PSD95 density when the main model
+                  uses it: one mouse, measured once, like a marker with one
+                  experiment
+    known maps    abundance and density   the main model fitted to the nano map
+                                          with one half's predictors: exactly what
+                                          Gria1 and synapse density predict, with
+                                          nano's own weights and curvature
                   Gria1 mRNA              Gria1's profile from one half: a map of
                                           one gene's mRNA, and nothing else
     animals       ten made-up adults per map: the known map (ranked, scaled to unit
                   variance) plus noise independent per structure and adult, of
                   variance 5 (1 / h - 1), so that two halves of five agree as nano's
                   halves do (h, their mean agreement)
-    analysis      the production model with the other half's predictors: the
+    analysis      the main model with the other half's predictors: the
                   ceiling, the CV R2, the share left, and how well the two
                   half-cohort leftovers agree; both ways round, with
                   beyond_calibration.n_noise draws of the animals each way
     nano          the real map with each half's predictors, read on the same footing
                   as the known maps, and with the merged predictors of the
                   production run (predictors_from "both") on the same structures
-    structures    those of beyond_density where both halves have every subunit and
-                  marker gene: a structure that only one half measures drops out
+    structures    those of the main model where both halves have every subunit
+                  and marker gene, as the fit's own rule asks of the merged
+                  profiles: a structure that only one half measures drops out
     folds         every analysis twice: with the production folds (random, averaged
                   over beyond.cv_repeats shufflings) and with folds of spatial
                   blocks (beyond_density.block_labels), so the variant of blocked
                   folds has its own floor
 
-A known map that is exactly abundance and density gives the floor: the share any
-map would leave from one Allen map disagreeing with another. The Gria1 map shows how
-much a map of one gene's mRNA leaves when the model knows that gene only from its
-other experiments; its leftover replicates across the made-up animals too, which is
-why replication alone cannot tell biology from ISH mismatch.
+A known map that is exactly Gria1 and synapse density gives the floor: the share
+any map would leave from one Allen map disagreeing with another. The Gria1 map, the
+benchmark, shows how much a map of one gene's mRNA leaves when the model knows that
+gene only from its other experiments; its leftover replicates across the made-up
+animals too, which is why replication alone cannot tell biology from ISH mismatch.
 
 The noise is independent between structures, where real animals deviate smoothly;
 the floor calibrates a size, it does not model the cohort.
@@ -73,6 +76,7 @@ import pandas as pd
 from scipy.stats import rankdata
 
 from sepmap.adult import beyond_density as bd
+from sepmap.adult import synaptome
 from sepmap.config import SETTINGS
 from sepmap.ish import gene_table, reliability
 from sepmap.structures import load_centroids
@@ -183,27 +187,34 @@ def calibration_structures(
     ]
 
 
-def half_covariates(
-    inputs: bd.Inputs, halves: dict, structures: list[str]
-) -> dict[str, dict[str, np.ndarray]]:
-    """The predictors built from each half of the experiments, on `structures`."""
-    columns = [inputs.structures.index(s) for s in structures]
-    auto = inputs.auto[:, columns]
+def half_covariates(inputs: bd.Inputs, halves: dict) -> dict[str, dict[str, np.ndarray]]:
+    """The predictors built from each half of the experiments, on the inputs'
+    structures; autofluorescence and the measured densities are the same in both."""
     return {
-        h: bd.build_covariates(halves[h], inputs.role, auto, structures)[0]
+        h: bd.build_covariates(
+            halves[h],
+            inputs.role,
+            inputs.auto,
+            inputs.structures,
+            synapses=inputs.synapses,
+        )[0]
         for h in HALVES
     }
 
 
-def known_maps(y: np.ndarray, cov: dict[str, dict[str, np.ndarray]]) -> dict:
+def known_maps(
+    y: np.ndarray,
+    cov: dict[str, dict[str, np.ndarray]],
+    terms: dict[str, tuple[str, ...]],
+) -> dict:
     """The known maps, {(kind, half the truth comes from): ranks}.
 
-    Abundance and density: the production model fitted to the nano map `y` with one
+    Abundance and density: the model `terms` fitted to the nano map `y` with one
     half's predictors, its fitted values; Gria1 mRNA: Gria1's ranks from one half.
     """
     out = {}
     for h in HALVES:
-        xs = bd.model(cov[h])
+        xs = bd.model(cov[h], terms)
         out[(ABUNDANCE_DENSITY, h)] = y - bd.residual(y, xs)
         out[(GRIA1, h)] = cov[h]["Gria1"]
     return out
@@ -217,17 +228,19 @@ def calibration_rows(
 ) -> pd.DataFrame:
     """calibration.csv: the real map and the known maps, analysed with each half.
 
-    Each known map is built from one half and analysed with the other half's
-    predictors, both ways round, n_noise draws each, with random folds and with
-    folds of spatial blocks; every (folds, map, direction) has a generator of its
-    own, so a draw does not depend on which others ran.
+    The main model throughout (inputs.terms). Each known map is built from one
+    half and analysed with the other half's predictors, both ways round, n_noise
+    draws each, with random folds and with folds of spatial blocks; every (folds,
+    map, direction) has a generator of its own, so a draw does not depend on which
+    others ran.
     """
     if n_noise is None:
         n_noise = BEYOND_CALIBRATION["n_noise"]
-    structures = calibration_structures(inputs.structures, halves)
-    columns = [inputs.structures.index(s) for s in structures]
-    nano = inputs.nano[:, columns]
-    cov = half_covariates(inputs, halves, structures)
+    terms = inputs.terms
+    cal = bd.restrict(inputs, calibration_structures(inputs.structures, halves))
+    structures = cal.structures
+    nano = cal.nano
+    cov = half_covariates(cal, halves)
     splits = bd.half_splits()
     y = bd.full_map(nano)
     h_nano = float(np.mean(bd.ceiling(nano, splits)[0]))
@@ -236,15 +249,13 @@ def calibration_rows(
 
     # the real map with each half's predictors, and with the merged ones of the
     # production run on the same structures
-    merged, _, _ = bd.build_covariates(
-        inputs.expr, inputs.role, inputs.auto[:, columns], structures
-    )
+    merged, _, _ = bd.covariates_for(cal)
     rows = []
-    known = known_maps(y, cov)
+    known = known_maps(y, cov, terms)
     children = np.random.SeedSequence(seed).spawn(len(folds) * len(known))
     for f, (kind_of_folds, labels) in enumerate(folds.items()):
         for h, covariates in [(h, cov[h]) for h in HALVES] + [(MERGED, merged)]:
-            row = analyse(nano, bd.model(covariates), splits, labels)
+            row = analyse(nano, bd.model(covariates, terms), splits, labels)
             rows.append(
                 dict(
                     folds=kind_of_folds,
@@ -260,7 +271,7 @@ def calibration_rows(
         mine = children[f * len(known) : (f + 1) * len(known)]
         for ((kind, truth_from), truth), child in zip(known.items(), mine):
             other = HALVES[1 - HALVES.index(truth_from)]
-            xs = bd.model(cov[other])
+            xs = bd.model(cov[other], terms)
             rng = np.random.default_rng(child)
             for draw in range(n_noise):
                 cohort = fake_cohort(truth, h_nano, rng)
@@ -302,17 +313,17 @@ def paired_jackknife(
     beyond_calibration.n_jackknife subsamples, each leaving out a share
     beyond_calibration.jackknife_share of the calibration structures. On each: the
     predictors rebuilt from each half on the subsample, as production builds them;
-    nano's share left with each half's predictors (their mean); the floor's and the
-    Gria1 map's, each the mean over both directions and
+    nano's share left by the main model with each half's predictors (their mean);
+    the floor's and the Gria1 map's, each the mean over both directions and
     beyond_calibration.jackknife_draws draws of animals; the ceiling from
     beyond_calibration.jackknife_splits splits of the adults. Columns: nano, floor,
     gria1, nano_minus_floor, nano_minus_gria1. The animals' noise is drawn once for
     every structure and cut to each subsample, so the subsamples differ only in
     their structures.
     """
-    structures = calibration_structures(inputs.structures, halves)
-    columns = np.array([inputs.structures.index(s) for s in structures])
-    n = len(structures)
+    terms = inputs.terms
+    cal = bd.restrict(inputs, calibration_structures(inputs.structures, halves))
+    n = len(cal.structures)
     d = int(round(BEYOND_CALIBRATION["jackknife_share"] * n))
     rng = np.random.default_rng(seed)
     all_splits = bd.half_splits()
@@ -321,30 +332,28 @@ def paired_jackknife(
     rows = []
     for _ in range(BEYOND_CALIBRATION["n_jackknife"]):
         keep = np.sort(rng.choice(n, n - d, replace=False))
-        kept = [structures[i] for i in keep]
-        nano = inputs.nano[:, columns[keep]]
+        sub = bd.restrict(cal, [cal.structures[i] for i in keep])
+        nano = sub.nano
         splits = [
             all_splits[i]
             for i in rng.choice(
                 len(all_splits), BEYOND_CALIBRATION["jackknife_splits"], replace=False
             )
         ]
-        auto = inputs.auto[:, columns[keep]]
-        cov = {
-            h: bd.build_covariates(halves[h], inputs.role, auto, kept)[0] for h in HALVES
-        }
+        cov = half_covariates(sub, halves)
         y = bd.full_map(nano)
         h_nano = float(np.mean(bd.ceiling(nano, splits)[0]))
         nano_left = np.mean(
             [
-                analyse(nano, bd.model(cov[h]), splits, replication=False)["left"]
+                analyse(nano, bd.model(cov[h], terms), splits, replication=False)["left"]
                 for h in HALVES
             ]
         )
         left = {ABUNDANCE_DENSITY: [], GRIA1: []}
-        for m, ((kind, truth_from), truth) in enumerate(known_maps(y, cov).items()):
+        known = known_maps(y, cov, terms)
+        for m, ((kind, truth_from), truth) in enumerate(known.items()):
             other = HALVES[1 - HALVES.index(truth_from)]
-            xs = bd.model(cov[other])
+            xs = bd.model(cov[other], terms)
             for draw in range(n_draws):
                 cohort = fake_cohort(truth, h_nano, noise=noise[m, draw][:, keep])
                 left[kind].append(analyse(cohort, xs, splits, replication=False)["left"])
@@ -385,6 +394,21 @@ def floor(
     )
 
 
+def measured_once(split: list[str], terms: dict[str, tuple[str, ...]]) -> list[str]:
+    """The main model's genes and measured densities that are the same in both halves.
+
+    A gene of the model (its abundance genes, and the markers when the panel is in
+    it) is the same when it has one usable experiment (not in `split`); a measured
+    density always is, being one mouse measured once. Their mismatch is not in the
+    floor, which errs low by it.
+    """
+    genes = list(terms["abundance"])
+    if "markers" in terms["density"]:
+        genes += list(bd.MARKERS)
+    once = [g for g in genes if g not in split]
+    return once + [m for m in terms["density"] if m in synaptome.MEASURES]
+
+
 def load_calibration() -> pd.DataFrame:
     """The table run_beyond_calibration wrote."""
     if not CALIBRATION.exists():
@@ -415,12 +439,10 @@ def main() -> None:
     inputs = bd.load_inputs()
     a, b, split = experiment_halves(per_experiment_profiles())
     halves = {"A": a, "B": b}
-    needed = bd.SUBUNITS + bd.MARKERS
-    once = [g for g in needed if g not in split]
+    once = measured_once(split, inputs.terms)
     print(
-        f"{len(split)} genes have two halves of experiments, "
-        f"{len(needed) - len(once)} of the {len(needed)} subunit and marker genes; "
-        f"the others are the same in both ({', '.join(once)})"
+        f"{len(split)} genes have two halves of experiments; of the main model's "
+        f"genes and measures, these are the same in both: {', '.join(once)}"
     )
     table = calibration_rows(inputs, halves)
     table.to_csv(CALIBRATION, index=False)
