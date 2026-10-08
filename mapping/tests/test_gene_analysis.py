@@ -1,4 +1,4 @@
-"""Known-answer checks of analysis 1: the gene ranking."""
+"""Known-answer checks of analyses 1 and 2: gene ranking, divisions."""
 
 from pathlib import Path
 
@@ -8,7 +8,7 @@ import pytest
 from scipy.stats import spearmanr
 
 from sepmap import config
-from sepmap.ish import gene_ranking
+from sepmap.ish import divisions, gene_ranking
 
 TABLES = Path(config.DATA) / "adult_v2" / "ish_analysis" / "tables"
 
@@ -88,6 +88,56 @@ def test_gap_uses_only_structures_both_genes_have():
     )
     assert row["gap"] == pytest.approx(expected)
     assert null.shape == (100,)
+
+
+def test_division_only_map_has_one_value_per_division():
+    """Every structure of a division takes the division's median."""
+    values = np.array([1.0, 2.0, 3.0, 10.0, 20.0])
+    labels = np.array(["A", "A", "A", "B", "B"])
+    out = divisions.division_only(values, labels)
+    assert np.allclose(out, [2.0, 2.0, 2.0, 15.0, 15.0])
+
+
+def test_shuffle_within_divisions_keeps_each_divisions_values():
+    """A shuffled map holds, inside each division, a permutation of its own values."""
+    rng = np.random.default_rng(4)
+    values = np.arange(30, dtype=float)
+    labels = np.array(["A"] * 10 + ["B"] * 12 + ["C"] * 8)
+    parts = divisions.division_parts(np.arange(30), labels, min_structures=8)
+    maps = divisions.shuffle_within(values, parts, 20, rng)
+    for _, positions in parts:
+        for row in maps:
+            assert sorted(row[positions]) == sorted(values[positions])
+    # the order inside a division changes, or the null would hold only the map itself
+    assert (maps != values).any(axis=1).all()
+    out = divisions.shuffled_within(values, values, parts, 50, rng)
+    assert out.shape == (50,)
+
+
+def test_within_rho_of_one_division_is_its_spearman():
+    """With one division, the within rho is the plain Spearman inside it."""
+    rng = np.random.default_rng(5)
+    x = rng.standard_normal(20)
+    y = x + rng.standard_normal(20)
+    parts = [("A", np.arange(20))]
+    assert divisions.within_rho(x, y, parts)[0] == pytest.approx(
+        spearmanr(x, y).statistic
+    )
+
+
+def test_gene_sharing_only_the_contrast_between_divisions_has_no_within_rho():
+    """A gene that is the division's level plus noise: high whole-brain rho, ~0 within."""
+    rng = np.random.default_rng(6)
+    labels = np.repeat(["A", "B", "C", "D"], 40)
+    level = np.repeat([0.0, 3.0, 6.0, 9.0], 40)
+    map_values = level + rng.standard_normal(160)
+    gene = level + rng.standard_normal(160)
+    parts = divisions.division_parts(np.arange(160), labels)
+    whole = spearmanr(map_values, gene).statistic
+    within = divisions.within_rho(map_values, gene, parts)[0]
+    assert whole > 0.8
+    # four divisions of 40 independent structures: the SD of the mean rho is ~0.08
+    assert abs(within) < 0.25
 
 
 @pytest.mark.skipif(

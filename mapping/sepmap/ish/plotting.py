@@ -2028,3 +2028,434 @@ def plot_robustness(
         ],
     )
     return saved(fig, save)
+
+
+# ===== 08 What a whole-brain rho is made of =====
+
+# the colour of each detail gene in figure 08 D
+DETAIL_COLOURS = {
+    "Cacng8": RED,
+    "Gria1": DARK_BLUE,
+    "Grm5": NANO,
+    "Dlg2": DARK_GREY,
+    "Aqp4": MID_GREY,
+}
+
+
+def division_scatter(
+    ax: plt.Axes,
+    x_values: np.ndarray,
+    gene_values: np.ndarray,
+    groups: list[str],
+    jitter: bool,
+) -> None:
+    """A map's ranks against a gene's, structures coloured by group of divisions.
+
+    With `jitter`, the many structures that share one x (a division-only map) are
+    spread a little so they can be seen.
+    """
+    x = ranks01(x_values)
+    y = ranks01(gene_values)
+    if jitter:
+        x = x + np.random.default_rng(0).uniform(-0.012, 0.012, len(x))
+    scatter_groups(ax, x, y, groups)
+    ax.set_xlim(-0.04, 1.04)
+    ax.set_ylim(-0.04, 1.04)
+    tidy(ax)
+
+
+def genes_scatter(
+    ax: plt.Axes,
+    x: pd.Series,
+    y: pd.Series,
+    p9: pd.Series,
+    subunits: set[str],
+    named: list[str],
+    filled: pd.Series | None = None,
+) -> None:
+    """Every gene as a dot, P9's dark, subunits blue; hollow where `filled` is False."""
+    lim = (-0.75, 0.95)
+    ax.plot(lim, lim, color=MID_GREY, lw=0.8, ls=(0, (4, 3)), zorder=1)
+    ax.axhline(0, color="0.88", lw=0.6, zorder=0)
+    ax.axvline(0, color="0.88", lw=0.6, zorder=0)
+    if filled is None:
+        filled = pd.Series(True, index=x.index)
+    sub = pd.Series(x.index.isin(subunits), index=x.index)
+    for genes, size, colour in (
+        (~p9 & ~sub, 12, LIGHT_GREY),
+        (p9 & ~sub, 22, DARK_GREY),
+        (sub, 28, DARK_BLUE),
+    ):
+        on = genes & filled
+        off = genes & ~filled
+        ax.scatter(x[on], y[on], s=size, color=colour, linewidths=0, zorder=2)
+        ax.scatter(
+            x[off],
+            y[off],
+            s=size,
+            facecolors="white",
+            edgecolors=colour,
+            linewidths=0.7,
+            zorder=2,
+        )
+    for g in named:
+        if g in x.index:
+            ax.annotate(
+                g,
+                (x[g], y[g]),
+                xytext=(3, 3),
+                textcoords="offset points",
+                fontsize=7,
+                color=gene_colour(g, subunits),
+            )
+    ax.set_xlim(lim)
+    ax.set_ylim(lim)
+    ax.set_aspect("equal")
+    ax.set_xlabel("whole-brain rho with the map")
+    tidy(ax)
+
+
+def detail_panel(
+    ax: plt.Axes, detail: pd.DataFrame, within: pd.DataFrame, genes: tuple[str, ...]
+) -> None:
+    """D: each detail gene's rho inside every division, and its weighted mean."""
+    divisions = [d for d in DIVISION_ORDER if d in set(detail["division"])]
+    rows = divisions + ["weighted mean"]
+    offsets = np.linspace(-0.25, 0.25, len(genes))
+    means = within.set_index("symbol")["rho_within"]
+    for k, gene in enumerate(genes):
+        mine = detail[detail["symbol"] == gene].set_index("division")
+        colour = DETAIL_COLOURS.get(gene, DARK_GREY)
+        for i, division in enumerate(divisions):
+            if division in mine.index:
+                ax.scatter(
+                    mine.loc[division, "rho"],
+                    i + offsets[k],
+                    s=6 + 1.2 * mine.loc[division, "n_structures"],
+                    color=colour,
+                    linewidths=0,
+                    alpha=0.9,
+                )
+        ax.scatter(
+            means.get(gene, np.nan),
+            len(divisions) + offsets[k],
+            s=40,
+            marker="D",
+            color=colour,
+            label=gene,
+        )
+    ax.axvline(0, color="0.3", lw=0.6)
+    ax.set_yticks(range(len(rows)))
+    ax.set_yticklabels(rows)
+    ax.set_ylim(len(rows) - 0.5, -0.5)
+    ax.set_xlabel("Spearman rho inside the division")
+    ax.legend(loc="upper left", bbox_to_anchor=(1.0, 1.0), fontsize=7.5)
+    tidy(ax)
+
+
+def within_rates_panel(ax: plt.Axes, calibration: pd.DataFrame) -> None:
+    """E: false positives of the within rho on maps with no relation, by null."""
+    nulls = (
+        ("p_shuffle", "shuffled inside\ndivisions", LIGHT_GREY),
+        ("p_spatial", "surrogates\n(spatial)", DARK_GREY),
+    )
+    for i, (column, _, colour) in enumerate(nulls):
+        rate = float((calibration[column] < 0.05).mean())
+        ax.bar(i, rate, width=0.6, color=colour)
+        ax.text(i, max(rate, 0.05) + 0.01, f"{rate:.1%}", ha="center", fontsize=8)
+    ax.axhline(0.05, color=RED, ls="--", lw=1)
+    ax.text(1.45, 0.055, "5%", color=RED, fontsize=7, ha="right")
+    ax.set_xticks([0, 1])
+    ax.set_xticklabels([n[1] for n in nulls])
+    ax.set_ylabel("share of tests with p < 0.05")
+    tidy(ax)
+
+
+def top_within_panel(ax: plt.Axes, table: pd.DataFrame, n_shown: int = 15) -> None:
+    """F: the genes highest inside divisions, with their whole-brain rho."""
+    ax.axis("off")
+    ranked = table[table["rho_within"].notna()].sort_values("rho_within", ascending=False)
+    lines = ["gene       within  whole"]
+    lines += [
+        f"{s:9s}  {r['rho_within']:+.2f}   {r['rho']:+.2f}{' *' if r['p9_gene'] else ''}"
+        for s, r in ranked.head(n_shown).iterrows()
+    ]
+    ax.text(0, 1, "\n".join(lines), va="top", fontsize=7.5, family="monospace")
+    ax.set_title(
+        "F.  The genes highest inside divisions; * P9's genes", loc="left", fontsize=9
+    )
+
+
+def plot_between_within(
+    within: pd.DataFrame,
+    detail: pd.DataFrame,
+    map_values: pd.Series,
+    coarse: pd.Series,
+    example: dict[str, float],
+    example_name: str,
+    set_table: pd.DataFrame,
+    calibration: pd.DataFrame,
+    subunits: set[str],
+    genes: tuple[str, ...],
+    q: float,
+    min_structures: int,
+    save: Path | None = None,
+) -> plt.Figure:
+    """Figure 08: what a whole-brain rho is made of, between and within divisions.
+
+    `within` and `detail` are the tables of run_ish_divisions, `map_values` the map
+    on the declared structures and `coarse` its division-only version, `example`
+    the profile of the gene of panel A, `calibration` the within rho of random maps.
+    """
+    table = within.set_index("symbol")
+    p9 = table["p9_gene"]
+    have = table["rho_within"].notna()
+    agree_div = spearmanr(table["rho"], table["rho_division_only"]).statistic
+    agree_within = spearmanr(
+        table.loc[have, "rho"], table.loc[have, "rho_within"]
+    ).statistic
+    n_pass = int((table["q_all_spatial"] < q).sum())
+    n_pass_p9 = int((table.loc[p9, "q_p9_spatial"] < q).sum())
+    fig = plt.figure(figsize=(16, 12.5))
+    heading(
+        fig,
+        "between_within",
+        "Does a gene follow the map inside divisions, or only through the contrast "
+        "between them?",
+        f"{len(table)} genes; median rho {table['rho'].median():+.2f} over the whole "
+        f"brain, {table['rho_within'].median():+.2f} inside divisions; {n_pass} genes "
+        f"past the within null at BH q < {q} within all genes, {n_pass_p9} within "
+        "P9's",
+    )
+
+    # A: the example gene against the real map and against the division-only map
+    groups = group_of(set_table)
+    shared = [s for s in map_values.index if s in example]
+    y = np.array([example[s] for s in shared])
+    g = [groups[s] for s in shared]
+    ax0 = fig.add_axes([0.05, 0.58, 0.15, 0.27])
+    ax1 = fig.add_axes([0.22, 0.58, 0.15, 0.27])
+    division_scatter(ax0, map_values[shared].to_numpy(), y, g, jitter=False)
+    division_scatter(ax1, coarse[shared].to_numpy(), y, g, jitter=True)
+    r = table.loc[example_name]
+    ax0.set_title(f"the real map: rho {r['rho']:+.2f}", fontsize=9)
+    ax1.set_title(f"division only: rho {r['rho_division_only']:+.2f}", fontsize=9)
+    ax0.set_xlabel("nano map, rank")
+    ax1.set_xlabel("rank of the division's median")
+    ax0.set_ylabel(f"{example_name}, rank")
+    ax1.set_yticklabels([])
+    ax0.text(
+        0,
+        1.2,
+        f"A.  {example_name} against the map, and against a map that knows\nonly "
+        "each structure's division (its median over the division)",
+        transform=ax0.transAxes,
+        fontsize=9,
+    )
+    ax1.legend(handles=group_handles(), loc="lower right", fontsize=6.5)
+
+    # B and C: every gene
+    ax_b = fig.add_axes([0.44, 0.55, 0.24, 0.32])
+    named_b = ["Cacng8", "Gria1", "Aqp4"]
+    genes_scatter(ax_b, table["rho"], table["rho_division_only"], p9, subunits, named_b)
+    ax_b.set_ylabel("rho with the division-only map")
+    panel_title(
+        ax_b,
+        "B",
+        "Most of a whole-brain rho is the contrast between divisions",
+        f"the two gene orders agree at rho {agree_div:.2f} ({len(table)} genes)",
+    )
+    ax_c = fig.add_axes([0.74, 0.55, 0.24, 0.32])
+    band = (table["null_lo"].median(), table["null_hi"].median())
+    ax_c.axhspan(*band, color=NULL_BAND, lw=0, zorder=0)
+    top_within = list(table.loc[have, "rho_within"].nlargest(5).index)
+    passed = table["q_all_spatial"] < q
+    genes_scatter(
+        ax_c,
+        table.loc[have, "rho"],
+        table.loc[have, "rho_within"],
+        p9[have],
+        subunits,
+        list(dict.fromkeys(top_within + list(genes))),
+        filled=passed[have],
+    )
+    ax_c.set_ylabel(f"mean rho inside divisions ({min_structures}+ structures each)")
+    panel_title(
+        ax_c,
+        "C",
+        "Inside divisions the order changes, and rho shrinks",
+        f"gene orders agree at rho {agree_within:.2f}; filled: past the within\n"
+        "null (BH, all genes); pale band: the median gene's null, 95%",
+    )
+
+    # D: the detail genes division by division; E: the two nulls on random maps;
+    # F: the top of the within ranking
+    ax_d = fig.add_axes([0.08, 0.1, 0.28, 0.35])
+    detail_panel(ax_d, detail, within, genes)
+    panel_title(
+        ax_d,
+        "D",
+        "Division by division, five genes",
+        "dot size: structures in the division; diamond: the weighted mean",
+    )
+    ax_e = fig.add_axes([0.47, 0.13, 0.14, 0.29])
+    within_rates_panel(ax_e, calibration)
+    panel_title(
+        ax_e,
+        "E",
+        "Which null for the within rho",
+        f"{len(calibration)} random smooth maps\nwith no relation to the map",
+    )
+    top_within_panel(fig.add_axes([0.72, 0.1, 0.26, 0.33]), table)
+    footer(
+        fig,
+        [
+            "How to read: the division-only map gives each structure its division's "
+            "median; the within rho is Spearman inside each division with enough "
+            "structures, averaged by their number, so no contrast between divisions "
+            "can enter it.",
+            "It is tested against surrogates of the whole map (spatial), and against "
+            "the map's values shuffled inside each division; E shows which of the two "
+            "keeps 5% false positives on maps with no relation to the map.",
+            "What would mean what: a high rho within divisions: gene and map vary "
+            "together at a fine scale, the stronger claim; a whole-brain rho that "
+            "vanishes inside divisions: they share only the gross gradient.",
+        ],
+    )
+    return saved(fig, save)
+
+
+# ===== Gene sheets =====
+
+
+def division_lines(
+    ax: plt.Axes,
+    x: np.ndarray,
+    y: np.ndarray,
+    divisions: list[str],
+    detail: pd.DataFrame,
+) -> None:
+    """One least-squares line per division the gene enters, its rho in the legend.
+
+    Divisions of one group share its colour, so each takes its own line style.
+    """
+    divisions = np.asarray(divisions)
+    styles = ("-", "--", ":", "-.")
+    used = {}
+    for _, r in detail.iterrows():
+        mine = divisions == r["division"]
+        slope, intercept = np.polyfit(x[mine], y[mine], 1)
+        xs = np.array([x[mine].min(), x[mine].max()])
+        group = DIVISION_GROUP.get(r["division"], "other grey matter")
+        k = used.get(group, 0)
+        used[group] = k + 1
+        ax.plot(
+            xs,
+            intercept + slope * xs,
+            color=DIVISION_GROUP_COLOURS[group],
+            ls=styles[k % len(styles)],
+            lw=1.5,
+            label=f"{r['division']}: rho {r['rho']:+.2f} ({int(r['n_structures'])})",
+        )
+
+
+def plot_gene_sheet(
+    symbol: str,
+    map_values: pd.Series,
+    profile: dict[str, float],
+    set_table: pd.DataFrame,
+    ranking: pd.Series,
+    within: pd.Series,
+    detail: pd.DataFrame,
+    lab: np.ndarray,
+    names: dict[int, str],
+    plane: int,
+    n_surrogates: int,
+    save: Path | None = None,
+) -> plt.Figure:
+    """One gene against the map: both as ranks on a plane, the scatter, the divisions.
+
+    `ranking` and `within` are the gene's rows of gene_ranking.csv (nano map) and
+    within_division.csv, `detail` its rows of within_division_detail.csv.
+    """
+    shared = [s for s in map_values.index if s in profile]
+    x = ranks01(map_values[shared].to_numpy())
+    y = ranks01(np.array([profile[s] for s in shared]))
+    groups = group_of(set_table)
+    division = dict(zip(set_table["structure"], set_table["division"]))
+    acronyms = acronym_of(set_table)
+    fig = plt.figure(figsize=(15, 9.5))
+    fig.text(
+        0.5,
+        0.975,
+        f"{symbol} against the adult nano map: whole-brain rho {ranking['rho']:+.2f} "
+        f"(spatial {p_text(ranking['p_spatial'], n_surrogates)}); inside divisions "
+        f"{within['rho_within']:+.2f} (spatial "
+        f"{p_text(within['p_within_spatial'], n_surrogates)}, shuffled inside "
+        f"divisions {p_text(within['p_within_shuffle'], n_surrogates)})",
+        ha="center",
+        va="top",
+        fontsize=11,
+    )
+    ax = fig.add_axes([0.01, 0.5, 0.3, 0.38])
+    rank_plane(fig, ax, dict(zip(shared, x)), lab, names)
+    panel_title(
+        ax,
+        "A",
+        f"The nano map as ranks, CCF plane {plane}",
+        f"among the {len(shared)} declared structures {symbol} has; flat grey: others",
+    )
+    ax = fig.add_axes([0.01, 0.05, 0.3, 0.38])
+    rank_plane(fig, ax, dict(zip(shared, y)), lab, names)
+    panel_title(ax, "B", f"{symbol}'s merged profile as ranks", "the same structures")
+
+    # C: the scatter, a line per division, the structures furthest from the diagonal
+    ax = fig.add_axes([0.4, 0.08, 0.38, 0.8])
+    scatter_groups(ax, x, y, [groups[s] for s in shared])
+    division_lines(ax, x, y, [division[s] for s in shared], detail)
+    ax.plot([0, 1], [0, 1], color=MID_GREY, lw=0.8, ls=(0, (4, 3)), zorder=1)
+    for i in np.argsort(np.abs(y - x))[::-1][:6]:
+        ax.annotate(
+            acronyms[shared[i]],
+            (x[i], y[i]),
+            xytext=(4, 3),
+            textcoords="offset points",
+            fontsize=7.5,
+        )
+    ax.set_xlim(-0.03, 1.03)
+    ax.set_ylim(-0.03, 1.03)
+    ax.set_aspect("equal")
+    ax.set_xlabel("nano map, rank among structures")
+    ax.set_ylabel(f"{symbol}, rank among structures")
+    ax.legend(
+        loc="upper left",
+        bbox_to_anchor=(1.02, 1.0),
+        fontsize=7.5,
+        title="a line per division (structures)",
+        title_fontsize=8,
+    )
+    panel_title(
+        ax,
+        "C",
+        f"{len(shared)} declared structures; the six furthest from the diagonal named",
+    )
+    tidy(ax)
+    ax.text(
+        1.02,
+        0.25,
+        "\n".join(
+            textwrap.wrap(
+                "A line rising inside a division means the gene and the map order its "
+                "structures alike there; lines that sit apart with no slope inside "
+                "carry a rho made of the contrast between divisions "
+                f"({figure_ref('between_within')}). "
+                "Dots: structures, coloured by group of divisions.",
+                38,
+            )
+        ),
+        transform=ax.transAxes,
+        fontsize=7.5,
+        color=NOTE_GREY,
+        va="top",
+    )
+    return saved(fig, save)
