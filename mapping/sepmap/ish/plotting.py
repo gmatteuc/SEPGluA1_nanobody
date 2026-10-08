@@ -17,6 +17,7 @@ the figure, saved as PNG and EPS at 150 dpi when `save` is given.
 Called by the run scripts of the ISH line.
 """
 
+import textwrap
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -28,7 +29,9 @@ from scipy.stats import rankdata
 
 from sepmap.ish.section_qc import ISH_QC, SECTION_AXIS
 from sepmap.plotting import (
+    DARK_BLUE,
     DARK_GREY,
+    DENSITY_BLUE,
     DIVISION_GROUP,
     DIVISION_GROUP_COLOURS,
     GROUP_COLOURS,
@@ -36,6 +39,7 @@ from sepmap.plotting import (
     NO_DATA_GREY,
     PAIR_LINE,
     RED,
+    SET_COLOURS,
     boundaries,
     draw_plane,
     hot_cut,
@@ -572,4 +576,296 @@ def plot_qc_sheet(
     ax_b.set_xlabel(what, fontsize=8)
     ax_c.set_title("C.  The ISH section, as on its grid", loc="left", fontsize=9)
     ax_d.set_title("D.  The same, with the CCF's structures", loc="left", fontsize=9)
+    return saved(fig, save)
+
+
+# ===== 02 The genes, and how good their maps are =====
+
+# where a gene comes from, in the order panel A stacks them
+SOURCES = ("P9's panel only", "both panels", "ontology panel only")
+
+# a gene in a GO set and a marker set is drawn in the marker set
+STACK_ORDER = (
+    "subunits",
+    "localisation",
+    "GABAergic markers",
+    "glia",
+    "other postsynaptic",
+    "presynaptic",
+)
+
+# the genes named on the reliability panels: the subunit, the top of P9's ranking,
+# and the scaffold second to it
+NAMED_GENES = ("Gria1", "Cacng8", "Dlg2")
+
+
+def gene_source(genes: pd.DataFrame) -> pd.Series:
+    """Which panel lists each gene: P9's only, both, or the ontology panel's only."""
+    in_p9 = genes["p9_gene"].astype(bool)
+    in_ontology = genes["ontology_role"].fillna("") != ""
+    source = np.where(in_p9 & in_ontology, SOURCES[1], SOURCES[2])
+    source = np.where(in_p9 & ~in_ontology, SOURCES[0], source)
+    return pd.Series(source, index=genes.index)
+
+
+def first_set(text: str) -> str:
+    """The set a gene is drawn in: the first of STACK_ORDER it belongs to."""
+    sets = [s.strip() for s in str(text).split(";") if s.strip()]
+    for name in STACK_ORDER:
+        if name in sets:
+            return name
+    return "in no set"
+
+
+def union_panel(ax: plt.Axes, genes: pd.DataFrame) -> None:
+    """A: the two panels and their union, each part stacked by gene set."""
+    source = gene_source(genes)
+    drawn = genes["gene_sets"].fillna("").map(first_set)
+    colours = dict(SET_COLOURS)
+    colours["in no set"] = "#ececec"
+    for i, part in enumerate(SOURCES):
+        left = 0
+        for name in STACK_ORDER + ("in no set",):
+            n = int(((source == part) & (drawn == name)).sum())
+            if n:
+                ax.barh(i, n, left=left, color=colours[name], height=0.6)
+            left += n
+        ax.text(left + 4, i, f"{left}", va="center", fontsize=8)
+    ax.set_yticks(range(len(SOURCES)))
+    ax.set_yticklabels(SOURCES)
+    ax.invert_yaxis()
+    ax.set_xlabel("genes with a usable experiment")
+    handles = [Patch(color=colours[n], label=n) for n in STACK_ORDER + ("in no set",)]
+    ax.legend(handles=handles, loc="upper right", fontsize=7)
+    panel_title(
+        ax,
+        "A",
+        "The genes, by panel and by gene set",
+        f"{len(genes)} genes; one in a GO set and a marker set drawn in the marker set",
+    )
+    tidy(ax)
+
+
+def experiments_panel(ax: plt.Axes, experiments: pd.DataFrame) -> None:
+    """B: usable experiments per gene, by the planes of section they cover."""
+    used = experiments[~experiments["excluded"]]
+    per_gene = used.groupby("symbol")["plane"].agg(lambda p: " ".join(sorted(set(p))))
+    count = used.groupby("symbol")["experiment_id"].count().clip(upper=4)
+    kinds = {
+        "coronal only": DARK_GREY,
+        "sagittal only": "#c8c8c8",
+        "both planes": DENSITY_BLUE,
+    }
+    bottom = np.zeros(4)
+    for kind, colour in kinds.items():
+        if kind == "both planes":
+            mine = per_gene == "coronal sagittal"
+        else:
+            mine = per_gene == kind.split()[0]
+        n = np.array([int(((count == k) & mine).sum()) for k in (1, 2, 3, 4)])
+        ax.bar([1, 2, 3, 4], n, bottom=bottom, color=colour, width=0.7, label=kind)
+        bottom += n
+    for k, n in zip((1, 2, 3, 4), bottom):
+        ax.text(k, n + 3, f"{int(n)}", ha="center", fontsize=8)
+    ax.set_ylim(0, bottom.max() * 1.12)
+    ax.set_xticks([1, 2, 3, 4])
+    ax.set_xticklabels(["1", "2", "3", "4 or more"])
+    ax.set_xlabel("usable Allen experiments of the gene")
+    ax.set_ylabel("genes")
+    ax.legend(loc="upper right", fontsize=7)
+    n_two = int((count >= 2).sum())
+    panel_title(
+        ax,
+        "B",
+        "Experiments per gene",
+        f"{len(used)} experiments used, {n_two} genes measured more than once",
+    )
+    tidy(ax)
+
+
+def qc_panel(
+    ax: plt.Axes,
+    sections: pd.DataFrame,
+    summary: pd.DataFrame,
+    p9_experiments: set[str],
+) -> None:
+    """C: P9's own experiments with a dim section, one row each, named."""
+    ok = summary[summary["grid"] == "ok"]
+    dim = ok[(ok["n_flagged"] > 0) | (ok["n_absence_kept"] > 0)]
+    shown = dim[dim["experiment_id"].isin(p9_experiments)].sort_values("symbol")
+    matrix = status_matrix(sections, list(shown["experiment_id"]))
+    draw_status(ax, matrix)
+    ax.set_yticks(range(len(shown)))
+    ax.set_yticklabels(shown["symbol"], fontsize=8)
+    ax.set_xlabel("section along AP, 200 um (P9's experiments are coronal)")
+    panel_title(
+        ax,
+        "C",
+        "P9's experiments with a dim section",
+        "red: set missing; hatched: kept as true absence (proposed)\n"
+        f"{len(shown)} of P9's {len(p9_experiments & set(ok['experiment_id']))}; "
+        f"{len(dim) - len(shown)} more in the other experiments "
+        "(qc/00_flagged.png)",
+    )
+
+
+def reliability_panel(ax: plt.Axes, rel: pd.DataFrame) -> None:
+    """D: how reliable one Allen map is, the named genes marked."""
+    values = rel["reliability"].dropna()
+    ax.hist(values, bins=np.linspace(-0.4, 1.0, 36), color=MID_GREY)
+    ax.axvline(0.3, color=DARK_GREY, ls="--", lw=0.9)
+    top = ax.get_ylim()[1]
+    for i, gene in enumerate(NAMED_GENES):
+        value = rel.set_index("symbol")["reliability"].get(gene, np.nan)
+        if np.isfinite(value):
+            colour = DARK_BLUE if gene == "Gria1" else RED
+            ax.axvline(value, color=colour, lw=1.2)
+            ax.text(
+                value - 0.01,
+                top * (0.92 - 0.09 * i),
+                f"{gene} {value:.2f}",
+                ha="right",
+                fontsize=7.5,
+            )
+    q1, median, q3 = np.percentile(values, [25, 50, 75])
+    ax.set_xlabel("reliability: median Spearman between two experiments of a gene")
+    ax.set_ylabel("genes")
+    panel_title(
+        ax,
+        "D",
+        "How reliable one Allen map is",
+        f"{len(values)} genes; median {median:.2f} (quartiles {q1:.2f} to {q3:.2f}); "
+        f"{int((values < 0.3).sum())} below 0.3 (dashed)",
+    )
+    tidy(ax)
+
+
+def expression_panel(ax: plt.Axes, rel: pd.DataFrame, subunits: set[str]) -> None:
+    """E: reliability against how strongly the gene is expressed."""
+    have = rel.dropna(subset=["reliability"])
+    have = have[have["median_energy"] > 0]
+    x = np.log10(have["median_energy"].to_numpy())
+    y = have["reliability"].to_numpy()
+    colours = [DARK_BLUE if s in subunits else DARK_GREY for s in have["symbol"]]
+    ax.scatter(x, y, s=20, c=colours, alpha=0.7, linewidths=0)
+    offsets = {"Gria1": (6, -3), "Cacng8": (-40, 8), "Dlg2": (6, 8)}
+    for gene in NAMED_GENES:
+        mine = (have["symbol"] == gene).to_numpy()
+        if mine.any():
+            ax.annotate(
+                gene,
+                (x[mine][0], y[mine][0]),
+                textcoords="offset points",
+                xytext=offsets[gene],
+                fontsize=7.5,
+                arrowprops=dict(arrowstyle="-", color=MID_GREY, lw=0.5),
+            )
+    rho = pd.Series(x).corr(pd.Series(y), method="spearman")
+    ax.axhline(0.3, color=DARK_GREY, ls="--", lw=0.9)
+    ax.set_xlabel("log10 median expression energy of the gene")
+    ax.set_ylabel("reliability")
+    panel_title(
+        ax,
+        "E",
+        "Reliability against expression",
+        f"Spearman rho {rho:+.2f} over {len(have)} genes; subunits dark blue",
+    )
+    tidy(ax)
+
+
+def reason_kind(reason: str) -> str:
+    """A short kind of reason for an experiment left out, to group them by."""
+    if reason.startswith("grid not on disk"):
+        return "no grid from Allen"
+    if reason.startswith("grid is"):
+        return "grid in a box of its own"
+    if reason.startswith("data in"):
+        return "data in too few structures"
+    return reason
+
+
+def repair_panel(ax: plt.Axes, experiments: pd.DataFrame) -> None:
+    """F: the experiments left out, by reason, and what the repair added."""
+    ax.axis("off")
+    dropped = experiments[experiments["excluded"]].sort_values("symbol")
+    lines = [f"Experiments left out ({len(dropped)}; * P9's own):"]
+    kinds = dropped["exclude_reason"].map(reason_kind)
+    for kind in dict.fromkeys(kinds):
+        mine = dropped[kinds == kind]
+        genes = [
+            f"{g}*" if p9 else g for g, p9 in zip(mine["symbol"], mine["p9_experiment"])
+        ]
+        text = f"{kind}: {', '.join(genes)}"
+        lines.extend(
+            textwrap.wrap(text, 58, initial_indent="  ", subsequent_indent="    ")
+        )
+    lines.append("")
+    lines.append("Repaired with the gene's other Allen experiments:")
+    repair = experiments[experiments["repair_experiment"].astype(bool)]
+    for symbol, mine in repair.groupby("symbol"):
+        used = int((~mine["excluded"]).sum())
+        planes = mine["plane"].value_counts()
+        text = ", ".join(f"{n} {plane}" for plane, n in planes.items())
+        lines.append(f"  {symbol}: {used} of {len(mine)} used ({text})")
+    lines.append("  Sst: none needed, the ontology panel has two")
+    text = "\n".join(lines)
+    ax.text(0, 1, text, va="top", ha="left", fontsize=7.5, family="monospace")
+    ax.set_title("F.  What was left out, and the repair", loc="left", fontsize=9)
+
+
+def plot_genes(
+    genes: pd.DataFrame,
+    experiments: pd.DataFrame,
+    sections: pd.DataFrame,
+    summary: pd.DataFrame,
+    rel: pd.DataFrame,
+    subunits: set[str],
+    save: Path | None = None,
+) -> plt.Figure:
+    """Figure 02: the genes, their experiments, the section QC and the reliability.
+
+    `genes` holds a row per gene with a usable experiment (p9_gene, ontology_role,
+    gene_sets), `experiments` the gene table (excluded, plane), `sections` and
+    `summary` the section QC, `rel` the reliability per gene.
+    """
+    fig = plt.figure(figsize=(16, 10.5))
+    n_listed = experiments["symbol"].nunique()
+    n_used = int((~experiments["excluded"]).sum())
+    heading(
+        fig,
+        2,
+        "Which genes, which Allen experiments, and how trustworthy is each map?",
+        f"{n_listed} genes and {len(experiments)} experiments listed; {len(genes)} "
+        f"genes and {n_used} experiments usable; "
+        f"{int(experiments['excluded'].sum())} experiments left out (F)",
+    )
+    ax_a = fig.add_axes([0.11, 0.62, 0.25, 0.27])
+    ax_b = fig.add_axes([0.43, 0.62, 0.2, 0.27])
+    ax_c = fig.add_axes([0.72, 0.55, 0.26, 0.31])
+    ax_d = fig.add_axes([0.06, 0.17, 0.26, 0.3])
+    ax_e = fig.add_axes([0.40, 0.17, 0.24, 0.3])
+    ax_f = fig.add_axes([0.70, 0.17, 0.28, 0.3])
+    union_panel(ax_a, genes)
+    experiments_panel(ax_b, experiments)
+    p9_experiments = set(
+        experiments.loc[experiments["p9_experiment"].astype(bool), "experiment_id"]
+    )
+    qc_panel(ax_c, sections, summary, p9_experiments)
+    reliability_panel(ax_d, rel)
+    expression_panel(ax_e, rel, subunits)
+    repair_panel(ax_f, experiments)
+    footer(
+        fig,
+        [
+            "How to read: one table holds P9's 100 genes and the ontology panel's 390, "
+            "a row per Allen experiment (A9). A section five-fold dimmer than its "
+            "neighbours is set missing, never filled in (A2); a gene's profile is the "
+            "mean rank of its usable experiments.",
+            "Reliability is how well two experiments of the same gene, two Allen mice, "
+            "agree across structures; a gene measured once has none.",
+            "What would mean what: a gene's correlation with the nano map is capped by "
+            "its own reliability, so a low rho of an unreliable gene says little, and "
+            "genes measured once are only as good as one Allen mouse.",
+        ],
+    )
     return saved(fig, save)
