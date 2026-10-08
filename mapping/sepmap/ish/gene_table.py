@@ -228,12 +228,18 @@ def region_rows(
     return rows
 
 
-def experiment_profiles(region: pd.DataFrame) -> dict[str, dict[str, dict[str, float]]]:
-    """{gene: {experiment: {structure: energy}}}, with ish.min_voxels voxels of data."""
-    usable = region[region["n_voxels"] >= ISH["min_voxels"]]
+def experiment_profiles(
+    region: pd.DataFrame, column: str = "ish_mean"
+) -> dict[str, dict[str, dict[str, float]]]:
+    """{gene: {experiment: {structure: energy}}}, with ish.min_voxels voxels of data.
+
+    `column` is the mean taken, ish_mean or ish_mean_eroded; a structure whose
+    eroded mean is missing (too small to erode) is left out of that profile.
+    """
+    usable = region[(region["n_voxels"] >= ISH["min_voxels"]) & region[column].notna()]
     per = defaultdict(lambda: defaultdict(dict))
     for symbol, eid, structure, value in zip(
-        usable["symbol"], usable["experiment_id"], usable["structure"], usable["ish_mean"]
+        usable["symbol"], usable["experiment_id"], usable["structure"], usable[column]
     ):
         per[symbol][eid][structure] = float(value)
     return per
@@ -277,6 +283,15 @@ def profile_rows(per: dict) -> list[dict]:
                 )
             )
     return rows
+
+
+def load_region_table() -> pd.DataFrame:
+    """The region means run_ish_gene_table wrote, flagged sections already missing."""
+    if not REGION_TABLE.exists():
+        raise FileNotFoundError(
+            f"{REGION_TABLE} not found: run run_ish_gene_table.py first"
+        )
+    return pd.read_csv(REGION_TABLE, dtype={"experiment_id": str})
 
 
 def load_profiles() -> dict[str, dict[str, float]]:
@@ -548,6 +563,59 @@ def experiment_table(
         out[column] = out["symbol"].map(gene[column])
     out["gene_reliability"] = out["symbol"].map(rel.set_index("symbol")["reliability"])
     return out
+
+
+def load_gene_table() -> pd.DataFrame:
+    """The experiment rows run_ish_gene_table wrote, its flags back to booleans."""
+    if not GENE_TABLE.exists():
+        raise FileNotFoundError(
+            f"{GENE_TABLE} not found: run run_ish_gene_table.py first"
+        )
+    table = pd.read_csv(
+        GENE_TABLE,
+        dtype={"experiment_id": str},
+        keep_default_na=False,
+        na_values=[""],
+    )
+    for column in (
+        "p9_experiment",
+        "ontology_experiment",
+        "repair_experiment",
+        "excluded",
+        "p9_gene",
+    ):
+        table[column] = table[column].astype(str) == "True"
+    for column in ("p9_category", "ontology_role", "gene_sets", "flagged_sections"):
+        table[column] = table[column].fillna("")
+    return table
+
+
+def per_gene(table: pd.DataFrame) -> pd.DataFrame:
+    """One row per gene of the gene table: its labels and the experiments it uses.
+
+    Columns: symbol, p9_gene, p9_category, ontology_role, gene_sets, reliability,
+    n_experiments_used, experiments_used (ids joined by spaces) and
+    p9_experiment_id (P9's own experiment when it is used, else '').
+    """
+    rows = []
+    for symbol, mine in table.groupby("symbol", sort=True):
+        used = mine[~mine["excluded"]]
+        own = used.loc[used["p9_experiment"], "experiment_id"]
+        first = mine.iloc[0]
+        rows.append(
+            dict(
+                symbol=symbol,
+                p9_gene=bool(first["p9_gene"]),
+                p9_category=first["p9_category"],
+                ontology_role=first["ontology_role"],
+                gene_sets=first["gene_sets"],
+                reliability=first["gene_reliability"],
+                n_experiments_used=len(used),
+                experiments_used=" ".join(used["experiment_id"]),
+                p9_experiment_id=own.iloc[0] if len(own) else "",
+            )
+        )
+    return pd.DataFrame(rows)
 
 
 def documentation_table(

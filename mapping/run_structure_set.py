@@ -23,14 +23,15 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                merged profiles, gene sets,
                                documentation; figure 02
     16. run_ish_spatial_null   A7: surrogate maps and their checks
-    17. run_ish_gene_ranking   analysis 1: each gene against the map, the null,
-                               autofluorescence (A8), the Cacng8 - Gria1 gap;
-                               figures 03 to 06
-    18. run_ish_robustness     A3: the ranking under other choices
-    19. run_ish_divisions      analysis 2 (A6): between or within divisions;
-                               per-gene sheets
-    20. run_ish_gene_sets      analysis 3: kinds of genes; localisation against
-                               matched controls
+    17. run_ish_gene_ranking   analysis 1: each gene against the
+                               map, the null, autofluorescence (A8),
+                               the Cacng8 - Gria1 gap; figures 03 to 06
+    18. run_ish_robustness     A3: the ranking under other choices;
+                               figure 07
+    19. run_ish_divisions      analysis 2 (A6): between or within
+                               divisions; figure 08, gene sheets
+    20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
+                               against matched controls; figures 09, 10
     21. run_beyond_density     analysis 4: what abundance and density leave
     22. run_beyond_controls    seven attempts to break it
     23. run_beyond_calibration the same model on maps whose answer is known
@@ -215,10 +216,10 @@ def main(recompute):
         names,
         plane,
         STRUCTURES["min_adults"],
-        save=figures / "01_structures.png",
+        save=figures / ish_plotting.figure_file("structures"),
     )
     plt.close(fig)
-    print(f"figure: {figures / '01_structures.png'}")
+    print(f"figure: {figures / ish_plotting.figure_file('structures')}")
 
 
 if __name__ == "__main__":
