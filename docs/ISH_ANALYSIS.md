@@ -4,17 +4,19 @@ What the adult nano map is, read against the Allen in situ hybridisation (ISH)
 maps of the adult mouse brain: the question, the argument, each analysis with its
 method, figure, result and meaning, the limits, and how to rerun it. Built on 8
 October 2026 from the decisions of the ISH discussion (all five as recommended,
-[history/ISH_DISCUSSION.md](history/ISH_DISCUSSION.md), section 8), and revised
-the same day after three reviews (statistics, figures, facts).
+[history/ISH_DISCUSSION.md](history/ISH_DISCUSSION.md), section 8), revised the
+same day after three reviews (statistics, figures, facts), and run again on 9
+October with part 1's main model, fixed on 8 October before its results
+(section 8).
 
 - Code: `mapping/sepmap/structures.py`, `mapping/sepmap/adult/` and
   `mapping/sepmap/ish/`, run by steps 13 to 28 of the Python route
   ([mapping/README.md](../mapping/README.md)), on branch `post-ish`, not merged
   yet.
 - Outputs: `<data>\adult_v2\ish_analysis\`. The numbers below are those of the
-  run of 8 October 2026 on a full copy of the production inputs (the data root
+  run of 9 October 2026 on a full copy of the production inputs (the data root
   set by `SEP_DATA_ROOT`); the production data root holds the same once steps
-  13 to 27 run there after the merge. Every number below is in
+  13 to 28 run there after the merge. Every number below is in
   `tables\numbers_for_the_text.csv` there (a `.txt` beside it reads more
   easily), written by `run_ish_overview.py` from the numbers each step writes;
   where a number comes from another table, the table is named.
@@ -36,8 +38,8 @@ synaptic and postsynaptic-density genes.
 The ISH line serves one argument, in two connected parts:
 
 1. **The map is not satisfactorily explained by Gria1 expression or by synapse
-   density.** Predicted from receptor mRNA, synaptic markers and
-   postsynaptic-density genes, a sizeable part of the map is left over, and it
+   density.** Predicted from Gria1 mRNA, synapse density and the tissue's
+   autofluorescence, a sizeable part of the map is left over, and it
    replicates across mice. This is the core claim (section 4).
 2. **The map is therefore something else, and the reading the data support is
    the surface fraction of the receptor**, shaped by trafficking regulation and
@@ -53,20 +55,24 @@ green SEP channel cannot (section 6.3).
 
 Where it stands today:
 
-- **Part 1 holds against the calibration floor.** 27% of the map's
-  reproducible pattern is not predicted by receptor mRNA or synaptic density,
-  and it replicates across mice. On the same structures it is 14 points above
-  what such a map would leave through Allen-to-Allen mismatch alone (the floor,
-  15%), with an interval whose lower end is near zero (+0% to +28%).
+- **Part 1 holds against the calibration floor at its point value.** 29% of
+  the map's reproducible pattern is not predicted by Gria1 expression or synapse
+  density (15% to 42% over structures), and it replicates across mice. On the
+  same structures it is 14 points above what such a map would leave through
+  Allen-to-Allen mismatch alone (the floor, 12%), about twice it, with an
+  interval that reaches just below zero (-2% to +30%). The measured PSD95
+  density, where it exists, leaves more, not less.
 - **It does not hold against the stricter benchmark.** A map that is one Allen
-  Gria1 experiment leaves as much (34%) as the nano map does. Which benchmark a
-  claim uses is still to agree (section 8).
-- **Part 2 is not borne out by the gene tests.** The map follows Cacng8 and
-  Gria1 beyond the null, inside divisions too, but Cacng8's lead over Gria1 is
-  inside the null of maps related to both alike, no gene set passes, the
-  localisation genes do no better than matched controls, and no single gene
-  follows the leftover. The genes are consistent with the surface-fraction
-  reading; they do not single it out.
+  Gria1 experiment leaves as much (34%) as the nano map does (26% on the same
+  structures). Which benchmark a claim uses is still to agree (section 8).
+- **Part 2 is not borne out by the gene tests of the map.** The map follows
+  Cacng8 and Gria1 beyond the null, inside divisions too, but Cacng8's lead
+  over Gria1 is inside the null of maps related to both alike, no gene set
+  passes, and the localisation genes do no better than matched controls.
+  Against the leftover of the main model, Cacng8, the one gene named in
+  advance, follows it beyond its null (section 5.6); the tests of the AMPA
+  receptor complex family named with it are still to run. The genes are
+  consistent with the surface-fraction reading; they do not single it out.
 
 What the comparison cannot do on its own: separate surface from total receptor
 (both follow the postsynaptic side of synapses), read protein from mRNA (mRNA
@@ -86,10 +92,12 @@ and where each part stands, one row per step with what stays open.
 | division | a coarse part of the brain: Isocortex, OLF, HPF, CTXsp, STR, PAL, TH, HY, MB, P, MY, CB |
 | `zref` | per brain, log2 of each structure's nano mean over the brain's isocortex mean, minus its median over the declared set, over its p90 - p10 spread there; the adult map is the mean of the ten adults' `zref` |
 | the declared set | the structures every comparison uses: grey matter measured in all ten adults (section 3) |
-| beyond | short for "beyond abundance and density": how much of the map receptor mRNA and synaptic density predict, and what is left (part 1; the `beyond` folder and figures 03 and 04) |
+| beyond | short for "beyond abundance and density": how much of the map Gria1 expression and synapse density predict, and what is left (part 1; the `beyond` folder and figures 03 and 04) |
+| main model | part 1's model, fixed on 8 October 2026: Gria1 + synapse density + autofluorescence (section 4) |
+| check row | a variant of the main model that changes one thing of it, fixed with it and reported beside it (`[beyond.variants]`) |
 | ceiling | the share of the map that two halves of the cohort reproduce (Spearman-Brown of their agreement) |
 | leftover | the part of the map a fitted model does not predict |
-| calibration floor | what the same model leaves of a map made only of receptor mRNA and density: the leftover Allen-to-Allen mismatch produces alone |
+| calibration floor | what the same model leaves of a map made only of Gria1 and synapse density: the leftover Allen-to-Allen mismatch produces alone |
 | jackknife | here, recomputing a number on subsamples that each leave out a fifth of the structures; the spread of those values, scaled for the subsample size, gives its interval |
 | spatial null | random maps with the nano map's smoothness, the surrogates; a spatial p is the share of surrogates that correlate with a gene at least as strongly as the map does |
 | surrogate | the map's ranks shuffled, smoothed over near structures and rescaled until its variogram matches the map's (Burt et al. 2020) |
@@ -214,47 +222,75 @@ against git's hash of it at that commit.
   model keeps the mRNA terms on the 126 structures, and PSD95 enters as a
   variant on the 77 it covers.
 
-## 4. Part 1: not explained by receptor mRNA or synaptic density
+## 4. Part 1: not explained by Gria1 expression or synapse density
 
 `run_beyond_density.py` to `run_beyond_figures.py`; `figures\03_beyond_budget.png`
 and `04_beyond_where.png`.
 
+**The main model**, fixed on 8 October 2026 before any of its results
+(`[beyond]` of `mapping/settings.toml`; section 8):
+
+```
+nano map  ~  Gria1 + synapse density + autofluorescence
+```
+
+- *Abundance is Gria1 alone.* The mice carry SEP-GluA1: the stained protein is
+  GluA1, which Gria1 alone encodes. Gria2 to Gria4 encode partner subunits the
+  nanobody does not see, and their availability sets GluA1's assembly and
+  trafficking: the surface side, not abundance. The four subunits as four
+  terms, the model of the first run of 8 October, are a check row.
+- *Synapse density* is the measured PSD95 punctum density (section 3) if it
+  covers at least 80% of the structures of the fit; otherwise the mRNA panel,
+  the composite of 11 synaptic marker genes and the first principal component
+  of 186 postsynaptic-density genes. PSD95 covers 77 of the 126 structures
+  (61%), so the main model keeps the panel, on all 126, and PSD95 is a check
+  row on the 77 it covers.
+
 **Method.**
 
 - The structures: the declared set, less those where a subunit or marker gene
-  has no ISH value: 126 structures, 10 adults.
-- The map and every predictor as ranks across structures. Predictors:
-  abundance, Gria1 to Gria4 as four separate terms; density, 11 synaptic marker
-  genes and the first principal component of 186 postsynaptic-density genes;
-  the autofluorescence of the same brains. Each enters as x, x² and x³.
+  has no ISH value: 126 structures, 10 adults. They are those of the first run,
+  so every check row runs on them or on a part of them.
+- The map and every predictor as ranks across structures, each entering as x,
+  x² and x³: 13 columns with the intercept.
 - Each model is scored on structures it has not seen (cross-validated R²,
   averaged over 20 shufflings of five folds, since one shuffling alone moves the
   leftover by several points), as a share of the ceiling: two halves of the
   cohort, in all 126 splits, agree at 0.974, and Spearman-Brown makes that
-  0.987 for ten adults. Left = 1 - share.
+  0.987 for ten adults. Left = 1 - share. The budget adds the terms in the
+  order Gria1, synapse density, autofluorescence.
 - The interval over structures is a jackknife: 400 subsamples each leave out a
   fifth of the structures, every predictor is rebuilt on the structures kept as
   the production run builds it, and the spread of the subsamples gives the 95%
   interval. A subsample draws no structure twice, so no structure sits in a
-  training and a test fold at once (the bootstrap of 26 September let it, and
-  flattered the fit).
+  training and a test fold at once.
 - Replication: the model fitted to each half-cohort map, and the two leftovers
   correlated. The map's reliability and the fit alone imply a value; the
   observed one is set beside it.
-- Calibration: the same model on maps whose answer is known, built from half of
+- Calibration: the main model on maps whose answer is known, built from half of
   each gene's Allen experiments and predicted from the other half, with ten
-  made-up adults as noisy as ours: a map made only of receptor mRNA and density
-  (the floor), and a map that is one Allen Gria1 experiment. 113 structures,
-  where both halves measure every subunit and marker. The nano map is read the
-  same way on the same structures, and its difference from each known map is
-  recomputed on each jackknife subsample, so the interval is that of the
-  difference. A gene measured by one experiment (Shank2, Shank3 and Nlgn1 of
-  the markers) is the same in both halves, so the floor errs low.
+  made-up adults as noisy as ours: a map made only of Gria1 and synapse density
+  (the floor), and a map that is one Allen Gria1 experiment (the benchmark).
+  113 structures, where both halves measure every subunit and marker, as the
+  fit's own rule asks of the merged profiles. The nano map is read the same way
+  on the same structures, and its difference from each known map is recomputed
+  on each jackknife subsample, so the interval is that of the difference. A
+  gene measured by one experiment (Shank2, Shank3 and Nlgn1 of the markers) is
+  the same in both halves, so the floor errs low; the PSD95 density, one mouse
+  measured once, would enter the same way if it were in the main model.
 - Seven controls try to break the result: a spatial gradient, structure size,
   single animals, naive against RWS, curvature, the choice of predictors (the
   components of every gene measured in all the structures, judged against its
-  own calibration floor), the reading. Beside them, the leftover under other
-  folds and on other structures (`beyond\variants.csv`).
+  own calibration floor), the reading.
+- The check rows (`[beyond.variants]`, fixed with the main model), each one
+  change to it, on its own structures with its ceiling recomputed there: the
+  density as PSD95 puncta, SAP102 puncta or every punctum, on the 77 structures
+  where they are measured; the mRNA panel on those same 77, so that the two
+  kinds of density meet on the same structures; PSD95 and the panel together,
+  the conservative bound, since one measured map in place of the panel's two
+  terms gives the model fewer terms; the panel without its five presynaptic
+  markers; Gria1 to Gria4 in place of Gria1. Beside them, the main model under
+  other folds and on more structures (`beyond\variants.csv`).
 
 **Result** (`numbers_for_the_text.csv`, step `beyond`; `beyond\variance_partition.csv`,
 `calibration.csv`, `calibration_jackknife.csv`, `controls.csv`, `variants.csv`):
@@ -262,56 +298,77 @@ and `04_beyond_where.png`.
 | predictors, each bent, held out | share of the reproducible map |
 |---|---|
 | Gria1 alone | 47% |
-| Gria1 to Gria4, four terms | 67% |
-| density alone (markers, postsynaptic-density component) | 58% |
+| synapse density alone (markers, postsynaptic-density component) | 58% |
 | autofluorescence alone | -2% |
-| the model: Gria1 to Gria4, then density (+7%), then autofluorescence (-1%) | 73% |
-| left | 27% (15% to 39% over structures) |
+| Gria1 to Gria4 alone, four terms | 67% |
+| the main model: Gria1 (47%), + synapse density (+25%), + autofluorescence (-1%) | 71% |
+| left | 29% (15% to 42% over structures) |
 
-- The leftover replicates: the two half-cohort leftovers agree at 0.928 (lowest
-  split 0.873). The map's reliability and the fit alone imply 0.883; two
-  unrelated leftovers fall between -0.18 and +0.17.
-- The calibration, on 113 structures: a map made only of receptor mRNA and
-  density leaves 15% (13% to 17% over the draws), its leftover replicating at
-  0.79: the floor. The nano map, read the same way, leaves 29%, 14 points more
-  (95% +0% to +28% over resampled structures), about twice the floor. A map
-  that is one Allen Gria1 experiment leaves 34% (33% when the truth comes from
-  one half of its experiments, 35% from the other); nano minus that is -5%
-  (-28% to +17%).
-- The leftover under other choices (`beyond\variants.csv`): one shuffling of the
-  folds 27% (single shufflings 25% to 33%), ten folds 27%, leave one out 26%,
-  and 26% on the 159 structures kept once the markers measured once (Shank2,
-  Shank3, Nlgn1) are left out. With folds of spatial blocks, which keep a
-  structure's neighbours out of its fit, 42%; on the calibration's structures
-  nano then leaves 40%, the floor 21% and the Gria1 map 40%: about twice the
-  floor again, and as much as the Gria1 map.
+- The leftover replicates: the two half-cohort leftovers agree at 0.933 (lowest
+  split 0.874). The map's reliability and the fit alone imply 0.897; two
+  unrelated leftovers fall between -0.17 and +0.17.
+- The calibration, on 113 structures: a map made only of Gria1 and synapse
+  density leaves 12% (11% to 15% over the draws), its leftover replicating at
+  0.78: the floor. The nano map, read the same way, leaves 26%, 14 points more
+  (95% -2% to +30% over resampled structures), about twice the floor. A map
+  that is one Allen Gria1 experiment leaves 34% (35% when the truth comes from
+  one half of its experiments, 34% from the other); nano minus that is -8%
+  (-29% to +14%).
+- The check rows (`beyond\variants.csv`; density alone and left are shares of
+  the reproducible map on the row's own structures):
+
+  | check row | structures | density alone | left |
+  |---|---|---|---|
+  | the main model | 126 | 58% | 29% |
+  | Gria1 to Gria4 in place of Gria1 | 126 | 58% | 27% |
+  | the panel without its presynaptic markers | 126 | 58% | 31% |
+  | the mRNA panel, on the structures PSD95 covers | 77 | 45% | 39% |
+  | PSD95 puncta | 77 | 22% | 46% |
+  | PSD95 puncta and the mRNA panel | 77 | 42% | 39% |
+  | SAP102 puncta | 77 | 26% | 48% |
+  | every punctum | 77 | 24% | 47% |
+
+  On the 77 structures where it is measured, the PSD95 density predicts the map
+  less well than the mRNA panel does (22% against 45% alone) and leaves more
+  (46% against 39%); the two together leave as much as the panel alone. So the
+  measured density does not shrink the leftover: the panel predicts more of the
+  map, and the main model, by keeping it, is the harder test of part 1. The 77
+  structures leave more than the 126 with the same model (39% against 29%):
+  which structures are in moves the leftover as much as the density measure
+  does. The partner subunits change little once density is in (27% left
+  against 29%).
+- The main model under other folds: one shuffling 28% (single shufflings 26%
+  to 31%), ten folds 28%, leave one out 28%, and 28% on the 159 structures kept
+  once the markers measured once (Shank2, Shank3, Nlgn1) are left out. With
+  folds of spatial blocks, which keep a structure's neighbours out of its fit,
+  38%; on the calibration's structures nano then leaves 30%, the floor 16% and
+  the Gria1 map 37%.
 - All 7 controls pass. Control F: the components of the 311 genes measured in
-  every structure (most often 21, picked inside each training fold) predict 81%;
-  on its own calibration nano leaves 22% to 26%, against 4% to 9% for a map made
-  of those genes' expression.
-- The composite model of 26 September, the four subunits averaged into one
-  term, leaves 37% (24% to 49%): Gria4 runs against the map (rho -0.12,
-  `tables\gene_ranking.csv`) and dilutes the average.
+  every structure (most often 21, picked inside each training fold) predict
+  81%; on its own calibration nano leaves 22% to 26%, against 4% to 9% for a
+  map made of those genes' expression.
 - Where it sits (`beyond\regression_table.csv`): above prediction in the medial
-  geniculate (+50 ranks), the rostrolateral visual area, the septofimbrial
-  nucleus and the subiculum; below it in the substantia innominata, piriform
-  cortex, ventral retrosplenial cortex and VAL.
+  geniculate (+56 ranks), both parts of the lateral geniculate, the lateral
+  posterior nucleus, the septofimbrial nucleus, the subthalamic nucleus and the
+  subiculum; below it in the nucleus of reuniens, the medial habenula, dorsal
+  retrosplenial cortex, the arcuate nucleus, piriform cortex and the submedial
+  nucleus of the thalamus.
 
-**What it means.** About a quarter of the map's reproducible pattern, 27%,
-is not predicted by receptor mRNA or synaptic density, and it is reproducible
-across mice. On the same structures it stands above what receptor mRNA and
-density would leave through Allen-to-Allen mismatch, by a margin whose interval
-reaches down to near zero, under random folds and under spatial blocks alike.
+**What it means.** About 29% of the map's reproducible pattern is not predicted
+by Gria1 expression or synapse density, and it is reproducible across mice. On
+the same structures it is about twice what Allen-to-Allen mismatch leaves (26%
+against the floor's 12%), a margin whose interval reaches just below zero
+(-2%); with folds of spatial blocks the margin is the same (30% against 16%).
+Measured synapse density, where it exists, leaves more, not less.
 
 **What it does not mean.** It is no larger than what a map that is one Allen
 Gria1 experiment leaves (34%): a map made of nothing but one experiment's
 Gria1, with that experiment's own error, leaves as much. Its replication follows
-from the map's reliability (0.883 expected), so it is not separate evidence. It
-is "not predicted by receptor mRNA or synaptic density", not "beyond gene
-expression": the components of many panel genes predict 81% of the map, though
-no single gene or set follows the leftover (section 5.6). And a leftover says
-what the predictors miss, not what it is; a claim about one structure needs its
-own null.
+from the map's reliability (0.897 expected), so it is not separate evidence. It
+is "not predicted by Gria1 expression or synapse density", not "beyond gene
+expression": the components of many panel genes predict 81% of the map. And a
+leftover says what the predictors miss, not what it is; a claim about one
+structure needs its own null.
 
 ## 5. Part 2: do the genes that set surface receptor follow the map better than abundance genes?
 
@@ -483,22 +540,26 @@ holds for both a TARP and the receptor's own mRNA.
 
 `figures\11_leftover_genes.png`; `beyond\leftover_genes.csv`, `leftover_sets.csv`.
 
-**Method.** Every gene against the leftover of part 1, each against the
-leftover's own surrogates, each surrogate put through the same fit first (the
-leftover carries nothing of the model's columns, and a surrogate that did would
-give a null far too wide). The gene sets are read the same way. None of these
-tests was named before the leftover was seen.
+**Method.** Every gene against the leftover of part 1's main model, each
+against the leftover's own surrogates, each surrogate put through the same fit
+first (the leftover carries nothing of the model's columns, and a surrogate that
+did would give a null far too wide). The gene sets are read the same way.
+Cacng8 was named for this leftover in advance, on 8 October, its uncorrected
+spatial p the test (`mapping/sepmap/ish/gene_sets.py`); its p against the
+leftover of the four-subunit model, 0.0024, was seen before it was named. The
+AMPA receptor complex family named with it is tested as a group and within
+itself in a step still to run; every other gene is exploratory.
 
-**Result.** 0 of 451 genes pass after BH; 23 have a spatial p below 0.05, about
-what chance gives. The closest is Aqp4, an astrocyte gene (+0.332, p 0.0004, q
-0.18); Cacng8 is +0.148 (p 0.0024, 41st). The glia set passes (median +0.189, p
-0.008, q 0.04); localisation does not (+0.032, p 0.246).
+**Result** (`beyond\leftover_genes.csv`, `leftover_sets.csv`). Cacng8 follows
+the leftover: +0.204, spatial p 0.0002 (28th of 451 genes). Over every gene, 0
+of 451 pass after BH and 27 have a spatial p below 0.05, about what chance
+gives; the closest is Aldh1l1, an astrocyte gene (+0.321, p 0.20, q 0.80). The
+glia set has median +0.164 (p 0.043, q 0.19), localisation +0.048 (p 0.116).
 
-**What it means.** No single gene follows what receptor mRNA and density leave.
-The glia set does, which may say something about the leftover (an astrocytic or
-glial part of the tissue that the label reaches, or that shapes it), but the
-test was not named in advance: a lead to test afresh, not a finding. Cacng8's
-small uncorrected p is in the same position.
+**What it means.** The one gene named in advance, a TARP, follows what Gria1 and
+synapse density leave, beyond the leftover's own null; no gene does once every
+gene is corrected for. The glia set of the first run (q 0.04 against the
+four-subunit leftover) does not pass against this one, and it is not pursued.
 
 ### 5.7 What part 2 says
 
@@ -506,11 +567,12 @@ Consistent with the surface-fraction reading, and not singling it out. The map
 follows receptor expression and not the tissue (section 6.1), and Cacng8, Dlg2
 and Gria1 lead the ranking inside divisions too. But Cacng8's lead over Gria1
 is inside the null of maps related to both alike, no gene set passes its null,
-the postsynaptic criterion named in advance is met by half, the localisation
-genes predict the map no better than matched postsynaptic controls (no
-advantage larger than about +0.08), and no single gene follows the leftover.
-The genes neither contradict nor confirm part 2; only a total-receptor
-measurement can.
+the postsynaptic criterion named in advance is met by half, and the
+localisation genes predict the map no better than matched postsynaptic controls
+(no advantage larger than about +0.08). Against the leftover, the TARP named in
+advance follows it (p 0.0002), the one result here that points the way the
+reading does. The genes neither contradict nor confirm part 2; only a
+total-receptor measurement can.
 
 ## 6. Controls and limits
 
@@ -589,6 +651,9 @@ composition and nanobody access. The tests of the channel ratios against genes
 - The calibration floor errs low (genes measured once are the same in both
   halves), and part 1's leftover is only as large as what one Allen Gria1
   experiment leaves.
+- The measured synapse density is one mouse, in 77 of the 126 structures of
+  the fit, as shared scaled per subtype: it orders the structures, it does not
+  count synapses across them.
 - The exceptions list (true absences) and the sections kept at a step are a
   human call, still proposed.
 - No total-receptor channel, no knockout or no-primary control, no DAPI
@@ -657,16 +722,23 @@ asks it again on sets fixed in advance.
     within it (`mapping/sepmap/ish/gene_sets.py`). Cacng8's p against the
     leftover of the four-subunit model (section 5.6) was seen before it was
     named.
+
+  Run on 9 October: PSD95 covers 77 of the 126 structures, so the main model
+  keeps the mRNA panel and PSD95 is a check row (section 4). The outputs of the
+  first run of 8 October, with the four subunits, are kept on the development
+  copy in `adult_v2\ish_analysis_8oct_four_subunits\`.
 - **The exceptions list.** Glra1 section 61 is kept as true absence, status
   "proposed" in `mapping/ish_section_exceptions.csv`, and 16 sections are kept
   at a step in expression by the rule. To review on `figures\qc\00_flagged.png`
   (red, hatched, dots) and the gene's sheets; the numbers are final once
   reviewed.
-- **Part 1's benchmark.** The leftover is above the floor and inside what one
-  Allen Gria1 experiment leaves. Which benchmark a claim uses is to agree with
-  Sami El-Boustani before the figure is shown.
-- **The glia lead.** The glia set follows the leftover (q 0.04), a test not
-  named in advance. Whether to test it afresh, and how.
+- **Part 1's benchmark.** The leftover is above the floor at its point value
+  (the interval of the difference reaches -2%) and inside what one Allen Gria1
+  experiment leaves. Which benchmark a claim uses is to agree with Sami
+  El-Boustani before the figure is shown.
+- **The glia lead.** The glia set followed the leftover of the four-subunit
+  model (q 0.04), a test not named in advance; against the main model's
+  leftover it does not pass (q 0.19). Not pursued now.
 - **`adult/arms.py` and `run_adult_arms.py`.** No step of the ISH line reads
   their table now that `ish/arms.py` retires. Proposal: retire them with it.
   Until decided they stay, out of the run order.
@@ -738,7 +810,7 @@ Under `<data>\adult_v2\ish_analysis\`:
 | `tables\within_division.csv`, `within_division_detail.csv`, `within_calibration.csv` | 19 | per gene, division-only and within rho with both nulls; per gene and division; the two nulls on random maps |
 | `tables\gene_sets.csv`, `set_tests.csv`, `contrasts.csv`, `localisation_test.csv`, `localisation_summary.csv`, `localisation_power.csv` | 20 | set members; set tests; contrasts; partial rho per gene and pool; every test of the localisation design; its power by effect size |
 | `synaptome\samples.csv`, `density.csv`, `coverage.csv`, `agreement.csv`, `feasibility.png` | 21 | per sample of the synaptome, its ids, densities and structure or why none; per structure of the adult table, measured or why not, its units, weights and densities; per division, how many declared and fitted structures are measured; each density's Spearman with the mRNA density terms, Gria1 and the maps |
-| `beyond\` | 22 to 26 | `structures_used.csv`, `variance_partition.csv`, `calibration.csv`, `calibration_jackknife.csv`, `jackknife.csv`, `controls.csv`, `gene_space.csv`, `gene_space_calibration.csv`, `gene_space_summary.csv`, `variants.csv`, `regression_table.csv`, `residual_by_structure.csv`, `replication.csv`, `leftover_genes.csv`, `leftover_sets.csv`, `numbers_for_the_caption.txt`, working figures |
+| `beyond\` | 22 to 26 | `structures_used.csv` (with whether PSD95 is measured), `variance_partition.csv`, `calibration.csv`, `calibration_jackknife.csv`, `jackknife.csv`, `controls.csv`, `gene_space.csv`, `gene_space_calibration.csv`, `gene_space_summary.csv`, `variants.csv` (the main model, its other folds, its check rows and its wider structures: structures, terms, budget, density alone, left), `regression_table.csv`, `residual_by_structure.csv`, `replication.csv`, `leftover_genes.csv`, `leftover_sets.csv`, `numbers_for_the_caption.txt`, working figures |
 | `green_channel\sep_channel_check.csv` | 27 | per adult, each channel's range and correlations |
 | `tables\april_headline.csv`, `april_anova.csv`, `april_groups.csv` | 28 | P9's genes then and now; the ANOVA under each choice; today's groups against the null |
 | `tables\numbers_<step>.csv`, `numbers_for_the_text.csv` and `.txt` | 13 to 28 | the numbers of each step, and all of them |

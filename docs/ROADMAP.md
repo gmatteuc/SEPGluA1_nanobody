@@ -753,14 +753,19 @@ For the reasons, see the plan and the documents named.
   with their mice; the line is paused, not closed.
 - **The SEP channel** (26 September): mostly autofluorescence in these
   sections; `sepratio` is not a surface fraction.
-- **The beyond-abundance result** (26 September, restated 8 October): about
-  a quarter of the map's reproducible pattern is not predicted by receptor
-  mRNA or synaptic density, and that leftover replicates across halves of the
-  cohort: 27% (15% to 39% over structures), at 0.928. On the same structures
-  it is about twice the calibration floor (29% against 15%, difference +0% to
-  +28%), and no larger than what a map of one Allen Gria1 experiment leaves
-  (34%) (`adult_v2\ish_analysis\beyond\` on the development copy; 36% in the
-  rerun of 5 October, with the subunits averaged into one term).
+- **The beyond-abundance result** (26 September, restated 8 October, run
+  with the main model on 9 October): 29% of the map's reproducible pattern is
+  not predicted by Gria1 expression or synapse density (15% to 42% over
+  structures), and that leftover replicates across halves of the cohort at
+  0.933. On the same structures it is about twice the calibration floor (26%
+  against 12%, difference -2% to +30%), and no larger than what a map of one
+  Allen Gria1 experiment leaves (34%) (`adult_v2\ish_analysis\beyond\` on the
+  development copy).
+- **Part 1's main model** (8 October, before its results): Gria1 + synapse
+  density + autofluorescence; synapse density the measured PSD95 puncta if
+  they cover 80% of the structures, else the mRNA panel. They cover 77 of
+  126, so the panel stays and PSD95 is a check row
+  (`mapping/settings.toml` `[beyond]`).
 - **The ISH line** (the ISH discussion, [history/ISH_DISCUSSION.md](history/ISH_DISCUSSION.md),
   8 October; Giulio: "all as recommended"):
   1. the headline: April's category p (0.032) is not shown again but once, to

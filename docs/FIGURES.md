@@ -271,7 +271,7 @@ the numbers of the run. The story and every number:
 | `00_overview.png` | `mapping/run_ish_overview.py` | the question, the argument in two parts with this run's numbers and where each part stands, and its limit; one row per step with the numbers of the run and what stays open; the A-items and their state |
 | `01_structures.png` | `mapping/run_structure_set.py` | the declared structures (A1): the rule as a funnel, kept and left out per division, the map on plane 700, how far each adult's `zref` moves |
 | `02_genes.png` | `mapping/run_ish_gene_table.py` | the two panels and their union, experiments per gene, the sections set missing in P9's experiments, reliability, what was left out and the repair |
-| `03_beyond_budget.png` | `mapping/run_beyond_figures.py` | part 1: the map against Gria1, against synaptic density and against the model; the variance budget with the calibration floor and the one-Gria1-experiment benchmark; the calibration; the leftover half against half; the leftover under other folds and structures |
+| `03_beyond_budget.png` | `mapping/run_beyond_figures.py` | part 1: the map against Gria1, against synapse density and against the main model (Gria1, synapse density, autofluorescence); the variance budget of the main model and of its four-subunit check row, with the calibration floor and the one-Gria1-experiment benchmark; the calibration; the leftover half against half; the leftover under other folds, check rows and structures |
 | `04_beyond_where.png` | `run_beyond_figures.py` | where the leftover sits on three planes, and the structures furthest from prediction |
 | `05_one_comparison.png` | `mapping/run_ish_gene_ranking.py` | what one gene's rho is: nano, Cacng8, Gria1 and Aqp4 on plane 700, as measured, as ranks, and the scatter of ranks |
 | `06_spatial_null.png` | `run_ish_gene_ranking.py` | why a null (unrelated smooth maps correlate), the surrogates' variogram against the map's, three surrogates, the false-positive rates, Cacng8 and Gria1 against their nulls |
@@ -504,8 +504,10 @@ Across brains:
 - `<data>\adult_v2\beyond\` and its `for_sami\` panels A to F with
   `numbers_for_the_caption.txt` (`run_beyond_*`, 26 September, rerun on 5
   October): replaced by figures 03, 04 and 11 of the ISH analysis and
-  `<data>\adult_v2\ish_analysis\beyond\`. What changed: the four subunits
-  enter as separate predictors (36% left becomes 27%), the ceiling is
+  `<data>\adult_v2\ish_analysis\beyond\`. What changed: the main model of 8
+  October takes Gria1 alone as abundance, with the mRNA density terms and
+  autofluorescence (36% left becomes 29%; the four subunits as separate
+  terms, a check row, leave 27%), the ceiling is
   Spearman-Brown's value and not its square (97.4% becomes 98.7%), `zref`
   takes the declared reference, the covariates come after section QC, control
   A uses one-hemisphere centroids, the held-out R2 is averaged over 20
