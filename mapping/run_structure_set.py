@@ -14,12 +14,14 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     10. run_diagnostics        sheets that audit each step
     11. run_panel_build        the 390-gene ontology panel (network, cached)
     12. run_panel_fetch        its ISH grids (network, once)
-    13. run_structure_set      A1: the declared structures, the adult    <- this script
-                               profiles; figure 01
-    14. run_ish_section_qc     A2: section QC of every experiment; QC sheets
-    15. run_ish_gene_table     A9: region means, the gene table, merged profiles,
-                               gene sets, documentation; the panel repair
-                               (network); figure 02
+    13. run_structure_set      A1: the declared structures, the       <- this script
+                               adult profiles; figure 01
+    14. run_ish_section_qc     A2: the experiments of both panels
+                               and the repair (network, once);
+                               section QC; QC sheets
+    15. run_ish_gene_table     A9: region means, the gene table,
+                               merged profiles, gene sets,
+                               documentation; figure 02
     16. run_ish_spatial_null   A7: surrogate maps and their checks
     17. run_ish_gene_ranking   analysis 1: each gene against the map, the null,
                                autofluorescence (A8), the Cacng8 - Gria1 gap;

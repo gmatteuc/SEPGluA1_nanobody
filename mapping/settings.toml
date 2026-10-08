@@ -90,6 +90,13 @@ min_structures_pair = 50   # structures two experiments of one gene must share t
 [ish_regions]
 min_voxels = 3             # valid 200 um voxels a structure needs to get a value at all
 
+# section quality of every ISH experiment (ish.section_qc, A2): a failed section is
+# set missing, never interpolated
+[ish_qc]
+neighbours = 3             # sections on each side whose medians form a section's local reference: 600 um each way, wider than one failed section, narrower than the brain's large gradients
+local_fraction = 0.2       # a section is flagged when its median energy is below this share of its local reference: five-fold dimmer than its neighbours is a failed section, not anatomy; P9's 0.3 of the brain-wide median flagged true absences (Slc17a6)
+min_plane_voxels = 50      # in-brain 200 um voxels a section needs to be judged: the first and last sections hold a sliver of brain whose median is noise
+
 [ish_words]
 min_genes = 5              # genes a feature needs to be tested
 max_share = 0.8            # the largest share of the genes a feature may have: one on nearly every gene says nothing

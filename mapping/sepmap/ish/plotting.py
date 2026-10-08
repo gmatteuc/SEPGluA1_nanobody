@@ -22,9 +22,11 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.patches import Patch
+from matplotlib.colors import ListedColormap
+from matplotlib.patches import Patch, Rectangle
 from scipy.stats import rankdata
 
+from sepmap.ish.section_qc import ISH_QC, SECTION_AXIS
 from sepmap.plotting import (
     DARK_GREY,
     DIVISION_GROUP,
@@ -33,6 +35,7 @@ from sepmap.plotting import (
     MID_GREY,
     NO_DATA_GREY,
     PAIR_LINE,
+    RED,
     boundaries,
     draw_plane,
     hot_cut,
@@ -343,4 +346,230 @@ def plot_structures(
             "the reference.",
         ],
     )
+    return saved(fig, save)
+
+
+# ===== QC sheets =====
+
+# the colours of a section's status in the QC figures: not judged white, ok light
+# grey, flagged red; a dim section kept as a true absence is hatched over light grey
+STATUS_CODES = {"ok": 1, "flagged": 2, "absence kept": 3}
+STATUS_COLOURS = ["white", "#e6e6e6", RED]
+
+
+def status_matrix(sections: pd.DataFrame, experiments: list[str]) -> np.ndarray:
+    """Experiments by sections, each cell a status code (0 for not judged)."""
+    n_sections = int(sections["section"].max()) + 1
+    out = np.zeros((len(experiments), n_sections), dtype=int)
+    row_of = {e: i for i, e in enumerate(experiments)}
+    for eid, k, status in zip(
+        sections["experiment_id"], sections["section"], sections["status"]
+    ):
+        if eid in row_of:
+            out[row_of[eid], int(k)] = STATUS_CODES.get(status, 0)
+    return out
+
+
+def draw_status(ax: plt.Axes, matrix: np.ndarray) -> None:
+    """Draw a status matrix: white, light grey, red, and hatching for kept absences."""
+    shown = np.where(matrix == 3, 1, matrix)
+    ax.imshow(
+        shown,
+        cmap=ListedColormap(STATUS_COLOURS),
+        vmin=-0.5,
+        vmax=2.5,
+        aspect="auto",
+        interpolation="nearest",
+    )
+    for i, k in zip(*np.nonzero(matrix == 3)):
+        ax.add_patch(
+            Rectangle(
+                (k - 0.5, i - 0.5), 1, 1, fill=False, hatch="////", edgecolor=RED, lw=0
+            )
+        )
+
+
+def plot_flagged(
+    sections: pd.DataFrame,
+    summary: pd.DataFrame,
+    p9_genes: set[str],
+    save: Path | None = None,
+) -> plt.Figure:
+    """Every experiment with a flagged section or a kept absence, one row each.
+
+    The sheet to review the exceptions list from: sections as columns along each
+    experiment's own axis, flagged sections red, dim sections kept as true absence
+    hatched; P9's genes in bold.
+    """
+    ok = summary[summary["grid"] == "ok"]
+    shown = ok[(ok["n_flagged"] > 0) | (ok["n_absence_kept"] > 0)]
+    shown = shown.sort_values(["symbol", "experiment_id"])
+    experiments = list(shown["experiment_id"])
+    matrix = status_matrix(sections, experiments)
+    height = 2.2 + 0.15 * len(experiments)
+    fig = plt.figure(figsize=(11, height))
+    ax = fig.add_axes([0.2, 1.0 / height, 0.75, 1 - 1.9 / height])
+    draw_status(ax, matrix)
+    labels = [
+        f"{s}  {e} ({p[0]})"
+        for s, e, p in zip(shown["symbol"], shown["experiment_id"], shown["plane"])
+    ]
+    ax.set_yticks(range(len(labels)))
+    ax.set_yticklabels(labels, fontsize=6.5)
+    for tick, symbol in zip(ax.get_yticklabels(), shown["symbol"]):
+        if symbol in p9_genes:
+            tick.set_fontweight("bold")
+    ax.set_xlabel(
+        "section along the experiment's own axis, 200 um (AP for coronal, c; "
+        "ML for sagittal, s)"
+    )
+    ax.xaxis.set_ticks_position("top")
+    ax.xaxis.set_label_position("top")
+    n_sections = int(shown["n_flagged"].sum())
+    n_kept = int(shown["n_absence_kept"].sum())
+    fig.text(
+        0.5,
+        1 - 0.25 / height,
+        f"Section QC: {len(shown)} of {len(ok)} experiments with a dim section; "
+        f"{n_sections} sections set missing (red), {n_kept} kept as true absence "
+        "(hatched); P9's genes in bold",
+        ha="center",
+        va="top",
+        fontsize=10,
+    )
+    return saved(fig, save)
+
+
+def middle_section(table: pd.DataFrame) -> int:
+    """The judged, unflagged section nearest the middle of the judged ones."""
+    good = table.loc[table["status"] == "ok", "section"].to_numpy()
+    if good.size == 0:
+        return int(table["section"].iloc[len(table) // 2])
+    middle = (good.min() + good.max()) / 2
+    return int(good[np.argmin(np.abs(good - middle))])
+
+
+def section_plane(volume: np.ndarray, k: int, axis: int) -> np.ndarray:
+    """One section of an (AP, DV, ML) volume, dorsal up: (DV, ML) or (DV, AP)."""
+    if axis == 0:
+        return volume[k]
+    return volume[:, :, k].T
+
+
+def profile_panel(ax: plt.Axes, table: pd.DataFrame, shown: int, fraction: float):
+    """A: each section's median energy, the flag line, flagged and kept sections."""
+    k = table["section"].to_numpy()
+    median = table["median_energy"].to_numpy()
+    status = table["status"].to_numpy()
+    colours = [RED if s == "flagged" else MID_GREY for s in status]
+    ax.bar(k, np.nan_to_num(median), color=colours, width=0.85)
+    top = np.nanmax(median) if np.isfinite(median).any() else 1.0
+
+    # a flagged or kept section is often near zero, so it is also marked over the
+    # whole height: a red triangle on the axis, or a hatched band
+    for kk, s in zip(k, status):
+        if s == "flagged":
+            ax.plot([kk], [0], marker="^", color=RED, ms=6, clip_on=False)
+        elif s == "absence kept":
+            ax.add_patch(
+                Rectangle(
+                    (kk - 0.45, 0),
+                    0.9,
+                    top * 1.12,
+                    fill=False,
+                    hatch="////",
+                    edgecolor=RED,
+                    lw=0,
+                )
+            )
+    judged = np.isin(status, ["ok", "flagged", "absence kept"])
+    line = np.where(judged, fraction * table["local_reference"].to_numpy(), np.nan)
+    ax.step(k, line, where="mid", color=DARK_GREY, ls="--", lw=0.9)
+    ax.plot([shown], [top * 1.05], marker="v", color=DARK_GREY, ms=6)
+    ax.set_xlim(k.min() - 1, k.max() + 1)
+    ax.set_ylim(0, top * 1.12)
+    ax.set_xlabel(f"section along {table['axis'].iloc[0]}, 200 um")
+    ax.set_ylabel("median energy in the brain")
+    tidy(ax)
+
+
+def plot_qc_sheet(
+    table: pd.DataFrame,
+    summary: dict,
+    grid: np.ndarray,
+    template: np.ndarray,
+    labels: np.ndarray,
+    save: Path | None = None,
+) -> plt.Figure:
+    """One experiment's QC sheet: its section profile, and the orientation check.
+
+    `table` holds its rows of section_qc.csv, `summary` its row of
+    experiment_qc.csv, `grid` the energy (AP, DV, ML) cut to the CCF on the 200 um
+    grid; `template` and `labels` are the CCF template and its structures (codes
+    of structures.name_volume) on the 20 um grid, ten times finer, so that the
+    borders drawn are those of structures and not of single 200 um voxels.
+    """
+    axis = SECTION_AXIS[summary["plane"]]
+    shown = middle_section(table)
+    fig = plt.figure(figsize=(12, 7.4))
+    flagged = summary["flagged_sections"] or "none"
+    kept = summary["absence_sections"] or "none"
+    fig.text(
+        0.5,
+        0.975,
+        f"{summary['symbol']}, Allen experiment {summary['experiment_id']} "
+        f"({summary['plane']}): sections set missing: {flagged}; kept as true "
+        f"absence: {kept}",
+        ha="center",
+        va="top",
+        fontsize=11,
+    )
+
+    # A: the profile along the section axis
+    ax = fig.add_axes([0.07, 0.57, 0.9, 0.3])
+    profile_panel(ax, table, shown, ISH_QC["local_fraction"])
+    panel_title(
+        ax,
+        "A",
+        "Median energy of each section; dashed: "
+        f"{ISH_QC['local_fraction']} x the median of the {ISH_QC['neighbours']} "
+        "judged sections on each side",
+        f"{summary['n_judged']} sections judged; red: set missing; hatched: dim "
+        "but kept as a true absence; empty: no data; grey triangle: the section below",
+    )
+
+    # B to D: the orientation check at one section; a 200 um section k is 20 um
+    # plane 10 k, and each of its voxels covers 10 x 10 pixels of the finer grid
+    fine = 10 * shown
+    atlas = section_plane(template, fine, axis).astype(float)
+    lab = section_plane(labels, fine, axis)
+    energy = section_plane(grid, shown, axis)
+    energy_fine = np.repeat(np.repeat(energy, 10, axis=0), 10, axis=1)
+    finite = grid[np.isfinite(grid)]
+    vmax = float(np.percentile(finite, 99)) if finite.size else 1.0
+    ax_b = fig.add_axes([0.03, 0.07, 0.28, 0.36])
+    ax_c = fig.add_axes([0.35, 0.07, 0.28, 0.36])
+    ax_d = fig.add_axes([0.67, 0.07, 0.28, 0.36])
+    ax_b.imshow(atlas, cmap="gray", interpolation="nearest")
+    ax_c.imshow(
+        np.ma.masked_invalid(energy),
+        cmap=hot_cut(),
+        vmin=0,
+        vmax=vmax,
+        interpolation="nearest",
+    )
+    ax_c.set_facecolor("k")
+    image = draw_plane(ax_d, energy_fine, lab, hot_cut(), 0, vmax)
+    colour_bar(fig, ax_d, image, "expression energy")
+    for a in (ax_b, ax_c):
+        a.set_xticks([])
+        a.set_yticks([])
+    if axis == 0:
+        what = "coronal, dorsal up"
+    else:
+        what = "sagittal, dorsal up, anterior left"
+    ax_b.set_title(f"B.  CCF template at section {shown}", loc="left", fontsize=9)
+    ax_b.set_xlabel(what, fontsize=8)
+    ax_c.set_title("C.  The ISH section, as on its grid", loc="left", fontsize=9)
+    ax_d.set_title("D.  The same, with the CCF's structures", loc="left", fontsize=9)
     return saved(fig, save)

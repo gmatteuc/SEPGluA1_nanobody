@@ -59,13 +59,15 @@ codegen/
 #  (all in third_party/), the images the documentation shows,
 #  the documents with their tables, the cohort table that
 #  MATLAB and Python read, and the Python route's hand-written
-#  gene panel.
+#  gene panel and the reviewed list of true absences in its
+#  ISH sections.
 # =============================================================
 !third_party/**
 !assets/**
 !docs/**
 !common/cohort.csv
 !mapping/gene_targets.csv
+!mapping/ish_section_exceptions.csv
 
 # ---- Re-apply junk rules inside the vendored trees ----
 **/*.asv
