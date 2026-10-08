@@ -430,7 +430,7 @@ def plane_images(regression: pd.DataFrame) -> list[dict]:
 def main() -> None:
     """Compute the intervals, write the numbers and draw figures 03, 04 and 11.
 
-    One seeded generator feeds the bootstrap and then the noise null.
+    One seeded generator feeds the jackknife and then the noise null.
     """
     rng = np.random.default_rng(0)
     inputs = bd.load_inputs()
