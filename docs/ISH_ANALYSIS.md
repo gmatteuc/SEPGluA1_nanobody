@@ -576,6 +576,31 @@ asks it again on sets fixed in advance.
 
 ## 8. Points to settle
 
+- **The rebuild of part 1, its rules fixed first (8 October).** Written down
+  and committed before any of its results:
+  - the main model is Gria1 + synapse density + autofluorescence, each bent
+    and cross-validated as now (`[beyond]` of `mapping/settings.toml`).
+    Abundance is Gria1 alone: the stained protein is GluA1, and Gria2 to Gria4
+    make partners the nanobody does not see, whose availability sets GluA1's
+    assembly and trafficking, the surface side. The four subunits stay as a
+    check row;
+  - synapse density is the measured PSD95 punctum density (Zhu et al. 2018, as
+    shared by Hansen et al. 2026) in place of the mRNA panel (markers and
+    `psd_pc1`), if it covers at least 80% of the structures of the fit; below
+    that, the panel stays and PSD95 is a variant. Puncta count excitatory
+    synapses where they are, while mRNA sits in somata;
+  - the variants (`[beyond.variants]`) show how much the choice of density
+    measure matters. One measured map in place of the panel's two terms gives
+    the model fewer terms, so PSD95 and the panel together is the conservative
+    bound. The calibration runs the same main model; PSD95 is one measurement,
+    the same in both halves, like the markers measured once, so the floor errs
+    low;
+  - against the new leftover, Cacng8 is the one gene named in advance, and the
+    AMPA receptor complex family (Schwenk et al. 2012 and GO:0032281, with
+    Gria2 to Gria4, without Gria1) is tested as a group, then gene by gene
+    within it (`mapping/sepmap/ish/gene_sets.py`). Cacng8's p against the
+    leftover of the four-subunit model (section 5.6) was seen before it was
+    named.
 - **The exceptions list.** Glra1 section 61 is kept as true absence, status
   "proposed" in `mapping/ish_section_exceptions.csv`, and 16 sections are kept
   at a step in expression by the rule. To review on `figures\qc\00_flagged.png`
@@ -674,7 +699,23 @@ Under `<data>\adult_v2\ish_analysis\`:
 | `figures\14_green_channel.png` | `run_sep_channel_check.py` |
 | `figures\qc\00_flagged.png`, `qc\<gene>_<experiment>.png` | `run_ish_section_qc.py` (`--sheets`) |
 
+Reference data, under `<data>\reference\`, each folder with a `fetch_log.txt`
+(source, version, checksums, what was read):
+
+| folder | what | source |
+|---|---|---|
+| `synaptome\` | PSD95 and SAP102 punctum density, 37 subtypes in 775 regions, each subtype scaled to 0..1 as shared (Zhu et al. 2018) | github.com/netneurolab/hansen_synaptome, `data/synaptome/mouse_liu2018/` at commit `0399525412b6f50cfdeb5904b96da7fa8e4b507c`; archived as Zenodo doi 10.5281/zenodo.18201390 |
+| `go\` | the GO Consortium's mouse annotation, and its lines for GO:0032281 | `current.geneontology.org/annotations/mgi.gaf.gz`, release 2026-08-05 |
+| `ampar_complex\` | Schwenk et al. 2012: Figures 1 to 6 and the supplement (Tables S1 to S4) | the publisher's file server, `ars.els-cdn.com` |
+
 References: Burt JB, Helmer M, Shinn M, Anticevic A, Murray JD (2020).
 Generative modeling of brain maps with spatial autocorrelation. NeuroImage 220,
 117038. Freedman D, Lane D (1983). A nonstochastic interpretation of reported
 significance levels. Journal of Business and Economic Statistics 1, 292-298.
+Hansen JY, Luppi AI, Qiu Z, Gini S, Fulcher BD, Gozzi A, et al. (2026). Synapse
+types are spatially associated with regional hemodynamics in the mouse brain.
+PLOS Biology 24, e3003637. Schwenk J, Harmel N, Brechet A, Zolles G, Berkefeld
+H, Müller CS, et al. (2012). High-resolution proteomics unravel architecture
+and molecular diversity of native AMPA receptor complexes. Neuron 74, 621-633.
+Zhu F, Cizeron M, Qiu Z, Benavides-Piccione R, Kopanitsa MV, Skene NG, et al.
+(2018). Architecture of the mouse brain synaptome. Neuron 99, 781-799.

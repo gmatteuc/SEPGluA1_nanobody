@@ -93,6 +93,53 @@ co-expression of a set's genes is kept in its null:
                    permutation finds a real difference, not the power of the
                    localisation test itself, which is what the power check gives
 
+Named in advance on 8 October 2026 for the leftover of analysis 4
+(adult.beyond_density), before the main model of settings.toml [beyond] (Gria1,
+synapse density and autofluorescence) was run: three tiers, each spatial p two-sided,
+against the leftover's surrogates, each surrogate put through the same fit.
+
+    1  Cacng8      TARP gamma-8, an AMPA receptor auxiliary subunit: the one named
+                   gene, whose uncorrected spatial p is the test. Its p against the
+                   leftover of the four-subunit model (0.0024) was seen on 8 October,
+                   before this naming
+    2  the family  the AMPA receptor complex family below, as a group: its median
+                   rho with the leftover against the same genes' median over the
+                   surrogates, and against as many genes of the other postsynaptic
+                   set outside the family, matched on expression (the localisation
+                   test's design, labels permuted), one test each; then gene by
+                   gene, BH within the family only
+    3  the rest    every other gene, exploratory, BH over every gene tested
+
+The same tests are read against the nano map itself, to describe the family, not as
+tests of the leftover.
+
+The family comes from sources outside this analysis, never from which genes looked
+good:
+
+    Schwenk 2012   the constituents of native AMPA receptor complexes found by
+                   proteomics (Schwenk et al. 2012, Neuron 74:621): the 34 proteins
+                   of Figure 1D (the rows of Table S3 too), and TARP gamma-5, which
+                   Table S2 adds
+    GO             the mouse genes annotated to GO:0032281 AMPA glutamate receptor
+                   complex in the GO Consortium's mgi.gaf, release 2026-08-05; every
+                   evidence code, annotations with a NOT qualifier left out (Shisa7's
+                   only one is)
+    partners       Gria2, Gria3 and Gria4: the subunits GluA1 assembles with, which
+                   set its assembly and trafficking, the surface side
+    minus Gria1    the abundance term of analysis 4
+
+That is 37 genes, and 31 have a usable experiment in the gene table of 8 October.
+Not tested: Olfm3, Prrt1, Prrt2 and Shisa8 (no Allen experiment), Gsg1l and Rap2b
+(two Allen experiments each, in neither panel). Grid1, Grid2 and Shisa8 enter by GO
+alone, on phylogenetic inference (IBA); ish.panel_build sets Grid1 and Grid2 apart as
+delta receptors, and the family takes GO as it stands. P9's categories do not define
+it (its "auxiliary" holds Grm1 to Grm5, its "trafficking" mostly presynaptic vesicle
+genes); they stay a label column.
+
+Every gene's rho with the leftover of the four-subunit model was seen on 8 October,
+Cacng8's among them. The family comes from the paper and GO, not from those numbers,
+and no number of the family as a group was looked at before this file named it.
+
 Membership is computed by run_ish_gene_table.py, with the gene table; the context
 group by run_ish_gene_sets.py, from the same cached GO records. The tests are run by
 run_ish_gene_sets.py.
@@ -180,6 +227,96 @@ CONTEXT_SET = "pre- and postsynaptic"
 CONTEXT_RULE = (
     "GO:0098793 presynapse and GO:0098794 postsynapse (or below) both, not in the "
     "first two sets; context, not tested"
+)
+
+# the gene named in advance (8 October 2026) for the test against analysis 4's leftover
+LEFTOVER_GENE = "Cacng8"
+
+# the AMPA receptor complex family, named in advance (8 October 2026); first, the
+# constituents of native AMPA receptor complexes of Schwenk et al. 2012 (Neuron 74:621),
+# Figure 1D and Table S2, by mouse gene, with the paper's protein names
+SCHWENK_2012 = {
+    "Gria1": "GluA1",
+    "Gria2": "GluA2",
+    "Gria3": "GluA3",
+    "Gria4": "GluA4",
+    "Cacng2": "TARP gamma-2",
+    "Cacng3": "TARP gamma-3",
+    "Cacng4": "TARP gamma-4",
+    "Cacng5": "TARP gamma-5 (Table S2 only)",
+    "Cacng7": "TARP gamma-7",
+    "Cacng8": "TARP gamma-8",
+    "Cnih2": "CNIH-2",
+    "Cnih3": "CNIH-3",
+    "Shisa9": "CKAMP44",
+    "Shisa6": "CKAMP52",
+    "Mpp2": "MAGUK p55-2",
+    "Dlg1": "DLG1",
+    "Dlg3": "DLG3",
+    "Dlg4": "DLG4",
+    "Prrt1": "PRRT1",
+    "Prrt2": "PRRT2",
+    "Olfm1": "Noelin1",
+    "Olfm2": "Noelin2",
+    "Olfm3": "Noelin3",
+    "Nrn1": "Neuritin",
+    "Gsg1l": "GSG1-l protein",
+    "Frrs1l": "C9orf4",
+    "Vwc2": "Brorin",
+    "Vwc2l": "Brorin-2l",
+    "Lrrtm4": "LRRT-4",
+    "Porcn": "PORCN",
+    "Sacm1l": "PIP-PP SAC1",
+    "Abhd6": "lipase ABHD-6",
+    "Abhd12": "lipase ABHD-12",
+    "Cpt1c": "CPT-1",
+    "Rap2b": "Rap-2b",
+}
+
+# the mouse genes annotated to GO:0032281 AMPA glutamate receptor complex in the GO
+# Consortium's mgi.gaf, every evidence code, annotations with a NOT qualifier left out
+GO_AMPA_COMPLEX = (
+    "Abhd12",
+    "Abhd6",
+    "Cacng2",
+    "Cacng3",
+    "Cacng4",
+    "Cacng5",
+    "Cacng7",
+    "Cacng8",
+    "Cnih2",
+    "Cnih3",
+    "Cpt1c",
+    "Dlg3",
+    "Dlg4",
+    "Gria1",
+    "Gria2",
+    "Gria3",
+    "Gria4",
+    "Grid1",
+    "Grid2",
+    "Lrrtm4",
+    "Nrn1",
+    "Olfm1",
+    "Olfm2",
+    "Olfm3",
+    "Porcn",
+    "Sacm1l",
+    "Shisa6",
+    "Shisa8",
+    "Shisa9",
+    "Vwc2",
+    "Vwc2l",
+)
+GO_AMPA_COMPLEX_RELEASE = "2026-08-05"
+
+# the subunits GluA1 assembles with: they set its assembly and trafficking, the surface
+# side, and the nanobody does not see them
+PARTNER_SUBUNITS = ("Gria2", "Gria3", "Gria4")
+
+# the family: all three, less Gria1, the abundance term of analysis 4
+AMPA_FAMILY = tuple(
+    sorted((set(SCHWENK_2012) | set(GO_AMPA_COMPLEX) | set(PARTNER_SUBUNITS)) - {"Gria1"})
 )
 
 

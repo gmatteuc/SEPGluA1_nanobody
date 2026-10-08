@@ -82,7 +82,7 @@ p9_divisions = ["Isocortex", "OLF", "HPF", "CTXsp", "STR", "PAL", "TH", "HY", "M
 min_voxels = 10            # 200 um voxels a structure's gene value needs to be used
 adult_groups = ["naive", "rws"]  # the adult groups, pooled
 reading = "zref"           # the reading the tests and the figures use
-control_gene = "Gria1"     # the gene that stands in for total receptor
+control_gene = "Gria1"     # the gene that encodes the stained protein, GluA1, whose mRNA the green channel is compared with (adult.sep_channel_check)
 min_structures = 50        # structures a gene must share with the map (or the arms) to be correlated
 min_genes_ranking = 20     # genes the old and the new ranking must share to be compared
 min_structures_pair = 50   # structures two experiments of one gene must share to be compared
@@ -142,17 +142,59 @@ n_perm = 20000             # label permutations per test
 min_sensitivity_genes = 10 # genes on each side that the sensitivity run needs
 min_control_genes = 30     # control genes with a reliability that the positive control needs
 
-# analysis 4 (adult.beyond_density): what receptor mRNA and synaptic density leave of
-# the adult map; the map is A1's zref of the adult profile (adult.profiles)
+# analysis 4 (adult.beyond_density): what Gria1 expression and synapse density leave of
+# the adult map, the map being A1's zref of the adult profile (adult.profiles). The main
+# model, fixed on 8 October 2026 before any of its results:
+#     nano zref ~ abundance + density + autofluorescence
+# each term as x, x^2 and x^3, scored on held-out structures as below; the variants are
+# check rows reported beside it ([beyond.variants])
 [beyond]
 half = 5                   # animals per half when the cohort is split
-# the gene sets standing in for the two explanations: receptor abundance, the four
-# subunits each its own term, and synaptic density (Syp to Syt1 presynaptic, Dlg4 to
-# Camk2a postsynaptic), with the first component of the postsynaptic-density genes
+abundance = ["Gria1"]      # the stained protein is SEP-GluA1, and Gria1 alone encodes it; Gria2-4 encode partner subunits the nanobody does not see, whose availability sets GluA1's assembly and trafficking: surface regulation, not abundance
+# the four subunits, each its own term: the abundance of the run of 8 October, kept as
+# the variant four_subunits
 subunits = ["Gria1", "Gria2", "Gria3", "Gria4"]
+# synapse density, measured: PSD95 punctum density (Zhu et al. 2018, Neuron 99:781; one
+# adult male, about P80; puncta per unit area of 37 subtypes in 775 regions of the Allen
+# Reference Atlas), as shared by Hansen et al. 2026 (PLOS Biology 24:e3003637;
+# repository netneurolab/hansen_synaptome, data/synaptome/mouse_liu2018/; Zenodo
+# 10.5281/zenodo.18201390). Puncta count excitatory synapses where they are, while mRNA
+# sits in somata, where the neurons that make the synapses are. Punctum intensity and
+# size are never used: PSD95 per synapse is scaffolding, the surface side
+density = ["psd95"]
+psd95_subtypes = [[1, 11], [19, 37]]  # Zhu 2018's subtypes whose puncta carry PSD95, as inclusive ranges: 1-11 PSD95 alone, 19-37 PSD95 with SAP102. The shared table scales each subtype's density to 0..1 across the 775 regions, so counts cannot be summed: the density is the mean of these subtypes' scaled densities, each subtype's map weighing alike
+sap102_subtypes = [[12, 37]]  # the subtypes whose puncta carry SAP102: 12-18 SAP102 alone, 19-37 with PSD95 (the variants sap102 and all_puncta), taken the same way
+# the structures of the fit stay the declared ones where Gria1 to Gria4 and every marker
+# have an ISH value and autofluorescence is above background (126 on 8 October), so
+# every variant runs on them. A structure is covered by PSD95 when one of the 775
+# regions is it or lies inside it (by Allen id); its density is the mean over those
+# regions, both hemispheres, weighted by their voxels in the 20 um CCF annotation
+min_psd95_coverage = 0.8   # share of the structures of the fit PSD95 must cover to replace the mRNA panel in the main model (at least 101 of 126); the main fit then runs on the structures where every predictor exists, and says how many. Below it, the main model keeps the panel on every structure of the fit, and PSD95 is a variant on the structures it covers
+# synapse density from Allen mRNA, the panel: the composite of the marker genes (Syp to
+# Syt1 presynaptic, Dlg4 to Camk2a postsynaptic) and psd_pc1, the first component of the
+# postsynaptic-density genes (ontology role control_psd)
+density_panel = ["markers", "psd_pc1"]
 markers = ["Syp", "Syn1", "Vamp2", "Bsn", "Syt1", "Dlg4", "Homer1", "Shank2", "Shank3", "Nlgn1", "Camk2a"]
+# the markers the variant panel_postsynaptic leaves out: presynaptic mRNA marks where
+# the neurons that make the synapses sit, not where their synapses are
+presynaptic_markers = ["Syp", "Syn1", "Vamp2", "Bsn", "Syt1"]
 cv_repeats = 20            # shufflings of the structures into five folds, the held-out R2 averaged over them: over 500 single shufflings the leftover moved between 24.6% and 32.1% (8 October), so one alone is not quoted; the mean of 20 is steady to about half a point
 cv_blocks = 20             # spatial blocks of the variant with blocked folds: k-means clusters of the structures' centroids, about six structures each, dealt into the five folds
+
+# the check rows reported beside the main value, so a reader sees how much the choice of
+# density measure matters. Each changes one thing of the main model, on its structures
+# unless it says otherwise; the row that is the main model is not repeated. One measured
+# map in place of the panel's two terms gives the model fewer terms, so psd95_and_panel,
+# with every density measure, is the conservative bound
+[beyond.variants]
+psd95 = "density: PSD95 puncta, on the structures PSD95 covers"
+panel = "density: the mRNA panel (markers, psd_pc1), on the structures PSD95 covers"
+panel_all = "density: the mRNA panel, on every structure of the fit"
+psd95_and_panel = "density: PSD95 puncta and the mRNA panel together"
+panel_postsynaptic = "density: the mRNA panel without the five presynaptic markers"
+sap102 = "density: SAP102 puncta, if the table gives them cleanly"
+all_puncta = "density: every punctum, PSD95 or SAP102, if the table gives them cleanly"
+four_subunits = "abundance: Gria1 to Gria4, each its own term"
 
 [beyond_controls]
 max_pcs = 40               # the largest gene-space model of control F, in components: past the turn of its held-out R2, which peaks near 25 components and falls after (8 October)
@@ -168,8 +210,10 @@ curvature_gain = 0.05      # E: cross-validated R2 gained by fifth powers above 
 replication = 0.5          # the agreement above which a half-cohort map or leftover is said to replicate where beyond_density and beyond_figures say so (any reproducible map's leftover passes it, so no verdict rests on it)
 readings_replication = 0.8 # G: every reading's leftover must replicate above this
 
-# analysis 4's calibration (adult.beyond_calibration): the same model on maps whose
-# answer is known
+# analysis 4's calibration (adult.beyond_calibration): the main model of [beyond] on maps
+# whose answer is known. PSD95 density is one measurement, so it is the same in both
+# halves of the experiments, as a marker measured by one Allen experiment is: its own
+# mismatch is not in the floor, which errs low
 [beyond_calibration]
 n_noise = 20               # draws of animal noise per known map and direction, which give the floor a range rather than one value
 n_jackknife = 400          # subsamples of the calibration structures on which the nano map, the floor and the Gria1 map are recomputed together: the interval of their differences
