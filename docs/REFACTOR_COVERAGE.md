@@ -21,7 +21,7 @@ Where a specification differs from the plan, the plan applies: the minimum numbe
 
 ### A1. Declared structure set and zref reference (required)
 
-**Status, 8 October 2026: the ISH half built** (`d80119a`;
+**Status, 8 October 2026: the ISH half built, on branch `post-ish`, not merged yet** (`d80119a`;
 `mapping/sepmap/structures.py`, `adult/profiles.py`, `run_structure_set.py`).
 204 structures, grey matter measured in all 10 adults; each adult's zero
 moves by 0.012 to 0.103 and the cohort map's order not at all (0.99995).
@@ -39,13 +39,17 @@ section 3).
 
 ### A2. ISH per-section quality control (required)
 
-**Status, 8 October 2026: built** (`3bac2a5`; `mapping/sepmap/ish/section_qc.py`,
+**Status, 8 October 2026: built on branch `post-ish`, not merged yet** (`3bac2a5`; `mapping/sepmap/ish/section_qc.py`,
 `run_ish_section_qc.py`, `mapping/ish_section_exceptions.csv`). Along each
-experiment's own section axis, coronal and sagittal: 196 sections set
-missing in 133 of 750 experiments, never filled in; on P9's experiments
-the flags equal the read-only scan below. The true absences (Tac1 4 and 5,
-Glra1 15, 16 and 61) are proposed, not yet reviewed. With and without QC
-the gene order agrees at 0.9992 (`robustness_summary.csv`).
+experiment's own section axis, coronal and sagittal: a section dim against
+the sections on both sides is set missing, never filled in; one dim against
+one side only sits at a step in expression and is kept; none is judged where
+its neighbours read at the noise level of the grids (revised after review, 8
+October). 120 sections set missing in 96 of 750 experiments; the read-only
+scan below flagged a superset (it also flagged steps and noise). One true
+absence (Glra1 61) is proposed, not yet reviewed; the rule itself no longer
+flags anterior Tac1 or Glra1 15 and 16. With and without QC the gene order
+agrees at 0.9996 and above (`robustness_summary.csv`).
 
 **ISH per-section quality control: flag failed sections, set them to NaN, and report the effect on the ranking**
 
@@ -56,14 +60,14 @@ the gene order agrees at 0.9992 (`robustness_summary.csv`).
 
 ### A3. Gene ranking on the declared set, and its robustness (required)
 
-**Status, 8 October 2026: built** (`598b591`, `e4550d0`;
+**Status, 8 October 2026: built on branch `post-ish`, not merged yet** (`598b591`, `e4550d0`;
 `mapping/sepmap/ish/gene_ranking.py`, `robustness.py`). One adult profile
 on the declared set, one gene table, the spatial null. The roles, arms and
 words tests are retired rather than rerun (decision 5 of the ISH
 discussion); the panel test is rerun in `ish/gene_sets.py`. Eleven
 robustness variants, the three structure sets among them: Gria1 11th of
 P9's genes on the declared set, 15th on P9's nine divisions, 5th on every
-structure; Cacng8 first in all ([ISH_ANALYSIS.md](ISH_ANALYSIS.md)).
+structure; Cacng8 first of P9's genes in all ([ISH_ANALYSIS.md](ISH_ANALYSIS.md)).
 
 **A declared structure set and minimum-mice rule for the gene ranking, then rerun and re-quote the ISH headline**
 
@@ -99,7 +103,7 @@ structure; Cacng8 first in all ([ISH_ANALYSIS.md](ISH_ANALYSIS.md)).
 
 ### A6. Within-division gene agreement, per-gene scatters (recommended)
 
-**Status, 8 October 2026: built** (`d82bb4c`; `mapping/sepmap/ish/divisions.py`,
+**Status, 8 October 2026: built on branch `post-ish`, not merged yet** (`d82bb4c`; `mapping/sepmap/ish/divisions.py`,
 `run_ish_divisions.py`). Within-division rho against the spatial null and
 a shuffle inside divisions (the shuffle gives 32.2% false positives on
 random smooth maps, so it is shown, not used); gene sheets for Cacng8,
@@ -114,7 +118,7 @@ Gria1, Grm5, Dlg2 and Aqp4. The paired bar strip was not built.
 
 ### A7. Spatial null (recommended)
 
-**Status, 8 October 2026: built for the ISH line** (`25b6a56`;
+**Status, 8 October 2026: built for the ISH line, on branch `post-ish`, not merged yet** (`25b6a56`;
 `mapping/sepmap/ish/spatial_null.py`, `run_ish_spatial_null.py`).
 Variogram-matched surrogates (Burt 2020) written in numpy and scipy, since
 brainsmash imports scikit-learn and joblib, which `venv_atlas` lacks;
@@ -132,10 +136,11 @@ enrichment side waits for A4.
 
 ### A8. Gene panel against the autofluorescence map (recommended)
 
-**Status, 8 October 2026: built** (`598b591`; `mapping/sepmap/ish/gene_ranking.py`).
+**Status, 8 October 2026: built on branch `post-ish`, not merged yet** (`598b591`; `mapping/sepmap/ish/gene_ranking.py`).
 The autofluorescence map, read as nano and tested with its own surrogates:
-Gria1 +0.176 (p 0.447), 38 genes past its null against 12 for nano, the
-two gene orders agreeing at 0.37.
+Gria1 +0.176 (p 0.447), 38 genes past its null after BH against 12 for
+nano (94 against 128 before correction), the two gene orders agreeing at
+0.363.
 
 **The gene panel ranked against the autofluorescence map on its own**
 
@@ -146,7 +151,7 @@ two gene orders agreeing at 0.37.
 
 ### A9. Gene documentation table (recommended)
 
-**Status, 8 October 2026: built** (`b831849`; `mapping/sepmap/ish/gene_table.py`,
+**Status, 8 October 2026: built on branch `post-ish`, not merged yet** (`b831849`; `mapping/sepmap/ish/gene_table.py`,
 `gene_documentation.csv`, 451 genes). A CSV written UTF-8 with a
 byte-order mark, so Excel opens it; no .xlsx, since openpyxl is not in
 `venv_atlas`. The reference column is left for hand curation.

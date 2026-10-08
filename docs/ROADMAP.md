@@ -20,22 +20,26 @@ data root, for checks on a copy only.
 ```
 1.  Merge the refactor (step 11)                       [done, 4 October]
 2.  Rerun the production outputs with the merged code  [done, 5 October; one follow-up]
-3.  A1 to A5 in the Python route (step 9)              [A1 (ISH half), A2, A3 done, 8 October;
+3.  A1 to A5 in the Python route (step 9)              [A1 (ISH half), A2, A3 built on branch
+                                                        post-ish, 8 October, not merged yet;
                                                         A1's young-against-adult half, A4, A5 next]
 4.  adult_matlab/ to archive/                          [once A4 and A5 answer its questions; P9's are answered]
 5.  The remaining young brains                         [beside 3; into the Python route after A1]
       MG914's SEP channel, then MG896, MG906, MG895, then MG907, MG908
 6.  Young against adult across ages, P16 to P36        [once 5 is done]
-7.  A6 to A10                                          [A6 to A9 done for the ISH line, 8 October
-                                                        (brought forward, decision 4 of the ISH discussion); A10 open]
+7.  A6 to A10                                          [A6 to A9 built for the ISH line on branch
+                                                        post-ish, 8 October, not merged yet (brought
+                                                        forward, decision 4 of the ISH discussion); A10 open]
 8.  Code questions held for later                      [any time]
 9.  LightSuite: pull requests upstream (Z2), then the swap (Z1)
 10. The automatic annotation's validation sandbox into this repository
 Open throughout: comparable normalisation of the two routes; the open scientific questions
 ```
 
-The ISH line was rebuilt on 8 October 2026 on branch `post-ish`, from the
-five decisions of the ISH discussion (below, Decisions taken): A1's ISH half,
+The ISH line was rebuilt on 8 October 2026 on branch `post-ish`, not merged
+yet, from the five decisions of the ISH discussion
+([history/ISH_DISCUSSION.md](history/ISH_DISCUSSION.md), section 8; below,
+Decisions taken): A1's ISH half,
 A2, A3 and A6 to A9, with the spatial null (A7) brought forward so no ISH p
 goes out without it. What it found, and how to rerun it:
 [ISH_ANALYSIS.md](ISH_ANALYSIS.md).
@@ -752,11 +756,13 @@ For the reasons, see the plan and the documents named.
 - **The beyond-abundance result** (26 September, restated 8 October): about
   a quarter of the map's reproducible pattern is not predicted by receptor
   mRNA or synaptic density, and that leftover replicates across halves of the
-  cohort: 27% (17% to 38%), at 0.928, beside a calibration floor of 15%
-  (`adult_v2\ish_analysis\beyond\`; 36% in the rerun of 5 October, with the
-  subunits averaged into one term).
-- **The ISH line** (the ISH discussion, 8 October; Giulio: "all as
-  recommended"):
+  cohort: 27% (15% to 39% over structures), at 0.928. On the same structures
+  it is about twice the calibration floor (29% against 15%, difference +0% to
+  +28%), and no larger than what a map of one Allen Gria1 experiment leaves
+  (34%) (`adult_v2\ish_analysis\beyond\` on the development copy; 36% in the
+  rerun of 5 October, with the subunits averaged into one term).
+- **The ISH line** (the ISH discussion, [history/ISH_DISCUSSION.md](history/ISH_DISCUSSION.md),
+  8 October; Giulio: "all as recommended"):
   1. the headline: April's category p (0.032) is not shown again but once, to
      say why it does not stand; Cacng8 first is quoted, Gria1's rank and the
      Cacng8 - Gria1 gap only with the spatial null;

@@ -153,6 +153,10 @@ Each is defined in one place; never copy a value into a script.
   `#8fb3e0`). `plotting.bars_grey(t, t_max)` is
   `sep_palette('bars')`: grey 0.78 at t = 0 to black at t_max.
 - Scatter plots of many structures: 35-point dots, no edge, alpha 0.85.
+- Names beside dots never sit on each other: `ish/plotting.spread_labels` (a
+  scatter) and `spread_positions` (a column of names) move them apart and join
+  a moved name to its dot. A spatial p is written `p = 0.012` (three decimals),
+  or `p ≤ 0.0001` when no surrogate reached it.
 - Counts in titles are computed, never typed. Coronal planes are drawn dorsal
   up, (DV, ML), never transposed. White background, except image panels.
 - A file name carries every setting that changes what the file holds

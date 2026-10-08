@@ -268,22 +268,23 @@ the numbers of the run. The story and every number:
 
 | figure | made by | what it shows |
 |---|---|---|
-| `00_overview.png` | `mapping/run_ish_overview.py` | the question, the argument in two parts and its limit; one row per step with the numbers of the run and what stays open; the A-items and their state |
-| `01_structures.png` | `mapping/run_structure_set.py` | the declared structures (A1): the rule as a funnel, kept and dropped per division, the map on plane 700, how far each adult's `zref` moves |
+| `00_overview.png` | `mapping/run_ish_overview.py` | the question, the argument in two parts with this run's numbers and where each part stands, and its limit; one row per step with the numbers of the run and what stays open; the A-items and their state |
+| `01_structures.png` | `mapping/run_structure_set.py` | the declared structures (A1): the rule as a funnel, kept and left out per division, the map on plane 700, how far each adult's `zref` moves |
 | `02_genes.png` | `mapping/run_ish_gene_table.py` | the two panels and their union, experiments per gene, the sections set missing in P9's experiments, reliability, what was left out and the repair |
-| `03_beyond_budget.png` | `mapping/run_beyond_figures.py` | part 1: the map against Gria1, against synaptic density and against the model; the variance budget with the calibration floor; the calibration; the leftover half against half |
-| `04_beyond_where.png` | `run_beyond_figures.py` | where the leftover sits on three planes, the structures furthest from prediction, every gene and gene set against the leftover's own null |
+| `03_beyond_budget.png` | `mapping/run_beyond_figures.py` | part 1: the map against Gria1, against synaptic density and against the model; the variance budget with the calibration floor and the one-Gria1-experiment benchmark; the calibration; the leftover half against half; the leftover under other folds and structures |
+| `04_beyond_where.png` | `run_beyond_figures.py` | where the leftover sits on three planes, and the structures furthest from prediction |
 | `05_one_comparison.png` | `mapping/run_ish_gene_ranking.py` | what one gene's rho is: nano, Cacng8, Gria1 and Aqp4 on plane 700, as measured, as ranks, and the scatter of ranks |
 | `06_spatial_null.png` | `run_ish_gene_ranking.py` | why a null (unrelated smooth maps correlate), the surrogates' variogram against the map's, three surrogates, the false-positive rates, Cacng8 and Gria1 against their nulls |
-| `07_gene_ranking.png` | `run_ish_gene_ranking.py` | P9's genes ranked, each bar against its null band, grey by its steadiness across adults, autofluorescence's rho beside it; the Cacng8 - Gria1 gap; how many genes pass |
-| `08_gene_sets.png` | `mapping/run_ish_gene_sets.py` | the gene sets fixed in advance against their null bands; the two contrasts named in advance |
-| `09_localisation.png` | `run_ish_gene_sets.py` | localisation genes against expression-matched controls once abundance is removed, the positive controls, every test of the design |
+| `07_gene_ranking.png` | `run_ish_gene_ranking.py` | P9's genes ranked, each bar against its null band, grey by its steadiness across adults, autofluorescence's rho beside it; the Cacng8 - Gria1 gap against maps related to both alike; the two genes with the label and with the tissue |
+| `08_gene_sets.png` | `mapping/run_ish_gene_sets.py` | the gene sets fixed in advance against their null bands; the two contrasts named in advance and the genes of the presynaptic set |
+| `09_localisation.png` | `run_ish_gene_sets.py` | localisation genes against expression-matched controls once the subunit composite is removed, the positive controls, what the test can find, every test of the design |
 | `10_between_within.png` | `mapping/run_ish_divisions.py` | rho against a division-only map, the mean rho inside divisions, five genes division by division, which within null holds |
-| `11_autofluorescence.png` | `run_ish_gene_ranking.py` | every gene against the autofluorescence map of the same sections, adult by adult for Gria1 and Cacng8, the genes past each null |
-| `12_robustness.png` | `mapping/run_ish_robustness.py` | the ranking under eleven variants: gene order, Cacng8's and Gria1's ranks, the gap |
-| `13_green_channel.png` | `mapping/run_sep_channel_check.py` | what the green channel reports: three channels, one adult's raw planes, which channel follows which, their ranges, against Gria1 |
-| `14_april_headline.png` | `run_ish_overview.py` | April's category violins beside today's, gene by gene, the ANOVA p under each choice, today's groups against the null |
-| `qc\00_flagged.png`, `qc\<gene>_<experiment>.png` | `mapping/run_ish_section_qc.py --sheets` | every experiment with a section set missing; one sheet per experiment: the section profile with its flags, the orientation check |
+| `11_leftover_genes.png` | `run_beyond_figures.py` | every gene and gene set against the leftover of part 1, against surrogates put through the same fit |
+| `12_autofluorescence.png` | `run_ish_gene_ranking.py` | every gene against the autofluorescence map of the same sections, adult by adult for Gria1 and Cacng8, how many genes each map passes at three thresholds, the genes past each null |
+| `13_robustness.png` | `mapping/run_ish_robustness.py` | the ranking under eleven variants: gene order, Cacng8's and Gria1's ranks, the gap against its null |
+| `14_green_channel.png` | `mapping/run_sep_channel_check.py` | what the green channel reports: three channels, one adult's raw planes, which channel follows which, their ranges, against Gria1 |
+| `15_april_headline.png` | `run_ish_overview.py` | April's category violins beside today's, gene by gene, the ANOVA p under each choice, today's groups against the null |
+| `qc\00_flagged.png`, `qc\<gene>_<experiment>.png` | `mapping/run_ish_section_qc.py --sheets` | every experiment with a section set missing, kept as a true absence or kept at a step; one sheet per experiment: the section profile with its flags, the orientation check |
 | `genes\<gene>.png` | `run_ish_divisions.py --sheets` | Cacng8, Gria1, Grm5, Dlg2 and Aqp4: rank maps, the scatter with a fitted line per division |
 
 Working figures beside the tables: `beyond\fig0_structures` to
@@ -295,16 +296,17 @@ steps 1 to 5 (the stored `cref`, `zref` and `ratio` rows), the ontology panel
 and its grids of steps 11 and 12 (`adult_v2\panel\`, `<data>\atlas_ish\`),
 `mapping/gene_targets.csv` and `mapping/ish_section_exceptions.csv`, the
 frozen P9 table `<data>\comparisons\merged_naive_rws_vs_ish_summary_nosmooth\gene_panel_summary.csv`
-(figure 14), and the caches under `ish_analysis\cache\` (Allen experiment
+(figure 15), and the caches under `ish_analysis\cache\` (Allen experiment
 lists, mygene records, `go-basic.obo`). Steps 13 to 27 run in order.
 
 **Settings that matter.** `[structures] min_adults` (10) and `grey`;
-`[ish_qc]` (three neighbours each side, a section below 0.2 of its local
-reference is set missing); `[ish_analysis] q` (0.05),
+`[ish_qc]` (three neighbours each side; a section below 0.2 of the median of
+its neighbours and of the brightest on each side is set missing, not judged where
+the neighbours read below 0.1); `[ish_analysis] q` (0.05),
 `min_division_structures` (8), `min_set_genes` (5); `[spatial_null]`
 (10,000 surrogates, the variogram matched to the 25th percentile of the
-distances, 2,000 calibration maps); `[beyond]`, `[beyond_calibration]`,
-`[beyond_figures]`; `[ish_figures] plane` (700) and `t_max` (40, the grey of a
+distances, 2,000 calibration maps); `[beyond]` (20 shufflings of the folds), `[beyond_calibration]` (the
+jackknife), `[beyond_figures]`; `[ish_figures] plane` (700) and `t_max` (40, the grey of a
 gene's bar). Random seeds are fixed.
 
 ### The ISH comparison (April 2026)
@@ -324,7 +326,7 @@ divisions, erosion radius 3, distance-weight power 4, planes 100 to 700.
 These folders have no channel in their names: they predate it, and a rerun
 writes `merged_naive_rws_nano_vs_ish_*`. They carry the script's defects
 (the stretched grid, the section repair). `violin_spearman_ero.png` is the
-headline Sami El-Boustani saw; figure 14 of the ISH analysis shows what is
+headline Sami El-Boustani saw; figure 15 of the ISH analysis shows what is
 left of it.
 
 ## Young against adult: figures and videos
@@ -498,29 +500,32 @@ Across brains:
   rebuilt.
 - `<data>\adult_v2\beyond\` and its `for_sami\` panels A to F with
   `numbers_for_the_caption.txt` (`run_beyond_*`, 26 September, rerun on 5
-  October): replaced by figures 03 and 04 of the ISH analysis and
+  October): replaced by figures 03, 04 and 11 of the ISH analysis and
   `<data>\adult_v2\ish_analysis\beyond\`. What changed: the four subunits
   enter as separate predictors (36% left becomes 27%), the ceiling is
   Spearman-Brown's value and not its square (97.4% becomes 98.7%), `zref`
   takes the declared reference, the covariates come after section QC, control
-  A uses one-hemisphere centroids, and a calibration with the same model gives
-  the floor the leftover is set beside.
+  A uses one-hemisphere centroids, the held-out R2 is averaged over 20
+  shufflings of the folds, the range over structures comes from a jackknife
+  (the bootstrap let a structure sit in a training and a test fold), and a
+  calibration with the same model gives the floor the leftover is set beside,
+  compared on the same structures.
 - `<data>\adult_v2\ish\`: `ish_old_vs_new.png`, `ish_word_enrichment.png`,
   `ish_roles.png`, `ish_reliability.png`, `ish_panel_test.png` and their tables
   (`run_ish_regions`, `run_ish_compare`, `run_ish_words`, `run_ish_roles`,
   `run_ish_reliability`, `run_ish_panel_test`; 25 and 26 September, rerun on
-  5 October): replaced by figures 02, 05 to 12 and 14. What changed: the
+  5 October): replaced by figures 02, 05 to 13 and 15. What changed: the
   declared structure set, section QC, one gene table merging every usable
   experiment, and a spatial null for every correlation; the word and roles
   tests are retired, their questions asked by the gene sets fixed in advance
   (figure 08) and the localisation test (figure 09).
 - `<data>\adult_v2\arms\arms_vs_genes.png` and `arm_gene_correlations.csv`
-  (`run_ish_arms`): retired (decision 5 of the ISH discussion): the green
+  (`run_ish_arms`): retired (decision 5 of the ISH discussion, [history/ISH_DISCUSSION.md](history/ISH_DISCUSSION.md)): the green
   channel is not total receptor, so the tests of the channel ratios against
   genes have no premise. `arms_consistency.png` and `region_means_arms.csv`
   (`run_adult_arms`) stay, frozen; no step reads them.
 - `<data>\adult_v2\arms\sep_channel_check.png` and `.csv`
   (`run_sep_channel_check`, 26 September, rerun on 5 October): replaced by
-  figure 13 and `<data>\adult_v2\ish_analysis\green_channel\`, on the declared
+  figure 14 and `<data>\adult_v2\ish_analysis\green_channel\`, on the declared
   structures and the merged Gria1 profile, with neither "total receptor" nor
   "surface fraction" in its labels.
