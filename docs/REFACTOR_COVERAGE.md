@@ -21,6 +21,15 @@ Where a specification differs from the plan, the plan applies: the minimum numbe
 
 ### A1. Declared structure set and zref reference (required)
 
+**Status, 8 October 2026: the ISH half built** (`d80119a`;
+`mapping/sepmap/structures.py`, `adult/profiles.py`, `run_structure_set.py`).
+204 structures, grey matter measured in all 10 adults; each adult's zero
+moves by 0.012 to 0.103 and the cohort map's order not at all (0.99995).
+Every analysis of the ISH line reads it. The young-against-adult tables and
+maps (`volumes/cohort.py`, `young_vs_adult/region_plot.py`) still read the
+17-brain reference: A1's second half, next ([ROADMAP.md](ROADMAP.md),
+section 3).
+
 **One declared zref reference set, shared by the tables and the maps**
 
 - **Replaces:** P8's z-score over planes 100-700 (P8-11, P8-13, and the second check's missed item on AP extremes in the zref normalisation).
@@ -30,6 +39,14 @@ Where a specification differs from the plan, the plan applies: the minimum numbe
 
 ### A2. ISH per-section quality control (required)
 
+**Status, 8 October 2026: built** (`3bac2a5`; `mapping/sepmap/ish/section_qc.py`,
+`run_ish_section_qc.py`, `mapping/ish_section_exceptions.csv`). Along each
+experiment's own section axis, coronal and sagittal: 196 sections set
+missing in 133 of 750 experiments, never filled in; on P9's experiments
+the flags equal the read-only scan below. The true absences (Tac1 4 and 5,
+Glra1 15, 16 and 61) are proposed, not yet reviewed. With and without QC
+the gene order agrees at 0.9992 (`robustness_summary.csv`).
+
 **ISH per-section quality control: flag failed sections, set them to NaN, and report the effect on the ranking**
 
 - **Replaces:** P9's bad-section detection and repair (P9-07), the NativeProfile diagnostic figure (P9-08) and the n_bad_sections column (P9-22).
@@ -38,6 +55,15 @@ Where a specification differs from the plan, the plan applies: the minimum numbe
 - **Specification:** Per gene, per 200 um AP plane of the grid, inside the annotation_200 brain mask: median energy and valid fraction. Flag a plane that has data but whose median is below f x the median of its ±3 in-brain neighbours (proposed f = 0.2). Flag, never interpolate: flagged planes become NaN, consistent with read_energy's -1 handling (v2_ish_regions.py:107). A hand-editable exceptions CSV keeps genuine regional absence (e.g. anterior Tac1, posterior Glra1). A read-only scan with this rule already flags 14 of 95 genes, several of them machinery or controls that bear on the headline: Nptx1 (planes 21, 26, 37), Cnih3 (9, 47, 61-63), Cbln2 (21), Cacng3 (55), Cacng4 (5), Nrgn (44, 53), Map2 (12), Kcna1 (11), Hcn2 (47), Grm2 (65), Grik4 (8), Slc32a1 (5), Tac1 (4-5), Glra1 (15-16, 61). Gria1 is clean. Outputs: ish/section_qc.csv (gene, experiment, plane, median, local median, flag, reason); ish/section_qc.png (profiles of flagged genes with flagged planes marked); gene_region_table.csv rebuilt with the mask; and the ranking before vs after (Spearman of the two gene rankings, Gria1 and Cacng8 ranks). Apply it to the 390-gene panel table too (V2_ISH_PANEL route).
 
 ### A3. Gene ranking on the declared set, and its robustness (required)
+
+**Status, 8 October 2026: built** (`598b591`, `e4550d0`;
+`mapping/sepmap/ish/gene_ranking.py`, `robustness.py`). One adult profile
+on the declared set, one gene table, the spatial null. The roles, arms and
+words tests are retired rather than rerun (decision 5 of the ISH
+discussion); the panel test is rerun in `ish/gene_sets.py`. Eleven
+robustness variants, the three structure sets among them: Gria1 11th of
+P9's genes on the declared set, 15th on P9's nine divisions, 5th on every
+structure; Cacng8 first in all ([ISH_ANALYSIS.md](ISH_ANALYSIS.md)).
 
 **A declared structure set and minimum-mice rule for the gene ranking, then rerun and re-quote the ISH headline**
 
@@ -73,6 +99,12 @@ Where a specification differs from the plan, the plan applies: the minimum numbe
 
 ### A6. Within-division gene agreement, per-gene scatters (recommended)
 
+**Status, 8 October 2026: built** (`d82bb4c`; `mapping/sepmap/ish/divisions.py`,
+`run_ish_divisions.py`). Within-division rho against the spatial null and
+a shuffle inside divisions (the shuffle gives 32.2% false positives on
+random smooth maps, so it is shown, not used); gene sheets for Cacng8,
+Gria1, Grm5, Dlg2 and Aqp4. The paired bar strip was not built.
+
 **Within-division gene agreement, and per-gene structure scatters**
 
 - **Replaces:** The per-gene region scatters (P9-19), the within-division regressions (P9-20), the per-gene paired bars (P9-21) and the per-gene Delta-z spatial view in its tabular form (P9-17).
@@ -81,6 +113,15 @@ Where a specification differs from the plan, the plan applies: the minimum numbe
 - **Specification:** For every gene, on the A3 structure set, Spearman within each division that has at least 8 structures, and the mean within-division rho, weighted by number of structures. Output: ish/within_division.csv. Compare the ranking by mean within-division rho with the brain-wide ranking, reporting Gria1's and Cacng8's ranks. It is also a cheap partial answer to the missing spatial null, since it removes the largest gradient. Figure for a list of genes (default Gria1, Cacng8, Grm5, Dlg2, one control): a scatter of ISH rank vs nano zref per structure coloured by division, with acronyms on outliers, within-division fits and rho in the legend. Optionally, a paired bar strip sorted by nano showing the per-structure rank difference.
 
 ### A7. Spatial null (recommended)
+
+**Status, 8 October 2026: built for the ISH line** (`25b6a56`;
+`mapping/sepmap/ish/spatial_null.py`, `run_ish_spatial_null.py`).
+Variogram-matched surrogates (Burt 2020) written in numpy and scipy, since
+brainsmash imports scikit-learn and joblib, which `venv_atlas` lacks;
+10,000 per map; calibrated on random fields of another kind (4.0% false
+positives at 0.05). Used for every gene, the Cacng8 - Gria1 gap, the gene
+sets and contrasts, the within-division rho and the leftover. The
+enrichment side waits for A4.
 
 **Spatial null for the nano-gene correlations and for regional enrichment**
 
@@ -91,6 +132,11 @@ Where a specification differs from the plan, the plan applies: the minimum numbe
 
 ### A8. Gene panel against the autofluorescence map (recommended)
 
+**Status, 8 October 2026: built** (`598b591`; `mapping/sepmap/ish/gene_ranking.py`).
+The autofluorescence map, read as nano and tested with its own surrogates:
+Gria1 +0.176 (p 0.447), 38 genes past its null against 12 for nano, the
+two gene orders agreeing at 0.37.
+
 **The gene panel ranked against the autofluorescence map on its own**
 
 - **Replaces:** P9's channel='auto' control (P9-03; the flag existed but was never run) and Sami's 30 Apr request to run the whole chain, P9 included, on autofluorescence.
@@ -99,6 +145,11 @@ Where a specification differs from the plan, the plan applies: the minimum numbe
 - **Specification:** Auto zref per structure (from A5's inputs, adult mean over the A3 structure set), correlated with all 95 genes exactly as nano is. Output: an extra row set in gene_correlations.csv (reading='auto'), the distribution of rho_auto against rho_nano per gene, and the ranks of Gria1, Cacng8 and the machinery under auto. Expected result, from rho_auto_gria 0.04-0.38 in sep_channel_check.csv: auto tracks genes weakly, which makes the specificity claim explicit per gene.
 
 ### A9. Gene documentation table (recommended)
+
+**Status, 8 October 2026: built** (`b831849`; `mapping/sepmap/ish/gene_table.py`,
+`gene_documentation.csv`, 451 genes). A CSV written UTF-8 with a
+byte-order mark, so Excel opens it; no .xlsx, since openpyxl is not in
+`venv_atlas`. The reference column is left for hand curation.
 
 **Gene documentation table for the supplement**
 
@@ -117,6 +168,16 @@ Where a specification differs from the plan, the plan applies: the minimum numbe
 - **Specification:** Signed maps on the diverging scale already used for zref (SIGNED_READINGS, v2_cohort.py:85). Auto zref per voxel uses the same per-brain scalars as A1. deltaz = zref_nano - zref_auto per mouse, then the cohort mean with a t panel. Optional contour at the A4 call. Also fix MIN_N so it has a 'young_P22' key (v2_video.py:45; `v2_video.py young_P22` currently raises KeyError).
 
 ### Points still to settle
+
+Settled on 8 October 2026 by the ISH line ([ISH_ANALYSIS.md](ISH_ANALYSIS.md)):
+P9-23 (Gria1's rank is quoted with its null: 11th of P9's genes, p ≤ 0.0001;
+the panel test is rerun on the new inputs, the roles test retired); P9-24
+(covered by A3's robustness rows, eroded against full means on both sides,
+0.994 to 0.9996); P9-17 (dropped, S4; A10 keeps per-gene videos optional);
+P9-07 (the flags are reviewed against the grids: Eno2 s43, Grik3 s39 and
+Lrfn2 s42 are full sections there; the exceptions list awaits review); the
+declared structure set (S1: all ten adults, grey matter, hindbrain only where
+every adult reaches it). The points below are kept as they were written.
 
 - P8-05 (first check 'covered', second check 'partial'): resolved as PARTIAL. MIN_N lacks 'young_P22' (v2_video.py:45; the default run at l.146 draws only young and young_P20), and no young-only distribution figure exists; young is only ever plotted against adults (v2_region_plot.py:336-389, v2_region_groups.py:305-309). Settled by giving A4 a cohort argument; no separate addition needed.
 - P9-23 (first check 'covered', second check 'partial'): resolved as PARTIAL, with a sharper cause than the second check's. I reproduced its numbers (all structures: Gria1 rank 10; nine divisions: rank 18). The shift comes mainly from 15 structures measured in fewer than 5 adults (mostly pons and medulla, leave-one-out rho ~0.14), not from white matter and not from zref: requiring at least 5 adults alone gives rank 17 and 7/33 machinery above Gria1. The quoted v2 headline ('Gria1 climbs to rank 10, gap halves'; the September notes on the Python route and on measurement validation) is provisional until A3 is run. Whether panel_test's p=0.74 and the roles permutation change is unknown until rerun.

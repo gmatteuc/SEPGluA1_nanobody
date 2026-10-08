@@ -13,19 +13,26 @@ brains differ from adults. It reads the registered volumes that
 mapping/
   run_*.py              one entry point per step; the header of each lists the run order
   settings.toml         every analysis parameter, a table per stage
-  gene_targets.csv      the hand-written 100-gene panel of the first ISH pass
+  gene_targets.csv      the hand-written 100-gene panel of P9 (April)
+  ish_section_exceptions.csv  dim ISH sections kept as true absence, with reason and status
+  tests/                pytest, known answers on synthetic data (tests/README.md)
   sepmap/               the package the run scripts call
     config.py           the data root (SEP_DATA_ROOT and its guards), the settings, the cohort table
-    plotting.py         the palette, the colormaps, the save function, the coronal drawing
+    plotting.py         the palette, the style, the colormaps, the save function, the coronal drawing
+    structures.py       the declared structure set (A1), its zref, one-hemisphere centroids
     hemispheres.py      the two hemispheres of a volume folded onto one (volumes, young_vs_adult)
     diagnostics.py      the sheets that audit each step
     volumes/            per_mouse, to_ccf, cohort: per-brain volumes, the adult CCF, cohort means
     young_vs_adult/     compare, replot, region_plot, region_groups, video, video_compare,
                         closeup
-    adult/              sep_channel_check, arms, beyond_density, beyond_controls,
-                        beyond_figures, beyond_regression
-    ish/                regions, compare, words, roles, arms, panel_build, panel_fetch,
-                        reliability, panel_test
+    adult/              profiles (per adult and structure, the channels and zref),
+                        beyond_density, beyond_controls, beyond_calibration,
+                        beyond_regression, beyond_figures, sep_channel_check, arms
+    ish/                panel_build, panel_fetch, regions, reliability (the inputs);
+                        section_qc, gene_table, spatial_null, gene_ranking, robustness,
+                        divisions, gene_sets, overview (the ISH analysis); plotting
+                        (its figures); compare, words, roles, arms, panel_test (the
+                        run of 5 October, retiring)
 ```
 
 ## Setup and run
@@ -50,25 +57,36 @@ mapping/
   the per-brain steps, cohorts for `run_video`, readings and colour ranges for
   the figures, `--panel targets|ontology` for the two ISH passes. Analysis
   parameters are in `settings.toml` only.
-- `run_panel_build`, `run_panel_fetch` and `run_ish_words` call the network
-  for what their caches lack.
+- `run_panel_build`, `run_panel_fetch`, `run_ish_section_qc` and
+  `run_ish_gene_table` call the network for what their caches lack;
+  `--offline` makes the last two stop instead.
 
 | stage | steps | what |
 |---|---|---|
 | volumes | 1 `run_per_mouse`, 2 `run_to_ccf`, 3 `run_cohort` | per brain, the tissue mask and the background-subtracted channels; every brain on the adult CCF grid; per voxel, the cohort mean, SD and n of every reading, over the whole brain and with each brain's hemispheres averaged first (for the videos' t) |
 | young against adult | 4 `run_compare`, 5 `run_region_plot`, 6 `run_region_groups`, 7 `run_video`, 8 `run_video_compare`, 9 `run_closeup` | maps and the per-structure table; the region statistics, measured on each brain's own atlas, which are the numbers to quote; systems and layers; videos; a coronal plane and the cortical flatmaps (`run_replot` redraws step 4's maps) |
 | diagnostics | 10 `run_diagnostics` | one sheet per question, so each step can be checked by eye |
-| ISH, 100-gene panel | 11 `run_ish_regions --panel targets`, 12 `run_ish_compare`, 13 `run_ish_words`, 14 `run_ish_roles` | Allen ISH energy per gene and structure; each gene against the adult map; the annotation words and the curated roles of the ranking |
-| channel arms | 15 `run_adult_arms`, 16 `run_ish_arms`, 17 `run_sep_channel_check` | SEP/auto, nano/auto and nano/SEP per adult; against the genes; what the green channel reports |
-| ISH, 390-gene panel | 18 `run_panel_build`, 19 `run_panel_fetch`, 20 `run_ish_regions --panel ontology`, 21 `run_ish_reliability`, 22 `run_ish_panel_test` | a panel from Gene Ontology terms; its grids; how reliable one ISH map is; localisation genes against controls |
-| beyond abundance | 23 `run_beyond_density`, 24 `run_beyond_controls`, 25 `run_beyond_figures`, 26 `run_beyond_regression` | how much of the adult map receptor abundance and synaptic density explain, the controls, the figures |
+| ontology panel | 11 `run_panel_build`, 12 `run_panel_fetch` | a 390-gene panel from Gene Ontology terms, and its ISH grids (network, once; not rerun for an analysis) |
+| ISH inputs | 13 `run_structure_set`, 14 `run_ish_section_qc`, 15 `run_ish_gene_table`, 16 `run_ish_spatial_null` | the declared structures and the adult profiles (A1); section QC of every experiment (A2); one gene table, merged profiles, gene sets, documentation (A9); surrogate maps with the map's smoothness (A7) |
+| the genes against the map | 17 `run_ish_gene_ranking`, 18 `run_ish_robustness`, 19 `run_ish_divisions`, 20 `run_ish_gene_sets` | each gene against the map and the autofluorescence map, with the null (A8); the ranking under other choices (A3); between or within divisions (A6); gene sets and localisation against matched controls |
+| beyond abundance and density | 21 `run_beyond_density`, 22 `run_beyond_controls`, 23 `run_beyond_calibration`, 24 `run_beyond_regression`, 25 `run_beyond_figures` | how much of the map receptor mRNA and synaptic density predict, seven controls, the same model on maps whose answer is known, the regression per structure, the figures |
+| the green channel, the overview | 26 `run_sep_channel_check`, 27 `run_ish_overview` | what the green channel reports; April's headline, the numbers for the text, the overview and the index of the figures |
 
 What fixes the order: step 5's `region_means_per_mouse.csv` is read by steps
-12, 14, 15, 22 and 23 to 26; pass 1's gene table by 12, 14, 16 and 17; step
-21's merged gene table by 22 to 26; step 25 draws its panel D from step 24's
-`controls.csv`. Sheet 07 of step 10 reads the tables of steps 4 and 5, and
-sheet 08 the background masks of `../group_comparison/run_normalise_groups`
-(naive and P20), so in a full run the plasticity chain comes first.
+13 (the stored `cref` and `zref`, to measure what the declared reference
+moves), 18 (the stored `zref` and `ratio` rows) and 22 (the readings of
+control G); step 13's structure set, profiles and centroids by every later
+step; step 14's flags by 15; step 15's gene table and profiles by 17 to 26;
+step 16's surrogates by 17, 19 and 20; step 17's `gene_ranking.csv` and
+`null_rho.npz` by 18 to 20 and 27; step 21's tables by 22 to 25, and steps 22
+to 24's by 25; step 27 reads every step's numbers, so it comes last. Sheet 07
+of step 10 reads the tables of steps 4 and 5, and sheet 08 the background
+masks of `../group_comparison/run_normalise_groups` (naive and P20), so in a
+full run the plasticity chain comes first. The scripts of the ISH run of 5
+October (`run_ish_regions`, `run_ish_compare`, `run_ish_words`,
+`run_ish_roles`, `run_ish_arms`, `run_ish_reliability`, `run_ish_panel_test`,
+`run_adult_arms`) are out of the run order: they write the frozen folders
+`adult_v2\ish\` and `arms\`, and move to `archive/` next.
 
 ## Assumptions and preprocessing
 
@@ -102,13 +120,14 @@ sheet 08 the background masks of `../group_comparison/run_normalise_groups`
   tests with their Benjamini-Hochberg q, the P20-only and naive-RWS contrasts
   beside them (`region_stats.csv`); the same by system, division and layer
   (`group_stats.csv`).
-- **Adult distribution and the ISH comparison**: the adult map against each
-  gene's ISH map, over structures; the reliability of single ISH experiments;
-  the localisation genes against expression-matched controls with a
-  permutation null; the variance of the map that abundance, synaptic markers,
-  postsynaptic-density genes and autofluorescence explain, against the map's
-  own reliability, with seven controls.
-- **The green channel**: what it tracks across structures, per adult.
+- **The ISH analysis** (steps 13 to 27), on the declared structures (grey
+  matter measured in all ten adults) and one gene table: how much of the adult
+  map receptor mRNA and synaptic density predict, against the map's own
+  reliability and a calibration floor, with seven controls (part 1); each
+  gene, each gene set fixed in advance and the localisation genes against the
+  map, with a spatial null of surrogate maps, between and within divisions,
+  and on the autofluorescence map (part 2); what the green channel reports.
+  Method, figures and results: `../docs/ISH_ANALYSIS.md`.
 - The results and what they mean: `../docs/SCIENTIFIC_CONTEXT.md`.
 
 ## Outputs
@@ -128,18 +147,17 @@ Under `<data>\comparisons_v2\`:
 
 Under `<data>\adult_v2\`:
 
-- `ish\`: the gene tables of both passes and their drops, `gene_correlations.csv`,
-  `feature_enrichment.csv` (with the cache `annotation\`), `gene_roles.csv`,
-  `role_summary.csv`, `gene_reliability.csv`, `gene_region_table_merged.csv`,
-  `panel_test.csv`, and their figures
+- `ish_analysis\`: the ISH analysis. `tables\` (every table of steps 13 to
+  27, the surrogates, `numbers_<step>.csv` and `numbers_for_the_text.csv`),
+  `beyond\` (part 1's tables and working figures), `green_channel\`,
+  `figures\` (the guided figures `00_overview.png` to `14_april_headline.png`
+  with the index `README.md`, `qc\` and `genes\`), `cache\` (Allen
+  experiment lists, mygene records, `go-basic.obo`). The table of every file:
+  `../docs/ISH_ANALYSIS.md`, section 10.
 - `panel\`: `panel_v2.csv`, `panel_genes.csv`, `fetch_failures.csv`, the API
-  cache `cache\`
-- `arms\`: `region_means_arms.csv`, `arm_gene_correlations.csv`,
-  `sep_channel_check.csv`, and their figures
-- `beyond\`: `structures_used.csv`, `variance_partition.csv`,
-  `residual_by_structure.csv`, `controls.csv`, figures; `for_sami\`, the
-  figure panels with `numbers_for_the_caption.txt` and
-  `regression_table.csv`
+  cache `cache\` (steps 11 and 12)
+- `ish\`, `arms\`, `beyond\`: the run of 5 October, frozen and not to quote
+  (`../docs/FIGURES.md`, Superseded outputs)
 
 Figures are PNG with an EPS beside most of them. Caches are reused when
 present: `per_mouse\*_scalars.npz` when its recorded date matches its source,
@@ -148,10 +166,9 @@ the ISH tables, the API answers and the grids.
 ## Known limitations
 
 - `sepratio` is not a surface fraction. The green channel tracks the
-  autofluorescence in these sections (rho 0.79 across the ten adults, header
-  of `registration/run_add_sep_channel.m`; per mouse in
-  `adult_v2\arms\sep_channel_check.csv`), so nano/SEP behaves as a second
-  nano over autofluorescence.
+  autofluorescence in these sections (rho 0.72 to 0.83 in every adult,
+  `adult_v2\ish_analysis\green_channel\sep_channel_check.csv`), so nano/SEP
+  behaves as a second nano over autofluorescence.
 - The level of `ratio` depends on exposure. Its zero is a structure as bright
   in nano as in autofluorescence (`region_plot`'s title: "0 = equally
   bright"), but only at the two channels' exposures, so it is no biological
@@ -159,15 +176,18 @@ the ISH tables, the API answers and the grids.
 - Young and adult brains were imaged in different sessions, and the
   autofluorescence rises with age, so only patterns compare across ages, not
   levels.
-- In the region tables, zref's median and spread are taken over the
-  structures every brain in the tables has. A new brain can change that set
-  and so move every brain's zref, the adults' included. The declared
-  structure set of the refactor plan (A1) replaces it.
-- The ISH gene ranking is descriptive. Its p and q values are
-  anticonservative: genes within a set are co-expressed and brain maps are
-  spatially autocorrelated (Fulcher 2021). No spatial null is built yet (A7).
-  The ranking includes structures seen in only a few adults until A1 to A3
-  restrict it.
+- In the young-against-adult region tables and maps, zref's median and
+  spread are taken over the structures every brain in the tables has, so a
+  new brain can move every brain's zref, the adults' included. The ISH
+  analysis takes them over its declared set (A1); the young-against-adult
+  tables move to it with A1's second half.
+- The spatial null of the ISH analysis rests on structure centroids in one
+  hemisphere and a variogram matched at short range; structures of very
+  different sizes count as points. It is calibrated on random maps of another
+  kind (about 4% false positives at 0.05), but differences between two genes'
+  correlations need to be large to pass it.
+- The true absences of the section QC (`ish_section_exceptions.csv`) are a
+  human call, proposed and not yet reviewed.
 - The young cohort holds P16, P20 and P22 brains. A brain of another age
   (`mapping_cohort` `young_P28` and so on) goes through the per-brain steps,
   but no cohort takes it until one is added (see `../docs/ADDING_DATA.md`,
@@ -176,4 +196,5 @@ the ISH tables, the API answers and the grids.
   `../adult_matlab/` answer (enrichment calls per structure, the
   autofluorescence control per structure: A4, A5), so they keep running
   until it does.
-- There are no tests of this package yet.
+- The tests (`tests/`) cover the ISH analysis; the per-brain steps and the
+  young-against-adult tables have none yet.

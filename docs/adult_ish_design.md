@@ -1,5 +1,9 @@
 # Adult nano characterisation and the ISH gene comparison — design
 
+**The ISH part is superseded by [ISH_ANALYSIS.md](ISH_ANALYSIS.md), built on 8 October
+2026 (branch `post-ish`); this file stays the record of 25 and 26 September, and its
+numbers are not to quote.**
+
 This file describes the code before step 7 of the refactor (`v2_*.py` scripts, constants in the code, panels chosen by environment variable); the current names are in [refactor_name_map.csv](refactor_name_map.csv), the run order in the headers of `mapping/run_*.py`, and the constants in `mapping/settings.toml`.
 
 **Status: designed on 25 Sep 2026 and built and run on 25 and 26 Sep 2026; a record since,
