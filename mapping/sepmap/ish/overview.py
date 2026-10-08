@@ -521,8 +521,8 @@ def beyond_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
         "beyond_budget": (
             "A to C, the nano map against Gria1 mRNA, against synaptic density and "
             "against the whole model; D, the variance budget: red is what is left, "
-            "hatched the calibration floor, the dark blue mark where a map that is one "
-            "Allen Gria1 experiment would leave as much; E, the leftover beside maps "
+            "hatched the calibration floor, the dashed mark where the leftover of a map "
+            "that is one Allen Gria1 experiment would begin; E, the leftover beside maps "
             "whose answer is known (the two Gria1 clusters are the two halves of its "
             "experiments); F, one half of the cohort's leftover against the other's; "
             "G, the leftover under other folds and structures.",
@@ -852,9 +852,10 @@ def meanings(n: dict[str, str]) -> dict[str, str]:
         "not predicted by receptor mRNA or synaptic density. "
         + upper_first(part1_verdict(n).removeprefix("Where it stands: "))
         + " What the leftover is, these data do not say: it is what the model does "
-        "not predict, and the many-gene model of control F predicts most of it "
-        "without any single gene following it, so the words are 'not predicted by "
-        "receptor mRNA or synaptic density', not 'beyond gene expression'.",
+        "not predict; the components of many panel genes (control F) predict most of "
+        "the map, though no single gene follows the leftover, so the words are 'not "
+        "predicted by receptor mRNA or synaptic density', not 'beyond gene "
+        "expression'.",
         "beyond_where": "The departure from prediction sits in particular structures, "
         "steadily across the adults; a claim about one structure needs its own null.",
         "one_comparison": "A whole-brain rho mixes fine agreement with the contrast "
