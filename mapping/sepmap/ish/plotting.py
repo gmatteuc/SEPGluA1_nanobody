@@ -614,6 +614,8 @@ def profile_panel(ax: plt.Axes, table: pd.DataFrame, shown: int, fraction: float
     colours = [RED if s == "flagged" else MID_GREY for s in status]
     ax.bar(k, np.nan_to_num(median), color=colours, width=0.85)
     top = np.nanmax(median) if np.isfinite(median).any() else 1.0
+    if not top > 0:
+        top = 1.0
 
     # a flagged or kept section is often near zero, so it is also marked over the
     # whole height: a red triangle on the axis, or a hatched band

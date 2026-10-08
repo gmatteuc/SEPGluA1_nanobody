@@ -521,6 +521,10 @@ def localisation_tests(
         if absolute:
             a, b = np.abs(a), np.abs(b)
         a, b = a[np.isfinite(a)], b[np.isfinite(b)]
+        if not (len(a) and len(b)):
+            # a column the pool does not have (the four subunits are removed only
+            # for the GO pool): no row
+            continue
         difference, p, null = two_sample(a, b, np.random.default_rng(child))
         nulls[name] = null
         rows.append(
