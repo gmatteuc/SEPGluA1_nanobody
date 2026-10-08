@@ -35,8 +35,8 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     21. run_synaptome          the measured synapse density (network,
                                once): PSD95 puncta per structure,
                                its coverage of the fit
-    22. run_beyond_density     analysis 4: what receptor mRNA and
-                               synaptic density leave; the leftover
+    22. run_beyond_density     analysis 4: what Gria1 and synapse
+                               density leave; the leftover
     23. run_beyond_controls    seven attempts to break it
     24. run_beyond_calibration the same model on maps whose answer
                                is known

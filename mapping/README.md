@@ -72,7 +72,7 @@ mapping/
 | ISH inputs | 13 `run_structure_set`, 14 `run_ish_section_qc`, 15 `run_ish_gene_table`, 16 `run_ish_spatial_null` | the declared structures and the adult profiles (A1); section QC of every experiment (A2); one gene table, merged profiles, gene sets, documentation (A9); surrogate maps with the map's smoothness (A7) |
 | the genes against the map | 17 `run_ish_gene_ranking`, 18 `run_ish_robustness`, 19 `run_ish_divisions`, 20 `run_ish_gene_sets` | each gene against the map and the autofluorescence map, with the null (A8); the ranking under other choices (A3); between or within divisions (A6); gene sets and localisation against matched controls |
 | the measured synapse density | 21 `run_synaptome` | PSD95 punctum density per structure (Zhu et al. 2018, as Hansen et al. share it; network, once), how much of the declared set and of analysis 4's fit it covers, and how it agrees with the mRNA density terms, Gria1 and the map |
-| beyond abundance and density | 22 `run_beyond_density`, 23 `run_beyond_controls`, 24 `run_beyond_calibration`, 25 `run_beyond_regression`, 26 `run_beyond_figures` | how much of the map receptor mRNA and synaptic density predict, and the genes against what they leave; seven controls and the leftover under other folds and structures; the same model on maps whose answer is known, and the nano map against them on the same structures; the regression per structure; the figures |
+| beyond abundance and density | 22 `run_beyond_density`, 23 `run_beyond_controls`, 24 `run_beyond_calibration`, 25 `run_beyond_regression`, 26 `run_beyond_figures` | how much of the map the main model of 8 October (Gria1, synapse density, autofluorescence) predicts, and the genes against what it leaves; seven controls, and the leftover under other folds, structures and the check rows of `[beyond.variants]` (PSD95 or SAP102 puncta, the four subunits); the same model on maps whose answer is known, and the nano map against them on the same structures; the regression per structure; the figures |
 | the green channel, the overview | 27 `run_sep_channel_check`, 28 `run_ish_overview` | what the green channel reports; April's headline, the numbers for the text, the overview and the index of the figures |
 
 What fixes the order: step 5's `region_means_per_mouse.csv` is read by steps
@@ -126,14 +126,16 @@ October (`run_ish_regions`, `run_ish_compare`, `run_ish_words`,
   (`group_stats.csv`).
 - **The ISH analysis** (steps 13 to 28), on the declared structures (grey
   matter measured in all ten adults) and one gene table: how much of the adult
-  map receptor mRNA and synaptic density predict, against the map's own
+  map Gria1 expression and synapse density predict, against the map's own
   reliability and a calibration floor, with seven controls (part 1); each
   gene, each gene set fixed in advance and the localisation genes against the
   map, with a spatial null of surrogate maps, between and within divisions,
   and on the autofluorescence map (part 2); what the green channel reports.
-  Synaptic density is also measured, not only read from mRNA: PSD95 puncta per
+  Synapse density is also measured, not only read from mRNA: PSD95 puncta per
   structure in one adult mouse (Zhu et al. 2018), placed in the CCF structures
-  by Allen id (`run_synaptome`). Method, figures and results:
+  by Allen id (`run_synaptome`). They cover 77 of the 126 structures of the
+  fit, under the 80% the rule of 8 October asks, so the main model keeps the
+  mRNA terms and PSD95 is a check row. Method, figures and results:
   `../docs/ISH_ANALYSIS.md`.
 - The results and what they mean: `../docs/SCIENTIFIC_CONTEXT.md`.
 
