@@ -137,10 +137,14 @@ def colour_bar(
         cb.ax.set_ylim(*limits)
 
 
-def saved(fig: plt.Figure, path: Path | None) -> plt.Figure:
-    """Save the figure as PNG and EPS when a path is given; return it."""
+def saved(fig: plt.Figure, path: Path | None, eps: bool = True) -> plt.Figure:
+    """Save the figure as PNG, and with `eps` as EPS, when a path is given; return it.
+
+    The QC sheets are PNG only: they are for review, not for a paper, and 750 of
+    them as EPS would take about 2 GB.
+    """
     if path is not None:
-        save_figure(fig, Path(path), DPI)
+        save_figure(fig, Path(path), DPI, eps=eps)
     return fig
 
 
@@ -441,7 +445,7 @@ def plot_flagged(
         va="top",
         fontsize=10,
     )
-    return saved(fig, save)
+    return saved(fig, save, eps=False)
 
 
 def middle_section(table: pd.DataFrame) -> int:
@@ -576,7 +580,7 @@ def plot_qc_sheet(
     ax_b.set_xlabel(what, fontsize=8)
     ax_c.set_title("C.  The ISH section, as on its grid", loc="left", fontsize=9)
     ax_d.set_title("D.  The same, with the CCF's structures", loc="left", fontsize=9)
-    return saved(fig, save)
+    return saved(fig, save, eps=False)
 
 
 # ===== 02 The genes, and how good their maps are =====
