@@ -88,3 +88,7 @@ tools/venv_flat/
 tools/venv_dev/
 __pycache__/
 .ruff_cache/
+
+# The cortical hierarchy of Harris et al. 2019, a published table that the adult map
+# by depth reads (mapping/run_adult_layers.py)
+!mapping/harris2019_hierarchy.csv

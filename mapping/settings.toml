@@ -283,3 +283,22 @@ table = "gene_region_table.csv"
 panel = "adult_v2/panel/panel_v2.csv"
 root = "data"
 table = "gene_region_table_panel.csv"
+
+# the adult map by cortical depth (adult.layers and layers_plotting); a cell has a value
+# from region_tables.min_vox20 tissue voxels, as a structure in the region tables, and
+# the flatmaps use the close-up's smoothing (closeup.smooth), its colour range of zref
+# (closeup.vmax) and the adults a pixel needs in its adult panel
+# (young_vs_adult.min_n_adult)
+[adult_layers]
+# the cortical hierarchy and modules of Harris et al. 2019 (Nature 575:195), relative to
+# the code root: Supplementary Table 9, "Cre_conf CC+TC+CT", 37 areas scored, 6 not
+hierarchy = "mapping/harris2019_hierarchy.csv"
+min_mice = 3               # adults with a value that an area and depth need for a mean and SEM: an SEM of two is no estimate
+# share of an area's atlas voxels at that depth a cell must cover to enter the
+# statistics: under a quarter it samples the end of the area where the sections stop,
+# and its distance from the other adults' mean reaches 0.47 to 0.67 zref at the 90th
+# percentile, against 0.20 for the cells covering three quarters or more
+min_coverage = 0.25
+sem_max = 0.10             # SEM across the adults (zref) from which a bar's grey is lightest, black at 0: three times the median SEM of the band means (0.034), so only areas the sections cut short reach it
+sd_max = 0.35              # top of the colour range of the between-mouse SD flatmaps, in zref units: the 95th percentile of the supragranular band
+flatmap_cache = "flatmap_bands.npz"  # the band flatmaps of every adult, under adult_v2/layers
