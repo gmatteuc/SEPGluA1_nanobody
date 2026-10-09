@@ -53,11 +53,11 @@ The same three are read on the nano map itself, to describe the family, not as t
 of the leftover.
 
 What the tests rest on is set out in docs/ISH_ANALYSIS.md (section 5.7): Cacng8's
-p against the leftover of the four-subunit model was seen before it was named, so
-tier 1 re-tests a result already seen on a near-identical leftover; Dlg4 and
-Camk2a, which the first version's density markers held, are no terms of the main
-model (the rule of the density genes leaves them out as AMPA-receptor-linked); and
-each surrogate of
+p against the leftover of the four-subunit model was seen before it was named, and
+its p against the first version's leftover before the second version was decided,
+so tier 1 re-tests a result already seen; Dlg4 and Camk2a, which the first
+version's density markers held, are no terms of the main model (the rule of the
+density genes leaves them out as AMPA-receptor-linked); and each surrogate of
 the leftover, the model projected out of it, is rougher at short range than the
 leftover, so the tests are read again against smoother Gaussian fields projected
 the same way (smooth_null_check), and the family again against controls from
