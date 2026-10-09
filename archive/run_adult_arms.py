@@ -1,5 +1,8 @@
 """The three channel arms of the measurement argument, one region table per adult.
 
+Retired on 9 October 2026 (archive/README.md): it does not run, since the modules
+it imports are archived too. The run order below is the one it had then.
+
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid

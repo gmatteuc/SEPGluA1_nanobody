@@ -471,7 +471,8 @@ def fit_all(matrix, return_flags=False):
   numbered in run order (`01_raw_plates.png`); a guided walk such as the ISH
   line's is numbered in the order of its argument, a main figure of two to four
   panels with one line saying what to take from it, its detailed version the
-  same number with an s (`03_beyond.png`, `03s_beyond_budget.png`).
+  same number with an s (`03_beyond.png`, `03s1_beyond_budget.png` and
+  `03s2_beyond_controls.png` where it has two).
 - Tests use pytest, in `tests/` next to the package, run from the pipeline
   folder as `python -m pytest tests`; one `test_<topic>.py` per sub-package or
   topic, and a `tests/README.md` listing them (file, what it checks, data).

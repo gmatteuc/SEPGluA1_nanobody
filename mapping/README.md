@@ -134,7 +134,7 @@ they tested against the genes have no premise.
   gene, each gene set fixed in advance and the localisation genes against the
   map, with a spatial null of surrogate maps, between and within divisions,
   and on the autofluorescence map, and the genes that follow the map most
-  described one by one, with the tests named in advance for what the main
+  described one by one, with the tests named on 8 October for what the main
   model leaves (part 2); what the green channel reports.
   Synapse density is also measured, not only read from mRNA: PSD95 puncta per
   structure in one adult mouse (Zhu et al. 2018), placed in the CCF structures
@@ -167,7 +167,7 @@ Under `<data>\adult_v2\`:
   its coverage and agreement), `beyond\` (part 1's tables and working
   figures), `green_channel\`, `figures\` (the guided figures
   `00_overview.png` to `16_april_headline.png`, each main figure with its
-  detailed versions, `03s_beyond_budget.png` and so on, the index `README.md`,
+  detailed versions, `03s1_beyond_budget.png` and so on, the index `README.md`,
   `qc\`, `genes\` and `top_genes\`), `cache\` (Allen
   experiment lists, mygene records, `go-basic.obo`). The table of every file:
   `../docs/ISH_ANALYSIS.md`, section 10.

@@ -274,7 +274,8 @@ story and every number: [ISH_ANALYSIS.md](ISH_ANALYSIS.md).
 | `01_structures.png` | `mapping/run_structure_set.py` | the declared structures (A1): the rule as a funnel, kept and left out per division, the map on plane 700, how far each adult's `zref` moves |
 | `02_genes.png`, `02s_genes_detail.png` | `mapping/run_ish_gene_table.py` | the genes by panel and gene set, experiments per gene, how reliable one Allen map is; in 02s also the sections set missing in P9's experiments, reliability against expression, what was left out and the repair |
 | `03_beyond.png` | `mapping/run_beyond_figures.py` | part 1: the map against what Gria1, synapse density and autofluorescence predict, the budget, the leftover beside the calibration floor and the one-Gria1-experiment benchmark, its replication |
-| `03s_beyond_budget.png` | `run_beyond_figures.py` | part 1 in detail: the map against Gria1, against synapse density and against the main model; the budget of the main model, of its four-subunit check row and of control F; every calibration draw; the leftover half against half; the leftover under other folds, check rows and structures |
+| `03s1_beyond_budget.png` | `run_beyond_figures.py` | part 1 in detail: the map against Gria1, against synapse density and against the main model; the budget of the main model, of its four-subunit check row and of control F; every calibration draw; the leftover half against half; the leftover under other folds, check rows and structures |
+| `03s2_beyond_controls.png` | `run_beyond_figures.py` | the seven controls of part 1, one panel each: the leftover against position and structure size, every pair of adults, naive against RWS, the held-out R² bent further, control F beside its own floor, the leftover's replication under every reading |
 | `04_beyond_where.png` | `run_beyond_figures.py` | where the leftover sits on three planes, and the structures furthest from prediction |
 | `05_one_comparison.png`, `05s_one_comparison_detail.png` | `mapping/run_ish_gene_ranking.py` | what one gene's rho is: the nano map and Cacng8 as ranks on plane 700, Cacng8 and Aqp4 against the map; in 05s nano, Cacng8, Gria1 and Aqp4 as measured and as ranks |
 | `06_spatial_null.png`, `06s_spatial_null_detail.png` | `run_ish_gene_ranking.py` | why a null (unrelated smooth maps correlate), the surrogates' variogram against the map's, the false-positive rates; in 06s three surrogates on a plane and Cacng8 and Gria1 against their nulls |
@@ -289,7 +290,7 @@ story and every number: [ISH_ANALYSIS.md](ISH_ANALYSIS.md).
 | `11s2_ampa_family.png` | `run_ish_top_genes.py` | the AMPA receptor complex family member by member against the leftover with their null bands, the group tests, and the same on the map itself |
 | `12_autofluorescence.png`, `12s_autofluorescence_detail.png` | `run_ish_gene_ranking.py` | Gria1 and Cacng8 with nano and with autofluorescence adult by adult and against each map's null, every gene against both maps; in 12s the two distributions of rho, how many genes each map passes at three thresholds, the genes past each null |
 | `13_robustness.png`, `13s_robustness_detail.png` | `mapping/run_ish_robustness.py` | the ranking under eleven variants: gene order, Cacng8's and Gria1's ranks, the gap against its null; in 13s every gene under four of the variants |
-| `14_synaptome.png` | `run_beyond_figures.py` | the measured PSD95 density: the structures of part 1's fit it covers per division, against the marker mRNA composite, and what each density measure predicts alone and leaves in the main model |
+| `14_synaptome.png` | `run_beyond_figures.py` | the measured PSD95 density, a control of part 1: the structures of the fit it covers per division, against the marker mRNA composite, and what each density measure predicts alone and leaves in the main model, with the paired differences between them |
 | `14s_synaptome_detail.png` | `mapping/run_synaptome.py` | the same coverage and comparison, the two hemispheres of the one mouse, and each density's agreement with the mRNA density terms, Gria1 and the maps |
 | `15_green_channel.png`, `15s_green_channel_detail.png` | `mapping/run_sep_channel_check.py` | what the green channel reports: three channels and which follows which, adult by adult, their ranges; in 15s one adult's raw planes and each channel against Gria1 |
 | `16_april_headline.png`, `16s_april_headline_detail.png` | `run_ish_overview.py` | April's gene order then and now, the ANOVA p under each choice, today's groups against the null; in 16s April's category violins beside today's |
@@ -510,7 +511,7 @@ Across brains:
   rebuilt.
 - `<data>\adult_v2\beyond\` and its `for_sami\` panels A to F with
   `numbers_for_the_caption.txt` (`run_beyond_*`, 26 September, rerun on 5
-  October): replaced by figures 03, 03s, 04 and 11s1 of the ISH analysis and
+  October): replaced by figures 03, 03s1, 03s2, 04 and 11s1 of the ISH analysis and
   `<data>\adult_v2\ish_analysis\beyond\`. What changed: the main model of 8
   October takes Gria1 alone as abundance, with the mRNA density terms and
   autofluorescence (36% left becomes 29%; the four subunits as separate

@@ -1,5 +1,8 @@
 """The three channel arms of the measurement argument, one region table per adult.
 
+Retired on 9 October 2026 (archive/README.md): it is no longer in the package, and
+nothing in mapping/ imports it.
+
 The gene ranking alone cannot say whether the nanobody reports receptor on the
 membrane or receptor anywhere: Gria1, Cacng8, Dlg2 and Grip1 are all postsynaptic,
 so no grouping of genes (ours, GO's or SynGO's) separates the two. A contrast

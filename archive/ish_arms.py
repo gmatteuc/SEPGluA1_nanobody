@@ -1,5 +1,8 @@
 """The channel arms against the genes: membrane pool or total receptor?
 
+Retired on 9 October 2026 (archive/README.md): it is no longer in the package, and
+nothing in mapping/ imports it.
+
 The gene ranking alone cannot tell the two apart: Gria1, Cacng8, Dlg2 and Grip1 are
 all postsynaptic, so no grouping of genes separates the surface pool from total
 receptor, and both predict a postsynaptic map. The distinction was to come from

@@ -760,22 +760,25 @@ For the reasons, see the plan and the documents named.
   with the main model on 9 October): 29% of the map's reproducible pattern is
   not predicted by Gria1 expression or synapse density (15% to 42% over
   structures), and that leftover replicates across halves of the cohort at
-  0.933. On the same structures it is about twice the calibration floor (26%
-  against 12%, difference -2% to +30%), and no larger than what a map of one
-  Allen Gria1 experiment leaves (34%) (`adult_v2\ish_analysis\beyond\` on the
+  0.933. On the same structures it is above the calibration floor at its point
+  value only (26% against 12%, difference -2% to +30%), and no larger than what
+  a map of one Allen Gria1 experiment leaves (34%) (`adult_v2\ish_analysis\beyond\` on the
   development copy).
-- **Part 1's main model** (8 October, before its results): Gria1 + synapse
+- **Part 1's main model** (8 October, before it was run): Gria1 + synapse
   density + autofluorescence; synapse density the measured PSD95 puncta if
   they cover 80% of the structures, else the mRNA panel. They cover 77 of
   126, so the panel stays and PSD95 is a check row
   (`mapping/settings.toml` `[beyond]`).
 - **The tests of the leftover** (8 October, before the main model ran):
-  Cacng8 named in advance, its uncorrected p the test; the AMPA receptor
+  Cacng8 named, its uncorrected p the test (its p against the near-identical
+  leftover of the four-subunit model had been seen, so it is a re-test); the AMPA
+  receptor
   complex family (Schwenk et al. 2012 and GO:0032281, the partner subunits,
   without Gria1) as a group against the surrogates and against matched
   postsynaptic genes, then gene by gene within it; every other gene
   exploratory (`mapping/sepmap/ish/gene_sets.py`). Run on 9 October: Cacng8
-  follows the leftover (p 0.0002), the family no more than matched
+  follows the leftover (p 0.0002); the family passes the surrogates only at
+  the edge (p 0.047, 0.050 without Cacng8) and does no better than matched
   postsynaptic genes (p 0.55).
 - **The ISH figures** (9 October): numbered in the order of the argument,
   `00_overview.png` to `16_april_headline.png`; each main figure two to four
@@ -797,7 +800,10 @@ For the reasons, see the plan and the documents named.
      check kept as a methods figure, "total receptor" and "surface fraction"
      out of every label; the four subunits as separate predictors, the
      calibration with the same model, the leftover quoted as a range beside
-     the floor, as "not predicted by receptor mRNA or synaptic density".
+     the floor, as "not predicted by receptor mRNA or synaptic density"
+     (superseded on 8 October: Gria1 alone is the abundance term, the four
+     subunits a check row, and the words "not fully explained by Gria1
+     expression and synapse density"; see Part 1's main model above).
 - **Normalisation**: both routes kept as they are (section 11).
 - **Missing values** (3 October): a mean leaves a missing value out instead
   of counting it as zero, wherever the code allows (fixes 3, 23 and 25 of
