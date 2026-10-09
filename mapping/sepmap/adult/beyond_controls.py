@@ -51,10 +51,12 @@ own structures:
                  (PSD95 puncta, SAP102 puncta or every punctum, on the structures
                  where it is measured; the mRNA panel on those same structures, so
                  the two measures meet on equal ground; PSD95 and the panel
-                 together, the conservative bound, since one measured map in place
-                 of the panel's two terms gives the model fewer terms; the panel
-                 without its presynaptic markers), or the abundance (Gria1 to Gria4,
-                 four terms). The row that is the main model is not repeated
+                 together, every density measure at once; the panel without its
+                 presynaptic markers), or the abundance (Gria1 to Gria4, four
+                 terms). The row that is the main model is not repeated. More
+                 terms do not bound the leftover from below: scored on held-out
+                 structures, a term that adds nothing costs a little through
+                 overfitting
     structures   the larger set of structures that the rule keeps once the markers
                  measured by a single Allen experiment are left out
 
@@ -215,16 +217,15 @@ def control_a_space(
     # a gradient could explain the leftover if position explains more than
     # beyond_controls.gradient_r2 of it
     passed = smooth <= BEYOND_CONTROLS["gradient_r2"]
-    verdict = (
-        "not a gradient; position is a weak predictor of it"
-        if passed
-        else "a gradient could explain it -- LOOK CLOSER"
-    )
+    if passed:
+        verdict = "not a gradient; position is a weak predictor of it"
+    else:
+        verdict = "a gradient could explain it: look closer"
     print("   verdict: " + verdict)
     return dict(
         control="A spatial gradient",
         number=number,
-        verdict="pass" if passed else "CHECK",
+        verdict="pass" if passed else "look closer",
     )
 
 
@@ -247,16 +248,15 @@ def control_b_size(res: np.ndarray, sizes: np.ndarray) -> dict[str, str]:
         f"smaller half {np.median(np.abs(res[ok][~big])):.1f}"
     )
     passed = abs(rho) <= BEYOND_CONTROLS["size_rho"]
-    verdict = (
-        "size is not what the leftover is made of"
-        if passed
-        else "size drives it -- LOOK CLOSER"
-    )
+    if passed:
+        verdict = "size is not what the leftover is made of"
+    else:
+        verdict = "size drives it: look closer"
     print("   verdict: " + verdict)
     return dict(
         control="B structure size",
         number=f"rho with volume {rho:+.3f}",
-        verdict="pass" if passed else "CHECK",
+        verdict="pass" if passed else "look closer",
     )
 
 
@@ -295,17 +295,16 @@ def control_c_mice(
     # the verdict rests on the worst pair, since an odd brain lowers every pair it
     # is in: below beyond_controls.pair_rho, one animal may carry the leftover
     passed = min(pairs) >= BEYOND_CONTROLS["pair_rho"]
-    verdict = (
-        "every animal shows the same leftover"
-        if passed
-        else "one animal may be carrying it -- LOOK CLOSER"
-    )
+    if passed:
+        verdict = "every animal shows the same leftover"
+    else:
+        verdict = "one animal may be carrying it: look closer"
     print("   verdict: " + verdict)
     return (
         dict(
             control="C single animals",
             number=f"pairwise median {np.median(pairs):+.3f}, min {min(pairs):+.3f}",
-            verdict="pass" if passed else "CHECK",
+            verdict="pass" if passed else "look closer",
         ),
         pairs,
     )
@@ -324,21 +323,31 @@ def control_d_groups(
     rho = spearmanr(naive, rws).statistic
     print(f"   leftover of the five naive against the five RWS: rho {rho:+.3f}")
     passed = rho >= BEYOND_CONTROLS["groups_rho"]
-    verdict = (
-        "both groups give the same leftover, so it is not the manipulation"
-        if passed
-        else "the groups disagree -- pooling is hiding something"
-    )
+    if passed:
+        verdict = "both groups give the same leftover, so it is not the manipulation"
+    else:
+        verdict = "the groups disagree: pooling is hiding something"
     print("   verdict: " + verdict)
     return (
         dict(
             control="D naive vs RWS",
             number=f"rho {rho:+.3f}",
-            verdict="pass" if passed else "CHECK",
+            verdict="pass" if passed else "look closer",
         ),
         naive,
         rws,
     )
+
+
+def curvature_scores(
+    y: np.ndarray, covariates: dict[str, np.ndarray], terms: dict[str, tuple[str, ...]]
+) -> tuple[float, float, float]:
+    """The CV R2 of the model's predictors straight, to cubes and to fifth powers."""
+    xs = predictors(covariates, terms)
+    linear = cv_r2(y, xs)
+    cubic = cv_r2(y, flexible(xs))
+    quintic = cv_r2(y, flexible(xs) + [x**4 for x in xs] + [x**5 for x in xs])
+    return linear, cubic, quintic
 
 
 def control_e_curvature(
@@ -352,26 +361,22 @@ def control_e_curvature(
     row and the three CV R2.
     """
     print("\nE  is the model bent enough? (does more curvature keep paying?)")
-    xs = predictors(covariates, terms)
-    linear = cv_r2(y, xs)
-    cubic = cv_r2(y, flexible(xs))
-    quintic = cv_r2(y, flexible(xs) + [x**4 for x in xs] + [x**5 for x in xs])
+    linear, cubic, quintic = curvature_scores(y, covariates, terms)
     print(f"   cross-validated R2, straight              {linear:+.3f}")
     print(f"   cross-validated R2, squares and cubes     {cubic:+.3f}   <- the model")
     print(f"   cross-validated R2, up to fifth powers    {quintic:+.3f}")
     passed = quintic - cubic <= BEYOND_CONTROLS["curvature_gain"]
-    verdict = (
-        "further bending buys nothing, so the model is adequate"
-        if passed
-        else "more curvature still pays -- the model is not bent enough"
-    )
+    if passed:
+        verdict = "further bending buys nothing, so the model is adequate"
+    else:
+        verdict = "more curvature still pays: the model is not bent enough"
     print("   verdict: " + verdict)
     return (
         dict(
             control="E curvature",
             number=f"CV R2 {linear:.3f} straight, {cubic:.3f} cubic, "
             f"{quintic:.3f} quintic",
-            verdict="pass" if passed else "CHECK",
+            verdict="pass" if passed else "look closer",
         ),
         linear,
         cubic,
@@ -563,12 +568,13 @@ def control_f_gene_space(
         f"({len(known)} draws)"
     )
     passed = bool(nano_left.min() > known.max())
-    verdict = (
-        "even the gene table's components leave more than they leave of a map made "
-        "of those genes"
-        if passed
-        else "the gene table accounts for the map as far as Allen mismatch allows"
-    )
+    if passed:
+        verdict = (
+            "even the gene table's components leave more than they leave of a map made "
+            "of those genes"
+        )
+    else:
+        verdict = "the gene table accounts for the map as far as Allen mismatch allows"
     print("   verdict: " + verdict)
     return (
         dict(
@@ -577,7 +583,7 @@ def control_f_gene_space(
             f"{nested:.3f} ({nested / explainable:.0%} of ceiling); nano leaves "
             f"{nano_left.min():.0%} to {nano_left.max():.0%} against "
             f"{known.min():.0%} to {known.max():.0%}; replication {rep:.3f}",
-            verdict="pass" if passed else "CHECK",
+            verdict="pass" if passed else "look closer",
         ),
         curve,
         k_most,
@@ -851,11 +857,10 @@ def control_g_readings(
     passed = bool(
         (table["leftover_replication"] > BEYOND_CONTROLS["readings_replication"]).all()
     )
-    verdict = (
-        "the leftover replicates under every reading"
-        if passed
-        else "some readings disagree -- LOOK CLOSER"
-    )
+    if passed:
+        verdict = "the leftover replicates under every reading"
+    else:
+        verdict = "some readings disagree: look closer"
     print("   verdict: " + verdict)
     return (
         dict(
@@ -863,7 +868,7 @@ def control_g_readings(
             number="; ".join(
                 f"{r.reading} {r.leftover_replication:.2f}" for r in table.itertuples()
             ),
-            verdict="pass" if passed else "CHECK",
+            verdict="pass" if passed else "look closer",
         ),
         table,
     )
@@ -982,11 +987,10 @@ def figure_model_space(
     )
     axes[0].set_ylabel("variance of the map explained", fontsize=8)
     axes[0].legend(fontsize=7.5, frameon=False)
-    title = (
-        "F. even the whole gene table falls short"
-        if passed["F"]
-        else "F. the whole gene table accounts for the map"
-    )
+    if passed["F"]:
+        title = "F. even the whole gene table falls short"
+    else:
+        title = "F. the whole gene table accounts for the map"
     axes[0].set_title(
         f"{title}\nthe gap between the two lines is overfitting", fontsize=9
     )
@@ -1000,11 +1004,10 @@ def figure_model_space(
         ["the model\n(squares, cubes)", "bent further\n(to fifth powers)"], fontsize=8
     )
     axes[1].set_ylabel("cross-validated R2", fontsize=8)
-    title = (
-        "E. and bending it further buys nothing"
-        if passed["E"]
-        else "E. and bending it further still pays"
-    )
+    if passed["E"]:
+        title = "E. and bending it further buys nothing"
+    else:
+        title = "E. and bending it further still pays"
     axes[1].set_title(title, fontsize=9)
     tidy(axes[1])
     fig.tight_layout()
@@ -1046,11 +1049,10 @@ def figure_readings(table: pd.DataFrame, passed: bool) -> None:
     ax.set_xticklabels([READING_LABELS[r] for r in table["reading"]], fontsize=7.5)
     ax.set_ylim(0, 1.05)
     ax.legend(fontsize=7.5, frameon=False, loc="lower right")
-    title = (
-        "G. the same picture under every reading, not just zref"
-        if passed
-        else "G. not the same picture under every reading"
-    )
+    if passed:
+        title = "G. the same picture under every reading, not just zref"
+    else:
+        title = "G. not the same picture under every reading"
     ax.set_title(title, fontsize=9)
     tidy(ax)
     fig.tight_layout()
@@ -1070,7 +1072,7 @@ def write_verdicts(verdicts: list[dict[str, str] | None]) -> None:
     print(f"\n-> {CONTROLS}")
     failed = [v["control"] for v in verdicts if v and v["verdict"] != "pass"]
     verdict = "every control passes" if not failed else f"look closer at {failed}"
-    print("VERDICT: " + verdict)
+    print("verdict: " + verdict)
 
 
 def main() -> None:

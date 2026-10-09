@@ -95,7 +95,9 @@ def gene_vectors(
     return out
 
 
-def adult_matrix(per_mouse: pd.DataFrame, column: str, structures: list[str], adults):
+def adult_matrix(
+    per_mouse: pd.DataFrame, column: str, structures: list[str], adults: list[str]
+) -> np.ndarray:
     """Adults x structures of one column of the per-adult table, in the given order.
 
     Every declared structure is measured in every adult, so a missing value means
@@ -256,6 +258,7 @@ def equal_null(
     noise = standardise_rows(surr)
 
     def mean_rho(c: float, rows: np.ndarray) -> np.ndarray:
+        """The null maps' mean rho with the two genes, at weight c."""
         maps = c * shared[None, :] + np.sqrt(1 - c**2) * rows
         return (null_rho(maps, first) + null_rho(maps, second)) / 2
 
@@ -284,7 +287,9 @@ def gap_row(
     Returns a row (n_structures, rho of each, gap, its p against maps equally
     related to both genes and against maps unrelated to both, both bands, the adult
     bootstrap interval), the null gaps of the equal null and those of the unrelated
-    one, one per surrogate.
+    one, one per surrogate. The p counts gaps as large either way, the test fixed
+    in advance; the equal null is skewed, so beside it the share of its maps where
+    the first gene leads by at least the gap, and where the second does.
     """
     shared = [
         i
@@ -309,6 +314,8 @@ def gap_row(
         equal_lo=float(np.percentile(equal, BAND[0])),
         equal_hi=float(np.percentile(equal, BAND[1])),
         equal_weight=weight,
+        equal_first_as_large=float(np.mean(equal >= abs(gap))),
+        equal_second_as_large=float(np.mean(equal <= -abs(gap))),
         p_spatial=spatial_p(gap, unrelated),
         null_lo=float(np.percentile(unrelated, BAND[0])),
         null_hi=float(np.percentile(unrelated, BAND[1])),

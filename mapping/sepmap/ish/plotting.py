@@ -5,8 +5,8 @@ The guided figures are numbered in the order of the argument (03_beyond.png,
 panels: its title is the number and the question, under it one line that says what
 to take from it, computed from the tables, and at its foot a line or two in grey on
 how to read it. Its detailed version, a supplementary figure, carries the same
-number with an s (03s_beyond_budget.png; 10s1 and 10s2 where a main figure has
-two), with every panel and number of the analysis. A takeaway that is a verdict
+number with an s (05s_one_comparison_detail.png; 03s1 and 03s2 where a main figure
+has two), with every panel and number of the analysis. A takeaway that is a verdict
 follows its numbers, so a rerun cannot leave a figure saying what its numbers
 contradict.
 
@@ -32,6 +32,7 @@ from scipy.stats import rankdata, spearmanr
 
 from sepmap.ish.gene_sets import AMPA_FAMILY, LEFTOVER_GENE, detectable
 from sepmap.ish.section_qc import ISH_QC, SECTION_AXIS
+from sepmap.ish.top_genes import MATCHED_TEST, OUTSIDE_TEST, SPATIAL_TEST, WITHOUT_TEST
 from sepmap.plotting import (
     AUTO,
     AUTO_DOT,
@@ -63,6 +64,10 @@ from sepmap.plotting import (
 # dpi of every figure of the ISH analysis (docs/STYLE.md: new figures use 150)
 DPI = 150
 
+# characters of the line under a figure's title per inch of the figure's width,
+# beyond which it wraps
+HEADING_CHARS_PER_INCH = 13
+
 # the grey of the reading notes at the foot of a figure, and of light context
 NOTE_GREY = "0.4"
 LIGHT_GREY = "#c8c8c8"
@@ -88,7 +93,8 @@ FIGURES = {
     "genes": "02",
     "genes_detail": "02s",
     "beyond": "03",
-    "beyond_budget": "03s",
+    "beyond_budget": "03s1",
+    "beyond_controls": "03s2",
     "beyond_where": "04",
     "one_comparison": "05",
     "one_comparison_detail": "05s",
@@ -128,6 +134,7 @@ QUESTIONS = {
     "beyond": "Do Gria1 expression and synapse density explain the map?",
     "beyond_budget": "Part 1 in detail: each predictor, the budget, the calibration, "
     "the check rows",
+    "beyond_controls": "Part 1's seven controls: could the leftover be an artefact?",
     "beyond_where": "Where does the map sit above or below what they predict?",
     "one_comparison": "What is a gene's rho with the map?",
     "one_comparison_detail": "One comparison step by step: the maps as measured, as "
@@ -191,10 +198,16 @@ def heading(fig: plt.Figure, key: str, line: str) -> None:
     height = fig.get_figheight()
     title = f"{FIGURES[key]}.  {QUESTIONS[key]}"
     fig.text(0.5, 1 - 0.16 / height, title, ha="center", va="top", fontsize=12)
+
+    # about 13 characters of 9.5-point text to an inch of the figure's width; a line
+    # too long for it is cut into lines of about equal length, not one long and one
+    # short
+    width = int(HEADING_CHARS_PER_INCH * fig.get_figwidth())
+    n_lines = max(1, -(-len(line) // width))
     fig.text(
         0.5,
         1 - 0.47 / height,
-        line,
+        textwrap.fill(line, -(-len(line) // n_lines) + 8),
         ha="center",
         va="top",
         fontsize=9.5,
@@ -399,7 +412,9 @@ def plane_panel(
     )
 
 
-def reference_panel(ax: plt.Axes, reference: pd.DataFrame, column: str, label: str):
+def reference_panel(
+    ax: plt.Axes, reference: pd.DataFrame, column: str, label: str
+) -> None:
     """One half of D: each adult's zero or spread, before and after, joined per mouse."""
     nano = reference[reference["channel"] == "nano"]
     for _, r in nano.iterrows():
@@ -656,7 +671,7 @@ def section_plane(volume: np.ndarray, k: int, axis: int) -> np.ndarray:
     return volume[:, :, k].T
 
 
-def profile_panel(ax: plt.Axes, table: pd.DataFrame, shown: int, fraction: float):
+def profile_panel(ax: plt.Axes, table: pd.DataFrame, shown: int, fraction: float) -> None:
     """A: each section's median energy, the flag line, flagged and kept sections."""
     k = table["section"].to_numpy()
     median = table["median_energy"].to_numpy()
@@ -841,7 +856,7 @@ def union_panel(ax: plt.Axes, genes: pd.DataFrame) -> None:
         ax,
         "A",
         "The genes, by panel and by gene set",
-        f"{len(genes)} genes; one in a GO set and a marker set drawn in the marker set",
+        f"{len(genes)} genes; a gene in two sets is drawn once, in its marker set",
     )
     tidy(ax)
 
@@ -856,6 +871,7 @@ def experiments_panel(ax: plt.Axes, experiments: pd.DataFrame) -> None:
         "sagittal only": "#c8c8c8",
         "both planes": MID_GREY,
     }
+    # every kind on the same level at every count, so a segment never changes place
     bottom = np.zeros(4)
     for kind, colour in kinds.items():
         if kind == "both planes":
@@ -863,7 +879,7 @@ def experiments_panel(ax: plt.Axes, experiments: pd.DataFrame) -> None:
         else:
             mine = per_gene == kind.split()[0]
         n = np.array([int(((count == k) & mine).sum()) for k in (1, 2, 3, 4)])
-        ax.bar([1, 2, 3, 4], n, bottom=bottom, color=colour, width=0.7, label=kind)
+        ax.bar([1, 2, 3, 4], n, bottom=bottom.copy(), color=colour, width=0.7, label=kind)
         bottom += n
     for k, n in zip((1, 2, 3, 4), bottom):
         ax.text(k, n + 3, f"{int(n)}", ha="center", fontsize=8)
@@ -1171,7 +1187,7 @@ def gene_colour(symbol: str, subunits: set[str]) -> str:
     return DARK_BLUE if symbol in subunits else "0.1"
 
 
-def scatter_groups(ax: plt.Axes, x: np.ndarray, y: np.ndarray, groups: list[str]):
+def scatter_groups(ax: plt.Axes, x: np.ndarray, y: np.ndarray, groups: list[str]) -> None:
     """Structures as dots coloured by group of divisions: 35 points, no edge."""
     groups = np.asarray(groups)
     for group, colour in DIVISION_GROUP_COLOURS.items():
@@ -1325,8 +1341,8 @@ def comparison_scatter(
         ax,
         letter,
         f"Spearman rho {r['rho']:+.2f} on {int(r['n_structures'])} structures",
-        f"spatial {p_text(r['p_spatial'], n_surrogates)}; rank {int(r['rank_p9'])} "
-        f"of P9's {row['n_p9']} genes",
+        f"spatial {p_text(r['p_spatial'], n_surrogates)}; rank {int(r['rank_all'])} "
+        f"of {row['n_all']} genes",
     )
     tidy(ax)
 
@@ -1449,7 +1465,7 @@ def plot_one_comparison_detail(
     cohort's cref on the plane; each of `rows` holds a gene's symbol, its ISH
     `image` on the plane and a `caption` naming the experiment shown, its merged
     `profile` ({structure: value}), its `ranking` row (gene_ranking.csv) and
-    `n_p9`, the genes of P9's panel ranked.
+    `n_all`, the genes ranked.
     """
     n_rows = 1 + len(rows)
     fig = plt.figure(figsize=(15, 4.3 * n_rows + 1.2))
@@ -2162,8 +2178,12 @@ def auto_scatter(
     subunits: set[str],
     n_named: int = 8,
     letter: str = "A",
+    q: float | None = None,
 ) -> None:
-    """A: each gene's rho with autofluorescence against its rho with nano."""
+    """A: each gene's rho with autofluorescence against its rho with nano.
+
+    With `q`, the title also counts the genes past each map's null after BH.
+    """
     nano = ranking[ranking["map"] == "nano"].set_index("symbol")
     auto = ranking[ranking["map"] == "auto"].set_index("symbol")
     genes = sorted(set(nano.index) & set(auto.index))
@@ -2196,13 +2216,15 @@ def auto_scatter(
     ax.set_aspect("equal")
     ax.set_xlabel("rho with the nano map")
     ax.set_ylabel("rho with the autofluorescence map")
-    panel_title(
-        ax,
-        letter,
-        "Each gene against both maps",
+    numbers = (
         f"{len(genes)} genes (P9's dark, subunits blue);\nthe two gene orders agree "
-        f"at rho {agree:+.2f}",
+        f"at rho {agree:+.2f}"
     )
+    if q is not None:
+        past_nano = int((nano["q_all"] < q).sum())
+        past_auto = int((auto["q_all"] < q).sum())
+        numbers += f";\npast BH: nano {past_nano} genes, autofluorescence {past_auto}"
+    panel_title(ax, letter, "Each gene against both maps", numbers)
     tidy(ax)
 
 
@@ -2306,6 +2328,7 @@ def plot_autofluorescence(
     ranking: pd.DataFrame,
     per_adult: pd.DataFrame,
     subunits: set[str],
+    q: float,
     n_surrogates: int,
     save: Path | None = None,
 ) -> plt.Figure:
@@ -2339,7 +2362,9 @@ def plot_autofluorescence(
         "Against each map's own null",
         "pale blue: 95% of the surrogates of that map",
     )
-    auto_scatter(fig.add_axes([0.7, 0.13, 0.28, 0.64]), ranking, subunits, letter="C")
+    auto_scatter(
+        fig.add_axes([0.7, 0.13, 0.28, 0.64]), ranking, subunits, letter="C", q=q
+    )
     footer(
         fig,
         [
@@ -2513,7 +2538,7 @@ def ranks_panel(ax: plt.Axes, summary: pd.DataFrame, y: np.ndarray) -> None:
     ax.set_xlim(0, top + 6)
     ax.set_xlabel("rank among P9's genes (1 = highest rho)")
     ax.legend(loc="lower right", fontsize=7)
-    panel_title(ax, "B", "Where the two genes sit", "")
+    panel_title(ax, "B", "Where the two genes sit", "among P9's genes")
     tidy(ax)
 
 
@@ -2604,7 +2629,7 @@ def plot_robustness(
         fig,
         "robustness",
         f"Under every choice the gene order agrees at {others['agreement_p9'].min():.2f}"
-        f" or more and Cacng8 stays {first}; Gria1's place moves "
+        f" or more and Cacng8 stays {first}; Gria1's place among P9's genes moves "
         f"({ordinal(others['rank_p9_Gria1'].min())} to "
         f"{ordinal(others['rank_p9_Gria1'].max())}), so it is quoted with its null",
     )
@@ -2900,15 +2925,17 @@ def division_only_panel(ax: plt.Axes, table: pd.DataFrame, subunits: set[str]) -
 
 
 def within_handles() -> list:
-    """Legend entries of the within panel: filled past the null, hollow not; greys."""
+    """Legend entries of the within panel: the fill says whether a gene passes, the
+    size and grey which panel it comes from, each said once."""
     entries = (
-        (dict(color=DARK_GREY), "past the within null (BH, all genes)"),
-        (dict(mfc="white", mec=DARK_GREY), "not past it"),
-        (dict(color=DARK_GREY), "dark: P9's genes; light: the others"),
-        (dict(color=DARK_BLUE), "AMPA receptor subunits"),
+        (dict(color=MID_GREY, ms=5), "filled: past the within null (BH, all genes)"),
+        (dict(mfc="white", mec=MID_GREY, ms=5), "hollow: not past it"),
+        (dict(color=DARK_GREY, ms=np.sqrt(22)), "large, dark: P9's genes"),
+        (dict(color=LIGHT_GREY, ms=np.sqrt(12)), "small, light: the other genes"),
+        (dict(color=DARK_BLUE, ms=np.sqrt(28)), "AMPA receptor subunits"),
     )
     return [
-        plt.Line2D([], [], ls="", marker="o", ms=5, label=label, **style)
+        plt.Line2D([], [], ls="", marker="o", label=label, **style)
         for style, label in entries
     ]
 
@@ -3434,7 +3461,7 @@ def sets_panel(
         rows = members[members["gene_set"] == name]
         set_column(ax, k, rows, test, SET_COLOURS[name], rng)
         if test["tested"]:
-            stats = p_text(test["p_spatial"], n_surrogates)
+            stats = f"{p_text(test['p_spatial'], n_surrogates)}\nq = {test['q']:.3f}"
         else:
             stats = "too few to test"
         labels.append(f"{name}\nn = {int(test['n_genes'])}\n{stats}")
@@ -3762,10 +3789,10 @@ def plot_localisation(
     heading(
         fig,
         "localisation",
-        "; ".join(status)
-        + f".  The test: {len(loc)} localisation genes against {len(matched)} "
+        f"The test: {len(loc)} localisation genes against {len(matched)} "
         f"expression-matched controls, {main['difference']:+.3f} (p = "
-        f"{main['p_labels']:.3f}; spatial {p_text(p_spatial, n_surrogates)}){found}",
+        f"{main['p_labels']:.3f}; spatial {p_text(p_spatial, n_surrogates)}){found}. "
+        "The " + "; ".join(status),
     )
     ax = fig.add_axes([0.06, 0.58, 0.22, 0.29])
     strips(
@@ -3886,7 +3913,7 @@ def plot_localisation(
     return saved(fig, save)
 
 
-# ===== 03 and 03s How much of the map Gria1 and synapse density predict =====
+# ===== 03, 03s1 and 03s2 How much of the map Gria1 and synapse density predict =====
 
 # the steps of the variance budget: abundance in the subunits' dark blue, density in
 # the pale blue of DENSITY_BLUE, autofluorescence in its channel's yellow, what is left
@@ -3899,7 +3926,7 @@ BUDGET_COLOURS = {
     "left": RED,
 }
 
-# the variants of figure 03s G by their key in variants.csv, short; the number of
+# the variants of figure 03s1 G by their key in variants.csv, short; the number of
 # structures follows a row on other structures than the main model's
 VARIANT_LABELS = {
     "main": "the main model",
@@ -3940,6 +3967,24 @@ def map_scatter(
     ax.set_xlabel(xlabel)
     ax.set_ylabel("nano map, rank (0 low, 1 high)")
     tidy(ax)
+
+
+def model_scatter(
+    ax: plt.Axes,
+    y: np.ndarray,
+    predicted: np.ndarray,
+    residual: np.ndarray,
+    groups: list[str],
+    acronyms: list[str],
+    xlabel: str,
+) -> None:
+    """The map against the whole model's held-out prediction, the structures furthest
+    above and below it named."""
+    map_scatter(ax, predicted, y, groups, xlabel)
+    order = np.argsort(residual)
+    xr, yr = ranks01(predicted), ranks01(y)
+    extremes = list(order[:NAMED_LEFTOVER]) + list(order[-NAMED_LEFTOVER:])
+    spread_labels(ax, [(xr[i], yr[i], acronyms[i], "0.15") for i in extremes])
 
 
 def budget_bar(
@@ -3994,91 +4039,87 @@ def hatched(ax: plt.Axes, y: float, start: float, width: float) -> None:
     )
 
 
-def budget_panel(ax: plt.Axes, n: dict) -> None:
-    """D: the variance budget of the main model, of its four-subunit variant and of
-    control F.
+def model_parts(
+    steps: list[float], abundance: str, left_label: bool
+) -> list[tuple[str, float, float, str]]:
+    """The segments of one model's budget bar: abundance, + density, + autofluorescence
+    (unlabelled, it adds about nothing), left (labelled when `left_label`)."""
+    end = steps[2]
+    left = f"left\n{1 - end:.0%}" if left_label else ""
+    return [
+        ("abundance", 0, steps[0], f"{abundance}\n{steps[0]:.0%}"),
+        (
+            "density",
+            steps[0],
+            min(steps[1], end),
+            f"+ density\n{steps[1] - steps[0]:.0%}",
+        ),
+        ("autofluorescence", steps[1], end, ""),
+        ("left", end, 1, left),
+    ]
 
-    The main model's leftover carries a bracket with its share and jackknife
-    interval, the calibration floor hatched at its start, and a dark blue mark where
-    the leftover would begin if the map left as much as a map of one Allen Gria1
-    experiment does.
-    """
-    steps = n["steps"]
-    floor = n["floor"]
-    end_model = steps[2]
+
+def budget_rows(n: dict) -> list[tuple[int, str, list]]:
+    """The rows of figure 03s1 D, top to bottom: (y, label, segments) of the main
+    model, of its four-subunit check row and of control F."""
     four = n["variants"].set_index("key").loc["four_subunits"]
     four_steps = [
         four["abundance"],
         four["abundance"] + four["plus_density"],
         1 - four["left"],
     ]
-    end_four = four_steps[2]
-    rows = [
+    f_share = n["f_share"]
+    return [
         (
             2,
             f"the main model\n({n['abundance']}, synapse density,\nautofluorescence)",
-            [
-                ("abundance", 0, steps[0], f"{n['abundance']}\n{steps[0]:.0%}"),
-                (
-                    "density",
-                    steps[0],
-                    min(steps[1], end_model),
-                    f"+ density\n{steps[1] - steps[0]:.0%}",
-                ),
-                ("autofluorescence", steps[1], end_model, ""),
-                ("left", end_model, 1, ""),
-            ],
+            model_parts(n["steps"], n["abundance"], left_label=False),
         ),
         (
             1,
             "check row: Gria1 to Gria4\nin place of Gria1, four terms",
-            [
-                ("abundance", 0, four_steps[0], f"Gria1-4\n{four_steps[0]:.0%}"),
-                (
-                    "density",
-                    four_steps[0],
-                    min(four_steps[1], end_four),
-                    f"+ density\n{four_steps[1] - four_steps[0]:.0%}",
-                ),
-                ("autofluorescence", four_steps[1], end_four, ""),
-                ("left", end_four, 1, f"left\n{1 - end_four:.0%}"),
-            ],
+            model_parts(four_steps, "Gria1-4", left_label=True),
         ),
         (
             0,
             f"control F: components of the {n['f_genes']} genes\nmeasured in every "
             f"structure (most often {n['f_k']})",
             [
-                ("components", 0, n["f_share"], f"{n['f_share']:.0%}"),
-                ("left", n["f_share"], 1, f"left\n{1 - n['f_share']:.0%}"),
+                ("components", 0, f_share, f"{f_share:.0%}"),
+                ("left", f_share, 1, f"left\n{1 - f_share:.0%}"),
             ],
         ),
     ]
-    for y, _, parts in rows:
-        budget_bar(ax, y, parts)
 
-    # the floors hatched at the start of the leftovers (the model's, control F's own)
-    hatched(ax, 2, end_model, floor["left_median"])
-    f_floor = float(np.mean(n["f_floor"]))
-    hatched(ax, 0, n["f_share"], f_floor)
 
-    # the model's leftover: a bracket with its share, the interval of where it starts
+def leftover_marks(ax: plt.Axes, n: dict) -> None:
+    """The marks on the main model's bar of figure 03s1 D: its leftover with share and
+    interval, where 'left' begins over the jackknife, the benchmark's mark, and what
+    autofluorescence adds."""
+    steps = n["steps"]
+    end_model = steps[2]
+    floor = n["floor"]
     left = 1 - end_model
     lo, hi = n["left_ci"]
+
+    # a bracket over the leftover with its share and what the hatch is
     ax.plot([end_model, 1], [2.36, 2.36], color="0.1", lw=1.2, zorder=5)
     for x in (end_model, 1):
         ax.plot([x, x], [2.3, 2.36], color="0.1", lw=1.2, zorder=5)
     ax.text(
         1.0,
         2.4,
-        f"left {left:.0%} (95% {lo:.0%} to {hi:.0%}, jackknife over structures),\n"
-        f"of which the floor {floor['left_median']:.0%} (hatched)",
+        f"left {left:.0%} (95% {lo:.0%} to {hi:.0%}, jackknife over structures);\n"
+        f"hatched: the floor, {floor['left_median']:.0%} on the calibration's "
+        f"{n['cal_n']} structures (nano there {n['nano_cal_left']:.0%})",
         ha="right",
         va="bottom",
         fontsize=7.5,
         color="0.1",
         zorder=6,
     )
+
+    # under the bar, the interval of where the leftover begins
     ax.plot([1 - hi, 1 - lo], [1.64, 1.64], color="0.1", lw=1.4, zorder=5)
     for x in (1 - hi, 1 - lo):
         ax.plot([x, x], [1.6, 1.68], color="0.1", lw=1.0, zorder=5)
@@ -4092,7 +4133,7 @@ def budget_panel(ax: plt.Axes, n: dict) -> None:
         color="0.2",
     )
 
-    # the benchmark of a map that is one Allen Gria1 experiment
+    # where the leftover of a map that is one Allen Gria1 experiment would begin
     mark = 1 - n["gria1"]["left_median"]
     ax.plot([mark, mark], [1.5, 1.72], color="0.1", lw=1.4, zorder=6)
     ax.plot([mark, mark], [1.72, 2.28], color="white", lw=1.6, ls=(0, (2, 1)), zorder=6)
@@ -4107,12 +4148,11 @@ def budget_panel(ax: plt.Axes, n: dict) -> None:
         va="center",
         zorder=6,
     )
-    auto = end_model - steps[1]
     ax.annotate(
-        f"+ autofluorescence {auto:+.1%} (alone "
+        f"+ autofluorescence {end_model - steps[1]:+.1%} (alone "
         f"{n['partition']['autofluorescence']:+.0%})",
         xy=(min(steps[1], end_model), 2.28),
-        xytext=(0.55, 2.5),
+        xytext=(0.4, 2.5),
         fontsize=7.4,
         color="0.2",
         ha="right",
@@ -4120,12 +4160,32 @@ def budget_panel(ax: plt.Axes, n: dict) -> None:
         arrowprops=dict(arrowstyle="-", color="0.4", lw=0.7),
         zorder=6,
     )
+
+
+def budget_panel(ax: plt.Axes, n: dict) -> None:
+    """D: the variance budget of the main model, of its four-subunit variant and of
+    control F.
+
+    The main model's leftover carries a bracket with its share and jackknife
+    interval, the calibration floor hatched at its start, and a dark blue mark where
+    the leftover would begin if the map left as much as a map of one Allen Gria1
+    experiment does; control F's leftover carries its own floor.
+    """
+    rows = budget_rows(n)
+    for y, _, parts in rows:
+        budget_bar(ax, y, parts)
+
+    # the floors hatched at the start of the leftovers (the model's, control F's own)
+    hatched(ax, 2, n["steps"][2], n["floor"]["left_median"])
+    f_floor = float(np.mean(n["f_floor"]))
+    hatched(ax, 0, n["f_share"], f_floor)
+    leftover_marks(ax, n)
     ax.text(
-        n["f_share"] + f_floor / 2,
+        n["f_share"] + f_floor,
         -0.42,
         f"hatched: control F's own floor, {n['f_floor'][0]:.0%} to {n['f_floor'][1]:.0%}",
         fontsize=7,
-        ha="left",
+        ha="right",
         va="top",
         color="0.2",
     )
@@ -4263,7 +4323,7 @@ def replication_panel(ax: plt.Axes, replication: pd.DataFrame, n: dict) -> None:
         n["implied"] - 0.003,
         -0.62,
         f"{n['implied']:.3f}: what the leftover\nreplicates at anyway, given the\n"
-        f"map's reliability and the fit (R2 {n['r2']:.2f})",
+        f"map's reliability and the fit (R² {n['r2']:.2f})",
         ha="right",
         va="bottom",
         fontsize=7.5,
@@ -4297,13 +4357,14 @@ def variants_panel(ax: plt.Axes, n: dict) -> None:
         if np.isfinite(r["lo"]):
             ax.plot([r["lo"], r["hi"]], [i, i], color=MID_GREY, lw=2, zorder=1)
         ax.scatter(r["left"], i, s=30, color=colour, zorder=2)
+        right = r["hi"] if np.isfinite(r["hi"]) else r["left"]
         ax.text(
-            r["left"],
-            i - 0.32,
+            right + 0.025,
+            i,
             f"{r['left']:.0%}",
             fontsize=7,
-            ha="center",
-            va="bottom",
+            ha="left",
+            va="center",
             color=colour,
         )
     labels = []
@@ -4351,21 +4412,21 @@ def main_budget_panel(ax: plt.Axes, n: dict) -> None:
     ax.text(
         1 - hi - 0.01,
         -0.48,
-        f"left, 95% over structures: {lo:.0%} to {hi:.0%}",
+        f"where 'left' begins, 95% over structures (left {lo:.0%} to {hi:.0%})",
         fontsize=7.5,
         va="center",
         ha="right",
     )
     ax.text(
         0,
-        -0.48,
+        0.36,
         f"autofluorescence adds {steps[2] - steps[1]:+.1%}",
         fontsize=7.5,
-        va="center",
+        va="bottom",
         color=DARK_GREY,
     )
     ax.set_xlim(0, 1)
-    ax.set_ylim(-0.7, 0.45)
+    ax.set_ylim(-0.7, 0.5)
     ticks = np.linspace(0, 1, 6)
     ax.set_xticks(ticks)
     ax.set_xticklabels([f"{t:.0%}" for t in ticks])
@@ -4385,19 +4446,35 @@ def benchmarks_panel(ax: plt.Axes, calibration: pd.DataFrame, n: dict) -> None:
     two halves of the Allen experiments its predictors come from.
     """
     random = calibration[calibration["folds"] == "random"]
+    left = 1 - n["steps"][2]
+    nano_label = (
+        f"the nano map\n({n['nano_cal_left']:.0%} on these {n['cal_n']}; "
+        f"{left:.0%} on all {n['n_structures']})"
+    )
     rows = (
         ("abundance and density", "Gria1 + synapse density only\n(the floor)", DARK_GREY),
-        ("nano", "the nano map", RED),
+        ("nano", nano_label, RED),
         ("Gria1 mRNA", "one Allen Gria1 experiment\n(the benchmark)", DARK_BLUE),
     )
     rng = np.random.default_rng(0)
     for y, (kind, _, colour) in enumerate(rows):
         if kind == "nano":
-            ax.scatter(n["nano_cal_left"], y, s=80, color=colour, zorder=3)
+            lo, hi = n["nano_cal_ci"]
+            ax.errorbar(
+                [n["nano_cal_left"]],
+                [y],
+                xerr=[[n["nano_cal_left"] - lo], [hi - n["nano_cal_left"]]],
+                fmt="o",
+                ms=9,
+                color=colour,
+                elinewidth=1.4,
+                capsize=3,
+                zorder=3,
+            )
             ax.text(
                 n["nano_cal_left"],
                 y - 0.3,
-                f"{n['nano_cal_left']:.0%}",
+                f"{n['nano_cal_left']:.0%} (95% {lo:.0%} to {hi:.0%})",
                 ha="center",
                 fontsize=8,
                 color=colour,
@@ -4412,12 +4489,32 @@ def benchmarks_panel(ax: plt.Axes, calibration: pd.DataFrame, n: dict) -> None:
     ax.set_yticks(range(len(rows)))
     ax.set_yticklabels([label for _, label, _ in rows], fontsize=8.5)
     ax.set_ylim(len(rows) - 0.5, -0.7)
-    ax.set_xlim(0, max(0.5, float(random["left"].max()) + 0.04))
+    right = max(float(random["left"].max()), n["nano_cal_ci"][1])
+    ax.set_xlim(0, max(0.5, right + 0.04))
     ticks = np.arange(0, ax.get_xlim()[1] + 1e-9, 0.1)
     ax.set_xticks(ticks)
     ax.set_xticklabels([f"{t:.0%}" for t in ticks])
     ax.set_xlabel("share of the reproducible map left by the same model")
     tidy(ax)
+
+
+def beyond_takeaway(n: dict) -> str:
+    """The line under figure 03's title: what is left, and how it stands against the
+    floor and the benchmark, each by the interval of its difference from nano."""
+    left = 1 - n["steps"][2]
+    lo, hi = n["minus_floor_ci"]
+    floor = n["floor"]["left_median"]
+    margin = f"{n['minus_floor']:+.0%}, 95% {lo:+.0%} to {hi:+.0%}"
+    if lo > 0:
+        against = f"above the floor's {floor:.0%} ({margin})"
+    else:
+        against = f"the floor {floor:.0%} ({margin})"
+    return (
+        f"Gria1 and synapse density leave {left:.0%} of the map's reproducible pattern, "
+        f"which replicates ({n['rep_left']:.2f}); on {n['cal_n']} structures nano "
+        f"leaves {n['nano_cal_left']:.0%}, {against}, "
+        f"one Allen Gria1 experiment {n['gria1']['left_median']:.0%}"
+    )
 
 
 def plot_beyond(
@@ -4432,37 +4529,25 @@ def plot_beyond(
     save: Path | None = None,
 ) -> plt.Figure:
     """Figure 03: what Gria1 expression and synapse density predict of the map, and
-    whether what they leave is real.
+    how what they leave stands against the floor and the benchmark.
 
-    The arguments are those of plot_beyond_budget, its detailed version.
+    The arguments are those of plot_beyond_budget, its detailed version, but Gria1.
     """
     n = numbers
-    left = 1 - n["steps"][2]
-    floor = n["floor"]["left_median"]
-    above = "above" if n["nano_cal_left"] > floor else "no larger than"
     fig = plt.figure(figsize=(15, 10.5))
-    heading(
-        fig,
-        "beyond",
-        f"Gria1 and synapse density predict {n['steps'][2]:.0%} of the map's "
-        f"reproducible pattern; {left:.0%} is left, it replicates across mice "
-        f"({n['rep_left']:.2f}), and it is {above} what Allen-to-Allen mismatch alone "
-        f"leaves ({floor:.0%})",
-    )
+    heading(fig, "beyond", beyond_takeaway(n))
 
     # A: the map against the main model's held-out prediction
     ax = fig.add_axes([0.07, 0.53, 0.3, 0.36])
-    map_scatter(
+    model_scatter(
         ax,
-        held_out["model"],
         y,
+        held_out["model"],
+        residual,
         groups,
+        acronyms,
         "what Gria1 and synapse density predict (held out), rank",
     )
-    order = np.argsort(residual)
-    xr, yr = ranks01(held_out["model"]), ranks01(y)
-    extremes = list(order[:NAMED_LEFTOVER]) + list(order[-NAMED_LEFTOVER:])
-    spread_labels(ax, [(xr[i], yr[i], acronyms[i], "0.15") for i in extremes])
     ax.legend(handles=group_handles(), loc="lower right", fontsize=7, frameon=False)
     panel_title(
         ax,
@@ -4479,7 +4564,12 @@ def plot_beyond(
         "B",
         "What each term predicts, and what is left",
         f"the main model: {n['abundance']} + synapse density + autofluorescence, each "
-        "bent (x, x², x³)",
+        "bent (x, x², x³);\n"
+        + textwrap.fill(
+            f"synapse density is the mRNA of {n['density_label']} (PSD95 puncta cover "
+            f"too few structures: {figure_ref('synaptome')})",
+            100,
+        ),
     )
 
     # C: the leftover beside the floor and the benchmark
@@ -4503,7 +4593,9 @@ def plot_beyond(
         ax,
         "D",
         "Does the leftover replicate across mice?",
-        f"{len(replication)} ways to split the {n['n_adults']} adults into two fives",
+        f"observed {n['rep_left']:.3f}; {n['implied']:.3f} expected from the map's "
+        "reliability alone;\nunrelated leftovers "
+        f"{n['noise'][0]:+.2f} to {n['noise'][1]:+.2f} (off scale)",
     )
     footer(
         fig,
@@ -4513,59 +4605,25 @@ def plot_beyond(
             "of the cohort reproduce.",
             "The floor and the benchmark are maps whose answer is known, made from half "
             "of each gene's Allen experiments with ten made-up adults as noisy as ours. "
-            f"In detail, with the check rows: {figure_ref('beyond_budget')}.",
+            f"In detail, with the check rows: {figure_ref('beyond_budget')}; the seven "
+            f"controls: {figure_ref('beyond_controls')}.",
         ],
     )
     return saved(fig, save)
 
 
-def plot_beyond_budget(
-    structures: list[str],
+def predictor_scatters(
+    fig: plt.Figure,
     y: np.ndarray,
     gria1: np.ndarray,
     held_out: dict[str, np.ndarray],
     residual: np.ndarray,
     groups: list[str],
     acronyms: list[str],
-    numbers: dict,
-    calibration: pd.DataFrame,
-    replication: pd.DataFrame,
-    save: Path | None = None,
-) -> plt.Figure:
-    """Figure 03s: how much of the map Gria1 and synapse density predict, in detail.
-
-    `y` is the map's ranks on `structures`, `gria1` Gria1's, `held_out` each
-    structure's prediction by the density model and by the whole model from fits
-    that never saw it, `residual` the model's leftover; `numbers` holds the numbers
-    of adult.beyond_figures, `calibration` and `replication` the tables of
-    beyond_calibration and beyond_density.
-    """
-    n = numbers
-    left = 1 - n["steps"][2]
-    fig = plt.figure(figsize=(16, 19))
-    heading(
-        fig,
-        "beyond_budget",
-        f"{n['n_structures']} grey-matter structures, {n['n_adults']} adults: "
-        f"{left:.0%} of the reproducible map left ({n['left_ci'][0]:.0%} to "
-        f"{n['left_ci'][1]:.0%}); on the {n['cal_n']} structures of the calibration "
-        f"nano leaves {n['nano_cal_left']:.0%}, the floor {n['floor']['left_median']:.0%}"
-        f" (difference {n['minus_floor']:+.0%}, {n['minus_floor_ci'][0]:+.0%} to "
-        f"{n['minus_floor_ci'][1]:+.0%}), one Gria1 experiment "
-        f"{n['gria1']['left_median']:.0%}",
-    )
-    fig.legend(
-        handles=group_handles(),
-        loc="upper center",
-        bbox_to_anchor=(0.5, 0.935),
-        ncol=4,
-        fontsize=8,
-        frameon=False,
-        title="dots of A to C: structures, by group of divisions",
-        title_fontsize=8,
-    )
-
-    # A to C: the map against Gria1, against density, against the whole model
+    n: dict,
+) -> None:
+    """A to C of figure 03s1: the map against Gria1, against what synapse density
+    predicts and against what the whole model predicts, the latter two held out."""
     top = 0.705
     size = 0.2
     rho_g = spearmanr(y, gria1).statistic
@@ -4595,21 +4653,14 @@ def plot_beyond_budget(
         f"{n['partition']['density']:.0%} of the reproducible map",
     )
     ax = fig.add_axes([0.72, top, size, size * 16 / 19])
-    map_scatter(
+    model_scatter(
         ax,
-        held_out["model"],
         y,
+        held_out["model"],
+        residual,
         groups,
+        acronyms,
         "what the model predicts (held out), rank",
-    )
-    order = np.argsort(residual)
-    xr, yr = ranks01(held_out["model"]), ranks01(y)
-    spread_labels(
-        ax,
-        [
-            (xr[i], yr[i], acronyms[i], "0.15")
-            for i in list(order[:NAMED_LEFTOVER]) + list(order[-NAMED_LEFTOVER:])
-        ],
     )
     panel_title(
         ax,
@@ -4620,7 +4671,10 @@ def plot_beyond_budget(
         "the leftover",
     )
 
-    # D: the budget; G: its variants
+
+def budget_row(fig: plt.Figure, n: dict) -> None:
+    """D and G of figure 03s1: the variance budget, and the leftover under every
+    other choice of folds, model and structures."""
     ax = fig.add_axes([0.22, 0.44, 0.5, 0.17])
     budget_panel(ax, n)
     fig.text(
@@ -4642,7 +4696,12 @@ def plot_beyond_budget(
         f"floor {blocks['floor']:.0%},\nGria1 map {blocks['gria1']:.0%}",
     )
 
-    # E: the calibration; F: the replication
+
+def calibration_row(
+    fig: plt.Figure, calibration: pd.DataFrame, replication: pd.DataFrame, n: dict
+) -> None:
+    """E and F of figure 03s1: the same model on maps whose answer is known, and the
+    leftover of one half-cohort against the other's."""
     ax = fig.add_axes([0.07, 0.1, 0.38, 0.25])
     calibration_panel(ax, calibration, n)
     floor = n["floor"]
@@ -4668,11 +4727,60 @@ def plot_beyond_budget(
         f"two unrelated leftovers\nwould agree between {n['noise'][0]:+.2f} and "
         f"{n['noise'][1]:+.2f}, far left of this axis",
     )
+
+
+def plot_beyond_budget(
+    y: np.ndarray,
+    gria1: np.ndarray,
+    held_out: dict[str, np.ndarray],
+    residual: np.ndarray,
+    groups: list[str],
+    acronyms: list[str],
+    numbers: dict,
+    calibration: pd.DataFrame,
+    replication: pd.DataFrame,
+    save: Path | None = None,
+) -> plt.Figure:
+    """Figure 03s1: how much of the map Gria1 and synapse density predict, in detail.
+
+    `y` is the map's ranks on the structures of the fit, `gria1` Gria1's, `held_out`
+    each structure's prediction by the density model and by the whole model from
+    fits that never saw it, `residual` the model's leftover; `numbers` holds the
+    numbers of adult.beyond_figures, `calibration` and `replication` the tables of
+    beyond_calibration and beyond_density.
+    """
+    n = numbers
+    left = 1 - n["steps"][2]
+    fig = plt.figure(figsize=(16, 19))
+    heading(
+        fig,
+        "beyond_budget",
+        f"{n['n_structures']} grey-matter structures, {n['n_adults']} adults: "
+        f"{left:.0%} of the reproducible map left ({n['left_ci'][0]:.0%} to "
+        f"{n['left_ci'][1]:.0%}); on the {n['cal_n']} structures of the calibration "
+        f"nano leaves {n['nano_cal_left']:.0%}, the floor {n['floor']['left_median']:.0%}"
+        f" (difference {n['minus_floor']:+.0%}, {n['minus_floor_ci'][0]:+.0%} to "
+        f"{n['minus_floor_ci'][1]:+.0%}), one Gria1 experiment "
+        f"{n['gria1']['left_median']:.0%}",
+    )
+    fig.legend(
+        handles=group_handles(),
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0.935),
+        ncol=4,
+        fontsize=8,
+        frameon=False,
+        title="dots of A to C: structures, by group of divisions",
+        title_fontsize=8,
+    )
+    predictor_scatters(fig, y, gria1, held_out, residual, groups, acronyms, n)
+    budget_row(fig, n)
+    calibration_row(fig, calibration, replication, n)
     footer(
         fig,
         [
             "How to read: the map and every predictor are ranks across structures; each "
-            "predictor enters as x, x^2 and x^3, and each share is the held-out R2 "
+            "predictor enters as x, x² and x³, and each share is the held-out R² "
             "(20 shufflings of five folds) over the ceiling.",
             "The calibration builds maps whose answer is known from half of each "
             "gene's Allen experiments, gives them ten made-up adults as noisy as ours, "
@@ -4687,6 +4795,208 @@ def plot_beyond_budget(
             "what one Allen experiment disagreeing with another produces. Either way it "
             "is what the model does not predict, not a measurement of the surface "
             "fraction, and its replication follows from the map's reliability (F).",
+        ],
+    )
+    return saved(fig, save)
+
+
+# the seven controls of figure 03s2 by their letter in controls.csv: the question
+# each asks, as a panel title
+CONTROL_QUESTIONS = {
+    "A": "A smooth gradient across the brain?",
+    "B": "Small structures, where a mean is noisy?",
+    "C": "One or two animals?",
+    "D": "The whisker manipulation?",
+    "E": "Curvature the model misses?",
+    "F": "The choice of predictors?",
+    "G": "The reading of the map?",
+}
+
+
+def control_title(ax: plt.Axes, letter: str, controls: pd.DataFrame) -> None:
+    """A control's panel title: its question, its verdict and its number."""
+    row = controls[controls["control"].str[0] == letter].iloc[0]
+    verdict = "passes" if row["verdict"] == "pass" else "look closer"
+    panel_title(
+        ax,
+        letter,
+        CONTROL_QUESTIONS[letter],
+        f"{verdict}: {textwrap.fill(row['number'], 52)}",
+    )
+
+
+def leftover_scatter(ax: plt.Axes, x: np.ndarray, y: np.ndarray, xlabel: str) -> None:
+    """The leftover of each structure against one of its properties."""
+    ok = np.isfinite(x)
+    ax.scatter(x[ok], y[ok], s=35, color=DARK_GREY, linewidths=0, alpha=0.85, zorder=2)
+    ax.axhline(0, color=MID_GREY, lw=0.7, zorder=1)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel("leftover (ranks above prediction)")
+    tidy(ax)
+
+
+def curvature_panel(ax: plt.Axes, scores: tuple[float, float, float]) -> None:
+    """E: the held-out R2 of the model straight, bent to cubes and to fifth powers."""
+    labels = ["straight", "x, x², x³\n(the model)", "to x⁵"]
+    colours = [MID_GREY, DARK_GREY, MID_GREY]
+    ax.bar(range(3), scores, color=colours, width=0.6)
+    for k, value in enumerate(scores):
+        ax.text(k, value + 0.01, f"{value:.3f}", ha="center", va="bottom", fontsize=7.5)
+    ax.set_xticks(range(3))
+    ax.set_xticklabels(labels, fontsize=8)
+    ax.set_ylim(0, 1)
+    ax.set_ylabel("R² on structures the fit has not seen")
+    tidy(ax)
+
+
+def gene_space_panel(ax: plt.Axes, calibration: pd.DataFrame) -> None:
+    """F: what control F's model leaves of nano and of maps made of the genes."""
+    rows = (
+        (
+            "gene space",
+            "a map made of the\ngenes' expression\n(its own floor)",
+            DARK_GREY,
+        ),
+        ("nano", "the nano map", RED),
+    )
+    rng = np.random.default_rng(0)
+    for y, (kind, _, colour) in enumerate(rows):
+        left = calibration.loc[calibration["map"] == kind, "left"].to_numpy(float)
+        jitter = rng.uniform(-0.12, 0.12, len(left))
+        ax.scatter(left, y + jitter, s=24, color=colour, alpha=0.8, linewidths=0)
+        ax.text(
+            left.max() + 0.012,
+            y,
+            f"{left.min():.0%} to {left.max():.0%}",
+            va="center",
+            fontsize=7.5,
+            color=colour,
+        )
+    ax.set_yticks(range(len(rows)))
+    ax.set_yticklabels([label for _, label, _ in rows], fontsize=8)
+    ax.set_ylim(len(rows) - 0.4, -0.6)
+    ax.set_xlim(0, max(0.4, float(calibration["left"].max()) + 0.1))
+    ticks = np.arange(0, ax.get_xlim()[1] + 1e-9, 0.1)
+    ax.set_xticks(ticks)
+    ax.set_xticklabels([f"{t:.0%}" for t in ticks])
+    ax.set_xlabel("share of the reproducible map left")
+    tidy(ax)
+
+
+def readings_panel(ax: plt.Axes, readings: pd.DataFrame, threshold: float) -> None:
+    """G: the leftover's replication under every reading of the map."""
+    y = np.arange(len(readings))
+    ax.scatter(readings["leftover_replication"], y, s=35, color=DARK_GREY, zorder=2)
+    ax.axvline(threshold, color=RED, lw=0.9, ls=(0, (3, 2)))
+    ax.text(
+        threshold,
+        len(readings) - 0.5,
+        f" the control's line, {threshold}",
+        fontsize=7,
+        color=RED,
+        va="bottom",
+    )
+    ax.set_yticks(y)
+    ax.set_yticklabels(readings["reading"], fontsize=8)
+    ax.set_ylim(len(readings) - 0.3, -0.7)
+    ax.set_xlim(min(0.7, threshold - 0.05), 1.0)
+    ax.set_xlabel("the leftover's replication, half against half")
+    tidy(ax)
+
+
+def artefact_panels(fig: plt.Figure, grid, data: dict) -> None:
+    """A to D of figure 03s2: the leftover against position and size, the pairs
+    of adults, the naive group against the RWS group."""
+    controls = data["controls"]
+    res = data["residual"]
+
+    # the leftover against each structure's position and size
+    ax = fig.add_subplot(grid[0, 0:3])
+    leftover_scatter(ax, data["ap"], res, "structure centroid, anterior-posterior (mm)")
+    control_title(ax, "A", controls)
+
+    ax = fig.add_subplot(grid[0, 3:6])
+    leftover_scatter(ax, np.log10(data["sizes"]), res, "log10 volume (20 um voxels)")
+    control_title(ax, "B", controls)
+
+    # every pair of adults, and the naive group against the RWS group
+    ax = fig.add_subplot(grid[0, 6:9])
+    ax.hist(data["pairs"], bins=15, color=MID_GREY)
+    ax.axvline(float(np.median(data["pairs"])), color=RED, lw=1.5)
+    ax.axvline(data["thresholds"]["pair_rho"], color=RED, lw=0.9, ls=(0, (3, 2)))
+    ax.set_xlabel("one adult's leftover against another's (rho)")
+    ax.set_ylabel("pairs of adults")
+    tidy(ax)
+    control_title(ax, "C", controls)
+
+    ax = fig.add_subplot(grid[0, 9:12])
+    naive, rws = data["groups"]["naive"], data["groups"]["rws"]
+    ax.scatter(naive, rws, s=35, color=DARK_GREY, linewidths=0, alpha=0.85)
+    low = min(naive.min(), rws.min())
+    high = max(naive.max(), rws.max())
+    ax.plot([low, high], [low, high], color=MID_GREY, lw=0.8, ls=(0, (4, 3)))
+    ax.set_xlabel("leftover of the five naive adults")
+    ax.set_ylabel("leftover of the five RWS adults")
+    tidy(ax)
+    control_title(ax, "D", controls)
+
+
+def plot_beyond_controls(
+    data: dict, numbers: dict, save: Path | None = None
+) -> plt.Figure:
+    """Figure 03s2: the seven attempts to break part 1's leftover, one panel each.
+
+    `data` is adult.beyond_figures.control_data: the leftover per structure with
+    its anterior-posterior centroid (mm) and mean volume (20 um voxels), the
+    agreement of every pair of adults' leftovers, the naive and the RWS group's
+    leftovers, the held-out R2 straight, cubic and to fifth powers, control F's
+    own calibration, control G's readings, the verdicts and the thresholds.
+    """
+    controls = data["controls"]
+    passed = controls[controls["verdict"] == "pass"]
+    failed = [c[0] for c in controls.loc[controls["verdict"] != "pass", "control"]]
+    fig = plt.figure(figsize=(16, 10))
+    if failed:
+        line = (
+            f"{len(passed)} of {len(controls)} controls pass; look closer at "
+            + ", ".join(failed)
+        )
+    else:
+        line = (
+            f"All {len(controls)} controls pass: the leftover is not a gradient, small "
+            "structures, one animal, the whisker manipulation, missing curvature, the "
+            "choice of predictors or the reading"
+        )
+    heading(fig, "beyond_controls", line)
+    grid = fig.add_gridspec(
+        2, 12, hspace=0.55, wspace=1.6, left=0.06, right=0.98, top=0.83, bottom=0.12
+    )
+
+    # A to D: four ways the leftover could be an artefact of the data
+    artefact_panels(fig, grid, data)
+
+    # E to G: whether the model, the predictors or the reading made it
+    ax = fig.add_subplot(grid[1, 0:4])
+    curvature_panel(ax, data["curvature"])
+    control_title(ax, "E", controls)
+
+    ax = fig.add_subplot(grid[1, 4:8])
+    gene_space_panel(ax, data["f_calibration"])
+    control_title(ax, "F", controls)
+
+    ax = fig.add_subplot(grid[1, 8:12])
+    readings_panel(ax, data["readings"], data["thresholds"]["readings_replication"])
+    control_title(ax, "G", controls)
+    footer(
+        fig,
+        [
+            "How to read: each panel tries one way the leftover of the main model "
+            f"({figure_ref('beyond')}) could be an artefact; the line each must not "
+            "cross is fixed in settings.toml [beyond_controls] (dashed in C and G). In C "
+            "the median pair is red.",
+            "E and F score on structures the fit has not seen; F gives the model the "
+            "components of every gene measured in all the structures, picked inside "
+            "each training fold, and sets nano beside its own floor.",
         ],
     )
     return saved(fig, save)
@@ -4766,7 +5076,22 @@ def leftover_bars(ax: plt.Axes, residuals: pd.DataFrame, t_max: float) -> None:
     span = float(show["residual"].abs().max()) * 1.25
     ax.set_xlim(-span, span)
     ax.set_xlabel("nano rank minus predicted rank")
+    grey_key(ax, t_max, "|t| across the adults")
     tidy(ax)
+
+
+def grey_key(ax: plt.Axes, t_max: float, label: str) -> None:
+    """A small key to the grey of a panel's bars, inside it at the lower right: from
+    t = 0 to black at `t_max`."""
+    key = ax.inset_axes([0.66, 0.03, 0.3, 0.025])
+    steps = np.linspace(0, t_max, 6)
+    colours = bars_grey(steps, t_max)[None, :, :]
+    key.imshow(colours, aspect="auto", extent=(0, t_max, 0, 1))
+    key.set_yticks([])
+    key.set_xticks([0, t_max])
+    key.set_xticklabels(["0", f"{t_max:g}"], fontsize=6.5)
+    key.tick_params(length=2, pad=1)
+    key.set_title(label, fontsize=6.5, pad=2)
 
 
 def leftover_gene_bars(
@@ -5136,8 +5461,11 @@ def likeness_dots(ax: plt.Axes, rows: pd.DataFrame) -> None:
         if column not in rows:
             continue
         bar = marker == "|"
+
+        # a gene against itself (Gria1 against the Gria1 term) is left out
+        values = rows[column].where(rows["symbol"] != column.removeprefix("rho_"))
         ax.scatter(
-            rows[column],
+            values,
             y,
             marker=marker,
             s=70 if bar else 26,
@@ -5164,31 +5492,36 @@ def taken_bars(ax: plt.Axes, rows: pd.DataFrame) -> None:
 
     In points of the reproducible map. The pale band runs from 0 to what 95% of the
     plain surrogates of the gene take, the black tick marks what 95% of the maps
-    alike to the model take (ish.top_genes); a bar is dark past the band, mid grey
-    past the tick only.
+    alike to the model take (ish.top_genes). Every bar is one grey, since its
+    darkness would otherwise read as reliability; a gene that takes more than the
+    band has a filled triangle after its value, more than the tick only an open
+    one. A term of the model says so instead of a bar.
     """
     y = np.arange(len(rows))
     tint_rows(ax, rows)
     taken = 100 * rows["taken"].to_numpy(float)
     plain = 100 * rows["taken_null_hi"].to_numpy(float)
     alike = 100 * rows["taken_null_alike_hi"].to_numpy(float)
-    row_bands(ax, np.zeros(len(rows)), plain)
-    free = ~own_term(rows)
-    colours = []
-    for p_plain, p_alike, outside in zip(rows["p_taken"], rows["p_taken_alike"], free):
-        if outside and p_plain < 0.05:
-            colours.append(DARK_GREY)
-        elif outside and p_alike < 0.05:
-            colours.append(MID_GREY)
-        else:
-            colours.append(LIGHT_GREY)
-    ax.barh(y, taken, color=colours, height=0.62, zorder=2)
-    ax.scatter(alike, y, marker="|", s=120, color="0.05", linewidths=1.6, zorder=3)
-    for i, value in enumerate(taken):
+    own = own_term(rows)
+    row_bands(ax, np.zeros(len(rows)), np.where(own, 0, plain))
+    ax.barh(y[~own], taken[~own], color=MID_GREY, height=0.62, zorder=2)
+    ax.scatter(
+        alike[~own], y[~own], marker="|", s=120, color="0.05", linewidths=1.6, zorder=3
+    )
+    marks = zip(rows["p_taken"], rows["p_taken_alike"], own)
+    for i, (p_plain, p_alike, term) in enumerate(marks):
+        if term:
+            ax.text(0.3, i, "in the model", fontsize=6.5, va="center", color=DARK_GREY)
+            continue
+        mark = ""
+        if p_plain < 0.05:
+            mark = "  ▲"
+        elif p_alike < 0.05:
+            mark = "  △"
         ax.text(
-            max(value, plain[i], alike[i]) + 0.3,
+            max(taken[i], plain[i], alike[i]) + 0.3,
             i,
-            points(value / 100),
+            points(taken[i] / 100) + mark,
             fontsize=6.5,
             va="center",
             color=DARK_GREY,
@@ -5234,7 +5567,8 @@ def plot_top_genes(
         ax,
         "A",
         "With the map",
-        "pale: 95% of maps with its smoothness;\nred diamond: also follows the leftover",
+        "pale: 95% of maps with its smoothness;\nbar darkness: steadiness across "
+        f"adults (black at t = {t_max:g});\nred diamond: also follows the leftover",
     )
     ax = fig.add_axes([0.44, bottom, 0.14, span])
     within_dots(ax, rows, q)
@@ -5248,7 +5582,8 @@ def plot_top_genes(
         ax,
         "D",
         "What it adds to the model",
-        "pale: 95% of plain surrogates;\ntick: 95% of maps alike to the model",
+        "pale: 95% of plain surrogates;\ntick: 95% of maps alike to the model;\n"
+        "▲ past both, △ past the tick only",
     )
     footer(
         fig,
@@ -5257,6 +5592,9 @@ def plot_top_genes(
             "autofluorescence leave; D adds the gene to that model and counts the "
             "points of the reproducible map it takes, against maps of its smoothness "
             "in its place.",
+            "Maps alike to the model keep the gene's fit on the model's terms and put a "
+            "surrogate of the rest in its place; that null was added on 9 October, after "
+            "the plain one's numbers were seen.",
             "Only Cacng8's test against the leftover was named in advance. Every gene "
             "in detail: the sheets in top_genes/.",
         ],
@@ -5299,6 +5637,44 @@ def against_gene(
     return x, y, shared
 
 
+def gap_verdict(gap: pd.Series) -> str:
+    """Figure 08's takeaway on the gap: against the test fixed in advance (a lead as
+    large either way) and against the 95% band of the same null, which is skewed."""
+    p = gap["p_equal"]
+    if p < 0.05:
+        return f"a lead past what maps that follow both alike give (p = {p:.3f})"
+    if gap["gap"] > gap["equal_hi"]:
+        return (
+            "a lead just past the 95% band of maps that follow both alike, inside the "
+            f"test fixed in advance (p = {p:.3f}, counting leads either way)"
+        )
+    return f"a lead inside what maps that follow both alike give (p = {p:.3f})"
+
+
+def lead_panel(
+    ax: plt.Axes, gap: pd.Series, gap_null: np.ndarray, n_map_surrogates: int
+) -> None:
+    """C of figure 08: Cacng8's lead over Gria1 against maps that follow both alike,
+    with the band of 95% of them and the share that lead as much each way."""
+    ax.hist(gap_null, bins=np.linspace(-0.6, 0.6, 61), color=NULL_BAND)
+    ax.axvspan(gap["equal_lo"], gap["equal_hi"], color=NULL_BAND, alpha=0.4, lw=0)
+    ax.axvline(gap["gap"], color=RED, lw=1.8)
+    ax.set_xlim(-0.6, 0.6)
+    ax.set_xlabel("rho(Cacng8) - rho(Gria1)")
+    ax.set_ylabel("maps that follow both alike")
+    panel_title(
+        ax,
+        "C",
+        "Cacng8's lead over Gria1",
+        f"{gap['gap']:+.3f} on {int(gap['n_structures'])} structures (red); 95% of "
+        f"these maps\n{gap['equal_lo']:+.3f} to {gap['equal_hi']:+.3f}; as large a "
+        f"lead: Cacng8's in {gap['equal_first_as_large']:.1%},\nGria1's in "
+        f"{gap['equal_second_as_large']:.1%}; "
+        f"{p_text(gap['p_equal'], n_map_surrogates)}, counting either",
+    )
+    tidy(ax)
+
+
 def plot_cacng8_gria1(
     table: pd.DataFrame,
     map_values: pd.Series,
@@ -5318,19 +5694,12 @@ def plot_cacng8_gria1(
     """
     cacng8, gria1 = table.loc["Cacng8"], table.loc["Gria1"]
     groups = group_of(set_table)
-    if gap["p_equal"] < 0.05:
-        verdict = "a lead past what maps that follow both alike give"
-    else:
-        verdict = (
-            "but maps that follow both alike give such a lead too often to tell "
-            "which it follows more"
-        )
     fig = plt.figure(figsize=(16, 6.4))
     heading(
         fig,
         "cacng8_gria1",
         f"The map follows Cacng8 ({cacng8['rho']:+.2f}) more closely than Gria1 "
-        f"({gria1['rho']:+.2f}), {verdict} (p = {gap['p_equal']:.3f})",
+        f"({gria1['rho']:+.2f}); {gap_verdict(gap)}",
     )
     width, height, bottom = 0.22, 0.55, 0.22
 
@@ -5366,20 +5735,7 @@ def plot_cacng8_gria1(
 
     # C: the lead against maps that follow both genes alike
     ax = fig.add_axes([0.72, bottom, 0.25, height])
-    ax.hist(gap_null, bins=np.linspace(-0.6, 0.6, 61), color=NULL_BAND)
-    ax.axvspan(gap["equal_lo"], gap["equal_hi"], color=NULL_BAND, alpha=0.4, lw=0)
-    ax.axvline(gap["gap"], color=RED, lw=1.8)
-    ax.set_xlim(-0.6, 0.6)
-    ax.set_xlabel("rho(Cacng8) - rho(Gria1)")
-    ax.set_ylabel("maps that follow both alike")
-    panel_title(
-        ax,
-        "C",
-        "Cacng8's lead over Gria1",
-        f"{gap['gap']:+.2f} on {int(gap['n_structures'])} structures (red), "
-        f"{p_text(gap['p_equal'], n_map_surrogates)}",
-    )
-    tidy(ax)
+    lead_panel(ax, gap, gap_null, n_map_surrogates)
     footer(
         fig,
         [
@@ -5387,6 +5743,8 @@ def plot_cacng8_gria1(
             "made of both genes' patterns alike plus a surrogate of the map (shaded: "
             f"their 95%); {figure_ref('gene_ranking')} B adds the adults' interval and "
             "each pairing of Allen experiments.",
+            "The test fixed in advance counts a lead as large either way; the null is "
+            "skewed, so the shares each way are set beside it.",
             "Cacng8 against what Gria1 and synapse density leave: "
             f"{figure_ref('leftover')}.",
         ],
@@ -5496,7 +5854,14 @@ def bh_panel(ax: plt.Axes, genes: pd.DataFrame, family: list[str], q: float) -> 
     in_family = np.isin(symbols, family)
     cacng8 = symbols == LEFTOVER_GENE
     ax.plot(k, -np.log10(k * q / len(p)), color=RED, ls="--", lw=1, label=f"BH, q {q}")
-    ax.scatter(k[~in_family], -np.log10(p[~in_family]), s=10, color=LIGHT_GREY, lw=0)
+    ax.scatter(
+        k[~in_family],
+        -np.log10(p[~in_family]),
+        s=10,
+        color=LIGHT_GREY,
+        lw=0,
+        label="other genes",
+    )
     ax.scatter(
         k[in_family & ~cacng8],
         -np.log10(p[in_family & ~cacng8]),
@@ -5511,6 +5876,77 @@ def bh_panel(ax: plt.Axes, genes: pd.DataFrame, family: list[str], q: float) -> 
     ax.set_ylabel("-log10 spatial p")
     ax.legend(loc="upper right", fontsize=7, frameon=False)
     tidy(ax)
+
+
+# the reliability below which a gene's Allen experiments are said to disagree, as
+# the gene table's figures say it (02)
+UNRELIABLE = 0.3
+
+
+def named_rows(tests: pd.DataFrame) -> dict[str, pd.Series]:
+    """The rows of named_tests.csv by what they are: tier 1, and tier 2's group tests
+    and check rows on the leftover and on the map."""
+    by = tests.set_index(["map", "test"])
+    return dict(
+        first=tests[tests["tier"] == "1"].iloc[0],
+        spatial=by.loc[("leftover", SPATIAL_TEST)],
+        matched=by.loc[("leftover", MATCHED_TEST)],
+        without=by.loc[("leftover", WITHOUT_TEST)],
+        outside=by.loc[("leftover", OUTSIDE_TEST)],
+        on_map=by.loc[("nano", SPATIAL_TEST)],
+        on_map_matched=by.loc[("nano", MATCHED_TEST)],
+    )
+
+
+def leftover_takeaway(
+    t: dict[str, pd.Series], n_pass: int, n_genes: int, n_surrogates: int
+) -> str:
+    """The line under figure 11's title, each verdict following its p."""
+    follows = "follows" if t["first"]["p"] < 0.05 else "does not follow"
+    if t["spatial"]["p"] < 0.05 and t["matched"]["p"] >= 0.05:
+        group = (
+            "the family does so beyond the surrogates, not beyond other postsynaptic "
+            "genes"
+        )
+    elif t["spatial"]["p"] < 0.05:
+        group = "the family does so beyond the surrogates and other postsynaptic genes"
+    else:
+        group = "the family as a group does not"
+    return (
+        f"Cacng8 {follows} what Gria1 and synapse density leave "
+        f"({p_text(t['first']['p'], n_surrogates)}), a re-test of what was seen on 8 "
+        f"October; {group}; {n_pass} of {n_genes} genes pass once every gene is "
+        "corrected for"
+    )
+
+
+def tier_one_panel(
+    ax: plt.Axes,
+    profile: dict[str, float],
+    leftover: pd.Series,
+    set_table: pd.DataFrame,
+    first: pd.Series,
+    n_surrogates: int,
+) -> None:
+    """A of figure 11: Cacng8 against the leftover, the structures furthest off named."""
+    x, y, shared = against_gene(
+        ax,
+        profile,
+        leftover,
+        group_of(set_table),
+        ("Cacng8, rank among structures", "leftover (ranks above prediction)"),
+        ranks=False,
+    )
+    order = np.argsort(y)
+    acronyms = acronym_of(set_table)
+    named = list(order[-3:]) + list(order[:2])
+    spread_labels(ax, [(x[i], y[i], acronyms.get(shared[i], ""), "0.2") for i in named])
+    panel_title(
+        ax,
+        "A",
+        "Tier 1: Cacng8",
+        f"rho {first['first']:+.2f}, {p_text(first['p'], n_surrogates)}",
+    )
 
 
 def plot_leftover(
@@ -5533,63 +5969,29 @@ def plot_leftover(
     surrogates' medians of the family, `genes` leftover_genes.csv; `n_surrogates`
     counts the leftover's surrogates.
     """
-    by = tests.set_index(["map", "test"])
-    first = tests[tests["tier"] == "1"].iloc[0]
-    spatial = by.loc[("leftover", "the family's median against the surrogates")]
-    matched = by.loc[("leftover", "the family against matched postsynaptic controls")]
+    t = named_rows(tests)
     family = table[table["family"]].reset_index(drop=True)
     n_pass = int((genes["q_all"] < q).sum())
-    follows = "follows" if first["p"] < 0.05 else "does not follow"
-    if spatial["p"] < 0.05 and matched["p"] >= 0.05:
-        group = (
-            "the family does so beyond the surrogates, not beyond other postsynaptic "
-            "genes"
-        )
-    elif spatial["p"] < 0.05:
-        group = "the family does so beyond the surrogates and other postsynaptic genes"
-    else:
-        group = "the family as a group does not"
-    fig = plt.figure(figsize=(17, 6.2))
-    heading(
-        fig,
-        "leftover",
-        f"Cacng8, named in advance, {follows} what Gria1 and synapse density leave "
-        f"({p_text(first['p'], n_surrogates)}); {group}; {n_pass} of {len(genes)} "
-        "genes pass once every gene is corrected for",
-    )
+    fig = plt.figure(figsize=(17, 6.8))
+    heading(fig, "leftover", leftover_takeaway(t, n_pass, len(genes), n_surrogates))
 
     # A, tier 1: Cacng8 against the leftover
-    ax = fig.add_axes([0.04, 0.15, 0.19, 0.6])
-    x, y, shared = against_gene(
-        ax,
-        profile,
-        leftover,
-        group_of(set_table),
-        ("Cacng8, rank among structures", "leftover (ranks above prediction)"),
-        ranks=False,
-    )
-    order = np.argsort(y)
-    acronyms = acronym_of(set_table)
-    named = list(order[-3:]) + list(order[:2])
-    spread_labels(ax, [(x[i], y[i], acronyms.get(shared[i], ""), "0.2") for i in named])
-    panel_title(
-        ax,
-        "A",
-        "Tier 1: Cacng8",
-        f"rho {first['first']:+.2f}, {p_text(first['p'], n_surrogates)}",
-    )
+    ax = fig.add_axes([0.04, 0.21, 0.19, 0.55])
+    tier_one_panel(ax, profile, leftover, set_table, t["first"], n_surrogates)
 
     # B and C, tier 2: the family as a group, against the surrogates and against
     # postsynaptic genes of the same expression
-    ax = fig.add_axes([0.29, 0.15, 0.19, 0.6])
-    group_null_panel(ax, spatial, nulls["leftover"]["spatial"], RED)
+    ax = fig.add_axes([0.29, 0.21, 0.19, 0.55])
+    group_null_panel(ax, t["spatial"], nulls["leftover"]["spatial"], RED)
     panel_title(
         ax,
         "B",
         f"Tier 2: the family ({len(family)} genes)",
-        f"median {spatial['first']:+.3f} (red), {p_text(spatial['p'], n_surrogates)}",
+        f"median {t['spatial']['first']:+.3f} (red), "
+        f"{p_text(t['spatial']['p'], n_surrogates)}; without Cacng8\n"
+        f"{p_text(t['without']['p'], n_surrogates)}",
     )
-    ax = fig.add_axes([0.54, 0.15, 0.19, 0.6])
+    ax = fig.add_axes([0.54, 0.21, 0.19, 0.55])
     paired_strips(
         ax, family, "leftover_rho", "control_leftover_rho", np.random.default_rng(0)
     )
@@ -5598,11 +6000,13 @@ def plot_leftover(
         ax,
         "C",
         "The family against matched genes",
-        f"{matched['difference']:+.3f} between medians, p = {matched['p']:.2f}",
+        f"{t['matched']['difference']:+.3f} between medians, p = "
+        f"{t['matched']['p']:.2f};\ncontrols outside the model's terms "
+        f"{t['outside']['difference']:+.3f}, p = {t['outside']['p']:.2f}",
     )
 
     # D, tier 3: every gene
-    ax = fig.add_axes([0.79, 0.15, 0.19, 0.6])
+    ax = fig.add_axes([0.79, 0.21, 0.19, 0.55])
     bh_panel(ax, genes, list(family["symbol"]), q)
     panel_title(
         ax,
@@ -5617,11 +6021,61 @@ def plot_leftover(
             "is one test, uncorrected; tier 2 is the family as a group, against the "
             "surrogates and against expression-matched postsynaptic genes, each one "
             "test.",
+            "A: dots coloured by group of divisions (cortex orange, hippocampal "
+            "formation red, thalamus blue, other grey matter).",
+            f"D: with {n_surrogates:,} surrogates the smallest p is "
+            f"{1 / (n_surrogates + 1):.4f}, just under the line for the first gene "
+            f"({q} / {len(genes)}); the model's own terms (Gria1, the markers) stay in "
+            "the BH, as the rule set it.",
             f"Every gene and gene set: {figure_ref('leftover_genes')}; the family member "
             f"by member and on the map: {figure_ref('ampa_family')}.",
         ],
     )
     return saved(fig, save)
+
+
+def family_takeaway(t: dict[str, pd.Series], n_surrogates: int) -> str:
+    """The line under figure 11s2's title, each verdict following its p."""
+    cacng8 = "follows" if t["first"]["p"] < 0.05 else "does not follow"
+    beyond = "follows it beyond" if t["spatial"]["p"] < 0.05 else "does not pass"
+    than = "more" if t["matched"]["p"] < 0.05 else "no more"
+    return (
+        f"Cacng8 {cacng8} the leftover ({p_text(t['first']['p'], n_surrogates)}, a "
+        f"re-test of what was seen on 8 October); the family {beyond} the surrogates "
+        f"(p = {t['spatial']['p']:.3f}), {than} than postsynaptic genes of its "
+        f"expression (p = {t['matched']['p']:.3f})"
+    )
+
+
+def on_map_panels(
+    fig: plt.Figure,
+    rows: pd.DataFrame,
+    t: dict[str, pd.Series],
+    nulls: dict[str, dict[str, np.ndarray]],
+    rng: np.random.Generator,
+    n_map_surrogates: int,
+) -> None:
+    """D and E of figure 11s2: the family's group tests on the map itself, a
+    description of the family rather than a test of the leftover."""
+    ax = fig.add_axes([0.5, 0.13, 0.2, 0.3])
+    group_null_panel(ax, t["on_map"], nulls["nano"]["spatial"], NANO)
+    panel_title(
+        ax,
+        "D",
+        "On the map itself (a description)",
+        f"median {t['on_map']['first']:+.3f} (orange); "
+        f"{p_text(t['on_map']['p'], n_map_surrogates)}",
+    )
+    ax = fig.add_axes([0.77, 0.13, 0.2, 0.3])
+    paired_strips(ax, rows, "rho", "control_rho", rng)
+    ax.set_ylabel("Spearman rho with the nano map")
+    panel_title(
+        ax,
+        "E",
+        "On the map, against the same controls",
+        f"{t['on_map_matched']['difference']:+.3f} between medians, p = "
+        f"{t['on_map_matched']['p']:.3f}",
+    )
 
 
 def plot_ampa_family(
@@ -5643,26 +6097,14 @@ def plot_ampa_family(
     leftover's and the map's surrogates.
     """
     rows = rows.sort_values("leftover_rho", ascending=False).reset_index(drop=True)
-    by = tests.set_index(["map", "test"])
-    first = tests[tests["tier"] == "1"].iloc[0]
-    spatial = by.loc[("leftover", "the family's median against the surrogates")]
-    matched = by.loc[("leftover", "the family against matched postsynaptic controls")]
-    on_map = by.loc[("nano", "the family's median against the surrogates")]
-    on_map_matched = by.loc[("nano", "the family against matched postsynaptic controls")]
+    t = named_rows(tests)
     past = rows.loc[rows["leftover_q_family"] < q, "symbol"]
-    beyond = "follows it beyond" if spatial["p"] < 0.05 else "does not pass"
-    than = "more" if matched["p"] < 0.05 else "no more"
-    cacng8 = "follows" if first["p"] < 0.05 else "does not follow"
     untested = members.loc[~members["tested"], "symbol"]
+    in_model = ", ".join(rows.loc[rows["in_model"] != "", "symbol"]) or "none"
+    shaky = rows["reliability"] < UNRELIABLE
+    unreliable = ", ".join(rows.loc[shaky, "symbol"]) or "none"
     fig = plt.figure(figsize=(16, 11.5))
-    heading(
-        fig,
-        "ampa_family",
-        f"Cacng8, named in advance, {cacng8} the leftover "
-        f"({p_text(first['p'], n_surrogates)}); the family {beyond} the surrogates "
-        f"(p = {spatial['p']:.3f}), {than} than postsynaptic genes of its expression "
-        f"(p = {matched['p']:.3f})",
-    )
+    heading(fig, "ampa_family", family_takeaway(t, n_surrogates))
 
     # A: every member against the leftover
     ax = fig.add_axes([0.14, 0.12, 0.27, 0.74])
@@ -5678,12 +6120,13 @@ def plot_ampa_family(
 
     # B and C: the group against the surrogates, and against matched controls
     ax = fig.add_axes([0.5, 0.58, 0.2, 0.27])
-    group_null_panel(ax, spatial, nulls["leftover"]["spatial"], RED)
+    group_null_panel(ax, t["spatial"], nulls["leftover"]["spatial"], RED)
     panel_title(
         ax,
         "B",
         "As a group, against the surrogates",
-        f"median {spatial['first']:+.3f} (red); {p_text(spatial['p'], n_surrogates)}",
+        f"median {t['spatial']['first']:+.3f} (red); "
+        f"{p_text(t['spatial']['p'], n_surrogates)}",
     )
     rng = np.random.default_rng(0)
     ax = fig.add_axes([0.77, 0.58, 0.2, 0.27])
@@ -5693,30 +6136,13 @@ def plot_ampa_family(
         ax,
         "C",
         "Against genes of the same expression",
-        f"{matched['difference']:+.3f} between medians, p = {matched['p']:.3f}\n"
-        f"(labels permuted; ±{matched['critical']:.2f} would give p < 0.05)",
+        f"{t['matched']['difference']:+.3f} between medians, p = "
+        f"{t['matched']['p']:.3f}\n(labels permuted; ±{t['matched']['critical']:.2f} "
+        "would give p < 0.05)",
     )
 
     # D and E: the same on the map itself, to describe the family
-    ax = fig.add_axes([0.5, 0.13, 0.2, 0.3])
-    group_null_panel(ax, on_map, nulls["nano"]["spatial"], NANO)
-    panel_title(
-        ax,
-        "D",
-        "On the map itself (a description)",
-        f"median {on_map['first']:+.3f} (orange); "
-        f"{p_text(on_map['p'], n_map_surrogates)}",
-    )
-    ax = fig.add_axes([0.77, 0.13, 0.2, 0.3])
-    paired_strips(ax, rows, "rho", "control_rho", rng)
-    ax.set_ylabel("Spearman rho with the nano map")
-    panel_title(
-        ax,
-        "E",
-        "On the map, against the same controls",
-        f"{on_map_matched['difference']:+.3f} between medians, p = "
-        f"{on_map_matched['p']:.3f}",
-    )
+    on_map_panels(fig, rows, t, nulls, rng, n_map_surrogates)
     footer(
         fig,
         [
@@ -5726,6 +6152,9 @@ def plot_ampa_family(
             "glutamate receptor complex; P, the partner subunits (dark blue); minus "
             "Gria1, the abundance term. Tier 1 is Cacng8 alone (red); tier 2 the family "
             "as a group (B, C), then gene by gene, BH within the family (A, bold).",
+            f"In the model's own terms, so near zero against the leftover by "
+            f"construction: {in_model}. Allen experiments that disagree (reliability "
+            f"below {UNRELIABLE}): {unreliable}.",
         ],
     )
     return saved(fig, save)
@@ -5781,6 +6210,104 @@ def annotation_lines(row: pd.Series, width: int) -> list[str]:
     return out
 
 
+def sheet_heading(
+    fig: plt.Figure, row: pd.Series, n_surrogates: int, n_map_surrogates: int
+) -> None:
+    """A gene sheet's two top lines: who the gene is and why it is here, then its
+    numbers with the map, inside divisions, with the leftover and what it takes."""
+    symbol = row["symbol"]
+    why = []
+    if row["top"]:
+        why.append("past the map's null after BH")
+    if symbol == LEFTOVER_GENE:
+        why.append("the one gene named for the leftover")
+    elif row["named"]:
+        why.append("the gene of the stained protein")
+    if row["family"]:
+        why.append("a member of the AMPA receptor complex family")
+    fig.text(
+        0.5,
+        0.975,
+        f"{symbol}, {row['name']}: {'; '.join(why)}",
+        ha="center",
+        va="top",
+        fontsize=12,
+        color=named_colour(symbol),
+    )
+    if row["in_model"] == "abundance":
+        taken = "a term of the main model"
+    else:
+        taken = (
+            f"takes {points(row['taken'])} points of the reproducible map (p = "
+            f"{row['p_taken']:.3f} plain, {row['p_taken_alike']:.3f} alike)"
+        )
+    fig.text(
+        0.5,
+        0.945,
+        f"with the map {row['rho']:+.2f} "
+        f"({p_text(row['p_spatial'], n_map_surrogates)}, rank "
+        f"{int(row['rank_all'])}); inside divisions {row['rho_within']:+.2f}; with the "
+        f"leftover {row['leftover_rho']:+.2f} "
+        f"({p_text(row['leftover_p'], n_surrogates)}); {taken}",
+        ha="center",
+        va="top",
+        fontsize=9,
+        color=DARK_GREY,
+    )
+
+
+def taken_panel(ax: plt.Axes, row: pd.Series, taken_nulls: dict[str, np.ndarray]) -> None:
+    """E of a gene sheet: what the gene takes of the leftover, against maps of its
+    smoothness put in its place (plain surrogates, and maps alike to the model)."""
+    own = row["in_model"] == "abundance"
+    plain, alike = 100 * taken_nulls["plain"], 100 * taken_nulls["alike"]
+    bins = np.linspace(min(plain.min(), alike.min()), max(plain.max(), alike.max()), 41)
+    ax.hist(plain, bins=bins, color=NULL_BAND, label="plain surrogates of the gene")
+
+    # a term of the model has no remainder, so maps alike to the model are the gene
+    if not own:
+        ax.hist(
+            alike,
+            bins=bins,
+            histtype="step",
+            color=MID_GREY,
+            lw=1.1,
+            label="maps alike to the model",
+        )
+    ax.axvline(100 * row["taken"], color=RED, lw=1.8, label="the gene")
+    ax.set_xlabel("points of the reproducible map taken from the leftover")
+    ax.set_ylabel(f"maps of its smoothness ({len(plain)} each)")
+    ax.legend(
+        loc="upper right", fontsize=7, frameon=True, framealpha=0.9, edgecolor="none"
+    )
+    tidy(ax)
+    if own:
+        numbers = "a term of the main model: adding it again takes nothing"
+    else:
+        numbers = (
+            f"{points(row['taken'])} points; p = {row['p_taken']:.3f} against plain "
+            f"surrogates, {row['p_taken_alike']:.3f} against maps alike"
+        )
+    panel_title(ax, "E", "Added to the main model", numbers)
+
+
+def likeness_panel(ax: plt.Axes, row: pd.Series) -> None:
+    """F of a gene sheet: the gene's rho with the map, inside divisions, with each
+    term of the main model and its prediction, and with the leftover."""
+    items = [("the map", row["rho"]), ("inside divisions", row["rho_within"])]
+    items += [(label, row[column]) for column, label, _, _ in LIKENESS if column in row]
+    items.append(("the leftover", row["leftover_rho"]))
+    ax.barh(range(len(items)), [float(v) for _, v in items], color=MID_GREY, height=0.6)
+    ax.set_yticks(range(len(items)))
+    ax.set_yticklabels([label for label, _ in items], fontsize=8)
+    ax.invert_yaxis()
+    ax.axvline(0, color="0.3", lw=0.6)
+    ax.set_xlim(-1, 1)
+    ax.set_xlabel("Spearman rho")
+    tidy(ax)
+    panel_title(ax, "F", "What it is like")
+
+
 def plot_top_gene_sheet(
     row: pd.Series,
     map_values: pd.Series,
@@ -5805,45 +6332,8 @@ def plot_top_gene_sheet(
     """
     symbol = row["symbol"]
     groups = group_of(set_table)
-    own = row["in_model"] == "abundance"
-    why = []
-    if row["top"]:
-        why.append("past the map's null after BH")
-    if symbol == LEFTOVER_GENE:
-        why.append("named for the leftover in advance")
-    elif row["named"]:
-        why.append("the gene of the stained protein")
-    if row["family"]:
-        why.append("a member of the AMPA receptor complex family")
     fig = plt.figure(figsize=(16, 10))
-    fig.text(
-        0.5,
-        0.975,
-        f"{symbol}, {row['name']}: {'; '.join(why)}",
-        ha="center",
-        va="top",
-        fontsize=12,
-        color=named_colour(symbol),
-    )
-    fig.text(
-        0.5,
-        0.945,
-        f"with the map {row['rho']:+.2f} "
-        f"({p_text(row['p_spatial'], n_map_surrogates)}, rank "
-        f"{int(row['rank_all'])}); inside divisions {row['rho_within']:+.2f}; with the "
-        f"leftover {row['leftover_rho']:+.2f} "
-        f"({p_text(row['leftover_p'], n_surrogates)}); "
-        + (
-            "a term of the main model"
-            if own
-            else f"takes {points(row['taken'])} points of the reproducible map (p = "
-            f"{row['p_taken']:.3f} plain, {row['p_taken_alike']:.3f} alike)"
-        ),
-        ha="center",
-        va="top",
-        fontsize=9,
-        color=DARK_GREY,
-    )
+    sheet_heading(fig, row, n_surrogates, n_map_surrogates)
 
     # A: the gene's map as ranks on the plane
     shared = [s for s in map_values.index if np.isfinite(profile.get(s, np.nan))]
@@ -5874,57 +6364,14 @@ def plot_top_gene_sheet(
         f"rho {row['leftover_rho']:+.2f}; {p_text(row['leftover_p'], n_surrogates)}",
     )
 
-    # D: what it takes of the leftover, against maps of its smoothness
-    ax = fig.add_axes([0.37, 0.08, 0.25, 0.3])
-    plain, alike = 100 * taken_nulls["plain"], 100 * taken_nulls["alike"]
-    bins = np.linspace(min(plain.min(), alike.min()), max(plain.max(), alike.max()), 41)
-    ax.hist(plain, bins=bins, color=NULL_BAND, label="plain surrogates of the gene")
-
-    # a term of the model has no remainder, so maps alike to the model are the gene
-    if not own:
-        ax.hist(
-            alike,
-            bins=bins,
-            histtype="step",
-            color=MID_GREY,
-            lw=1.1,
-            label="maps alike to the model",
-        )
-    ax.axvline(100 * row["taken"], color=RED, lw=1.8, label="the gene")
-    ax.set_xlabel("points of the reproducible map taken from the leftover")
-    ax.set_ylabel(f"maps of its smoothness ({len(plain)} each)")
-    ax.legend(loc="upper right", fontsize=7, frameon=False)
-    tidy(ax)
-    if own:
-        numbers = "a term of the main model: adding it again takes nothing"
-    else:
-        numbers = (
-            f"{points(row['taken'])} points; p = {row['p_taken']:.3f} against plain "
-            f"surrogates, {row['p_taken_alike']:.3f} against maps alike"
-        )
-    panel_title(ax, "D", "Added to the main model", numbers)
-
-    # E: what it is like
-    ax = fig.add_axes([0.71, 0.08, 0.25, 0.3])
-    items = [("the map", row["rho"]), ("inside divisions", row["rho_within"])]
-    items += [(label, row[column]) for column, label, _, _ in LIKENESS if column in row]
-    items.append(("the leftover", row["leftover_rho"]))
-    ax.barh(range(len(items)), [float(v) for _, v in items], color=MID_GREY, height=0.6)
-    ax.set_yticks(range(len(items)))
-    ax.set_yticklabels([label for label, _ in items], fontsize=8)
-    ax.invert_yaxis()
-    ax.axvline(0, color="0.3", lw=0.6)
-    ax.set_xlim(-1, 1)
-    ax.set_xlabel("Spearman rho")
-    tidy(ax)
-    panel_title(ax, "E", "What it is like")
-
-    # F: the numbers, and what the gene table says it is
+    # D: the numbers, and what the gene table says it is; E and F beside them
     ax = fig.add_axes([0.01, 0.03, 0.3, 0.4])
     ax.axis("off")
     lines = numbers_block(row) + [""] + annotation_lines(row, 64)
     ax.text(0, 1, "\n".join(lines), fontsize=7.5, va="top", ha="left", linespacing=1.4)
-    panel_title(ax, "F", "Numbers, and what the gene table says")
+    panel_title(ax, "D", "Numbers, and what the gene table says")
+    taken_panel(fig.add_axes([0.37, 0.08, 0.25, 0.3]), row, taken_nulls)
+    likeness_panel(fig.add_axes([0.71, 0.08, 0.25, 0.3]), row)
     return saved(fig, save, eps=False)
 
 
@@ -6337,7 +6784,7 @@ def text_block(
     return len(lines) * line_height(size)
 
 
-def tinted_box(ax: plt.Axes, x: float, y: float, w: float, h: float, part: str):
+def tinted_box(ax: plt.Axes, x: float, y: float, w: float, h: float, part: str) -> None:
     """A rounded box in the tint of its part, in the overview's inch coordinates."""
     colour, alpha = PART_TINTS[part]
     style = "round,pad=0,rounding_size=0.06"
@@ -6358,7 +6805,9 @@ def part_height(part: dict, width: float) -> float:
     return h + text_height(part["stands"], width - 0.3, STANDS_SIZE) + 0.2
 
 
-def draw_part(ax: plt.Axes, x: float, y: float, width: float, height: float, part: dict):
+def draw_part(
+    ax: plt.Axes, x: float, y: float, width: float, height: float, part: dict
+) -> None:
     """One part of the argument in its tinted box, the key numbers large on the left."""
     tinted_box(ax, x, y, width, height, part["part"])
     yy = y + 0.15
@@ -7065,11 +7514,28 @@ def density_rows_panel(ax: plt.Axes, variants: pd.DataFrame) -> None:
     tidy(ax)
 
 
+def points_interval(contrast: tuple[float, tuple[float, float]]) -> str:
+    """A difference of shares in points with its 95% interval: '+7 (-11 to +25)'."""
+    point, (lo, hi) = contrast
+    return f"{100 * point:+.0f} ({100 * lo:+.0f} to {100 * hi:+.0f})"
+
+
+def compared(contrast: tuple[float, tuple[float, float]], more: str, less: str) -> str:
+    """`more` or `less` when the interval of a difference leaves zero, else 'about as
+    much'."""
+    point, (lo, hi) = contrast
+    if lo > 0:
+        return more
+    if hi < 0:
+        return less
+    return "about as much"
+
+
 def plot_synaptome(
     density: pd.DataFrame,
     coverage: pd.DataFrame,
     markers: pd.Series,
-    variants: pd.DataFrame,
+    numbers: dict,
     min_coverage: float,
     save: Path | None = None,
 ) -> plt.Figure:
@@ -7077,26 +7543,32 @@ def plot_synaptome(
     predicts the map better than the mRNA it would replace.
 
     `density` and `coverage` are the tables of run_synaptome, `markers` the marker
-    composite per structure of the fit, `variants` beyond/variants.csv.
+    composite per structure of the fit, `numbers` those of adult.beyond_figures (its
+    variants.csv, and the paired differences between the density rows).
     """
     table = density.set_index("structure")
     n_fit, n_measured, needed = coverage_counts(table, min_coverage)
     measured = table[table["in_fit"] & table["measured"]]
+    variants = numbers["variants"]
     rows = variants.set_index("key")
     psd95, panel = rows.loc["psd95"], rows.loc["panel"]
+    contrasts = numbers["density_contrasts"]
     rule = "not below" if n_measured >= needed else "below"
-    better = "better" if psd95["density_alone"] > panel["density_alone"] else "less well"
-    fig = plt.figure(figsize=(16, 5.8))
+    alone = compared(contrasts["psd95_minus_panel_alone"], "better", "less well")
+    if alone == "about as much":
+        alone = "about as well"
+    left = compared(contrasts["psd95_minus_panel_left"], "more", "less")
+    fig = plt.figure(figsize=(16, 6.4))
     heading(
         fig,
         "synaptome",
         f"PSD95 puncta cover {n_measured / n_fit:.0%} of the fit, {rule} the "
-        f"{min_coverage:.0%} the rule asks; where measured they predict the map {better} "
+        f"{min_coverage:.0%} the rule asks; where measured they predict the map {alone} "
         f"than the mRNA panel ({psd95['density_alone']:.0%} against "
-        f"{panel['density_alone']:.0%}) and leave {psd95['left']:.0%} against "
-        f"{panel['left']:.0%}",
+        f"{panel['density_alone']:.0%}), and the model leaves {left} "
+        f"({psd95['left']:.0%} against {panel['left']:.0%})",
     )
-    ax = fig.add_axes([0.07, 0.17, 0.24, 0.62])
+    ax = fig.add_axes([0.07, 0.17, 0.24, 0.57])
     coverage_panel(ax, coverage)
     panel_title(
         ax,
@@ -7104,7 +7576,7 @@ def plot_synaptome(
         "Structures of the fit with a measured density",
         f"{n_measured} of {n_fit}; the rule asks for {needed}",
     )
-    ax = fig.add_axes([0.39, 0.17, 0.22, 0.62])
+    ax = fig.add_axes([0.39, 0.17, 0.22, 0.57])
     n, rho = rank_scatter(
         ax,
         measured["psd95"],
@@ -7116,24 +7588,49 @@ def plot_synaptome(
     panel_title(
         ax, "B", "PSD95 puncta against the mRNA", f"rho {rho:+.2f} on {n} structures"
     )
-    ax = fig.add_axes([0.76, 0.17, 0.21, 0.62])
+    ax = fig.add_axes([0.76, 0.17, 0.21, 0.57])
     density_rows_panel(ax, variants)
     panel_title(
         ax,
         "C",
         "Each density measure in the model",
-        f"on the {int(psd95['n_structures'])} structures PSD95 covers",
+        f"on the {int(psd95['n_structures'])} structures PSD95 covers;\nPSD95 minus "
+        "panel, in points: left "
+        f"{points_interval(contrasts['psd95_minus_panel_left'])},\nalone "
+        f"{points_interval(contrasts['psd95_minus_panel_alone'])}",
     )
     footer(
         fig,
         [
             "How to read: PSD95 punctum density from one adult mouse (Zhu et al. 2018, "
             "as shared by Hansen et al.), placed in the CCF structures; the mRNA panel "
-            "is the main model's density. In detail, with the two hemispheres and every "
+            "is the main model's density.",
+            "A difference in C comes with its 95% interval over the same subsamples of "
+            "the structures (jackknife). In detail, with the two hemispheres and every "
             f"density's agreement: {figure_ref('synaptome_detail')}.",
         ],
     )
     return saved(fig, save)
+
+
+def coverage_takeaway(
+    n_fit: int, n_measured: int, needed: int, min_coverage: float
+) -> str:
+    """Figure 14s's line under its title: the coverage against the rule, and so where
+    PSD95 enters the model."""
+    if n_measured >= needed:
+        rule = "not below"
+        verdict = "it replaces the mRNA density terms in the main model"
+    else:
+        rule = "below"
+        verdict = (
+            "the mRNA terms stay in the main model, and PSD95 is a variant on the "
+            f"{n_measured} structures it covers"
+        )
+    return (
+        f"PSD95 puncta cover {n_measured / n_fit:.0%} of the fit, {rule} the "
+        f"{min_coverage:.0%} the rule asks: {verdict}"
+    )
 
 
 def plot_synaptome_detail(
@@ -7207,26 +7704,17 @@ def plot_synaptome_detail(
     panel_title(ax, "D", "How each density agrees with the other maps")
 
     # the title, the numbers and how to read it
-    if n_measured >= needed:
-        verdict = "it replaces the mRNA density terms in the main model"
-    else:
-        verdict = (
-            "the mRNA terms stay in the main model, and PSD95 is a variant on the "
-            f"{n_measured} structures it covers"
-        )
     heading(
         fig,
         "synaptome_detail",
-        f"PSD95 puncta cover {n_measured / n_fit:.0%} of the fit, "
-        f"{'not below' if n_measured >= needed else 'below'} the {min_coverage:.0%} "
-        f"the rule asks: {verdict}",
+        coverage_takeaway(n_fit, n_measured, needed, min_coverage),
     )
     footer(
         fig,
         [
             "Zhu et al. 2018, one adult male mouse, as Hansen et al. share it. PSD95 "
-            "density: the mean of the 30 subtypes whose puncta hold PSD95, each scaled "
-            "0..1 as shared;",
+            "density: the mean of the 30 subtypes whose puncta hold PSD95, each divided "
+            "by its largest value as shared;",
             "never a punctum's intensity or size. A structure is measured when it or one "
             "of its parts was sampled; a region above several structures is never spread "
             "onto",

@@ -13,7 +13,8 @@ the main model of adult.beyond_density (Gria1, synapse density, autofluorescence
                   2nd, 4th, ...), and each half is merged as the gene table merges
                   (ish.reliability.merge); a gene measured once is in both halves,
                   so its mismatch is not in the floor, which therefore errs low
-                  (Nlgn1, Shank2 and Shank3 of the markers on 8 October). The
+                  (Nlgn1, Shank2 and Shank3 of the markers, and 25 of the genes
+                  behind psd_pc1; adult.beyond_figures counts them). The
                   predictors are built from each half (build_covariates);
                   autofluorescence, measured in our own brains, is the same in
                   both, and so is the measured PSD95 density when the main model
@@ -51,7 +52,10 @@ gene only from its other experiments; its leftover replicates across the made-up
 animals too, which is why replication alone cannot tell biology from ISH mismatch.
 
 The noise is independent between structures, where real animals deviate smoothly;
-the floor calibrates a size, it does not model the cohort.
+the floor calibrates a size, it does not model the cohort. And it holds only the
+mismatch of one Allen map with another, not that of Allen's P56 mice with these
+brains (strain, age, the 200 um grid against 20 um masks, registration), so it
+errs low there too.
 
 The nano map and the floor are compared on the same structures. Whether the nano
 leftover stands above the floor, and above the Gria1 map's, is a difference measured

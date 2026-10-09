@@ -9,9 +9,10 @@ Allen map disagreeing with another, and what it looks like.
 
     nano map  ~  Gria1 + synapse density + autofluorescence  ->  leftover
 
-This is the main model, fixed on 8 October 2026 before any of its results
-(settings.toml [beyond]); the check rows beside it ([beyond.variants]) are run by
-adult.beyond_controls.
+This is the main model, fixed on 8 October 2026 before it was run, when each
+term's share alone and the four-subunit model were known from the first run that
+day (settings.toml [beyond]); the check rows beside it ([beyond.variants]) are run
+by adult.beyond_controls.
 
 The steps, each printing its numbers (the working figures fig0 to fig3 draw them):
 
@@ -51,7 +52,7 @@ Everything is one number per structure, on ranks:
                  beyond.min_psd95_coverage of the structures of the fit, and the
                  fit then runs on the structures it covers (main_model); below that
                  the panel stays, on every structure of the fit, and PSD95 is a
-                 variant. On 8 October it covered 77 of 126, so the panel stays
+                 variant. It covers 77 of 126, so the panel stays
     autofluo     the ten adults' mean autofluorescence zref, the only predictor
                  measured in the same sections as the map
     bent         every predictor enters as x, x^2 and x^3. The rank relationships
@@ -74,7 +75,7 @@ agreement r into the reliability of the ten-adult map,
     ceiling = 2 r / (1 + r)
 
 A reliability is already a share of variance (true over observed), so the ceiling is
-not squared; the code of 26 September squared it once more. Then
+not squared again. Then
 
     explained    CV R2 / ceiling        the share of the reproducible map predicted
     left         1 - CV R2 / ceiling    the share not predicted: the leftover

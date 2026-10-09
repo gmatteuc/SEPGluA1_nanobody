@@ -10,6 +10,7 @@ from scipy.stats import rankdata, spearmanr
 from sepmap import config
 from sepmap.adult import beyond_calibration as bc
 from sepmap.adult import beyond_density as bd
+from sepmap.adult import beyond_figures as bf
 from sepmap.adult import sep_channel_check as scc
 
 BEYOND = Path(config.DATA) / "adult_v2" / "ish_analysis" / "beyond"
@@ -288,6 +289,30 @@ def test_repeated_folds_score_a_known_model_as_one_shuffling_does_on_average():
     ]
     repeated = bd.cv_r2(y, bd.flexible(xs), bd.fold_labels(len(y), repeats=30))
     assert min(single) <= repeated <= max(single)
+
+
+def test_density_contrasts_take_the_rows_difference_and_its_paired_interval():
+    """The point is the rows' difference; the interval is that of the paired
+    difference over the subsamples, narrower than either row's own."""
+    rng = np.random.default_rng(14)
+    variants = pd.DataFrame(
+        dict(
+            key=["psd95", "panel", "psd95_and_panel"],
+            left=[0.46, 0.39, 0.39],
+            density_alone=[0.22, 0.45, 0.42],
+        )
+    )
+    shared = rng.normal(0, 0.1, 400)
+    jack = pd.DataFrame(dict(n_structures=np.full(400, 77), n_left_out=15))
+    for key, row in variants.set_index("key").iterrows():
+        jack[f"left_{key}"] = row["left"] + shared + rng.normal(0, 0.01, 400)
+        jack[f"alone_{key}"] = row["density_alone"] + shared + rng.normal(0, 0.01, 400)
+    contrasts = bf.density_contrasts(variants, jack)
+    point, (lo, hi) = contrasts["psd95_minus_panel_left"]
+    assert point == pytest.approx(0.07)
+    assert lo < point < hi
+    own = bc.jackknife_sd(jack["left_psd95"], 77, 15)
+    assert (hi - lo) / 2 < 1.96 * own / 3
 
 
 def test_jackknife_sd_of_a_mean_matches_its_standard_error():

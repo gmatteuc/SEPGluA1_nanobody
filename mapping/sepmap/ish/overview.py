@@ -15,7 +15,7 @@ groups with a one-way ANOVA, p = 0.032:
 
     April's rho     the eroded Spearman of the frozen gene_panel_summary.csv of
                     adult_matlab/run_compare_with_allen_ish.m (22 April), the
-                    statistic of the figure Sami saw
+                    statistic of April's headline figure
     today's rho     ish.gene_ranking's, on the declared structures
     choices         the ANOVA with and without the hand split, without the two
                     stretched grids (Olig2, Calb2), and today on two other structure
@@ -220,7 +220,7 @@ def anova_table(headline: pd.DataFrame, robustness_rows: pd.DataFrame) -> pd.Dat
     plain = h["category"]
     no_stretched = h["rho_april"].drop(list(STRETCHED), errors="ignore")
     variants = [
-        ("April as Sami saw it (hand split)", "april", h["rho_april"], by_hand),
+        ("April's headline (hand split)", "april", h["rho_april"], by_hand),
         ("April without the hand split", "april", h["rho_april"], plain),
         ("April without Olig2 and Calb2 (stretched)", "april", no_stretched, by_hand),
         ("today, declared structures (hand split)", "today", h["rho_today"], by_hand),
@@ -462,11 +462,31 @@ def pct(n: dict[str, str], key: str) -> str:
     return f"{num(n, key):.0%}"
 
 
-def inside_or_past(p: float, q: float = 0.05) -> str:
-    """'past its null' or 'inside its null', by the p and the level."""
-    if p < q:
-        return "past its null"
-    return "inside its null"
+def points(n: dict[str, str], key: str) -> str:
+    """A difference of shares in points with its 95% interval: '+7 points, 95% -12
+    to +27'."""
+    lo, hi = num(n, f"{key}_lo"), num(n, f"{key}_hi")
+    return f"{100 * num(n, key):+.0f} points, 95% {100 * lo:+.0f} to {100 * hi:+.0f}"
+
+
+def gap_words(n: dict[str, str]) -> str:
+    """The Cacng8 - Gria1 gap against maps that follow both alike, in words that follow
+    its p (the test fixed in advance, a lead as large either way) and its band."""
+    p = num(n, "gene_ranking.gap_p")
+    first = num(n, "gene_ranking.gap_equal_first_as_large")
+    second = num(n, "gene_ranking.gap_equal_second_as_large")
+    shares = (
+        f"{first:.1%} of those maps give a Cacng8 lead as large, {second:.1%} a Gria1 "
+        f"lead; p {p:.3f} counts both"
+    )
+    if p < ISH_ANALYSIS["q"]:
+        return f"a lead past what maps that follow both alike give ({shares})"
+    if num(n, "gene_ranking.gap") > num(n, "gene_ranking.gap_equal_hi"):
+        return (
+            "a lead just past the 95% band of maps that follow both alike, inside the "
+            f"test fixed in advance ({shares})"
+        )
+    return f"a lead inside what maps that follow both alike give ({shares})"
 
 
 def upper_first(text: str) -> str:
@@ -491,7 +511,11 @@ def input_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
         "overview": (
             "The question; the two parts of the argument, each with its key numbers "
             "and where it stands; the limit; and the map of the figures.",
-            "Which figure answers which question, and where the argument stands.",
+            f"Part 1: Gria1 and synapse density predict {pct(n, 'beyond.share_model')} "
+            f"of the map's reproducible pattern and leave {pct(n, 'beyond.left')} "
+            f"({pct(n, 'beyond.left_lo')} to {pct(n, 'beyond.left_hi')}). Part 2: "
+            f"Cacng8 follows the map at {num(n, 'top_genes.rho_Cacng8'):+.2f} and what "
+            f"the model leaves at p {num(n, 'top_genes.leftover_p_Cacng8'):.4f}.",
         ),
         "structures": (
             "A, the rule as a funnel; B, kept and left out by division; C, the adult "
@@ -544,7 +568,10 @@ def beyond_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
             "left, with its interval; C, what the same model leaves of nano, of a map "
             "made only of Gria1 and synapse density (the floor) and of a map that is "
             "one Allen Gria1 experiment (the benchmark); D, one half of the cohort's "
-            "leftover against the other's, over every split.",
+            "leftover against the other's, over every split. Synapse density here is "
+            "the Allen mRNA of the marker genes and psd_pc1: the measured PSD95 density "
+            f"covers too few structures ({figure_ref('synaptome')}). The seven controls "
+            f"are in {figure_ref('beyond_controls')}.",
             f"Gria1 mRNA alone predicts {pct(n, 'beyond.share_abundance')} of the map's "
             f"reproducible pattern, synapse density alone "
             f"{pct(n, 'beyond.share_density')}; the main model, Gria1, synapse density "
@@ -575,7 +602,6 @@ def beyond_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
 
 def map_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
     """What to look at and what to take from the figures of the genes and the map."""
-    gap_p = num(n, "gene_ranking.gap_p")
     return {
         "one_comparison": (
             "A and B, the nano map and Cacng8's Allen map as one rank per structure "
@@ -621,9 +647,9 @@ def map_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
             f"{n['overview.adults_cacng8_above_gria1']} of 10 adults, by "
             f"{num(n, 'gene_ranking.gap'):+.2f} "
             f"({num(n, 'gene_ranking.gap_boot_lo'):+.2f} to "
-            f"{num(n, 'gene_ranking.gap_boot_hi'):+.2f} over resampled adults), a lead "
-            f"{inside_or_past(gap_p)} of maps that follow both alike (p {gap_p:.2f}; "
-            f"against unrelated maps p {num(n, 'gene_ranking.gap_p_unrelated'):.2f}).",
+            f"{num(n, 'gene_ranking.gap_boot_hi'):+.2f} over resampled adults): "
+            f"{gap_words(n)}; against unrelated maps p "
+            f"{num(n, 'gene_ranking.gap_p_unrelated'):.2f}.",
         ),
         "between_within": (
             "A, Cacng8 against the real map and against a map that knows only each "
@@ -659,7 +685,7 @@ def top_genes_take(n: dict[str, str]) -> str:
         f"main model, {len(alike)} take more of it than 95% of maps that relate to the "
         f"model as they do ({', '.join(alike) or 'none'}), {len(plain)} more than 95% "
         f"of their plain surrogates ({', '.join(plain) or 'none'}). Cacng8 takes "
-        f"{num(n, 'top_genes.taken_Cacng8'):.1%} of the reproducible map (p "
+        f"{100 * num(n, 'top_genes.taken_Cacng8'):.1f} points of the reproducible map (p "
         f"{num(n, 'top_genes.p_taken_alike_Cacng8'):.3f} against maps alike, "
         f"{num(n, 'top_genes.p_taken_Cacng8'):.3f} against plain surrogates)."
     )
@@ -700,16 +726,22 @@ def kinds_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
             f"Cacng8 {num(n, 'top_genes.leftover_rho_Cacng8'):+.3f}, spatial p "
             f"{num(n, 'top_genes.leftover_p_Cacng8'):.4f} "
             f"({ordinal(n['top_genes.leftover_rank_Cacng8'])} of "
-            f"{n['beyond.leftover_genes']} by rho). The family "
+            f"{n['beyond.leftover_genes']} by rho), a re-test: its p against the "
+            "near-identical leftover of the four-subunit model was seen before it was "
+            "named. The family "
             f"({n['top_genes.family_tested']} of {n['top_genes.family_listed']} members "
             "with a usable map): median "
             f"{num(n, 'top_genes.family_leftover_median'):+.3f}, p "
-            f"{num(n, 'top_genes.family_leftover_p'):.3f} against the surrogates; "
+            f"{num(n, 'top_genes.family_leftover_p'):.3f} against the surrogates "
+            "(without Cacng8 p "
+            f"{num(n, 'top_genes.family_leftover_without_cacng8_p'):.3f}); "
             f"{num(n, 'top_genes.family_leftover_controls_difference'):+.3f} above "
             f"{n['top_genes.family_controls']} matched postsynaptic genes, p "
-            f"{num(n, 'top_genes.family_leftover_controls_p'):.2f}; past BH within the "
+            f"{num(n, 'top_genes.family_leftover_controls_p'):.2f} (against controls "
+            "outside the model's terms p "
+            f"{num(n, 'top_genes.family_leftover_outside_p'):.2f}); past BH within the "
             f"family: {', '.join(within_family) or 'none'}. Every gene: "
-            f"{n['beyond.leftover_genes_pass']} past BH, the closest "
+            f"{n['beyond.leftover_genes_pass']} past BH; the highest rho, "
             f"{n['beyond.leftover_top_gene']} "
             f"({num(n, 'beyond.leftover_top_rho'):+.2f}, p "
             f"{num(n, 'beyond.leftover_top_p'):.2f}). The glia set, the lead of the "
@@ -746,10 +778,14 @@ def control_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
             "order agrees with the primary at "
             f"{num(n, 'overview.robustness_agreement_min'):.2f} to 1.00; Cacng8 is "
             "first of P9's genes in every variant, Gria1 ranks "
-            f"{n['overview.robustness_gria1_rank_min']} to "
-            f"{n['overview.robustness_gria1_rank_max']}, and the gap stays between "
+            f"{ordinal(n['overview.robustness_gria1_rank_min'])} to "
+            f"{ordinal(n['overview.robustness_gria1_rank_max'])} of P9's 100 "
+            f"({ordinal(n['top_genes.rank_variants_min_Gria1'])} to "
+            f"{ordinal(n['top_genes.rank_variants_max_Gria1'])} of all genes over the "
+            "variants that hold every gene), and the gap stays between "
             f"{num(n, 'overview.robustness_gap_min'):+.2f} and "
-            f"{num(n, 'overview.robustness_gap_max'):+.2f}.",
+            f"{num(n, 'overview.robustness_gap_max'):+.2f}, around the edge of the "
+            "primary's band.",
         ),
         "synaptome": (
             "A, the structures of the fit with a measured PSD95 density, by division; "
@@ -765,9 +801,11 @@ def control_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
             f"one mouse agree at {num(n, 'synaptome.hemispheres_rho'):.2f}. On those "
             f"{n['beyond.variant_structures_psd95']} structures PSD95 alone predicts "
             f"{pct(n, 'beyond.variant_density_alone_psd95')} of the map, the mRNA panel "
-            f"{pct(n, 'beyond.variant_density_alone_panel')}; the main model leaves "
-            f"{pct(n, 'beyond.variant_left_psd95')} with PSD95, "
-            f"{pct(n, 'beyond.variant_left_panel')} with the panel, "
+            f"{pct(n, 'beyond.variant_density_alone_panel')} (PSD95 minus panel: "
+            f"{points(n, 'beyond.check_psd95_minus_panel_alone')}); the main model "
+            f"leaves {pct(n, 'beyond.variant_left_psd95')} with PSD95, "
+            f"{pct(n, 'beyond.variant_left_panel')} with the panel (difference: "
+            f"{points(n, 'beyond.check_psd95_minus_panel_left')}), "
             f"{pct(n, 'beyond.variant_left_psd95_and_panel')} with both.",
         ),
         "green_channel": (
@@ -814,8 +852,8 @@ def part1_verdict(n: dict[str, str]) -> str:
         )
     else:
         above = (
-            f"above the floor ({floor:.0%}) at its point value, with an interval "
-            "that reaches it"
+            f"above the floor ({floor:.0%}) on the same structures at its point "
+            f"value only, the interval of the difference reaching {lo:+.0%}"
         )
     if over_gria1_lo > 0:
         benchmark = "larger than what a map of one Allen Gria1 experiment leaves"
@@ -827,8 +865,8 @@ def part1_verdict(n: dict[str, str]) -> str:
     else:
         benchmark = "no larger than what a map of one Allen Gria1 experiment leaves"
     return (
-        f"Where it stands: the leftover is real and reproducible, {above}, and "
-        f"{benchmark} ({gria1:.0%})."
+        f"Where it stands: the leftover is reproducible, {above}, and {benchmark} "
+        f"({gria1:.0%})."
     )
 
 
@@ -861,10 +899,10 @@ def named_tests_text(n: dict[str, str]) -> str:
     cacng8 = num(n, "top_genes.leftover_p_Cacng8")
     first = "follows it" if cacng8 < ISH_ANALYSIS["q"] else "does not follow it"
     return (
-        f"Against what Gria1 and synapse density leave, Cacng8, named in advance, "
-        f"{first} (p {cacng8:.4f}); {family_text(n)} (p "
+        f"Against what Gria1 and synapse density leave, Cacng8 {first} (p "
+        f"{cacng8:.4f}), a re-test of what was seen on 8 October; {family_text(n)} (p "
         f"{num(n, 'top_genes.family_leftover_p'):.3f} and "
-        f"{num(n, 'top_genes.family_leftover_controls_p'):.3f})."
+        f"{num(n, 'top_genes.family_leftover_controls_p'):.3f})"
     )
 
 
@@ -883,8 +921,8 @@ def part2_verdict(n: dict[str, str]) -> str:
     return (
         "Where it stands: consistent with the surface-fraction reading, not singling "
         "it out: the genes that follow the map most are maps much like Gria1 and "
-        "synapse density, Cacng8's lead over Gria1 is inside its null, and the "
-        "localisation genes do no better than matched controls."
+        "synapse density, Cacng8's lead over Gria1 sits at the edge of its null, and "
+        "the localisation genes do no better than matched controls."
     )
 
 
@@ -915,19 +953,19 @@ def gene_meanings(n: dict[str, str]) -> dict[str, str]:
         out["spatial_null"] = "The spatial p is not calibrated; no claim rests on it."
     out["top_genes"] = (
         "The genes that follow the map most are maps much like Gria1 and synapse "
-        "density, which is why the main model predicts most of the map; they describe "
-        "it, they are not separate evidence."
+        "density, so they describe the map rather than add evidence"
     )
     if follow:
         out["top_genes"] += (
-            f" {len(follow)} of them also follow part of what the model leaves; only "
-            "Cacng8's test was named in advance."
+            f", and of the {len(follow)} that also follow part of what the model leaves "
+            "only Cacng8 was named for it"
         )
+    out["top_genes"] += "."
     if gap_p < q:
         out["cacng8_gria1"] = "The map follows Cacng8 more closely than Gria1."
     else:
         out["cacng8_gria1"] = (
-            "These maps cannot tell whether the nano map follows Cacng8 more closely "
+            "These maps do not settle whether the nano map follows Cacng8 more closely "
             "than Gria1; Cacng8's own test is against the leftover "
             f"({figure_ref('leftover')})."
         )
@@ -959,11 +997,12 @@ def gene_meanings(n: dict[str, str]) -> dict[str, str]:
     out["leftover"] = named_tests_text(n)
     if num(n, "top_genes.family_leftover_controls_p") >= q:
         out["leftover"] += (
-            " What the family shares with the leftover is postsynaptic, not "
-            "particular to the AMPA receptor complex."
+            ", so what the family shares with the leftover is postsynaptic, not "
+            "particular to the AMPA receptor complex"
         )
     if int(num(n, "beyond.leftover_genes_pass")) == 0:
-        out["leftover"] += " No gene passes once every gene is corrected for."
+        out["leftover"] += ", and no gene passes once every gene is corrected for"
+    out["leftover"] += "."
     return out
 
 
@@ -977,10 +1016,9 @@ def other_meanings(n: dict[str, str]) -> dict[str, str]:
         "declared reference shifts each brain's zref without reordering the map.",
         "genes": "A gene measured once is only as good as one Allen mouse; a low rho "
         "of an unreliable gene says little.",
-        "beyond": upper_first(part1_verdict(n).removeprefix("Where it stands: "))
-        + " It is what the model does not predict, not a measurement of the surface "
-        "fraction: the words are 'not predicted by Gria1 expression or synapse "
-        "density', not 'beyond gene expression'.",
+        "beyond": upper_first(part1_verdict(n).removeprefix("Where it stands: "))[:-1]
+        + "; it is what the model does not predict, not a measurement of the surface "
+        "fraction.",
         "beyond_where": "The departure from prediction sits in particular structures, "
         "steadily across the adults; a claim about one structure needs its own null.",
         "robustness": "Cacng8 first of P9's genes holds under every choice; Gria1's "
@@ -995,20 +1033,25 @@ def other_meanings(n: dict[str, str]) -> dict[str, str]:
         )
     else:
         out["autofluorescence"] = "The tissue shares part of the label's ranking."
-    psd95 = num(n, "beyond.variant_density_alone_psd95")
-    panel = num(n, "beyond.variant_density_alone_panel")
+    alone_hi = num(n, "beyond.check_psd95_minus_panel_alone_hi")
+    left_lo = num(n, "beyond.check_psd95_minus_panel_left_lo")
+    left_hi = num(n, "beyond.check_psd95_minus_panel_left_hi")
+    if left_lo <= 0 <= left_hi:
+        left = "the model leaves about as much with it"
+    else:
+        left = "the model leaves a different share with it"
     if n["synaptome.in_main_model"] == "True":
         out["synaptome"] = "The measured density replaces the mRNA panel in the model."
-    elif psd95 < panel:
+    elif alone_hi < 0:
         out["synaptome"] = (
             "The measured density covers too little of the fit to replace the mRNA "
-            "panel, and where it exists it predicts the map less well; by keeping the "
-            "panel, the main model is the harder test of part 1."
+            "panel, and where it exists it predicts the map less well alone and "
+            f"{left}, so keeping the panel makes part 1 no easier to pass."
         )
     else:
         out["synaptome"] = (
             "The measured density covers too little of the fit to replace the mRNA "
-            "panel, though where it exists it predicts the map at least as well."
+            f"panel; where it exists it predicts the map as well alone and {left}."
         )
     if num(n, "green_channel.rho_sep_auto_min") > 0.5:
         out["green_channel"] = (
@@ -1032,7 +1075,7 @@ PARTS = (
     ("The question", ("overview",)),
     ("The inputs", ("structures", "genes")),
     (
-        "Part 1: the map is not explained by Gria1 expression or synapse density",
+        "Part 1: the map is not fully explained by Gria1 expression and synapse density",
         ("beyond", "beyond_where"),
     ),
     (
@@ -1047,7 +1090,10 @@ PARTS = (
             "leftover",
         ),
     ),
-    ("Controls", ("autofluorescence", "robustness", "synaptome")),
+    (
+        "Controls (12 and 13 of part 2, 14 of part 1)",
+        ("autofluorescence", "robustness", "synaptome"),
+    ),
     ("The limit", ("green_channel",)),
     ("April's headline", ("april_headline",)),
 )
@@ -1067,6 +1113,11 @@ SUPPLEMENTS = {
             "the map against each predictor, the budget beside its four-subunit check "
             "row and control F, every draw of the calibration, and the leftover under "
             "every check row, fold and structure set",
+        ),
+        (
+            "beyond_controls",
+            "the seven controls, one panel each: a gradient, structure size, single "
+            "animals, naive against RWS, curvature, the whole gene table, the reading",
         ),
     ),
     "one_comparison": (
@@ -1157,6 +1208,7 @@ DRAWN_BY = {
     "genes_detail": "run_ish_gene_table.py",
     "beyond": "run_beyond_figures.py",
     "beyond_budget": "run_beyond_figures.py",
+    "beyond_controls": "run_beyond_figures.py",
     "beyond_where": "run_beyond_figures.py",
     "one_comparison": "run_ish_gene_ranking.py",
     "one_comparison_detail": "run_ish_gene_ranking.py",
@@ -1194,15 +1246,17 @@ Written by `run_ish_overview.py` from the tables of this run, so every number be
 is this run's. The story, with what each result means and does not mean, is
 `docs/ISH_ANALYSIS.md` in the code repository.
 
-The figures follow one argument in two parts. Part 1: the adult nano map across
-structures is not explained by Gria1 expression and synapse density; a
-reproducible part is left over, above what Allen-to-Allen mismatch alone leaves
-(figures {FIGURES["beyond"]} and {FIGURES["beyond_where"]}). Part 2: it is
-therefore something else, and the reading the data support is the surface
-fraction of the receptor (trafficking, scaffolding); the genes that follow the
-map and its leftover are the corroboration, Cacng8 (TARP gamma-8) first (figures
-{FIGURES["one_comparison"]} to {FIGURES["leftover"]}). The surface fraction is
-an interpretation, not a measurement: a total-GluA1 stain on the same brains
+The figures follow one argument in two parts. Part 1 (figures {FIGURES["beyond"]} and
+{FIGURES["beyond_where"]}): the adult nano map across structures is not fully
+explained by Gria1 expression and synapse density; a reproducible part is left
+over, above what Allen-to-Allen mismatch alone leaves at its point value, with an
+interval that reaches below zero, and no larger than what one Allen Gria1
+experiment leaves. Part 2 (figures {FIGURES["one_comparison"]} to
+{FIGURES["leftover"]}): it is therefore something else, and the reading the data
+support is the surface fraction
+of the receptor (trafficking, scaffolding); the genes that follow the map and its
+leftover are the corroboration, Cacng8 (TARP gamma-8) first. The surface fraction
+is an interpretation, not a measurement: a total-GluA1 stain on the same brains
 would measure it, and the green channel cannot ({figure_ref("green_channel")}).
 
 Each main figure answers one question in two to four panels; its detailed version,
@@ -1249,7 +1303,8 @@ def figure_index(n: dict[str, str]) -> str:
                 f"### {FIGURES[key]}. {QUESTIONS[key]}\n",
                 f"![{name}]({name})\n",
                 f"**Look at.** {look}\n",
-                f"**Takeaway.** {take} {meaning[key]}\n",
+                f"**Numbers.** {take}\n",
+                f"**Takeaway.** {meaning[key]}\n",
             ]
             details = SUPPLEMENTS.get(key, ())
             for detail, adds in details:
@@ -1272,8 +1327,8 @@ def part1_content(n: dict[str, str]) -> dict:
     """The box of part 1: its claim, three key numbers, where it stands."""
     return dict(
         part="part 1",
-        claim="Part 1. The map is not explained by Gria1 expression or synapse "
-        "density: a reproducible part is left over",
+        claim="Part 1. The map is not fully explained by Gria1 expression and "
+        "synapse density: a reproducible part is left over",
         numbers=[
             (
                 pct(n, "beyond.share_model"),
@@ -1289,9 +1344,10 @@ def part1_content(n: dict[str, str]) -> dict:
             ),
             (
                 f"{pct(n, 'beyond.nano_calibration_left')} vs {pct(n, 'beyond.floor')}",
-                "what the model leaves of nano, and of a map made only of Gria1 and "
-                f"density (the floor): {num(n, 'beyond.nano_minus_floor'):+.0%} "
-                f"({num(n, 'beyond.nano_minus_floor_lo'):+.0%} to "
+                f"on the {n['beyond.calibration_structures']} structures of the "
+                "calibration, what the model leaves of nano, and of a map made only of "
+                f"Gria1 and density (the floor): {num(n, 'beyond.nano_minus_floor'):+.0%}"
+                f" ({num(n, 'beyond.nano_minus_floor_lo'):+.0%} to "
                 f"{num(n, 'beyond.nano_minus_floor_hi'):+.0%}); one Allen Gria1 "
                 f"experiment leaves {pct(n, 'beyond.gria1_map_left')}",
             ),
@@ -1320,14 +1376,22 @@ def part2_content(n: dict[str, str]) -> dict:
             ),
             (
                 f"p {num(n, 'top_genes.leftover_p_Cacng8'):.4f}",
-                "Cacng8, named in advance, follows what Gria1 and synapse density "
-                f"leave, and takes {num(n, 'top_genes.taken_Cacng8'):.1%} of the map "
-                f"from it (figure {FIGURES['leftover']})",
+                "Cacng8 follows what Gria1 and synapse density leave, a re-test of what "
+                "was seen on 8 October (figure "
+                f"{FIGURES['leftover']}); added to the model it takes "
+                f"{100 * num(n, 'top_genes.taken_Cacng8'):.1f} points of the map, more "
+                "than maps alike to the model (p "
+                f"{num(n, 'top_genes.p_taken_alike_Cacng8'):.3f}, a null added after "
+                "seeing) but not more than its plain surrogates (p "
+                f"{num(n, 'top_genes.p_taken_Cacng8'):.3f}; figure "
+                f"{FIGURES['top_genes']})",
             ),
             (
                 f"p {num(n, 'top_genes.family_leftover_p'):.3f}",
                 f"{upper_first(family_text(n))} (p "
-                f"{num(n, 'top_genes.family_leftover_controls_p'):.2f})",
+                f"{num(n, 'top_genes.family_leftover_controls_p'):.2f}); without "
+                "Cacng8 the group's p is "
+                f"{num(n, 'top_genes.family_leftover_without_cacng8_p'):.3f}",
             ),
         ],
         stands=part2_verdict(n),
@@ -1340,7 +1404,8 @@ def overview_content(n: dict[str, str]) -> dict:
         question="The adult nano map orders the brain's structures the same way in "
         "both halves of the cohort (rho "
         f"{num(n, 'beyond.half_agreement'):.2f}). Is that order how much GluA1 mRNA a "
-        "structure makes, or how many synapses it has? Allen's ISH maps measure both.",
+        "structure makes, or how many synapses it has? Allen's ISH maps measure Gria1's "
+        "mRNA, and synapse density through the mRNA of synaptic genes.",
         parts=[part1_content(n), part2_content(n)],
         limit="The surface fraction is an interpretation, not a measurement. The "
         "green channel follows autofluorescence in every adult (rho "

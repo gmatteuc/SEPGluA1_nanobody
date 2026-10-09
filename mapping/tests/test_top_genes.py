@@ -38,7 +38,8 @@ def test_the_genes_and_their_tiers():
 
 
 def test_every_family_member_is_listed_with_its_reason():
-    """Tested, no usable experiment, too few structures, or not in the gene table."""
+    """Tested, no usable experiment, too few structures, or not in the gene table
+    with or without Allen experiments."""
     genes = pd.DataFrame(
         dict(symbol=["Shisa6", "Cacng2", "Cacng3"], n_experiments_used=[1, 0, 2])
     )
@@ -49,7 +50,8 @@ def test_every_family_member_is_listed_with_its_reason():
     assert members.loc["Shisa6", "tested"]
     assert members.loc["Cacng2", "reason"] == "no usable Allen experiment"
     assert members.loc["Cacng3", "reason"].startswith("fewer than")
-    assert members.loc["Prrt1", "reason"].startswith("not in the gene table")
+    assert members.loc["Prrt1", "reason"] == "no Allen experiment"
+    assert members.loc["Gsg1l", "reason"].startswith("2 Allen experiments")
     assert "partner subunit" in members.loc["Gria2", "sources"]
     assert "Schwenk 2012" in members.loc["Cacng8", "sources"]
     assert members.loc["Grid1", "sources"].startswith("GO:0032281")
@@ -227,6 +229,46 @@ def test_a_family_like_its_controls_does_not_pass_against_them():
     assert matched["p"] > 0.05
 
 
+def test_the_check_rows_leave_out_cacng8_and_the_models_own_genes():
+    """Without Cacng8 the family has one gene less; controls inside the model never
+    enter the second check, even when they match the family's expression best."""
+    rng = np.random.default_rng(4)
+    family = ["Cacng8", "f1", "f2", "f3"]
+    inside = ["m1", "m2", "m3", "m4"]
+    outside = ["o1", "o2", "o3", "o4"]
+    genes = family + inside + outside
+    leftover = pd.DataFrame(
+        dict(
+            symbol=genes,
+            rho=rng.normal(0.0, 0.1, len(genes)),
+            in_model=[""] * 4 + ["markers"] * 4 + [""] * 4,
+        )
+    )
+    null = rng.normal(0.0, 0.1, size=(len(genes), 300))
+
+    # the genes inside the model sit at the family's expression, those outside far
+    level = {g: 10.0 for g in family + inside} | {g: 100.0 for g in outside}
+    checks = top_genes.check_tests(family, leftover, null, genes, inside + outside, level)
+    without = checks[checks["test"] == top_genes.WITHOUT_TEST].iloc[0]
+    assert without["n_first"] == 3
+    against = checks[checks["test"] == top_genes.OUTSIDE_TEST].iloc[0]
+    rho = leftover.set_index("symbol")["rho"]
+    assert against["second"] == pytest.approx(np.median(rho[outside]))
+    assert (checks["role"] == "check").all()
+
+
+def test_neighbour_agreement_tells_a_smooth_map_from_a_shuffled_one():
+    """Structures on a line: a ramp agrees with its neighbours, a shuffle hardly."""
+    n = 200
+    position = np.arange(n, dtype=float)
+    d = np.abs(position[:, None] - position[None, :])
+    shuffled = np.random.default_rng(5).permutation(position)
+    smooth, rough = top_genes.neighbour_agreement(np.vstack([position, shuffled]), d, 5)
+    assert smooth > 0.99
+    # 200 structures: a shuffled map's agreement has an SD of about 1 / sqrt(200)
+    assert abs(rough) < 0.25
+
+
 @pytest.mark.skipif(
     not (TABLES / "top_genes.csv").is_file(), reason="top_genes.csv not written"
 )
@@ -243,5 +285,6 @@ def test_todays_top_genes():
         leftover.loc["Cacng8", "rho"]
     )
     tests = pd.read_csv(top_genes.NAMED_TESTS, dtype={"tier": str})
-    assert list(tests["tier"]) == ["1", "2", "2", "2", "2"]
+    assert list(tests["tier"]) == ["1"] + ["2"] * 6
+    assert list(tests["role"]).count("check") == 2
     assert set(tests["map"]) == {"leftover", "nano"}

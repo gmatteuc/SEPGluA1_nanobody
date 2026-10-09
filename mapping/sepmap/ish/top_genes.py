@@ -44,10 +44,29 @@ ran (ish.gene_sets holds the family, its sources and what was seen before):
                    (ish.panel_test.two_sample), one test each; then gene by gene,
                    BH within the family
     3  the rest    every other gene, exploratory, BH over every gene (q_all of
-                   leftover_genes.csv)
+                   leftover_genes.csv), the model's own terms (Gria1, the markers)
+                   among them as the rules set it
 
 The same three are read on the nano map itself, to describe the family, not as tests
 of the leftover.
+
+What the tests can and cannot say, checked on 9 October after they ran:
+
+    tier 1   Cacng8's p against the leftover of the four-subunit model (0.0024) was
+             seen before it was named, and that leftover and this one agree at 0.90
+             over the same structures: tier 1 re-tests a result already seen on a
+             near-identical map, it does not confirm it
+    tier 2   Dlg4 is a member and a marker of the main model's density term, so its
+             rho with the leftover is near zero by construction, as Gria1's would be;
+             the rules took out Gria1 alone, so Dlg4 stays and pulls the median toward
+             zero. Without Cacng8 the group test sits at the same edge (a check row),
+             so it is not separate from tier 1. Most matched controls are genes of
+             psd_pc1, which the model projects out, so a check row matches the family
+             again from the postsynaptic genes outside the model's terms
+    the null each leftover surrogate, once the model is projected out of it, is
+             rougher than the leftover; the tests are read again against Gaussian
+             fields of exponential covariance at null_check_ranges_mm, projected the
+             same way (smooth_null_check)
 
 Why the share taken has a null of its own: three more columns always win a little
 held-out variance by chance, and a smooth map wins more than a rough one, since
@@ -80,7 +99,7 @@ from scipy.stats import false_discovery_control, rankdata, spearmanr
 from sepmap.adult import beyond_density as bd
 from sepmap.adult import synaptome
 from sepmap.config import SETTINGS
-from sepmap.ish import gene_table, spatial_null
+from sepmap.ish import gene_ranking, gene_table, spatial_null
 from sepmap.ish.gene_sets import (
     AMPA_FAMILY,
     GO_AMPA_COMPLEX,
@@ -91,6 +110,7 @@ from sepmap.ish.gene_sets import (
     set_test,
 )
 from sepmap.ish.panel_test import greedy_match, two_sample
+from sepmap.ish.spatial_null import null_rho, spatial_p
 from sepmap.structures import TABLES
 
 # the structures a gene needs, the BH level, the surrogates added in place of a gene
@@ -102,6 +122,7 @@ TOP_TABLE = TABLES / "top_genes.csv"
 NAMED_TESTS = TABLES / "named_tests.csv"
 FAMILY_TABLE = TABLES / "family_members.csv"
 NUMBERS = TABLES / "numbers_top_genes.csv"
+NULL_CHECK = TABLES / "leftover_null_check.csv"
 
 # characterised whatever their rank: the gene of the stained protein, and the gene
 # named for the leftover
@@ -119,6 +140,54 @@ SYNAPSE = "GO:0045202"
 
 # the percentiles of a null distribution that a value must leave to pass at 0.05
 BAND = (2.5, 97.5)
+
+# the Allen experiments of the family members the gene table does not hold, counted
+# on 8 October when the family was named (ish.gene_sets): none, or some, outside both
+# panels, where adding a gene would change the rules
+UNTABLED_EXPERIMENTS = {
+    "Olfm3": 0,
+    "Prrt1": 0,
+    "Prrt2": 0,
+    "Shisa8": 0,
+    "Gsg1l": 2,
+    "Rap2b": 2,
+}
+
+# the columns of a gene's row that the numbers file carries for Cacng8 and Gria1:
+# column, decimals, what
+GENE_NUMBERS = (
+    ("rho", 3, "rho with the map"),
+    ("p_spatial", 6, "its spatial p"),
+    ("rank_all", 0, "its rank among all genes"),
+    ("rho_within", 3, "mean rho inside divisions"),
+    ("p_within", 6, "its spatial p"),
+    ("rho_variants_min", 3, "lowest rho over the robustness variants"),
+    ("rho_variants_max", 3, "highest rho over the robustness variants"),
+    ("rank_variants_min", 0, "best rank over the variants holding every gene"),
+    ("rank_variants_max", 0, "worst rank over the variants holding every gene"),
+    ("reliability", 3, "agreement of its Allen experiments"),
+    ("rho_Gria1", 3, "rho with Gria1, structures of the fit"),
+    ("rho_markers", 3, "rho with the marker composite"),
+    ("rho_psd_pc1", 3, "rho with psd_pc1"),
+    ("rho_prediction", 3, "rho with the main model's prediction"),
+    ("rho_psd95", 3, "rho with PSD95 punctum density, where measured"),
+    ("leftover_rho", 3, "rho with the main model's leftover"),
+    ("leftover_p", 6, "its spatial p, each surrogate through the same fit"),
+    ("leftover_rank", 0, "its rank against the leftover"),
+    ("left_main", 4, "share of the reproducible map the main model leaves there"),
+    ("left_with_gene", 4, "the same with the gene added"),
+    ("taken", 4, "share of the reproducible map the gene takes from the leftover"),
+    ("taken_null_hi", 4, "95% of plain surrogates of the gene take less than this"),
+    ("p_taken", 6, "share of those maps that take as much, one-sided"),
+    ("taken_null_alike_hi", 4, "95% of maps alike to the model take less than this"),
+    ("p_taken_alike", 6, "share of those maps that take as much, one-sided"),
+)
+
+# the named tests of tier 2 as named_tests.csv writes them
+SPATIAL_TEST = "the family's median against the surrogates"
+MATCHED_TEST = "the family against matched postsynaptic controls"
+WITHOUT_TEST = f"the family without {LEFTOVER_GENE} against the surrogates"
+OUTSIDE_TEST = "the family against matched controls outside the model"
 
 
 # ===== The genes =====
@@ -138,7 +207,7 @@ def chosen_genes(nano: pd.DataFrame, leftover: pd.DataFrame, q: float) -> pd.Dat
     rows = []
     for symbol in sorted(top | set(NAMED_GENES) | family):
         if symbol == LEFTOVER_GENE:
-            tier = "1 named in advance"
+            tier = "1 named for the leftover"
         elif symbol in family:
             tier = "2 the family"
         else:
@@ -172,8 +241,14 @@ def family_members(genes: pd.DataFrame, leftover: pd.DataFrame) -> pd.DataFrame:
         sources = [name for name, members in FAMILY_SOURCES if symbol in members]
         if symbol in tested:
             reason = ""
+        elif symbol not in listed and UNTABLED_EXPERIMENTS.get(symbol, 0) == 0:
+            reason = "no Allen experiment"
         elif symbol not in listed:
-            reason = "not in the gene table: in neither panel"
+            n = UNTABLED_EXPERIMENTS[symbol]
+            reason = (
+                f"{n} Allen experiments, but in neither panel of the gene table; adding "
+                "it would change the rules"
+            )
         elif symbol not in usable:
             reason = "no usable Allen experiment"
         else:
@@ -464,7 +539,7 @@ def group_tests(
             dict(
                 tier="2",
                 map=name,
-                test="the family's median against the surrogates",
+                test=SPATIAL_TEST,
                 role=role,
                 n_first=len(family),
                 n_second=np.nan,
@@ -484,7 +559,7 @@ def group_tests(
             dict(
                 tier="2",
                 map=name,
-                test="the family against matched postsynaptic controls",
+                test=MATCHED_TEST,
                 role=role,
                 n_first=len(a),
                 n_second=len(b),
@@ -499,6 +574,156 @@ def group_tests(
         )
         nulls[name] = dict(spatial=null_median, labels=label_null)
     return pd.DataFrame(rows), nulls
+
+
+def check_tests(
+    family: list[str],
+    leftover: pd.DataFrame,
+    null: np.ndarray,
+    null_genes: list[str],
+    pool: list[str],
+    level: dict[str, float],
+    seed: int = 1,
+) -> pd.DataFrame:
+    """Two check rows of tier 2 on the leftover, added after the tests ran.
+
+    The family without Cacng8 against the same surrogates, so a reader sees whether
+    the group test says more than tier 1; and the family against controls matched
+    afresh from the pool's genes that are no term of the main model (in_model
+    empty), since a control inside psd_pc1 is projected out of the leftover with
+    the model. `leftover` is leftover_genes.csv, `null` its genes x surrogates.
+    """
+    rho = leftover.set_index("symbol")["rho"]
+    row_of = {g: i for i, g in enumerate(null_genes)}
+    without = [g for g in family if g != LEFTOVER_GENE]
+    spatial, null_median = set_test(without, rho, null, row_of)
+    in_model = leftover.set_index("symbol")["in_model"]
+    outside = [g for g in pool if not in_model.get(g, "")]
+    pairs = family_controls(family, outside, level)
+    a = rho[family].to_numpy(float)
+    b = rho[[pairs[g] for g in family if g in pairs]].to_numpy(float)
+    difference, p, label_null = two_sample(a, b, np.random.default_rng(seed))
+    common = dict(tier="2", map="leftover", role="check", critical=np.nan)
+    rows = [
+        dict(
+            **common,
+            test=WITHOUT_TEST,
+            n_first=len(without),
+            n_second=np.nan,
+            first=spatial["median_rho"],
+            second=float(np.median(null_median)),
+            difference=spatial["median_rho"] - float(np.median(null_median)),
+            null_lo=spatial["null_lo"],
+            null_hi=spatial["null_hi"],
+            p=spatial["p_spatial"],
+        ),
+        dict(
+            **common,
+            test=OUTSIDE_TEST,
+            n_first=len(a),
+            n_second=len(b),
+            first=float(np.median(a)),
+            second=float(np.median(b)),
+            difference=difference,
+            null_lo=float(np.percentile(label_null, BAND[0])),
+            null_hi=float(np.percentile(label_null, BAND[1])),
+            p=p,
+        ),
+    ]
+    rows[1]["critical"] = float(np.percentile(np.abs(label_null), 95))
+    return pd.DataFrame(rows)
+
+
+def neighbour_agreement(maps: np.ndarray, d: np.ndarray, k: int) -> np.ndarray:
+    """Per map (a row), Spearman of each structure with the mean of its k nearest.
+
+    How smooth a map is at short range: near 1 when neighbours carry the same value,
+    near 0 for a shuffled map. `d` is the structures' distance matrix.
+    """
+    nearest = np.argsort(d, axis=1)[:, 1 : k + 1]
+    neighbours = maps[:, nearest].mean(axis=2)
+    a = rankdata(maps, axis=1)
+    b = rankdata(neighbours, axis=1)
+    a = a - a.mean(axis=1, keepdims=True)
+    b = b - b.mean(axis=1, keepdims=True)
+    return (a * b).sum(axis=1) / np.sqrt((a**2).sum(axis=1) * (b**2).sum(axis=1))
+
+
+def null_check_row(
+    name: str,
+    range_mm: float,
+    maps: np.ndarray,
+    leftover: pd.DataFrame,
+    vectors: dict[str, tuple[np.ndarray, np.ndarray]],
+    family: list[str],
+    d: np.ndarray,
+) -> dict:
+    """The tests against one null of the leftover: Cacng8's p, the family's p, and
+    how many genes fall below p 0.05, with how smooth the null's maps are."""
+    rho = leftover.set_index("symbol")["rho"]
+    nulls = {
+        g: null_rho(maps[:, columns], values) for g, (columns, values) in vectors.items()
+    }
+    p = {g: spatial_p(rho[g], nulls[g]) for g in vectors}
+    family = [g for g in family if g in nulls]
+    family_null = np.median([nulls[g] for g in family], axis=0)
+    return dict(
+        null=name,
+        range_mm=range_mm,
+        n_maps=len(maps),
+        neighbour_rho=float(
+            np.median(neighbour_agreement(maps, d, TOP_GENES["neighbours"]))
+        ),
+        p_cacng8=p[LEFTOVER_GENE],
+        p_family=spatial_p(float(np.median(rho[family])), family_null),
+        genes_p05=int(sum(v < 0.05 for v in p.values())),
+        genes=len(p),
+    )
+
+
+def smooth_null_check(
+    inputs: bd.Inputs,
+    residual: np.ndarray,
+    surrogates: np.ndarray,
+    leftover: pd.DataFrame,
+    family: list[str],
+    centroids: pd.DataFrame,
+    seed: int = 0,
+) -> pd.DataFrame:
+    """The leftover's tests against nulls smoother than its own surrogates.
+
+    The step's surrogates are the leftover's, each with the main model projected
+    out, which leaves them rougher at short range than the leftover. So the tests
+    are run again against Gaussian random fields with an exponential covariance of
+    each range in top_genes.null_check_ranges_mm (ish.spatial_null.random_fields),
+    top_genes.null_check_maps of them, each projected through the same fit. Rows:
+    the leftover itself (its smoothness only), the leftover's surrogates and each range.
+    """
+    s = inputs.structures
+    d = spatial_null.distance_matrix(centroids.loc[s])
+    covariates, _, _ = bd.covariates_for(inputs)
+    design = np.column_stack(bd.model(covariates, inputs.terms) + [np.ones(len(s))])
+    hat = design @ np.linalg.pinv(design)
+    vectors = gene_ranking.gene_vectors(inputs.expr, s)
+    smooth = neighbour_agreement(residual[None, :], d, TOP_GENES["neighbours"])[0]
+    rows = [
+        dict(null="the leftover itself", range_mm=np.nan, n_maps=1, neighbour_rho=smooth),
+        null_check_row(
+            "the leftover's surrogates", np.nan, surrogates, leftover, vectors, family, d
+        ),
+    ]
+    rng = np.random.default_rng(seed)
+    for range_mm in TOP_GENES["null_check_ranges_mm"]:
+        fields = spatial_null.random_fields(
+            d, (0.0, 1.0, float(range_mm)), TOP_GENES["null_check_maps"], rng
+        )
+        fields = fields - fields @ hat.T
+        rows.append(
+            null_check_row(
+                "Gaussian fields", float(range_mm), fields, leftover, vectors, family, d
+            )
+        )
+    return pd.DataFrame(rows)
 
 
 def within_family_q(p: pd.Series) -> pd.Series:
@@ -587,6 +812,233 @@ def leftover_columns(leftover: pd.DataFrame) -> pd.DataFrame:
             "t_boot": "leftover_t_boot",
         }
     )
+
+
+def control_columns(
+    pairs: dict[str, str],
+    leftover: pd.DataFrame,
+    nano: pd.DataFrame,
+    level: dict[str, float],
+) -> pd.DataFrame:
+    """Per family member, its matched control, both levels and the control's rho.
+
+    `leftover` is leftover_genes.csv, `nano` the map's rows of gene_ranking.csv,
+    `level` each gene's median energy.
+    """
+    left_rho = leftover.set_index("symbol")["rho"]
+    map_rho = nano.set_index("symbol")["rho"]
+    rows = []
+    for gene, control in pairs.items():
+        rows.append(
+            dict(
+                symbol=gene,
+                median_energy=level.get(gene, np.nan),
+                matched_control=control,
+                control_median_energy=level.get(control, np.nan),
+                control_rho=map_rho[control],
+                control_leftover_rho=left_rho[control],
+            )
+        )
+    return pd.DataFrame(rows)
+
+
+def family_q_table(
+    family: list[str], leftover: pd.DataFrame, nano: pd.DataFrame
+) -> pd.DataFrame:
+    """Tier 2 gene by gene: BH within the family, against the leftover and the map."""
+    p_leftover = leftover.set_index("symbol")["p_spatial"].reindex(family)
+    p_map = nano.set_index("symbol")["p_spatial"].reindex(family)
+    return pd.DataFrame(
+        dict(
+            symbol=family,
+            leftover_q_family=within_family_q(p_leftover).to_numpy(),
+            q_family=within_family_q(p_map).to_numpy(),
+        )
+    )
+
+
+# ===== The numbers for the text =====
+
+
+def top_numbers(table: pd.DataFrame, q: float) -> list[tuple]:
+    """The numbers of the genes past the map's null, and of Cacng8 and Gria1."""
+    top = table[table["top"]]
+    free = top[top["in_model"] != "abundance"]
+    follow = free[free["leftover_p"] < 0.05]
+    take = free[free["p_taken"] < 0.05]
+    take_alike = free[free["p_taken_alike"] < 0.05]
+    rows = [
+        ("characterised", len(table), "genes characterised"),
+        ("top_genes", len(top), f"genes past the map's null, BH over all, q < {q}"),
+        ("top_list", " ".join(top["symbol"]), "those genes, best first"),
+        (
+            "top_within",
+            int((top["q_within"] < q).sum()),
+            f"of them, past the null inside divisions, q < {q}",
+        ),
+        (
+            "top_follow_leftover",
+            len(follow),
+            "of them, not a term of the model, rho with the leftover at p < 0.05",
+        ),
+        ("top_follow_leftover_list", " ".join(follow["symbol"]), "those genes"),
+        (
+            "top_take",
+            len(take),
+            "of them, not a term of the model, taking more than 95% of its "
+            "plain surrogates",
+        ),
+        ("top_take_list", " ".join(take["symbol"]), "those genes"),
+        (
+            "top_take_alike",
+            len(take_alike),
+            "of them, not a term of the model, taking more than 95% of maps alike to it",
+        ),
+        ("top_take_alike_list", " ".join(take_alike["symbol"]), "those genes"),
+        (
+            "added_surrogates",
+            TOP_GENES["n_added_surrogates"],
+            "maps of a gene's smoothness added in its place",
+        ),
+    ]
+    by_gene = table.set_index("symbol")
+    for gene in NAMED_GENES:
+        for column, digits, what in GENE_NUMBERS:
+            value = by_gene.loc[gene, column]
+
+            # adding 0.0 turns a rounded -0.0 into 0.0
+            value = int(value) if digits == 0 else round(float(value), digits) + 0.0
+            rows.append((f"{column}_{gene}", value, f"{gene}: {what}"))
+    return rows
+
+
+def group_numbers(
+    table: pd.DataFrame, tier2: pd.DataFrame, map_name: str, q: float
+) -> list[tuple]:
+    """The numbers of tier 2's group tests on one map, and the members past BH
+    within the family there. `tier2` is named_tests.csv's tier 2, by map and test."""
+    spatial = tier2.loc[(map_name, SPATIAL_TEST)]
+    matched = tier2.loc[(map_name, MATCHED_TEST)]
+    key = f"family_{map_name}"
+    column = "leftover_q_family" if map_name == "leftover" else "q_family"
+    past = table[table["family"] & (table[column] < q)]
+    return [
+        (f"{key}_median", round(spatial["first"], 3), "the family's median rho"),
+        (f"{key}_null_median", round(spatial["second"], 3), "over the surrogates"),
+        (f"{key}_null_lo", round(spatial["null_lo"], 3), "2.5% of that null"),
+        (f"{key}_null_hi", round(spatial["null_hi"], 3), "97.5% of that null"),
+        (f"{key}_p", round(spatial["p"], 6), "the family's spatial p"),
+        (
+            f"{key}_controls_median",
+            round(matched["second"], 3),
+            "the matched controls' median rho",
+        ),
+        (
+            f"{key}_controls_difference",
+            round(matched["difference"], 3),
+            "family minus controls, medians",
+        ),
+        (
+            f"{key}_controls_critical",
+            round(matched["critical"], 3),
+            "the difference that would give p < 0.05",
+        ),
+        (f"{key}_controls_p", round(matched["p"], 6), "label-permutation p"),
+        (f"{key}_pass_within", len(past), f"members past BH within the family, q < {q}"),
+        (f"{key}_pass_within_list", " ".join(past["symbol"]), "those members"),
+    ]
+
+
+def check_numbers(tier2: pd.DataFrame) -> list[tuple]:
+    """The numbers of tier 2's check rows on the leftover."""
+    without = tier2.loc[("leftover", WITHOUT_TEST)]
+    outside = tier2.loc[("leftover", OUTSIDE_TEST)]
+    return [
+        (
+            "family_leftover_without_cacng8_median",
+            round(without["first"], 3),
+            "check: the family's median without Cacng8",
+        ),
+        ("family_leftover_without_cacng8_p", round(without["p"], 6), "check: its p"),
+        (
+            "family_leftover_outside_controls",
+            int(outside["n_second"]),
+            "check: controls matched from genes outside the model's terms",
+        ),
+        (
+            "family_leftover_outside_controls_median",
+            round(outside["second"], 3),
+            "check: their median rho with the leftover",
+        ),
+        (
+            "family_leftover_outside_difference",
+            round(outside["difference"], 3),
+            "check: family minus those controls, medians",
+        ),
+        (
+            "family_leftover_outside_p",
+            round(outside["p"], 6),
+            "check: label-permutation p",
+        ),
+    ]
+
+
+def family_numbers(
+    table: pd.DataFrame, members: pd.DataFrame, tests: pd.DataFrame, q: float
+) -> list[tuple]:
+    """The numbers of the family: its members, its group tests and their check rows."""
+    untested = members[~members["tested"]]
+    tier2 = tests[tests["tier"] == "2"].set_index(["map", "test"])
+    rows = [
+        ("family_listed", len(members), "members of the AMPA receptor complex family"),
+        ("family_tested", int(members["tested"].sum()), "of them tested"),
+        ("family_not_tested", " ".join(untested["symbol"]), "not tested"),
+        (
+            "family_controls",
+            int(tier2.loc[("leftover", MATCHED_TEST), "n_second"]),
+            "matched postsynaptic controls",
+        ),
+    ]
+    for map_name in ("leftover", "nano"):
+        rows += group_numbers(table, tier2, map_name, q)
+    return rows + check_numbers(tier2)
+
+
+def null_check_numbers(check: pd.DataFrame) -> list[tuple]:
+    """The numbers of the leftover's tests against smoother nulls."""
+    rows = []
+    for r in check.itertuples():
+        if r.null == "the leftover itself":
+            key = "null_check_leftover"
+        elif np.isfinite(r.range_mm):
+            key = f"null_check_{r.range_mm:g}mm"
+        else:
+            key = "null_check_surrogates"
+        rows.append(
+            (f"{key}_neighbour_rho", round(r.neighbour_rho, 3), f"{r.null}: smoothness")
+        )
+        if r.null == "the leftover itself":
+            continue
+        rows += [
+            (f"{key}_p_cacng8", round(r.p_cacng8, 6), f"{r.null}: Cacng8's p"),
+            (f"{key}_p_family", round(r.p_family, 6), f"{r.null}: the family's p"),
+            (f"{key}_genes_p05", int(r.genes_p05), f"{r.null}: genes below p 0.05"),
+        ]
+    return rows
+
+
+def numbers_table(
+    table: pd.DataFrame,
+    members: pd.DataFrame,
+    tests: pd.DataFrame,
+    check: pd.DataFrame,
+    q: float,
+) -> pd.DataFrame:
+    """numbers_top_genes.csv: the numbers of this step that the text quotes."""
+    rows = top_numbers(table, q)
+    rows += family_numbers(table, members, tests, q)
+    rows += null_check_numbers(check)
+    return pd.DataFrame(rows, columns=["name", "value", "what"], dtype=object)
 
 
 def load_top_genes() -> pd.DataFrame:

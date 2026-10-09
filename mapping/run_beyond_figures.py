@@ -1,4 +1,4 @@
-"""The guided figures of part 1, with their intervals: 03, 03s, 04, 11s1 and 14.
+"""The guided figures of part 1, with their intervals: 03, 03s1, 03s2, 04, 11s1, 14.
 
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
@@ -43,7 +43,7 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     24. run_beyond_calibration the same model on maps whose answer
                                is known
     25. run_beyond_regression  the regression, per structure
-    26. run_beyond_figures     figures 03, 03s, 04, 11s1 and 14     <- this script
+    26. run_beyond_figures     figures 03, 03s1, 03s2, 04, 11s1, 14  <- this script
     27. run_ish_top_genes      the genes that follow the map most,
                                characterised; Cacng8 and the AMPA
                                receptor complex family against the
@@ -55,16 +55,21 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                index; the numbers for the text
 
 Jackknife intervals over structures, the noise band of the replication, the
-numbers the text quotes, and the three figures; it reads the tables of steps 22 to
-25. The method is in sepmap/adult/beyond_figures.py. Writes, under
+numbers the text quotes, and the figures of part 1; it reads the tables of steps 21
+to 25. The method is in sepmap/adult/beyond_figures.py. Writes, under
 adult_v2/ish_analysis/ in the data root:
 
     beyond/jackknife.csv                per subsample, the ceiling and the shares
+    beyond/jackknife_density_rows.csv   per subsample of the structures PSD95
+                                        covers, each density row and their
+                                        differences
     beyond/numbers_for_the_caption.txt  the figures' numbers as sentences
     tables/numbers_beyond.csv           the numbers of analysis 4, for the text
     figures/03_beyond.png               what Gria1 and synapse density predict,
-                                        and whether what they leave is real
-    figures/03s_beyond_budget.png       the same in detail, with the check rows
+                                        and how what they leave stands against
+                                        the floor and the benchmark
+    figures/03s1_beyond_budget.png      the same in detail, with the check rows
+    figures/03s2_beyond_controls.png    the seven controls
     figures/04_beyond_where.png         where the leftover lives
     figures/11s1_leftover_genes.png     every gene and gene set against the leftover
     figures/14_synaptome.png            the measured synapse density in the model
