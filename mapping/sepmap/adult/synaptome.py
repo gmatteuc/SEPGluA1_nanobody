@@ -27,12 +27,13 @@ each the mean over its subtypes:
 
 Only counts enter, never a punctum's intensity or size: how much PSD95 a synapse
 holds is scaffolding, the side of surface receptor the leftover may carry, so it
-cannot stand for density. As shared, each subtype's density is scaled to 0..1 across
-the 775 samples (every row runs from exactly 0 to exactly 1), so the absolute counts
-and their sum over subtypes are gone. A mean over subtypes therefore weights each
-subtype's map alike, whatever its share of the puncta. Everything downstream works
-on ranks, so only that weighting matters, and the variants show how far it moves the
-order of the structures.
+cannot stand for density. As shared, each subtype's density is divided by its
+largest value over the 775 samples (every row runs from exactly 0, the right locus
+coeruleus with no punctum, to exactly 1), so the absolute counts and their sum over
+subtypes are gone. A mean over subtypes therefore weights each subtype's map alike,
+whatever its share of the puncta. Everything downstream works on ranks, so only that
+weighting matters, and the variants show how far it moves the order of the
+structures.
 
 A sample is placed in a structure of the adult table through the CCF 2017 ontology:
 
@@ -47,14 +48,24 @@ A sample is placed in a structure of the adult table through the CCF 2017 ontolo
        section, as the nano map pools both hemispheres
     4  a structure's density is the mean of its sampled units weighted by the voxels
        of each in the 20 um CCF annotation of the adult map, so layers count by their
-       volume. When a unit is not drawn in the annotation (the piriform layers, the
-       cerebellar granular layers), the units of that structure are weighted alike
+       volume; a unit holding another sampled unit (PAG and its nucleus ND) weighs
+       only the voxels outside it. When a unit is not drawn in the annotation (the
+       piriform layers, the cerebellar granular layers), the units of that structure
+       are weighted alike, and its covered share is unknown
     5  a structure none of whose parts was sampled stays missing, never filled
+
+The source's id is followed even where its name reads otherwise: one thalamic sample
+is written 'lMD', which Hansen et al. read as IMD (the intermediodorsal nucleus). It
+could equally be the lateral part of MD; read so, it would give MD a value, one
+structure more of the fit.
 
 A sample whose 37 densities are all zero (the right locus coeruleus) had no punctum
 detected anywhere, so it was not measured rather than empty, and is dropped. The
 covered share of a structure is the share of its CCF voxels in sampled units: a
-structure measured only in a thin layer is flagged by it, not dropped.
+structure measured only in a thin layer is flagged by it, not dropped. Most
+structures outside the cortex were sampled in one section, so the agreement of the
+two hemispheres, the only check of reliability one mouse allows, says nothing about
+how a structure varies from section to section.
 
 Run by run_synaptome.py.
 """
@@ -611,38 +622,55 @@ def weighted(values: pd.Series, weights: pd.Series) -> float:
     return float((values * w).sum() / w.sum())
 
 
-def unit_weights(unit_ids: list[int], voxels: dict[int, int]) -> tuple[pd.Series, str]:
+def unit_weights(
+    unit_ids: list[int], voxels: dict[int, int], parent: dict[int, int]
+) -> tuple[pd.Series, str]:
     """The weight of each sampled unit of a structure, and 'voxels' or 'equal'.
 
-    Units weigh by their CCF voxels; when one of them is not drawn in the annotation
-    its voxels are unknown, and every unit of the structure weighs alike.
+    Units weigh by their CCF voxels. A unit that holds other sampled units (PAG,
+    sampled whole and in its nucleus ND) weighs only the voxels outside them, so no
+    voxel counts twice. When one of the units is not drawn in the annotation its
+    voxels are unknown, and every unit of the structure weighs alike.
     """
-    w = pd.Series({u: float(voxels.get(u, 0)) for u in unit_ids})
-    if (w == 0).any():
-        return pd.Series(1.0, index=w.index), "equal"
-    return w, "voxels"
+    own = {u: float(voxels.get(u, 0)) for u in unit_ids}
+    if any(v == 0 for v in own.values()):
+        return pd.Series(1.0, index=unit_ids), "equal"
+    weights = {}
+    for u in unit_ids:
+        inside = [v for v in unit_ids if v != u and u in ancestors(v, parent)]
+
+        # only the outermost of them, so a unit nested twice is taken out once
+        outermost = [
+            v for v in inside if not any(x in inside for x in ancestors(v, parent)[1:])
+        ]
+        weights[u] = max(own[u] - sum(own[v] for v in outermost), 0.0)
+    return pd.Series(weights), "voxels"
 
 
-def structure_density(samples: pd.DataFrame, voxels: dict[int, int]) -> pd.DataFrame:
+def structure_density(
+    samples: pd.DataFrame, voxels: dict[int, int], parent: dict[int, int]
+) -> pd.DataFrame:
     """Per structure with a sampled unit: its units, weights, coverage and densities.
 
     A unit's density is the mean of its samples; a structure's, the weighted mean of
-    its units (unit_weights). psd95_left and psd95_right are the same from one
-    hemisphere's samples alone. covered_share is the share of the structure's voxels
-    in sampled units (1 when the structure itself was sampled; NaN with equal weights,
-    when a unit's voxels are unknown). Indexed by structure name.
+    its units (unit_weights; `parent` is the ontology's, {id: parent id}).
+    psd95_left and psd95_right are the same from one hemisphere's samples alone.
+    covered_share is the share of the structure's voxels in sampled units (1 when
+    the structure itself was sampled; NaN with equal weights, when a unit's voxels
+    are unknown, so a structure measured in some of its parts only is not flagged
+    there). Indexed by structure name.
     """
     used = samples[samples["used"]]
     rows = []
     for (sid, structure), part in used.groupby(["structure_id", "structure"]):
         units = part.groupby("unit_id")
-        weights, how = unit_weights(list(units.groups), voxels)
+        weights, how = unit_weights(list(units.groups), voxels, parent)
         if how == "equal":
             covered = np.nan
         elif sid in weights.index:
             covered = 1.0
         else:
-            covered = min(1.0, weights.sum() / voxels[sid])
+            covered = weights.sum() / voxels[sid]
         row = dict(
             structure=structure,
             n_samples=len(part),
@@ -809,16 +837,8 @@ def hemisphere_agreement(
     return len(both), float(spearmanr(both["psd95_left"], both["psd95_right"]).statistic)
 
 
-def numbers_table(
-    samples: pd.DataFrame,
-    density: pd.DataFrame,
-    agreement: pd.DataFrame,
-    hemispheres: tuple[int, float],
-) -> pd.DataFrame:
-    """numbers_synaptome.csv: the numbers of this step that the text quotes."""
-    fit = density[density["in_fit"]]
-    declared = density[density["in_set"]]
-    n_fit = int(fit["measured"].sum())
+def sample_numbers(samples: pd.DataFrame, density: pd.DataFrame) -> list[tuple]:
+    """The numbers of the samples: how many, how many placed, and why the rest not."""
     rows = [
         (
             "samples",
@@ -845,7 +865,16 @@ def numbers_table(
         ("no_structure", REASON_NO_STRUCTURE),
     ):
         rows.append((f"samples_{key}", int((kinds == kind).sum()), f"left out: {kind}"))
-    rows += [
+    return rows
+
+
+def coverage_numbers(density: pd.DataFrame) -> list[tuple]:
+    """The numbers of the coverage: of the declared set and of the fit, the rule, how
+    the measured structures of the fit are measured, and the divisions missing."""
+    fit = density[density["in_fit"]]
+    declared = density[density["in_set"]]
+    n_fit = int(fit["measured"].sum())
+    rows = [
         ("declared", len(declared), "structures of the declared set"),
         (
             "declared_measured",
@@ -879,11 +908,10 @@ def numbers_table(
             int((fit["weighting"] == "equal").sum()),
             "of them, with units weighted alike (a unit not drawn in the CCF)",
         ),
-        ("hemispheres_n", hemispheres[0], "structures sampled in both hemispheres (fit)"),
         (
-            "hemispheres_rho",
-            round(hemispheres[1], 4),
-            "psd95, left against right hemisphere (fit)",
+            "fit_measured_two_samples",
+            int((fit["n_samples"] <= 2).sum()),
+            "of them, measured in at most two samples",
         ),
     ]
     missing = fit[~fit["measured"]]["division"].value_counts()
@@ -895,6 +923,25 @@ def numbers_table(
                 f"structures of the fit in {division} missing",
             )
         )
+    return rows
+
+
+def numbers_table(
+    samples: pd.DataFrame,
+    density: pd.DataFrame,
+    agreement: pd.DataFrame,
+    hemispheres: tuple[int, float],
+) -> pd.DataFrame:
+    """numbers_synaptome.csv: the numbers of this step that the text quotes."""
+    rows = sample_numbers(samples, density) + coverage_numbers(density)
+    rows += [
+        ("hemispheres_n", hemispheres[0], "structures sampled in both hemispheres (fit)"),
+        (
+            "hemispheres_rho",
+            round(hemispheres[1], 4),
+            "psd95, left against right hemisphere (fit)",
+        ),
+    ]
     psd95 = agreement[agreement["density"] == MEASURE]
     for r in psd95.itertuples():
         rows.append(

@@ -210,7 +210,7 @@ def test_a_sample_not_measured_is_dropped_even_with_an_id():
 def placed(rows, voxels):
     """Per-structure densities of samples (name, hemisphere, id, acronym, psd95)."""
     out = sy.match_samples(samples(rows), ONTOLOGY, STRUCTURES)
-    return sy.structure_density(out, voxels)
+    return sy.structure_density(out, voxels, PARENT)
 
 
 def test_units_are_weighted_by_their_voxels():
@@ -244,11 +244,19 @@ def test_a_partly_sampled_structure_reports_its_covered_share():
     assert table.loc["A", "covered_share"] == pytest.approx(0.75)
 
 
+def test_a_unit_holding_another_sampled_unit_weighs_only_the_rest():
+    """A (4 voxels) sampled whole at 1 and its layer A1 (3) at 0: A is 0.25, not 3/7."""
+    rows = [("a", "left", 10.0, "A", 1.0), ("a1", "left", 11.0, "A1", 0.0)]
+    table = placed(rows, {10: 4, 11: 3, 12: 1})
+    assert table.loc["A", "psd95"] == pytest.approx(0.25)
+    assert table.loc["A", "covered_share"] == pytest.approx(1.0)
+
+
 def test_a_structure_under_a_sampled_region_stays_missing_with_its_reason():
     """C is never filled from P; the table says only a region above it was sampled."""
     rows = [("p", "left", 30.0, "P", 0.9), ("b", "left", 20.0, "B", 0.3)]
     out = sy.match_samples(samples(rows), ONTOLOGY, STRUCTURES)
-    per_structure = sy.structure_density(out, {20: 5, 30: 9})
+    per_structure = sy.structure_density(out, {20: 5, 30: 9}, PARENT)
     set_table = pd.DataFrame(
         dict(
             structure=["B", "C"],
