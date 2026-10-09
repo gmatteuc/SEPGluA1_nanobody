@@ -1,30 +1,22 @@
-"""The regression of analysis 4 shown as a regression: map, prediction, leftover.
+"""The regression of analysis 4 structure by structure: map, prediction, leftover.
 
 adult.beyond_density reports the model's summary numbers (R2, replication) and
-adult.beyond_controls its controls; this module writes the fit itself, for three
-views of it (drawn by adult.plotting):
-
-    1  the map against the prediction, one dot per structure, with the identity
-       line. A good model puts the cloud on that line; the spread away from it is
-       the leftover, drawn rather than summarised.
-    2  the leftover against the prediction, the standard diagnostic. A tilt or a
-       fan here would mean the model is mis-specified rather than incomplete.
-    3  the same three quantities painted back onto the brain (map, prediction and
-       leftover), because the leftover is a spatial claim.
+adult.beyond_controls its controls; this module writes the fit itself, one row per
+structure, which guided figure 04 (adult.beyond_figures) paints back onto the brain,
+because the leftover is a spatial claim, and which the overview reads. It also prints
+the standard diagnostic, the leftover against the prediction: a tilt or a fan there
+would mean the model is mis-specified rather than incomplete.
 
 What is regressed on what is the main model of adult.beyond_density, which has the
 predictors and the reasons: the ten adults' mean zref per structure, ranked, on the
 ranks of Gria1 and of synapse density (the mean rank of the density genes), two
 straight terms.
 
-Guided figure 04 (adult.beyond_figures) draws its maps from regression_table.csv.
-
 Writes, in adult_v2/ish_analysis/beyond/ under the data root:
 
     regression_table.csv    every structure: map, prediction, leftover (ranks)
 
-Run by run_beyond_regression.py, which draws the working figures E_regression.png
-(the fit and its diagnostic) and F_maps.png (the three maps on the brain).
+Run by run_beyond_regression.py.
 """
 
 import numpy as np
@@ -45,8 +37,8 @@ from sepmap.config import SETTINGS
 from sepmap.volumes.per_mouse import annotation_20, structure_terms
 from sepmap.volumes.to_ccf import CCF_CROP
 
-# the coronal planes drawn, the floor of the colour scale (settings.toml says why), and
-# the p at which the residuals' tilt or fan calls the model mis-specified
+# the coronal planes figure 04 draws, and the p at which the residuals' tilt or fan
+# calls the model mis-specified
 BEYOND_REGRESSION = SETTINGS["beyond_regression"]
 
 # the planes as a tuple, in 20 um planes of the cropped CCF grid
@@ -120,13 +112,8 @@ def load_regression() -> pd.DataFrame:
     return pd.read_csv(REGRESSION, keep_default_na=False, na_values=[""])
 
 
-def main() -> dict:
-    """Fit the main model, write the table, and print the diagnostic.
-
-    Returns what the working figures draw: the map, the prediction and the leftover
-    (ranks), the structures, the R2 fitted and held out, and whether the diagnostic
-    calls the model mis-specified.
-    """
+def main() -> None:
+    """Fit the main model, write the table, and print the diagnostic."""
     OUT.mkdir(parents=True, exist_ok=True)
     inputs = load_inputs()
     structures = inputs.structures
@@ -143,23 +130,17 @@ def main() -> dict:
         f"map against prediction rho {spearmanr(observed, predicted).statistic:.3f}"
     )
     tilt, p_tilt, fan, p_fan = diagnostic(predicted, leftover)
-    misspecified = min(p_tilt, p_fan) < BEYOND_REGRESSION["diagnostic_p"]
+    p_max = BEYOND_REGRESSION["diagnostic_p"]
+    if min(p_tilt, p_fan) < p_max:
+        verdict = f"a tilt or a fan at p < {p_max:g}: the model may be mis-specified"
+    else:
+        verdict = "no tilt and no fan: the model is incomplete, not mis-specified"
     print(
         f"  residual spread {leftover.std():.1f} ranks; "
         f"residual against predicted rho {tilt:+.3f} (p {p_tilt:.2g}), "
-        f"|residual| against predicted rho {fan:+.3f} (p {p_fan:.2g}) "
-        "(both near 0 when the model is not mis-specified)"
+        f"|residual| against predicted rho {fan:+.3f} (p {p_fan:.2g}); {verdict}"
     )
     regression_table(
         structures, inputs.acronym, inputs.division, observed, predicted, leftover
     ).to_csv(REGRESSION, index=False)
     print(f"  -> {REGRESSION}")
-    return dict(
-        observed=observed,
-        predicted=predicted,
-        leftover=leftover,
-        structures=structures,
-        fitted=fitted,
-        cv=cv,
-        misspecified=misspecified,
-    )

@@ -62,8 +62,7 @@ Writes, in adult_v2/ish_analysis/beyond/ under the data root:
     folds.csv               the main model under its own folds and others: the
                             shares and the share left
 
-Run by run_beyond_controls.py, which draws the working figures fig4 (A to D),
-fig5 (E and F) and fig6 (G).
+Run by run_beyond_controls.py.
 """
 
 from collections.abc import Sequence
@@ -233,13 +232,8 @@ def control_b_size(leftover: np.ndarray, sizes: np.ndarray) -> dict[str, str]:
     )
 
 
-def control_c_mice(
-    nano: np.ndarray, columns: list[np.ndarray]
-) -> tuple[dict[str, str], list[float]]:
-    """Control C: whether the leftover is carried by one or two animals.
-
-    Returns the verdict row and the agreement of every pair of adults.
-    """
+def control_c_mice(nano: np.ndarray, columns: list[np.ndarray]) -> dict[str, str]:
+    """Control C: whether one or two animals carry the leftover; its verdict row."""
     print("\nC  is it one or two animals?")
     per = per_adult_leftovers(nano, columns)
     pairs = adult_pair_agreements(per)
@@ -269,23 +263,15 @@ def control_c_mice(
     else:
         verdict = "one animal may be carrying it: look closer"
     print("   verdict: " + verdict)
-    return (
-        dict(
-            control="C single animals",
-            number=f"pairwise median {np.median(pairs):+.3f}, min {min(pairs):+.3f}",
-            verdict="pass" if passed else "does not pass",
-        ),
-        pairs,
+    return dict(
+        control="C single animals",
+        number=f"pairwise median {np.median(pairs):+.3f}, min {min(pairs):+.3f}",
+        verdict="pass" if passed else "does not pass",
     )
 
 
-def control_d_groups(
-    nano: np.ndarray, columns: list[np.ndarray]
-) -> tuple[dict[str, str], np.ndarray, np.ndarray]:
-    """Control D: whether the leftover is the whisker manipulation, not the anatomy.
-
-    Returns the verdict row and the leftovers of the naive and the RWS group.
-    """
+def control_d_groups(nano: np.ndarray, columns: list[np.ndarray]) -> dict[str, str]:
+    """Control D: whether the leftover is the whisker manipulation; its verdict row."""
     print("\nD  is it the whisker manipulation? (naive and RWS are pooled)")
     naive, rws = group_leftovers(nano, columns)
     rho = spearmanr(naive, rws).statistic
@@ -296,14 +282,10 @@ def control_d_groups(
     else:
         verdict = "the groups disagree: pooling is hiding something"
     print("   verdict: " + verdict)
-    return (
-        dict(
-            control="D naive vs RWS",
-            number=f"rho {rho:+.3f}",
-            verdict="pass" if passed else "does not pass",
-        ),
-        naive,
-        rws,
+    return dict(
+        control="D naive vs RWS",
+        number=f"rho {rho:+.3f}",
+        verdict="pass" if passed else "does not pass",
     )
 
 
@@ -321,15 +303,14 @@ def curvature_scores(
 
 def control_e_curvature(
     y: np.ndarray, covariates: dict[str, np.ndarray], terms: dict[str, tuple[str, ...]]
-) -> tuple[dict[str, str], float, float, float]:
+) -> dict[str, str]:
     """Control E: whether the straight model misses curvature.
 
     The main model's predictors (`terms`) straight (the model), to cubes (the check
     row curved) and to fifth powers, each scored on held-out structures. If the
     cubes buy prediction, part of the leftover is curvature the straight model
     misses, and the curved row is the bound to read beside it; if fifth powers buy
-    more still, even that row is not bent enough. Returns the verdict row and the
-    three CV R2.
+    more still, even that row is not bent enough. Returns the verdict row.
     """
     print("\nE  does the straight model miss curvature?")
     linear, cubic, quintic = curvature_scores(y, covariates, terms)
@@ -351,16 +332,10 @@ def control_e_curvature(
             "enough"
         )
     print("   verdict: " + verdict)
-    return (
-        dict(
-            control="E curvature",
-            number=f"CV R2 {linear:.3f} straight, {cubic:.3f} cubic, "
-            f"{quintic:.3f} quintic",
-            verdict="pass" if passed else "does not pass",
-        ),
-        linear,
-        cubic,
-        quintic,
+    return dict(
+        control="E curvature",
+        number=f"CV R2 {linear:.3f} straight, {cubic:.3f} cubic, {quintic:.3f} quintic",
+        verdict="pass" if passed else "does not pass",
     )
 
 
@@ -780,14 +755,8 @@ def write_verdicts(verdicts: list[dict[str, str]]) -> None:
     print("verdict: " + verdict)
 
 
-def main() -> dict:
-    """Run the seven controls and the other folds, and write their tables.
-
-    Returns what the working figures draw: the leftover, the centroids and sizes of
-    the structures, every pair of adults' agreement, the two groups' leftovers,
-    each control's verdict, control F's curve and pick, the ceiling, the held-out
-    R2 straight, curved and to fifth powers, and control G's readings.
-    """
+def main() -> None:
+    """Run the seven controls and the other folds, and write their tables."""
     OUT.mkdir(parents=True, exist_ok=True)
     inputs = load_inputs()
     s = inputs.structures
@@ -811,9 +780,9 @@ def main() -> dict:
         control_a_space(leftover, inputs.nano, columns, xyz, splits),
         control_b_size(leftover, sizes),
     ]
-    vc, pairs = control_c_mice(inputs.nano, columns)
-    vd, naive, rws = control_d_groups(inputs.nano, columns)
-    ve, linear, cubic, quintic = control_e_curvature(y, covariates, inputs.terms)
+    vc = control_c_mice(inputs.nano, columns)
+    vd = control_d_groups(inputs.nano, columns)
+    ve = control_e_curvature(y, covariates, inputs.terms)
     vf, curve, f_calibration, f_summary = control_f_gene_space(
         inputs, y, explainable, splits
     )
@@ -835,19 +804,3 @@ def main() -> dict:
             f"   {r.folds[:50]:52s} Gria1 {r.abundance:6.1%}, density "
             f"{r.density_alone:6.1%}, both {r.model:6.1%}, left {r.left:6.1%}{spread}"
         )
-    return dict(
-        leftover=leftover,
-        xyz=xyz,
-        sizes=sizes,
-        pairs=pairs,
-        naive=naive,
-        rws=rws,
-        passed={v["control"][0]: v["verdict"] == "pass" for v in verdicts},
-        curve=curve,
-        k_most=f_summary["k_most"],
-        explainable=explainable,
-        linear=linear,
-        cubic=cubic,
-        quintic=quintic,
-        readings=readings,
-    )

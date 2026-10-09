@@ -300,11 +300,11 @@ story and every number: [ISH_ANALYSIS.md](ISH_ANALYSIS.md).
 | `genes\<gene>.png` | `run_ish_divisions.py --sheets` | Cacng8, Gria1, Grm5, Dlg2 and Aqp4: rank maps, the scatter with a fitted line per division |
 | `top_genes\<gene>.png` | `run_ish_top_genes.py --sheets` | every gene of figures 07 and 11s2: its map on plane 700, against the map and the leftover, what it takes of the leftover against both nulls, its rho with each term, its numbers and GO terms; PNG only |
 
-Working figures beside the tables, at 200 dpi, for checking a step rather than
-for a reader: `beyond\fig0_structures` to `fig6_readings`, `E_regression`,
-`F_maps` (steps 23, 24 and 26) and `green_channel\sep_channel_check.png`
-(step 29). The run scripts of those steps draw them with the functions of
-`mapping/sepmap/adult/plotting.py`.
+One working figure beside its table, at 200 dpi, for checking the step rather
+than for a reader: `green_channel\sep_channel_check.png` (step 29), drawn by
+`mapping/sepmap/adult/plotting.py`. Part 1's working figures (`beyond\fig0` to
+`fig6`, `E_regression`, `F_maps`) are retired: figures 03, 03s1, 03s2 and 04 show
+their numbers, and their code is in `archive/beyond_working_figures.py`.
 
 **Inputs.** The per-brain files and `region_means_per_mouse.csv` of the route's
 steps 1 to 5 (the stored `cref`, `zref` and `ratio` rows), the ontology panel

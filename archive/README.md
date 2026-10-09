@@ -15,6 +15,7 @@ keeps every file, so deleting one loses nothing.
 | `extractAxioscanImages.m` | an image extractor that came with BioformatsImage, not called | `preprocessing/run_extract_and_center` | with the rest of the folder |
 | `adult_arms.py`, `run_adult_arms.py` (were `mapping/sepmap/adult/arms.py` and `mapping/run_adult_arms.py`) | the three channel ratios per adult and structure (nano/autofluorescence, nano/SEP, SEP/autofluorescence), written to `<data>\adult_v2\arms\region_means_arms.csv`, the input of the tests below | nothing: the green channel is mostly autofluorescence, so the ratios with SEP have no premise; what the channels show is `mapping/sepmap/adult/sep_channel_check.py` (figure 15 of the ISH line) | now; retired on 9 October 2026 |
 | `ish_arms.py`, `run_ish_arms.py` (were `mapping/sepmap/ish/arms.py` and `mapping/run_ish_arms.py`) | the channel ratios against the genes, the test of surface against total receptor, and `arms_vs_genes.png` | nothing, for the same reason (decision 5 of [history/ISH_DISCUSSION.md](../docs/history/ISH_DISCUSSION.md)); a total-GluA1 stain would answer the question | now; retired on 9 October 2026 |
+| `beyond_working_figures.py` (were functions of `mapping/sepmap/adult/plotting.py`) | the working figures of part 1's steps 23, 24 and 26, PNG beside the tables of `adult_v2\ish_analysis\beyond\`: `fig0_structures` to `fig3_residual` (the structures of the fit, the ceiling, what each model predicts, the leftover), `fig4_controls` to `fig6_readings` (controls A to G), `E_regression` and `F_maps` (the fit, its diagnostic, the three maps on the brain) | the guided figures 03, 03s1, 03s2 and 04, and the steps' printouts | now; retired on 9 October 2026 |
 
 The rest of the folder goes once Giulio has checked the Python route against
 the old code, run from the tag `refactor-start` in a check tree of its own
@@ -37,6 +38,9 @@ Deleted on 5 October, and still at the tag `refactor-start`:
   creates that folder as soon as it is imported.
 - `extractAxioscanImages.m` writes an `extracted_cy3\` folder next to the
   `.czi` files it reads: run on a raw folder, it writes beside the raw data.
+- `beyond_working_figures.py` draws from what the steps' `main()` returned
+  before it was retired (commit `2fcca64`); the run scripts no longer call it,
+  and the steps no longer return its inputs, so it draws only from that commit.
 - The two arms run scripts import `sepmap.adult.arms` and `sepmap.ish.arms`,
   which are no longer in the package, so they fail at once; restored, the four
   files would overwrite `<data>\adult_v2\arms\`, the frozen run of 5 October.

@@ -58,69 +58,28 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     30. run_ish_overview       figures 00, 15 and 15s, the figure
                                index; the numbers for the text
 
-The fit of run_beyond_density drawn as a fit: the map against the prediction,
-the residual diagnostic, and the three maps on the brain; the method is in
-sepmap/adult/beyond_regression.py. Writes, in adult_v2/ish_analysis/beyond/ under
-the data root:
+The fit of run_beyond_density structure by structure, and the residual
+diagnostic; the method is in sepmap/adult/beyond_regression.py. Writes, in
+adult_v2/ish_analysis/beyond/ under the data root:
 
     regression_table.csv    every structure: map, prediction, leftover (ranks)
-    E_regression.png        working figures: the fit and its diagnostic, and the
-    F_maps.png              three maps on the brain
 
     python run_beyond_regression.py
 """
 
 import argparse
 
-import matplotlib
-import matplotlib.pyplot as plt
-
-from sepmap import config, plotting
+from sepmap import config
 from sepmap.adult import beyond_regression
-from sepmap.adult import plotting as adult_plotting
-
-# the p at which the diagnostic calls the model mis-specified, and the floor of the
-# rank maps' colour scale
-BEYOND_REGRESSION = config.SETTINGS["beyond_regression"]
 
 
 def main():
-    """Print the settings in force, fit the main model, draw the fit and its maps."""
+    """Print the settings in force, then fit the main model and write its table."""
     config.print_settings({})
-    found = beyond_regression.main()
-
-    # the working figures: the fit and its diagnostic, the three maps on the brain
-    out = beyond_regression.OUT
-    fig = adult_plotting.plot_regression(
-        found["observed"],
-        found["predicted"],
-        found["leftover"],
-        found["structures"],
-        found["fitted"],
-        found["cv"],
-        found["misspecified"],
-        BEYOND_REGRESSION["diagnostic_p"],
-        save=out / "E_regression.png",
-    )
-    plt.close(fig)
-    fig = adult_plotting.plot_regression_maps(
-        beyond_regression.coronal_planes(),
-        found["observed"],
-        found["predicted"],
-        found["leftover"],
-        found["structures"],
-        BEYOND_REGRESSION["rank_floor"],
-        save=out / "F_maps.png",
-    )
-    plt.close(fig)
-    print(f"working figures: E_regression.png, F_maps.png in {out}")
+    beyond_regression.main()
 
 
 if __name__ == "__main__":
-    # figures go to files, never to a window
-    matplotlib.use("Agg")
-    plotting.set_style()
-
     # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(description="the regression of analysis 4")
     parser.parse_args()

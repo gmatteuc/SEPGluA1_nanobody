@@ -80,64 +80,23 @@ Writes, in adult_v2/ish_analysis/beyond/ under the data root:
     leftover_genes.csv         every gene against the leftover, with its spatial p
     leftover_sets.csv          the gene sets of analysis 3 against the leftover
     leftover_null.npz          the leftover's surrogates, every gene's null rho
-    fig0_structures.png        working figures: the structures of the fit, the
-    fig1_ceiling.png           ceiling, what each model predicts, the leftover's
-    fig2_covariates.png        replication and where it is largest
-    fig3_residual.png
 
     python run_beyond_density.py
 """
 
 import argparse
 
-import matplotlib
-import matplotlib.pyplot as plt
-import numpy as np
-
-from sepmap import config, plotting
+from sepmap import config
 from sepmap.adult import beyond_density
-from sepmap.adult import plotting as adult_plotting
 
 
 def main():
-    """Print the settings in force, run the steps of analysis 4, draw them."""
+    """Print the settings in force, then run the steps of analysis 4."""
     config.print_settings({})
-    found = beyond_density.main()
-
-    # the working figures, one per step
-    out = beyond_density.OUT
-    reproducible = beyond_density.replicates(float(np.mean(found["map_agreement"])))
-    figures = [
-        adult_plotting.plot_structures_used(
-            found["structures_used"], save=out / "fig0_structures.png"
-        ),
-        adult_plotting.plot_ceiling(
-            found["map_agreement"],
-            found["explainable"],
-            reproducible,
-            save=out / "fig1_ceiling.png",
-        ),
-        adult_plotting.plot_covariates(
-            found["partition"], found["explainable"], save=out / "fig2_covariates.png"
-        ),
-        adult_plotting.plot_residual(
-            found["map_agreement"],
-            found["agreement"],
-            found["implied"],
-            found["residuals"],
-            save=out / "fig3_residual.png",
-        ),
-    ]
-    for fig in figures:
-        plt.close(fig)
-    print(f"\nworking figures: fig0_structures.png to fig3_residual.png in {out}")
+    beyond_density.main()
 
 
 if __name__ == "__main__":
-    # figures go to files, never to a window
-    matplotlib.use("Agg")
-    plotting.set_style()
-
     # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(
         description="analysis 4: what Gria1 and synapse density leave"

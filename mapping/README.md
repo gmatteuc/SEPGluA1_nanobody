@@ -32,7 +32,7 @@ mapping/
                         beyond_density, beyond_controls, beyond_calibration,
                         beyond_regression, beyond_figures, sep_channel_check;
                         plotting (their figures, the guided ones of part 1 and
-                        analysis 5 and the working ones)
+                        analysis 5, and the green channel's working one)
     ish/                panel_build, panel_fetch, regions, reliability (the inputs,
                         regions and reliability used by gene_table; their run
                         scripts belong to the run of 5 October);
@@ -181,8 +181,8 @@ Under `<data>\adult_v2\`:
   30, the surrogates, `numbers_<step>.csv` and `numbers_for_the_text.csv`),
   `synaptome\` (the measured synapse density per sample and per structure,
   its coverage and agreement), `density_markers\` (the pool, the exclusions,
-  the agreement with PSD95, the random halves), `beyond\` (part 1's tables
-  and working figures), `green_channel\`, `figures\` (the guided figures
+  the agreement with PSD95, the random halves), `beyond\` (part 1's tables),
+  `green_channel\`, `figures\` (the guided figures
   `00_overview.png` to `15_april_headline.png`, each main figure with its
   detailed versions, `03s1_beyond_budget.png` and so on, the index `README.md`,
   `qc\`, `genes\` and `top_genes\`), `cache\` (Allen

@@ -472,8 +472,8 @@ def fit_all(matrix, return_flags=False):
   analysis are in `mapping/sepmap/ish/plotting/`, a module per part (the
   inputs, each gene against the map with its checks, divisions and gene sets,
   the genes against the leftover, the overview), those of the adult map (part
-  1 of the ISH line, the green channel and the working figures of steps 22 to
-  25) in `mapping/sepmap/adult/plotting.py`.
+  1 of the ISH line, the green channel and its working figure) in
+  `mapping/sepmap/adult/plotting.py`.
 - The save function closes the figure after `fig.savefig(save, dpi=150,
   bbox_inches="tight")`; new figures use its dpi, existing ones keep theirs.
   The route's `plotting.save_figure(fig, path, dpi)` writes the PNG and, by

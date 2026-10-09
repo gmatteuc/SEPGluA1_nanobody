@@ -131,7 +131,7 @@ Writes, in adult_v2/ish_analysis/beyond/ under the data root:
     leftover_sets.csv          the gene sets of analysis 3 against the leftover
     leftover_null.npz          the leftover's surrogates and every gene's rho with them
 
-Run by run_beyond_density.py, which draws the working figures fig0 to fig3.
+Run by run_beyond_density.py.
 """
 
 import dataclasses
@@ -976,10 +976,10 @@ def step2_partition(
     covariates: dict[str, np.ndarray],
     terms: dict[str, tuple[str, ...]],
     explainable: float,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """What Gria1 and synapse density predict, the partition and the weights.
+) -> None:
+    """Write what Gria1 and synapse density predict, the partition and the weights.
 
-    Returns variance_partition.csv's, partition.csv's and weights.csv's tables.
+    variance_partition.csv, partition.csv and weights.csv.
     """
     print("\nstep 2  what Gria1 and synapse density predict")
     print("  each predictor on its own (Spearman with the map):")
@@ -1000,13 +1000,12 @@ def step2_partition(
         "  the reproducible map: "
         + ", ".join(f"{r.part} {r.share:+.1%}" for r in parts.itertuples())
     )
-    found = weights_table(y, covariates, terms)
-    found.to_csv(WEIGHTS, index=False)
+    weights = weights_table(y, covariates, terms)
+    weights.to_csv(WEIGHTS, index=False)
     print(
         "  the weights (z-scored): "
-        + ", ".join(f"{r.term} {r.weight:+.3f}" for r in found.itertuples())
+        + ", ".join(f"{r.term} {r.weight:+.3f}" for r in weights.itertuples())
     )
-    return table, parts, found
 
 
 def replication_table(
@@ -1030,7 +1029,7 @@ def step3_replication(
     columns: list[np.ndarray],
     splits: list[tuple[list[int], list[int]]],
     map_agreement: list[float],
-) -> tuple[list[float], float]:
+) -> None:
     """Whether the leftover replicates across mice, and what that is worth."""
     print("\nstep 3  does the leftover replicate across mice?")
     agreement = leftover_agreement(nano, columns, splits)
@@ -1046,7 +1045,6 @@ def step3_replication(
         f"  the map's reliability and the fit alone imply {implied:.3f}: a leftover "
         "replicating near that carries no extra evidence"
     )
-    return agreement, implied
 
 
 def same_sign_share(
@@ -1243,11 +1241,8 @@ def step4_where(
     inputs: Inputs,
     columns: list[np.ndarray],
     splits: list[tuple[list[int], list[int]]],
-) -> pd.DataFrame:
-    """Which structures carry the leftover, how steadily, and which genes follow it.
-
-    Returns residual_by_structure.csv's table.
-    """
+) -> None:
+    """Which structures carry the leftover, how steadily, and which genes follow it."""
     print("\nstep 4  where the leftover lives")
     y = full_map(inputs.nano)
     leftover = residual(y, columns)
@@ -1310,17 +1305,10 @@ def step4_where(
             f"    set {r.gene_set:20s} {r.n_genes:3d} genes, "
             f"median {r.median_rho:+.3f}, {p}"
         )
-    return table
 
 
-def main() -> dict:
-    """Run the five steps on the ten adults and write their tables.
-
-    Returns what the working figures draw: the structures used, each split's
-    agreement of the two half-maps and of their leftovers, the ceiling, the
-    replication the ceiling and the fit imply, the partition, and the leftover by
-    structure.
-    """
+def main() -> None:
+    """Run the five steps on the ten adults and write their tables."""
     OUT.mkdir(parents=True, exist_ok=True)
     inputs = load_inputs()
     step0_structures(inputs)
@@ -1331,17 +1319,7 @@ def main() -> dict:
     map_agreement, explainable = step1_ceiling(inputs.nano, splits)
     covariates, _, _ = covariates_for(inputs)
     y = full_map(inputs.nano)
-    table, parts, _ = step2_partition(y, covariates, inputs.terms, explainable)
+    step2_partition(y, covariates, inputs.terms, explainable)
     columns = model_columns(covariates, inputs.terms)
-    agreement, implied = step3_replication(inputs.nano, columns, splits, map_agreement)
-    residuals = step4_where(inputs, columns, splits)
-    return dict(
-        structures_used=inputs.structures_used,
-        map_agreement=map_agreement,
-        explainable=explainable,
-        partition=table,
-        parts=parts,
-        agreement=agreement,
-        implied=implied,
-        residuals=residuals,
-    )
+    step3_replication(inputs.nano, columns, splits, map_agreement)
+    step4_where(inputs, columns, splits)

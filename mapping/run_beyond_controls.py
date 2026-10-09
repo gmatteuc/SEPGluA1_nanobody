@@ -71,64 +71,23 @@ adult_v2/ish_analysis/beyond/ under the data root:
     readings.csv            control G, per reading
     folds.csv               the main model under its folds and others: the
                             shares of Gria1, density and both, the share left
-    fig4_controls.png       working figures: controls A to D, E and F, and G
-    fig5_model_space.png
-    fig6_readings.png
 
     python run_beyond_controls.py
 """
 
 import argparse
 
-import matplotlib
-import matplotlib.pyplot as plt
-
-from sepmap import config, plotting
+from sepmap import config
 from sepmap.adult import beyond_controls
-from sepmap.adult import plotting as adult_plotting
 
 
 def main():
-    """Print the settings in force, run the seven controls and the other folds, draw."""
+    """Print the settings in force, then run the seven controls and the other folds."""
     config.print_settings({})
-    found = beyond_controls.main()
-
-    # the working figures: A to D, E and F, G
-    out = beyond_controls.OUT
-    passed = found["passed"]
-    figures = [
-        adult_plotting.plot_artefacts(
-            found["leftover"],
-            found["xyz"],
-            found["sizes"],
-            found["pairs"],
-            found["naive"],
-            found["rws"],
-            passed,
-            save=out / "fig4_controls.png",
-        ),
-        adult_plotting.plot_model_space(
-            found["curve"],
-            found["k_most"],
-            found["explainable"],
-            (found["linear"], found["cubic"], found["quintic"]),
-            passed,
-            save=out / "fig5_model_space.png",
-        ),
-        adult_plotting.plot_readings(
-            found["readings"], passed["G"], save=out / "fig6_readings.png"
-        ),
-    ]
-    for fig in figures:
-        plt.close(fig)
-    print(f"\nworking figures: fig4_controls.png to fig6_readings.png in {out}")
+    beyond_controls.main()
 
 
 if __name__ == "__main__":
-    # figures go to files, never to a window
-    matplotlib.use("Agg")
-    plotting.set_style()
-
     # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(
         description="seven controls of analysis 4, and its other folds"

@@ -188,7 +188,7 @@ psd95_subtypes = [[1, 11], [19, 37]]  # Zhu 2018's subtypes whose puncta carry P
 sap102_subtypes = [[12, 37]]  # the subtypes whose puncta carry SAP102: 12-18 SAP102 alone, 19-37 with PSD95 (the densities sap102 and all_puncta of the synaptome's tables), taken the same way
 cv_repeats = 20            # shufflings of the structures into five folds, the held-out R2 averaged over them: one shuffling alone moves the leftover by several points (the single shufflings of folds.csv), so it is not quoted; the mean of 20 is steady to about half a point
 cv_blocks = 20             # spatial blocks: k-means clusters of the structures' centroids, about eight structures each, dealt into the five folds of the folds of spatial blocks, and left out one at a time by the jackknife over blocks
-replication = 0.5          # the agreement above which a half-cohort map or leftover is said to replicate in the steps' printouts and working figures (any reproducible map's leftover passes it, so no verdict rests on it)
+replication = 0.5          # the agreement above which a half-cohort map or leftover is said to replicate in the steps' printouts (any reproducible map's leftover passes it, so no verdict rests on it)
 large_voxels = 50          # 200 um voxels of the CCF annotation (0.4 mm3) a structure needs for the check row large: five times what a gene value needs (ish.min_voxels), so registration and the coarse Allen grid blur it less
 grid_min_tissue = 0.5      # share of a 200 um voxel's 20 um voxels that must be tissue for nano on the Allen grid to have a value there (the check row allen_grid): a voxel mostly off the section is its edge, not its structure
 
@@ -243,15 +243,11 @@ t_max_structures = 10.0    # figure 04: a structure's bar is black at this t of 
 leftover_span_pct = 90.0   # figure 04: the leftover's colour scale on the planes runs to this percentile of |leftover|, rounded up to ten ranks, so about a tenth of the structures saturate
 
 [beyond_regression]
-# coronal planes to draw, in 20 um planes of the cropped CCF grid (450 of them; 10 um
-# CCF planes 610, 710 and 810): cortex with hippocampus beneath it and thalamus at the
-# midline, where the residual is largest in both directions
+# coronal planes figure 04 draws, in 20 um planes of the cropped CCF grid (450 of them;
+# 10 um CCF planes 610, 710 and 810): cortex with hippocampus beneath it and thalamus at
+# the midline, where the residual is largest in both directions
 planes = [215, 265, 315]
-# the brain sits on black, because hot ends in white and the brightest structures
-# would vanish into a white page; hot also begins in black, so the rank maps' scale
-# starts below the data and rank 1 lands about a tenth of the way up the colormap
-rank_floor = 0.12
-diagnostic_p = 0.05        # panel E: a tilt or a fan of the residuals against the prediction (Spearman) below this p reads as a mis-specified model
+diagnostic_p = 0.05        # a tilt or a fan of the residuals against the prediction (Spearman) below this p reads as a mis-specified model, in the step's printout
 
 # the genes that follow the map most, characterised, and the tests named for the
 # leftover (ish.top_genes)
