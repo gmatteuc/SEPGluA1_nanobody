@@ -176,7 +176,7 @@ SUBUNITS = tuple(BEYOND["subunits"])
 
 # the genes of each density composite, by the name of its predictor: the main model's
 # (the genes the rule chose) and those of two check rows, the first proposal and the
-# first version's marker panel
+# marker panel
 DENSITY_GENES = tuple(DENSITY_MARKERS["chosen"])
 FIRST_PROPOSAL = tuple(BEYOND["first_proposal"])
 MARKERS = tuple(BEYOND["markers"])
@@ -229,14 +229,16 @@ class Inputs:
 
 def model_terms(
     density: Sequence[str] = ("density",),
-    abundance: Sequence[str] = ABUNDANCE,
+    abundance: Sequence[str] | None = None,
     autofluorescence: bool = False,
 ) -> dict[str, tuple[str, ...]]:
     """A model's predictors by group, named as build_covariates names them.
 
-    Gria1 and the density composite by default, the main model; a check row changes
-    the density or the abundance, or adds autofluorescence.
+    Gria1 (beyond.abundance) and the density composite by default, the main model; a
+    check row changes the density or the abundance, or adds autofluorescence.
     """
+    if abundance is None:
+        abundance = ABUNDANCE
     terms = {"abundance": tuple(abundance), "density": tuple(density)}
     if autofluorescence:
         terms["autofluorescence"] = ("autofluo",)

@@ -14,7 +14,8 @@ sees how much each choice matters:
                       measured in our own brains
     first_proposal    the density genes proposed before the rule (Dlg4, Homer1,
                       Camk2a; the rule excludes Dlg4 and Camk2a as AMPA-receptor-linked)
-    marker_panel      the 11 synaptic marker genes of the first version's density
+    marker_panel      the 11 synaptic marker genes of the marker panel ([beyond]
+                      markers), presynaptic and postsynaptic
     psd_pc1           + the first component of the postsynaptic-density genes of the
                       ontology panel, in the density group: those measured on every
                       structure, and in the calibration those with two halves of
@@ -256,8 +257,8 @@ def load_check_rows() -> pd.DataFrame:
     return table
 
 
-def main() -> pd.DataFrame:
-    """Run every check row with its floor and write the three tables; returns the rows."""
+def main() -> None:
+    """Run every check row with its floor and write the four tables."""
     inputs = beyond_density.load_inputs()
     halves, split = beyond_calibration.half_profiles()
     rows, calibrations, jackknives, in_blocks = [], [], [], []
@@ -292,4 +293,3 @@ def main() -> pd.DataFrame:
         f"  -> {CHECK_ROWS.name}, {CHECK_CALIBRATION.name}, {CHECK_JACKKNIFE.name}, "
         f"{CHECK_JACKKNIFE_BLOCKS.name}"
     )
-    return table

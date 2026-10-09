@@ -2245,7 +2245,7 @@ def plot_leftover_genes(
     t_max: float,
     save: Path | None = None,
 ) -> plt.Figure:
-    """Figure 11s1: does any gene's map, or any gene set, follow the leftover?
+    """Figure 11s1: whether any gene's map, or any gene set, follows the leftover.
 
     `genes` and `sets` are leftover_genes.csv and leftover_sets.csv, `auto` each
     gene's rho with the autofluorescence map; `t_max` the rho over its SD across

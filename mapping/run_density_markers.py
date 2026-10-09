@@ -112,12 +112,11 @@ from sepmap.structures import load_structure_set
 DENSITY_MARKERS = config.SETTINGS["density_markers"]
 
 
-def main(offline):
-    """Print the settings, fetch the annotation, apply the rule, write and draw."""
-    config.print_settings({"offline": offline})
-    density_markers.OUT.mkdir(parents=True, exist_ok=True)
+def fetch_release(offline):
+    """Download what the GO release's files lack, and print each file's version.
 
-    # the GO release's files, downloaded once and checked against their hashes
+    Returns {file: the version its header states}.
+    """
     fetched = density_markers.fetch(offline)
     releases = density_markers.versions()
     print(
@@ -126,20 +125,15 @@ def main(offline):
     )
     for name, version in releases.items():
         print(f"  {name}: {version}")
+    return releases
 
-    # the inputs: the gene table, the declared set and PSD95 density; no nano value
-    genes = gene_table.per_gene(gene_table.load_gene_table())
-    profiles = gene_table.load_profiles()
-    set_table = load_structure_set()
-    declared = sorted(set_table.loc[set_table["in_set"], "structure"])
-    psd95 = synaptome.load_density()[synaptome.MEASURE]
-    measured = [s for s in declared if np.isfinite(psd95.get(s, np.nan))]
-    print(
-        f"inputs: {len(genes)} genes, {len(declared)} declared structures, PSD95 "
-        f"measured in {len(measured)} of them"
-    )
 
-    # the annotation of the genes, and the rule's terms checked against their names
+def read_annotation(genes):
+    """The genes' GO annotation, with the rule's terms checked against their names.
+
+    Returns each gene's GO ids with their evidence, and the ontology's parents and
+    names.
+    """
     annotations, n_not = density_markers.read_gaf(
         density_markers.GAF, set(genes["symbol"])
     )
@@ -153,8 +147,14 @@ def main(offline):
         f"NOT left out; the {len(density_markers.POOL_TERMS)} pool and "
         f"{len(density_markers.EXCLUSION_TERMS)} exclusion terms carry their names"
     )
+    return terms, parents, names
 
-    # the pool, and the genes excluded from it
+
+def pool_genes(genes, profiles, declared, terms, parents, names):
+    """Every gene against the rule, written, and the genes excluded, printed.
+
+    Returns the candidates, the exclusions and the genes of the pool.
+    """
     candidates, excluded = density_markers.candidate_table(
         genes, profiles, declared, terms, parents, names
     )
@@ -174,8 +174,11 @@ def main(offline):
         f"  {len(plastic)} pool genes carry a plasticity term, kept: "
         + " ".join(plastic["symbol"])
     )
+    return candidates, excluded, pool
 
-    # the choice: the pool ranked by agreement with PSD95
+
+def choose(candidates, profiles, psd95, measured):
+    """The pool ranked by agreement with PSD95, written, and the genes chosen."""
     agreement = density_markers.agreement_table(candidates, profiles, psd95, measured)
     agreement.to_csv(density_markers.AGREEMENT, index=False)
     chosen = density_markers.chosen_genes(agreement)
@@ -190,18 +193,26 @@ def main(offline):
             f"  warning: only {len(chosen)} genes in the pool, fewer than the "
             f"{DENSITY_MARKERS['n_markers']} asked; the term takes them all"
         )
+    return agreement, chosen
 
-    # the declared structures the model can run on
+
+def model_structures(set_table, profiles, chosen, psd95):
+    """The declared structures the model can run on, written, and why the others not."""
     structures = density_markers.structure_table(set_table, profiles, chosen, psd95)
     structures.to_csv(density_markers.STRUCTURES, index=False)
     n_model = int(structures["in_model"].sum())
-    print(f"structures: {n_model} of {len(declared)} declared have Gria1 and the genes")
+    print(f"structures: {n_model} of {len(structures)} declared have Gria1 and the genes")
     for reason, part in structures[~structures["in_model"]].groupby("reason"):
         divisions = part["division"].value_counts().to_dict()
         print(f"  {len(part):3d}  {reason}: {divisions}")
+    return structures
 
-    # the choice repeated on random halves, and the composites compared, also on the
-    # structures they all have and inside divisions
+
+def validate(set_table, genes, profiles, psd95, measured, pool, chosen):
+    """The choice on random halves, and the composites compared, written and printed.
+
+    Returns selection.csv's and comparison.csv's tables.
+    """
     division = dict(zip(set_table["structure"], set_table["division"]))
     fixed, members = density_markers.fixed_composites(genes, profiles, measured)
     halves = density_markers.half_split(pool, profiles, psd95, measured, fixed, division)
@@ -227,28 +238,23 @@ def main(offline):
             f"{r.rho_within_held_out_median:+.3f} held out, "
             f"{r.rho_within_full_set:+.3f} full set"
         )
+    return selection, comparison
 
-    # the numbers for the text
-    counts = dict(
-        declared=len(declared),
-        gria1=int(structures["gria1_measured"].sum()),
-        psd95=len(measured),
-        model=n_model,
-    )
-    numbers = density_markers.numbers_table(
-        candidates, excluded, agreement, selection, comparison, counts, releases
-    )
-    numbers.to_csv(density_markers.NUMBERS, index=False)
 
-    # figure 03s3, with the genes left out grouped by their first reason
-    reasons = density_markers.exclusion_reasons(excluded)
+def draw_figure(found, profiles, psd95, measured, set_table, structures):
+    """Figure 03s3, the genes left out grouped by their first reason.
+
+    `found` holds the step's tables: agreement, chosen, selection, comparison and
+    excluded.
+    """
+    reasons = density_markers.exclusion_reasons(found["excluded"])
     fig = adult_plotting.plot_density_markers(
-        agreement,
-        density_markers.composite_on(chosen, profiles, measured),
+        found["agreement"],
+        density_markers.composite_on(found["chosen"], profiles, measured),
         psd95.reindex(measured),
         shared_figures.group_of(set_table),
-        selection,
-        comparison,
+        found["selection"],
+        found["comparison"],
         reasons,
         DENSITY_MARKERS["n_halves"],
         density_markers.GO_RELEASE,
@@ -264,6 +270,69 @@ def main(offline):
         f"figure: {figure_path('density_markers')}; {len(reasons)} reasons for the "
         f"{int(reasons['n_genes'].sum())} genes left out"
     )
+
+
+def main(offline):
+    """Print the settings, fetch the annotation, apply the rule, write and draw."""
+    config.print_settings({"offline": offline})
+    density_markers.OUT.mkdir(parents=True, exist_ok=True)
+
+    # the GO release's files, downloaded once and checked against their hashes
+    releases = fetch_release(offline)
+
+    # the inputs: the gene table, the declared set and PSD95 density; no nano value
+    genes = gene_table.per_gene(gene_table.load_gene_table())
+    profiles = gene_table.load_profiles()
+    set_table = load_structure_set()
+    declared = sorted(set_table.loc[set_table["in_set"], "structure"])
+    psd95 = synaptome.load_density()[synaptome.MEASURE]
+    measured = [s for s in declared if np.isfinite(psd95.get(s, np.nan))]
+    print(
+        f"inputs: {len(genes)} genes, {len(declared)} declared structures, PSD95 "
+        f"measured in {len(measured)} of them"
+    )
+
+    # the annotation of the genes, and the rule's terms checked against their names
+    terms, parents, names = read_annotation(genes)
+
+    # the pool, and the genes excluded from it
+    candidates, excluded, pool = pool_genes(
+        genes, profiles, declared, terms, parents, names
+    )
+
+    # the choice: the pool ranked by agreement with PSD95
+    agreement, chosen = choose(candidates, profiles, psd95, measured)
+
+    # the declared structures the model can run on
+    structures = model_structures(set_table, profiles, chosen, psd95)
+
+    # the choice repeated on random halves, and the composites compared, also on the
+    # structures they all have and inside divisions
+    selection, comparison = validate(
+        set_table, genes, profiles, psd95, measured, pool, chosen
+    )
+
+    # the numbers for the text
+    counts = dict(
+        declared=len(declared),
+        gria1=int(structures["gria1_measured"].sum()),
+        psd95=len(measured),
+        model=int(structures["in_model"].sum()),
+    )
+    numbers = density_markers.numbers_table(
+        candidates, excluded, agreement, selection, comparison, counts, releases
+    )
+    numbers.to_csv(density_markers.NUMBERS, index=False)
+
+    # figure 03s3
+    found = dict(
+        agreement=agreement,
+        chosen=chosen,
+        selection=selection,
+        comparison=comparison,
+        excluded=excluded,
+    )
+    draw_figure(found, profiles, psd95, measured, set_table, structures)
 
     # the genes chosen against those the model reads
     density_markers.check_chosen(chosen)

@@ -53,20 +53,19 @@ The same three are read on the nano map itself, to describe the family, not as t
 of the leftover.
 
 What the tests rest on is set out in docs/ISH_ANALYSIS.md (section 5.7): Cacng8's
-p against the leftover of the four-subunit model was seen before it was named, and
-its p against the first version's leftover before the second version was decided,
-so tier 1 re-tests a result already seen; Dlg4 and Camk2a, which the first
-version's density markers held, are no terms of the main model (the rule of the
-density genes leaves them out as AMPA-receptor-linked); and each surrogate of
-the leftover, the model projected out of it, is rougher at short range than the
-leftover, so the tests are read again against smoother Gaussian fields projected
-the same way (smooth_null_check; none reaches the leftover's own smoothness, so
-they narrow the gap, they do not close it), and the family again against controls
-from outside the model's terms (check_tests).
+p against two earlier leftovers was seen before it was named and before the main
+model was decided, so tier 1 re-tests a result already seen; Dlg4 and Camk2a are no
+terms of the main model (the rule of the density genes leaves them out as
+AMPA-receptor-linked); and each surrogate of the leftover, the model projected out
+of it, is rougher at short range than the leftover, so the tests are read again
+against smoother Gaussian fields projected the same way (smooth_null_check; none
+reaches the leftover's own smoothness, so they narrow the gap, they do not close
+it), and the family again against controls from outside the model's terms
+(check_tests).
 
-Why the share taken has a null of its own: three more columns always win a little
-held-out variance by chance, and a smooth map wins more than a rough one, since
-its neighbours carry the same pattern into the test folds. So a gene's gain is set
+Why the share taken has a null of its own: one more column wins a little held-out
+variance by chance, and a smooth map wins more than a rough one, since its
+neighbours carry the same pattern into the test folds. So a gene's gain is set
 beside what maps of the gene's own smoothness gain in its place; p is the share of
 them that take at least as much (one-sided: only taking more is evidence), the
 observed gain counted once. Two kinds of map, as the Cacng8 - Gria1 gap has two
@@ -92,8 +91,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import false_discovery_control, rankdata, spearmanr
 
-from sepmap.adult import beyond_density
-from sepmap.adult import synaptome
+from sepmap.adult import beyond_density, synaptome
 from sepmap.config import SETTINGS
 from sepmap.ish import gene_ranking, gene_sets, gene_table, spatial_null
 from sepmap.ish.gene_sets import (

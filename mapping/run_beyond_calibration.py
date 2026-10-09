@@ -89,9 +89,7 @@ adult_v2/ish_analysis/beyond/ under the data root:
 
 import argparse
 
-import matplotlib
-
-from sepmap import config, plotting
+from sepmap import config
 from sepmap.adult import beyond_calibration, beyond_checks
 
 
@@ -103,10 +101,6 @@ def main():
 
 
 if __name__ == "__main__":
-    # figures go to files, never to a window
-    matplotlib.use("Agg")
-    plotting.set_style()
-
     # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(
         description="analysis 4 on maps whose answer is known, and its check rows"

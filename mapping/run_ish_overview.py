@@ -143,7 +143,7 @@ def main():
     n = numbers.lookup(gathered)
     print(f"numbers: {len(gathered)} from {gathered['step'].nunique()} steps")
 
-    # figure 16 and its detailed version: April's headline; figure 00: the
+    # figure 15 and its detailed version: April's headline; figure 00: the
     # overview; the index
     fig = headline_figures.plot_april_headline(
         headline,

@@ -133,7 +133,7 @@ def noise_band(
 
 
 def structure_number_rows(n: dict) -> list[tuple]:
-    """The structures of the fit: how many, and what decision 3's rule loses."""
+    """The structures of the fit: how many, and what the rule of the structures loses."""
     rows = [
         ("structures", n["n_structures"], "structures of the main model's fit"),
         ("structures_declared", n["n_declared"], "declared structures"),
@@ -392,8 +392,8 @@ def check_number_rows(n: dict) -> list[tuple]:
     return rows
 
 
-def control_and_gene_number_rows(n: dict) -> list[tuple]:
-    """The controls' numbers, and every gene and gene set against the leftover."""
+def control_number_rows(n: dict) -> list[tuple]:
+    """The controls' numbers, and the leftover by division."""
     rows = [
         ("controls_passed", n["controls_passed"], "of the seven controls"),
         ("controls_failed", " ".join(n["controls_failed"]), "the controls that do not"),
@@ -449,7 +449,12 @@ def control_and_gene_number_rows(n: dict) -> list[tuple]:
                 f"mean leftover in ranks, {r.n_structures} structures",
             )
         )
-    rows += [
+    return rows
+
+
+def leftover_number_rows(n: dict) -> list[tuple]:
+    """The leftover against the tissue, and every gene and gene set against it."""
+    rows = [
         (
             "leftover_rho_autofluorescence",
             round(n["rho_auto"], 3),
@@ -522,11 +527,11 @@ def numbers_table(n: dict) -> pd.DataFrame:
     """
     rows = structure_number_rows(n) + model_number_rows(n)
     rows += calibration_number_rows(n) + check_number_rows(n)
-    rows += control_and_gene_number_rows(n)
+    rows += control_number_rows(n) + leftover_number_rows(n)
     return numbers_frame(rows)
 
 
-def points(value: float, lo: float, hi: float) -> str:
+def points_with_interval(value: float, lo: float, hi: float) -> str:
     """A difference of shares in points, with its 95% interval."""
     return f"{points_text(value)} points (95% {points_text(lo)} to {points_text(hi)})"
 
@@ -552,7 +557,9 @@ def caption_lines(n: dict) -> list[str]:
     margins = []
     for r in n["checks"].itertuples():
         blocks = span((r.nano_minus_floor_blocks_lo, r.nano_minus_floor_blocks_hi))
-        margin = points(r.nano_minus_floor, r.nano_minus_floor_lo, r.nano_minus_floor_hi)
+        margin = points_with_interval(
+            r.nano_minus_floor, r.nano_minus_floor_lo, r.nano_minus_floor_hi
+        )
         margins.append(f"{margin}, over spatial blocks {blocks}")
     above = ", ".join(n["divisions_above"])
     below = ", ".join(n["divisions_below"])
@@ -606,9 +613,9 @@ def caption_lines(n: dict) -> list[str]:
         f"The nano map, predicted the same way on the same structures, leaves "
         f"{n['nano_cal_left']:.0%} ({n['nano_cal_ci'][0]:.0%} to "
         f"{n['nano_cal_ci'][1]:.0%}); nano minus the floor "
-        f"{points(n['minus_floor'], *n['minus_floor_ci'])}, jackknife over the "
-        "structures with both recomputed; leaving out one spatial block at a time, "
-        f"{span(n['minus_floor_ci_blocks'])}.",
+        f"{points_with_interval(n['minus_floor'], *n['minus_floor_ci'])}, jackknife "
+        "over the structures with both recomputed; leaving out one spatial block at a "
+        f"time, {span(n['minus_floor_ci_blocks'])}.",
         "",
         f"Check rows, each one change to the main model on its own structures with its "
         f"own floor: {listed}.",

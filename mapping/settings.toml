@@ -124,7 +124,8 @@ resample = true            # a surrogate takes the map's own values in a new ord
 n_calibration = 2000       # independent random smooth maps per design of the false-positive check: the rate's SE is then 0.5%, so 3% can be told from 5% (500 left it at 1%)
 n_calibration_surrogates = 1000  # surrogates per calibration map, enough to place each p against 0.05
 
-# the gene-by-gene analyses (ish.gene_ranking, ish.robustness, ish.divisions, ish.gene_sets)
+# the gene-by-gene analyses (ish.gene_ranking, ish.robustness, ish.divisions,
+# ish.gene_sets)
 [ish_analysis]
 q = 0.05                   # Benjamini-Hochberg level at which a gene, a set or a contrast is marked in the figures and counted in the text
 n_boot_mice = 2000         # resamples of the ten adults: each gene's rho spread (the grey of its bar) and the interval of the Cacng8 - Gria1 gap
@@ -171,8 +172,9 @@ subunits = ["Gria1", "Gria2", "Gria3", "Gria4"]
 # the density genes proposed before the rule of [density_markers]: the check row
 # first_proposal (the rule excludes Dlg4 and Camk2a as AMPA-receptor-linked)
 first_proposal = ["Dlg4", "Homer1", "Camk2a"]
-# the synaptic marker genes of the first version's density panel (Syp to Syt1
-# presynaptic, Dlg4 to Camk2a postsynaptic): the check row marker_panel
+# the 11 synaptic marker genes of the marker panel, a density term of presynaptic and
+# postsynaptic markers (Syp to Syt1 presynaptic, Dlg4 to Camk2a postsynaptic): the
+# check row marker_panel
 markers = ["Syp", "Syn1", "Vamp2", "Bsn", "Syt1", "Dlg4", "Homer1", "Shank2", "Shank3", "Nlgn1", "Camk2a"]
 # synapse density, measured: PSD95 punctum density (Zhu et al. 2018, Neuron 99:781; one
 # adult male, about P80; puncta per unit area of 37 subtypes in 775 regions of the Allen
@@ -235,8 +237,8 @@ jackknife_share = 0.2      # share of the structures each subsample leaves out (
 jackknife_draws = 4        # draws of animals per direction on each subsample, so 8 per subsample; their mean is steady to about a point
 jackknife_splits = 20      # half-cohort splits behind the ceiling on each subsample
 
-# the guided figures of part 1 (adult.beyond_figures): figures 03, 03s1, 03s2, 04,
-# 11s1 and 14; their intervals come from the jackknife of [beyond_calibration]
+# the guided figures of part 1 (adult.beyond_figures): figures 03, 03s1, 03s2, 04 and
+# 11s1; their intervals come from the jackknife of [beyond_calibration]
 [beyond_figures]
 n_perm = 10000             # shuffles of one half's leftover, what two unrelated leftovers agree at (for scale)
 t_max_structures = 10.0    # figure 04: a structure's bar is black at this t of the adults' own leftovers, near the 90th percentile of |t| over the structures

@@ -74,7 +74,7 @@ from sepmap.structures import ISH_OUT, load_structure_set
 
 # the rule's thresholds, the number of genes and of halves, and the genes it gave; the
 # gene that encodes the stained protein and the voxels a gene value needs; the marker
-# panel compared with
+# panel compared with; the structures a division needs for an agreement inside it
 DENSITY_MARKERS = SETTINGS["density_markers"]
 ISH = SETTINGS["ish"]
 BEYOND = SETTINGS["beyond"]
@@ -922,8 +922,11 @@ def comparison_table(
             ("within_held_out", f"rho_{name}_within"),
         ):
             median, lo, hi = held_out_summary(halves[column])
-            row |= {f"rho_{key}_median": median, f"rho_{key}_lo": lo}
-            row[f"rho_{key}_hi"] = hi
+            row |= {
+                f"rho_{key}_median": median,
+                f"rho_{key}_lo": lo,
+                f"rho_{key}_hi": hi,
+            }
         on_common = composite_values(composite_def, profiles, common)
         row["n_common"] = len(common)
         row["n_common_held_out"] = int(np.median(halves["n_common"]))
@@ -934,6 +937,52 @@ def comparison_table(
 
 
 # ===== The numbers =====
+
+
+def comparison_number_rows(comparison: pd.DataFrame) -> list[tuple]:
+    """Each composite's agreement with PSD95: full set, held out, common, within."""
+    rows = []
+    for r in comparison.itertuples():
+        rows += [
+            (f"{r.composite}_full_set", round(r.rho_full_set, 3), f"{r.what}, full set"),
+            (f"{r.composite}_n", int(r.n_structures), "its structures, full set"),
+            (f"{r.composite}_n_held_out", int(r.n_held_out), "per half, median"),
+        ]
+        for key, what in (
+            ("held_out", "held out"),
+            ("common_held_out", "held out, on the structures every composite has"),
+            ("within_held_out", "held out, inside divisions"),
+        ):
+            rows += [
+                (
+                    f"{r.composite}_{key}",
+                    round(getattr(r, f"rho_{key}_median"), 3),
+                    f"{what}, median",
+                ),
+                (
+                    f"{r.composite}_{key}_lo",
+                    round(getattr(r, f"rho_{key}_lo"), 3),
+                    "2.5th percentile",
+                ),
+                (
+                    f"{r.composite}_{key}_hi",
+                    round(getattr(r, f"rho_{key}_hi"), 3),
+                    "97.5th percentile",
+                ),
+            ]
+        rows += [
+            (
+                f"{r.composite}_common_full_set",
+                round(r.rho_common_full_set, 3),
+                "full set, on the structures every composite has",
+            ),
+            (
+                f"{r.composite}_within_full_set",
+                round(r.rho_within_full_set, 3),
+                "full set, inside divisions",
+            ),
+        ]
+    return rows
 
 
 def numbers_table(
@@ -990,46 +1039,7 @@ def numbers_table(
                 f"{r.symbol} with PSD95, n = {r.n_structures}",
             )
         )
-    for r in comparison.itertuples():
-        rows += [
-            (f"{r.composite}_full_set", round(r.rho_full_set, 3), f"{r.what}, full set"),
-            (f"{r.composite}_n", int(r.n_structures), "its structures, full set"),
-            (f"{r.composite}_n_held_out", int(r.n_held_out), "per half, median"),
-        ]
-        for key, what in (
-            ("held_out", "held out"),
-            ("common_held_out", "held out, on the structures every composite has"),
-            ("within_held_out", "held out, inside divisions"),
-        ):
-            rows += [
-                (
-                    f"{r.composite}_{key}",
-                    round(getattr(r, f"rho_{key}_median"), 3),
-                    f"{what}, median",
-                ),
-                (
-                    f"{r.composite}_{key}_lo",
-                    round(getattr(r, f"rho_{key}_lo"), 3),
-                    "2.5th percentile",
-                ),
-                (
-                    f"{r.composite}_{key}_hi",
-                    round(getattr(r, f"rho_{key}_hi"), 3),
-                    "97.5th percentile",
-                ),
-            ]
-        rows += [
-            (
-                f"{r.composite}_common_full_set",
-                round(r.rho_common_full_set, 3),
-                "full set, on the structures every composite has",
-            ),
-            (
-                f"{r.composite}_within_full_set",
-                round(r.rho_within_full_set, 3),
-                "full set, inside divisions",
-            ),
-        ]
+    rows += comparison_number_rows(comparison)
     first = comparison.iloc[0]
     rows += [
         ("structures_common", int(first.n_common), "structures every composite has"),

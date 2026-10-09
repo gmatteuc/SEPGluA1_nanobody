@@ -208,7 +208,7 @@ def likeness_dots(ax: plt.Axes, rows: pd.DataFrame) -> None:
     tidy(ax)
 
 
-def points(share: float) -> str:
+def taken_points(share: float) -> str:
     """A share of the reproducible map in points, one decimal, never '-0.0'."""
     return f"{round(100 * share, 1) + 0.0:.1f}"
 
@@ -247,7 +247,7 @@ def taken_bars(ax: plt.Axes, rows: pd.DataFrame) -> None:
         ax.text(
             max(taken[i], plain[i], alike[i]) + 0.3,
             i,
-            points(taken[i] / 100) + mark,
+            taken_points(taken[i] / 100) + mark,
             fontsize=6.5,
             va="center",
             color=DARK_GREY,
@@ -1025,7 +1025,7 @@ def sheet_heading(
         taken = "a term of the main model"
     else:
         taken = (
-            f"takes {points(row['taken'])} points of the reproducible map (p = "
+            f"takes {taken_points(row['taken'])} points of the reproducible map (p = "
             f"{row['p_taken']:.3f} plain, {row['p_taken_alike']:.3f} alike)"
         )
     fig.text(
@@ -1075,8 +1075,8 @@ def taken_panel(ax: plt.Axes, row: pd.Series, taken_nulls: dict[str, np.ndarray]
         numbers = "a term of the main model: adding it again takes nothing"
     else:
         numbers = (
-            f"{points(row['taken'])} points; p = {row['p_taken']:.3f} against plain "
-            f"surrogates, {row['p_taken_alike']:.3f} against maps alike"
+            f"{taken_points(row['taken'])} points; p = {row['p_taken']:.3f} against "
+            f"plain surrogates, {row['p_taken_alike']:.3f} against maps alike"
         )
     panel_title(ax, "E", "Added to the main model", numbers)
 

@@ -93,15 +93,15 @@ co-expression of a set's genes is kept in its null:
                    permutation finds a real difference, not the power of the
                    localisation test itself, which is what the power check gives
 
-Named in advance on 8 October 2026 for the leftover of analysis 4
-(adult.beyond_density), before the main model of settings.toml [beyond] (Gria1,
-synapse density and autofluorescence) was run: three tiers, each spatial p two-sided,
-against the leftover's surrogates, each surrogate put through the same fit.
+Named in advance for the leftover of analysis 4 (adult.beyond_density), before its
+main model was first run (docs/ISH_ANALYSIS.md, section 5.7, says when, and what had
+been seen): three tiers, each spatial p two-sided, against the leftover's
+surrogates, each surrogate put through the same fit.
 
     1  Cacng8      TARP gamma-8, an AMPA receptor auxiliary subunit: the one named
                    gene, whose uncorrected spatial p is the test. Its p against the
-                   leftover of the four-subunit model (0.0024) was seen on 8 October,
-                   before this naming
+                   leftover of the four-subunit model (0.0024) was seen before this
+                   naming
     2  the family  the AMPA receptor complex family below, as a group: its median
                    rho with the leftover against the same genes' median over the
                    surrogates, and against as many genes of the other postsynaptic
@@ -131,7 +131,7 @@ good:
                    set its assembly and trafficking, the surface side
     minus Gria1    the abundance term of analysis 4
 
-That is 37 genes, and 31 have a usable experiment in the gene table of 8 October.
+That is 37 genes, and 31 have a usable experiment in the gene table.
 Not tested: Olfm3, Prrt1, Prrt2 and Shisa8 (no Allen experiment), Gsg1l and Rap2b
 (two Allen experiments each, in neither panel). Grid1, Grid2 and Shisa8 enter by GO
 alone, on phylogenetic inference (IBA); ish.panel_build sets Grid1 and Grid2 apart as
@@ -139,9 +139,10 @@ delta receptors, and the family takes GO as it stands. P9's categories do not de
 it (its "auxiliary" holds Grm1 to Grm5, its "trafficking" mostly presynaptic vesicle
 genes); they stay a label column.
 
-Every gene's rho with the leftover of the four-subunit model was seen on 8 October,
-Cacng8's among them. The family comes from the paper and GO, not from those numbers,
-and no number of the family as a group was looked at before this file named it.
+Every gene's rho with the leftover of the four-subunit model was seen before the
+family was named, Cacng8's among them. The family comes from the paper and GO, not
+from those numbers, and no number of the family as a group was looked at before this
+file named it.
 
 Membership is computed by run_ish_gene_table.py, with the gene table; the context
 group by run_ish_gene_sets.py, from the same cached GO records. The tests are run by
@@ -239,12 +240,12 @@ CONTEXT_RULE = (
     "first two sets; context, not tested"
 )
 
-# the gene named in advance (8 October 2026) for the test against analysis 4's leftover
+# the gene named in advance for the test against analysis 4's leftover
 LEFTOVER_GENE = "Cacng8"
 
-# the AMPA receptor complex family, named in advance (8 October 2026); first, the
-# constituents of native AMPA receptor complexes of Schwenk et al. 2012 (Neuron 74:621),
-# Figure 1D and Table S2, by mouse gene, with the paper's protein names
+# the AMPA receptor complex family, named in advance; first, the constituents of
+# native AMPA receptor complexes of Schwenk et al. 2012 (Neuron 74:621), Figure 1D
+# and Table S2, by mouse gene, with the paper's protein names
 SCHWENK_2012 = {
     "Gria1": "GluA1",
     "Gria2": "GluA2",

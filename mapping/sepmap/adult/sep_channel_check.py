@@ -38,7 +38,7 @@ Writes, in adult_v2/ish_analysis/ under the data root:
     tables/numbers_green_channel.csv       the numbers of analysis 5, for the text
 
 Run by run_sep_channel_check.py, which draws the working figure
-(green_channel/sep_channel_check.png) and guided figures 15 and 15s.
+(green_channel/sep_channel_check.png) and guided figures 14 and 14s.
 """
 
 import math

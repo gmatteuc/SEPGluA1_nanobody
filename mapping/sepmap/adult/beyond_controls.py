@@ -23,7 +23,7 @@ says whether it is:
                                       curved) and bent to fifth powers. When curving
                                       buys more than beyond_controls.curvature_gain,
                                       the curved row's leftover, against its own
-                                      floor, is the bound to read beside the main one
+                                      floor, is the check to read beside the main one
     F  the choice of predictors?      the strongest version: give the model the
                                       expression of every gene of the gene table
                                       measured in all the structures, as principal
@@ -309,7 +309,7 @@ def control_e_curvature(
     The main model's predictors (`terms`) straight (the model), to cubes (the check
     row curved) and to fifth powers, each scored on held-out structures. If the
     cubes buy prediction, part of the leftover is curvature the straight model
-    misses, and the curved row is the bound to read beside it; if fifth powers buy
+    misses, and the curved row is the check to read beside it; if fifth powers buy
     more still, even that row is not bent enough. Returns the verdict row.
     """
     print("\nE  does the straight model miss curvature?")

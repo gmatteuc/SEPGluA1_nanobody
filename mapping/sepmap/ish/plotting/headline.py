@@ -281,7 +281,7 @@ def plot_overview(
     return saved(fig, save)
 
 
-# ===== 16 and 16s April's headline, then and now =====
+# ===== 15 and 15s April's headline, then and now =====
 
 # the genes named on the violins of the appendix
 HEADLINE_NAMED = (
@@ -519,7 +519,7 @@ def plot_april_headline(
     q: float,
     save: Path | None = None,
 ) -> plt.Figure:
-    """Figure 16: what is left of April's headline.
+    """Figure 15: what is left of April's headline.
 
     The gene order, the category p under each choice it rests on, and today's groups
     against the null.
@@ -584,7 +584,7 @@ def plot_april_headline_detail(
     q: float,
     save: Path | None = None,
 ) -> plt.Figure:
-    """Figure 16s: April's category violins, recomputed today and against the null.
+    """Figure 15s: April's category violins, recomputed today and against the null.
 
     `headline` holds P9's genes with their group and both rho (ish.overview's
     april_headline.csv), `anova` the ANOVA under each choice, `groups` each group's
