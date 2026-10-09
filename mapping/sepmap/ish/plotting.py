@@ -1128,19 +1128,24 @@ def spread_labels(
     """Names beside their dots, moved apart vertically where they would overlap.
 
     `points` holds (x, y, text, colour) in data coordinates. Names go right of their
-    dot, in order of height; one that would sit on an earlier one (closer than a
-    line of text, and within a name's width) is pushed down, and joined to its dot
-    by a thin line when moved.
+    dot; one that would sit on an earlier one (closer than a line of text, and within
+    a name's width) is pushed away from the nearer edge of the axes, down in the upper
+    half and up in the lower half, so no name leaves the axes, and is joined to its
+    dot by a thin line when moved.
     """
     x0, x1 = ax.get_xlim()
     y0, y1 = ax.get_ylim()
     gap = abs(y1 - y0) * 0.032 * fontsize / 7
     width = abs(x1 - x0) * 0.14
+    middle = (y0 + y1) / 2
+    upper = sorted((p for p in points if p[1] >= middle), key=lambda t: -t[1])
+    lower = sorted((p for p in points if p[1] < middle), key=lambda t: t[1])
     placed: list[tuple[float, float]] = []
-    for x, y, text, colour in sorted(points, key=lambda t: -t[1]):
+    for x, y, text, colour in upper + lower:
         ty = y
+        step = -gap * 0.6 if y >= middle else gap * 0.6
         while any(abs(px - x) < width and abs(py - ty) < gap for px, py in placed):
-            ty -= gap * 0.6
+            ty += step
         placed.append((x, ty))
         moved = abs(ty - y) > 1e-9
         ax.annotate(
@@ -1842,14 +1847,8 @@ def gap_panel(
     first, second = merged["first"], merged["second"]
     equal, unrelated = null[0], null[1]
     bins = np.linspace(-0.8, 0.8, 81)
-    ax.axvspan(
-        merged["equal_lo"],
-        merged["equal_hi"],
-        ymin=0.19,
-        color=NULL_BAND,
-        alpha=0.5,
-        lw=0,
-    )
+    bound = merged["equal_two_sided"]
+    ax.axvspan(-bound, bound, ymin=0.19, color=NULL_BAND, alpha=0.5, lw=0)
     ax.hist(equal, bins=bins, color=NULL_BAND, label="maps related to both genes alike")
     ax.hist(
         unrelated,
@@ -1892,9 +1891,9 @@ def gap_panel(
         f"The {first} - {second} gap: {merged['gap']:+.3f} on "
         f"{int(merged['n_structures'])} structures ({merged['rho_first']:+.2f} against "
         f"{merged['rho_second']:+.2f})",
-        f"maps related to both alike: {p_text(merged['p_equal'], n_surrogates)} (shaded: "
-        f"their 95%, {merged['equal_lo']:+.2f} to {merged['equal_hi']:+.2f}); "
-        f"unrelated maps: {p_text(merged['p_spatial'], n_surrogates)}",
+        f"maps related to both alike: {p_text(merged['p_equal'], n_surrogates)}, either "
+        f"way (shaded: a lead under ±{bound:.2f}, which the test fixed in advance does "
+        f"not pass); unrelated maps: {p_text(merged['p_spatial'], n_surrogates)}",
     )
     tidy(ax)
 
@@ -2434,7 +2433,11 @@ def ranks_panel(ax: plt.Axes, summary: pd.DataFrame, y: np.ndarray) -> None:
 def gap_rows_panel(
     ax: plt.Axes, summary: pd.DataFrame, y: np.ndarray, band: tuple[float, float]
 ) -> None:
-    """C: the Cacng8 - Gria1 gap under each variant, the primary's null shaded."""
+    """C: the Cacng8 - Gria1 gap under each variant, the primary's two-sided test shaded.
+
+    `band` is the lead either way that the primary's test, fixed in advance, does not
+    pass (gap.csv equal_two_sided, as minus and plus).
+    """
     ax.axvspan(*band, color=NULL_BAND, lw=0, zorder=0)
     ax.axvline(0, color="0.3", lw=0.6, zorder=1)
     ax.scatter(summary["gap"], y, s=30, color="0.15", zorder=3)
@@ -2448,8 +2451,8 @@ def gap_rows_panel(
         ax,
         "C",
         "The Cacng8 - Gria1 gap",
-        f"pale blue: 95% of the primary gap's null\n(maps related to both alike, "
-        f"{band[0]:+.2f} to {band[1]:+.2f})",
+        f"pale blue: a lead under ±{band[1]:.2f} either way,\nwhich the primary's "
+        "two-sided test does not pass",
     )
     tidy(ax)
 
@@ -2589,8 +2592,9 @@ def plot_robustness_detail(
             "order of the genes.",
             "What would mean what: an agreement near 1 everywhere: the conclusions do "
             "not hang on these choices; a row far below the others names the choice "
-            "a conclusion depends on; a gap that stays inside the pale band under "
-            "every choice is a lead these maps cannot resolve.",
+            "a conclusion depends on. The pale band is the primary's two-sided test "
+            "(maps related to both alike); a variant's own null is not drawn, so a gap "
+            "near the band's edge is a lead these maps cannot resolve.",
         ],
     )
     return saved(fig, save)
@@ -4081,8 +4085,8 @@ def plot_top_genes(
             "the gene to that model as one more straight term and counts the points of "
             "the reproducible map it takes, against maps of its smoothness in its place.",
             "Maps alike to the model keep the gene's fit on the model's terms and put a "
-            "surrogate of the rest in its place; that null was added on 9 October, after "
-            "the plain one's numbers were seen.",
+            "surrogate of the rest in its place; that null was added after the plain "
+            "one's numbers were seen, so it is the secondary line.",
             "Only Cacng8's test against the leftover was named in advance. Every gene "
             "in detail: the sheets in top_genes/.",
         ],
@@ -4144,11 +4148,30 @@ def lead_panel(
 ) -> None:
     """C of figure 08: the Cacng8 - Gria1 gap against maps that follow both alike.
 
-    With the band of 95% of them and the share that lead as much each way.
+    The test fixed in advance is two-sided, so the band shaded is the lead either way
+    that it does not pass (equal_two_sided), the gap is drawn with its mirror, and the
+    share of these maps beyond each is written beside it, as a description.
     """
+    bound = gap["equal_two_sided"]
     ax.hist(gap_null, bins=np.linspace(-0.6, 0.6, 61), color=NULL_BAND)
-    ax.axvspan(gap["equal_lo"], gap["equal_hi"], color=NULL_BAND, alpha=0.4, lw=0)
+    ax.axvspan(-bound, bound, color=NULL_BAND, alpha=0.4, lw=0)
     ax.axvline(gap["gap"], color=RED, lw=1.8)
+    ax.axvline(-gap["gap"], color=RED, lw=1.0, ls=(0, (3, 2)))
+    top = ax.get_ylim()[1]
+    shares = (
+        (
+            gap["gap"] + 0.02,
+            "left",
+            f"Cacng8 leads\nby as much:\n{gap['equal_first_as_large']:.1%}",
+        ),
+        (
+            -gap["gap"] - 0.02,
+            "right",
+            f"Gria1 leads\nby as much:\n{gap['equal_second_as_large']:.1%}",
+        ),
+    )
+    for x, ha, text in shares:
+        ax.text(x, 0.95 * top, text, fontsize=7.5, va="top", ha=ha, color=RED)
     ax.set_xlim(-0.6, 0.6)
     ax.set_xlabel("rho(Cacng8) - rho(Gria1)")
     ax.set_ylabel("maps that follow both alike")
@@ -4156,11 +4179,10 @@ def lead_panel(
         ax,
         "C",
         "The Cacng8 - Gria1 gap",
-        f"{gap['gap']:+.3f} on {int(gap['n_structures'])} structures (red); 95% of "
-        f"these maps\n{gap['equal_lo']:+.3f} to {gap['equal_hi']:+.3f}; as large a "
-        f"lead: Cacng8's in {gap['equal_first_as_large']:.1%},\nGria1's in "
-        f"{gap['equal_second_as_large']:.1%}; "
-        f"{p_text(gap['p_equal'], n_map_surrogates)}, counting either",
+        f"{gap['gap']:+.3f} on {int(gap['n_structures'])} structures (red; its mirror "
+        f"dashed);\nshaded: a lead under ±{bound:.3f} either way, which the test\nfixed "
+        f"in advance does not pass; {p_text(gap['p_equal'], n_map_surrogates)}, "
+        "counting either way",
     )
     tidy(ax)
 
@@ -4231,11 +4253,12 @@ def plot_cacng8_gria1(
         fig,
         [
             "How to read: one dot per structure, coloured by group of divisions. C: maps "
-            "made of both genes' patterns alike plus a surrogate of the map (shaded: "
-            f"their 95%); {figure_ref('gene_ranking')} B adds the adults' interval and "
-            "each pairing of Allen experiments.",
+            "made of both genes' patterns alike plus a surrogate of the map; "
+            f"{figure_ref('gene_ranking')} B adds the adults' interval and each pairing "
+            "of Allen experiments.",
             "The test fixed in advance counts a lead as large either way; the null is "
-            "skewed, so the shares each way are set beside it.",
+            "skewed, so the shares beyond the gap and beyond its mirror are written "
+            "beside them, as a description, not a test.",
             "Cacng8 against what Gria1 and synapse density leave: "
             f"{figure_ref('leftover')}.",
         ],
@@ -4345,28 +4368,31 @@ def bh_panel(ax: plt.Axes, genes: pd.DataFrame, family: list[str], q: float) -> 
     symbols = order["symbol"].to_numpy()
     in_family = np.isin(symbols, family)
     cacng8 = symbols == LEFTOVER_GENE
+    above = order["rho"].to_numpy(float) > 0
     ax.plot(k, -np.log10(k * q / len(p)), color=RED, ls="--", lw=1, label=f"BH, q {q}")
-    ax.scatter(
-        k[~in_family],
-        -np.log10(p[~in_family]),
-        s=10,
-        color=LIGHT_GREY,
-        lw=0,
-        label="other genes",
+
+    # the sign of each gene's rho as the marker: up above zero, down below
+    kinds = (
+        (~in_family, LIGHT_GREY, 12, "other genes"),
+        (in_family & ~cacng8, DARK_GREY, 18, "the family"),
     )
-    ax.scatter(
-        k[in_family & ~cacng8],
-        -np.log10(p[in_family & ~cacng8]),
-        s=16,
-        color=DARK_GREY,
-        lw=0,
-        label="the family",
-    )
+    for mine, colour, size, label in kinds:
+        for sign, marker in ((above, "^"), (~above, "v")):
+            show = mine & sign
+            ax.scatter(
+                k[show],
+                -np.log10(p[show]),
+                s=size,
+                marker=marker,
+                color=colour,
+                lw=0,
+                label=f"{label}, rho {'above' if marker == '^' else 'below'} zero",
+            )
     ax.scatter(k[cacng8], -np.log10(p[cacng8]), s=40, color=RED, lw=0, label="Cacng8")
     ax.set_xscale("log")
     ax.set_xlabel("genes, smallest p first")
     ax.set_ylabel("-log10 spatial p")
-    ax.legend(loc="upper right", fontsize=7, frameon=False)
+    ax.legend(loc="lower left", fontsize=7, frameon=False)
     tidy(ax)
 
 
@@ -4390,9 +4416,15 @@ def named_rows(tests: pd.DataFrame) -> dict[str, pd.Series]:
 
 
 def leftover_takeaway(
-    t: dict[str, pd.Series], n_pass: int, n_genes: int, n_surrogates: int
+    t: dict[str, pd.Series], genes: pd.DataFrame, q: float, n_surrogates: int
 ) -> str:
-    """The line under figure 11's title, each verdict following its p."""
+    """The line under figure 11's title, each verdict following its p.
+
+    `genes` is leftover_genes.csv: the genes past BH over all of them, and how many
+    of those run below zero.
+    """
+    past = genes[genes["q_all"] < q]
+    n_below = int((past["rho"] < 0).sum())
     follows = "follows" if t["first"]["p"] < ALPHA else "does not follow"
     if t["spatial"]["p"] < ALPHA and t["matched"]["p"] >= ALPHA:
         group = (
@@ -4405,9 +4437,9 @@ def leftover_takeaway(
         group = "the family as a group does not"
     return (
         f"Cacng8 {follows} what Gria1 and synapse density leave "
-        f"({p_text(t['first']['p'], n_surrogates)}), a re-test of what was seen on 8 "
-        f"October; {group}; {n_pass} of {n_genes} genes pass once every gene is "
-        "corrected for"
+        f"({p_text(t['first']['p'], n_surrogates)}), a re-test: its p against two "
+        f"earlier leftovers was seen before it was named; {group}; exploratory, "
+        f"{len(past)} of {len(genes)} genes pass BH, {n_below} of them below zero"
     )
 
 
@@ -4464,9 +4496,10 @@ def plot_leftover(
     """
     t = named_rows(tests)
     family = table[table["family"]].reset_index(drop=True)
-    n_pass = int((genes["q_all"] < q).sum())
+    past = genes[genes["q_all"] < q]
+    n_pass, n_below = len(past), int((past["rho"] < 0).sum())
     fig = plt.figure(figsize=(17, 6.8))
-    heading(fig, "leftover", leftover_takeaway(t, n_pass, len(genes), n_surrogates))
+    heading(fig, "leftover", leftover_takeaway(t, genes, q, n_surrogates))
 
     # A, tier 1: Cacng8 against the leftover
     ax = fig.add_axes([0.04, 0.21, 0.19, 0.55])
@@ -4489,13 +4522,19 @@ def plot_leftover(
         ax, family, "leftover_rho", "control_leftover_rho", np.random.default_rng(0)
     )
     ax.set_ylabel("Spearman rho with the leftover")
+    if t["outside"]["controls_changed"] == 0:
+        outside = "no control is a model term, so the check row is the same test"
+    else:
+        outside = (
+            f"controls outside the model's terms {t['outside']['difference']:+.3f}, "
+            f"p = {t['outside']['p']:.2f}"
+        )
     panel_title(
         ax,
         "C",
         "The family against matched genes",
         f"{t['matched']['difference']:+.3f} between medians, p = "
-        f"{t['matched']['p']:.2f};\ncontrols outside the model's terms "
-        f"{t['outside']['difference']:+.3f}, p = {t['outside']['p']:.2f}",
+        f"{t['matched']['p']:.2f};\n{outside}",
     )
 
     # D, tier 3: every gene
@@ -4505,7 +4544,7 @@ def plot_leftover(
         ax,
         "D",
         "Tier 3: every gene, exploratory",
-        f"{n_pass} of {len(genes)} cross the line",
+        f"{n_pass} of {len(genes)} cross the line, {n_below} of them below zero",
     )
     footer(
         fig,
@@ -4546,7 +4585,8 @@ def family_takeaway(
             within += ", each above zero"
     return (
         f"Cacng8 {cacng8} the leftover ({p_text(t['first']['p'], n_surrogates)}, a "
-        f"re-test of what was seen on 8 October); the family {beyond} the surrogates "
+        f"re-test: its p against two earlier leftovers was seen before it was named); "
+        f"the family {beyond} the surrogates "
         f"(p = {t['spatial']['p']:.3f}), {than} than postsynaptic genes of its "
         f"expression (p = {t['matched']['p']:.3f}); {within}"
     )
@@ -4654,8 +4694,8 @@ def plot_ampa_family(
     footer(
         fig,
         [
-            "How to read: the family was named on 8 October, before the main model ran, "
-            "from sources outside this analysis: S, the native AMPA receptor complexes "
+            "How to read: the family was named before this model was fitted, from "
+            "sources outside this analysis: S, the native AMPA receptor complexes "
             "of Schwenk et al. 2012 (Figure 1D, Table S2); GO, GO:0032281 AMPA",
             "glutamate receptor complex; P, the partner subunits (dark blue); minus "
             "Gria1, the abundance term. Tier 1 is Cacng8 alone (red); tier 2 the family "

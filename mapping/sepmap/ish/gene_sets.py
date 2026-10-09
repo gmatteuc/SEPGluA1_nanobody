@@ -121,7 +121,10 @@ good:
                    of Figure 1D (the rows of Table S3 too), and TARP gamma-5, which
                    Table S2 adds
     GO             the mouse genes annotated to GO:0032281 AMPA glutamate receptor
-                   complex in the GO Consortium's mgi.gaf, release 2026-08-05; every
+                   complex in the GO Consortium's mgi.gaf (the file of
+                   current.geneontology.org when the release was 2026-08-05, its
+                   header dated 2026-05-21; release 2026-08-05's own mouse GAF, which
+                   adult.density_markers reads, gives the same 31 genes); every
                    evidence code, annotations with a NOT qualifier left out (Shisa7's
                    only one is)
     partners       Gria2, Gria3 and Gria4: the subunits GluA1 assembles with, which
@@ -315,7 +318,7 @@ GO_AMPA_COMPLEX = (
     "Vwc2",
     "Vwc2l",
 )
-GO_AMPA_COMPLEX_RELEASE = "2026-08-05"
+GO_AMPA_COMPLEX_SOURCE = "mgi.gaf of 2026-05-21"
 
 # the subunits GluA1 assembles with: they set its assembly and trafficking, the surface
 # side, and the nanobody does not see them

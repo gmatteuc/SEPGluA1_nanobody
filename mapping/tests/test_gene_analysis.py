@@ -87,6 +87,9 @@ def test_gap_uses_only_structures_both_genes_have():
     assert row["gap"] == pytest.approx(expected)
     assert equal.shape == unrelated.shape == (100,)
 
+    # the two-sided test passes a gap only beyond 95% of the null's gaps either way
+    assert row["equal_two_sided"] == pytest.approx(np.percentile(np.abs(equal), 95))
+
 
 def test_equal_null_matches_the_observed_level_and_is_narrower():
     """The equal null reaches the observed rho, centres on zero, and is narrower."""

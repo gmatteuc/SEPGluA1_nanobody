@@ -60,8 +60,9 @@ version's density markers held, are no terms of the main model (the rule of the
 density genes leaves them out as AMPA-receptor-linked); and each surrogate of
 the leftover, the model projected out of it, is rougher at short range than the
 leftover, so the tests are read again against smoother Gaussian fields projected
-the same way (smooth_null_check), and the family again against controls from
-outside the model's terms (check_tests).
+the same way (smooth_null_check; none reaches the leftover's own smoothness, so
+they narrow the gap, they do not close it), and the family again against controls
+from outside the model's terms (check_tests).
 
 Why the share taken has a null of its own: three more columns always win a little
 held-out variance by chance, and a smooth map wins more than a rough one, since
@@ -98,7 +99,7 @@ from sepmap.ish import gene_ranking, gene_sets, gene_table, spatial_null
 from sepmap.ish.gene_sets import (
     AMPA_FAMILY,
     GO_AMPA_COMPLEX,
-    GO_AMPA_COMPLEX_RELEASE,
+    GO_AMPA_COMPLEX_SOURCE,
     LEFTOVER_GENE,
     PARTNER_SUBUNITS,
     SCHWENK_2012,
@@ -127,7 +128,7 @@ NAMED_GENES = ("Gria1", LEFTOVER_GENE)
 # where each member of the family comes from, as top_genes.csv writes it
 FAMILY_SOURCES = (
     ("Schwenk 2012", tuple(SCHWENK_2012)),
-    (f"GO:0032281 ({GO_AMPA_COMPLEX_RELEASE})", GO_AMPA_COMPLEX),
+    (f"GO:0032281 ({GO_AMPA_COMPLEX_SOURCE})", GO_AMPA_COMPLEX),
     ("partner subunit", PARTNER_SUBUNITS),
 )
 
@@ -647,6 +648,7 @@ def check_tests(
     null_genes: list[str],
     pool: list[str],
     level: dict[str, float],
+    pairs_main: dict[str, str] | None = None,
     seed: int = 1,
 ) -> pd.DataFrame:
     """Two check rows of tier 2 on the leftover, added after the tests ran.
@@ -655,7 +657,9 @@ def check_tests(
     the group test says more than tier 1; and the family against controls matched
     afresh from the pool's genes that are not in the main model (in_model empty),
     since a control inside the density term is projected out of the leftover with
-    the model. `leftover` is leftover_genes.csv, `null` its genes x surrogates.
+    the model. `leftover` is leftover_genes.csv, `null` its genes x surrogates. With
+    `pairs_main`, the test's own controls, the second row counts in controls_changed
+    the members whose control differs from it: 0 when no control was a model term.
     """
     rho = leftover.set_index("symbol")["rho"]
     row_of = {g: i for i, g in enumerate(null_genes)}
@@ -667,9 +671,13 @@ def check_tests(
     a = rho[family].to_numpy(float)
     b = rho[[pairs[g] for g in family if g in pairs]].to_numpy(float)
     rng = np.random.default_rng(seed)
+    outside_row = matched_row("leftover", OUTSIDE_TEST, "check", a, b, rng)[0]
+    if pairs_main is not None:
+        changed = [g for g in family if pairs.get(g) != pairs_main.get(g)]
+        outside_row["controls_changed"] = len(changed)
     rows = [
         spatial_row("leftover", WITHOUT_TEST, "check", without, spatial, null_median),
-        matched_row("leftover", OUTSIDE_TEST, "check", a, b, rng)[0],
+        outside_row,
     ]
     return pd.DataFrame(rows)
 
@@ -696,7 +704,9 @@ def named_tests(
         nano=(nano.set_index("symbol")["rho"], nano_null["rho"], nano_null["genes"]),
     )
     group, group_nulls = group_tests(family, pairs, maps)
-    checks = check_tests(family, leftover, null["rho"], null["genes"], pool, level)
+    checks = check_tests(
+        family, leftover, null["rho"], null["genes"], pool, level, pairs_main=pairs
+    )
     tier_one_row = pd.DataFrame([tier_one(leftover)])
     tests = pd.concat([tier_one_row, group, checks], ignore_index=True)
     return tests, group_nulls
@@ -728,14 +738,15 @@ def null_check_row(
 ) -> dict:
     """The tests against one null of the leftover.
 
-    Cacng8's p, the family's p, and how many genes fall below p 0.05, with how smooth the
-    null's maps are.
+    Cacng8's p, the family's p, how many genes fall below p 0.05 and how many pass BH
+    over all of them (ish_analysis.q), with how smooth the null's maps are.
     """
     rho = leftover.set_index("symbol")["rho"]
     nulls = {
         g: null_rho(maps[:, columns], values) for g, (columns, values) in vectors.items()
     }
     p = {g: spatial_p(rho[g], nulls[g]) for g in vectors}
+    q = false_discovery_control(np.array(list(p.values())), method="bh")
     family = [g for g in family if g in nulls]
     family_null = np.median([nulls[g] for g in family], axis=0)
     return dict(
@@ -748,6 +759,7 @@ def null_check_row(
         p_cacng8=p[LEFTOVER_GENE],
         p_family=spatial_p(float(np.median(rho[family])), family_null),
         genes_p05=int(sum(v < ALPHA for v in p.values())),
+        genes_bh=int(np.sum(q < ISH_ANALYSIS["q"])),
         genes=len(p),
     )
 
@@ -1063,6 +1075,12 @@ def check_numbers(tier2: pd.DataFrame) -> list[tuple]:
             round(outside["p"], 6),
             "check: label-permutation p",
         ),
+        (
+            "family_leftover_outside_changed",
+            int(outside["controls_changed"]),
+            "check: members whose control differs from the test's (0: none was a "
+            "model term)",
+        ),
     ]
 
 
@@ -1106,7 +1124,18 @@ def null_check_numbers(check: pd.DataFrame) -> list[tuple]:
             (f"{key}_p_cacng8", round(r.p_cacng8, 6), f"{r.null}: Cacng8's p"),
             (f"{key}_p_family", round(r.p_family, 6), f"{r.null}: the family's p"),
             (f"{key}_genes_p05", int(r.genes_p05), f"{r.null}: genes below p 0.05"),
+            (f"{key}_genes_bh", int(r.genes_bh), f"{r.null}: genes past BH"),
         ]
+    smooth = check[check["range_mm"].notna()]
+    rows += [
+        (
+            "null_check_smoothest",
+            round(float(smooth["neighbour_rho"].max()), 3),
+            "the smoothest of these nulls, its smoothness",
+        ),
+        ("null_check_genes_bh_min", int(smooth["genes_bh"].min()), "fewest past BH"),
+        ("null_check_genes_bh_max", int(smooth["genes_bh"].max()), "most past BH"),
+    ]
     return rows
 
 

@@ -243,13 +243,26 @@ def test_the_check_rows_leave_out_cacng8_and_the_models_own_genes():
 
     # the genes inside the model sit at the family's expression, those outside far
     level = {g: 10.0 for g in family + inside} | {g: 100.0 for g in outside}
-    checks = top_genes.check_tests(family, leftover, null, genes, inside + outside, level)
+    # the test's own controls were the model's genes, so every control changes
+    main = {g: m for g, m in zip(family, inside)}
+    checks = top_genes.check_tests(
+        family, leftover, null, genes, inside + outside, level, pairs_main=main
+    )
     without = checks[checks["test"] == top_genes.WITHOUT_TEST].iloc[0]
     assert without["n_first"] == 3
     against = checks[checks["test"] == top_genes.OUTSIDE_TEST].iloc[0]
     rho = leftover.set_index("symbol")["rho"]
     assert against["second"] == pytest.approx(np.median(rho[outside]))
+    assert against["controls_changed"] == len(family)
     assert (checks["role"] == "check").all()
+
+    # controls already outside the model: the check row repeats the test
+    same = top_genes.family_controls(family, outside, level)
+    checks = top_genes.check_tests(
+        family, leftover, null, genes, inside + outside, level, pairs_main=same
+    )
+    against = checks[checks["test"] == top_genes.OUTSIDE_TEST].iloc[0]
+    assert against["controls_changed"] == 0
 
 
 def test_neighbour_agreement_tells_a_smooth_map_from_a_shuffled_one():

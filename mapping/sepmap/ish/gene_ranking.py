@@ -55,7 +55,7 @@ from sepmap.config import SETTINGS
 from sepmap.ish import gene_table
 from sepmap.ish.gene_sets import LEFTOVER_GENE
 from sepmap.ish.numbers import numbers_frame, numbers_path
-from sepmap.ish.spatial_null import BAND, null_rho, spatial_p
+from sepmap.ish.spatial_null import ALPHA, BAND, null_rho, spatial_p
 from sepmap.structures import TABLES
 
 # the voxels a gene value needs and the structures a correlation needs; the BH
@@ -341,8 +341,11 @@ def gap_row(
     related to both genes and against maps unrelated to both, both bands, the adult
     bootstrap interval), the null gaps of the equal null and those of the unrelated
     one, one per surrogate. The p counts gaps as large either way, the test fixed
-    in advance; the equal null is skewed, so beside it the share of its maps where
-    the first gene leads by at least the gap, and where the second does.
+    in advance, so the gap passes only beyond equal_two_sided, the 95th percentile of
+    the null's gaps taken either way; the equal null is skewed, so beside it the
+    share of its maps where the first gene leads by at least the gap, and where the
+    second does, and its central 95% (equal_lo, equal_hi), which describe it and are
+    not the test.
     """
     shared = [
         i
@@ -366,6 +369,7 @@ def gap_row(
         p_equal=spatial_p(gap, equal),
         equal_lo=float(np.percentile(equal, BAND[0])),
         equal_hi=float(np.percentile(equal, BAND[1])),
+        equal_two_sided=float(np.percentile(np.abs(equal), 100 * (1 - ALPHA))),
         equal_weight=weight,
         equal_first_as_large=float(np.mean(equal >= abs(gap))),
         equal_second_as_large=float(np.mean(equal <= -abs(gap))),
@@ -513,6 +517,11 @@ def gap_numbers(gap: pd.DataFrame) -> list[tuple]:
         ("gap_p", round(merged["p_equal"], 5), "its p, maps related to both alike"),
         ("gap_equal_lo", round(merged["equal_lo"], 3), "2.5% of that null"),
         ("gap_equal_hi", round(merged["equal_hi"], 3), "97.5% of that null"),
+        (
+            "gap_two_sided",
+            round(merged["equal_two_sided"], 3),
+            "the lead either way the test fixed in advance needs: 95% of |null|",
+        ),
         (
             "gap_equal_first_as_large",
             round(merged["equal_first_as_large"], 4),

@@ -36,7 +36,7 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                10s1, 10s2
     21. run_synaptome          the measured synapse density (network,
                                once): PSD95 puncta per structure,
-                               its coverage of the fit; figure 14s1
+                               its coverage of the fit; figure 03s4
     22. run_density_markers    the synapse-density genes, chosen by
                                PSD95 without the map (network,
                                once); figure 03s3
@@ -47,15 +47,15 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                is known; the check rows, each
                                with its own floor
     26. run_beyond_regression  the regression, per structure
-    27. run_beyond_figures     figures 03, 03s1, 03s2, 04, 11s1, 14
+    27. run_beyond_figures     figures 03, 03s1, 03s2, 04, 11s1
     28. run_ish_top_genes      the genes that follow the map most,
                                characterised; Cacng8 and the AMPA
                                receptor complex family against the
                                leftover; figures 07, 08, 11, 11s2,
                                sheets
     29. run_sep_channel_check  analysis 5: what the green channel
-                               reports; figures 15, 15s
-    30. run_ish_overview       figures 00, 16 and 16s, the figure
+                               reports; figures 14, 14s
+    30. run_ish_overview       figures 00, 15 and 15s, the figure
                                index; the numbers for the text
 
 Correlates every gene with the adult map again, changing one choice of the primary
@@ -118,9 +118,10 @@ def main():
         )
     robustness.numbers_table(summary).to_csv(robustness.NUMBERS, index=False)
 
-    # figure 13 and its detailed version, the band of the primary's gap behind them
+    # figure 13 and its detailed version, behind the gaps the band within which the
+    # primary's two-sided test, fixed in advance, does not pass
     merged = gene_ranking.merged_gap(gene_ranking.load_gap())
-    band = (float(merged["equal_lo"]), float(merged["equal_hi"]))
+    band = (-float(merged["equal_two_sided"]), float(merged["equal_two_sided"]))
     fig = ish_plotting.plot_robustness(summary, band, save=figure_path("robustness"))
     plt.close(fig)
     fig = ish_plotting.plot_robustness_detail(
