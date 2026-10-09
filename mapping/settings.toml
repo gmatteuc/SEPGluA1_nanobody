@@ -155,3 +155,21 @@ table = "gene_region_table.csv"
 panel = "adult_v2/panel/panel_v2.csv"
 root = "data"
 table = "gene_region_table_panel.csv"
+
+# the adult map by cortical depth (adult.layers and layers_plotting); a cell is kept
+# from region_tables.min_vox20 tissue voxels, as a structure in the region tables, and
+# the flatmaps use the close-up's smoothing (closeup.smooth) and the adults a pixel
+# needs in its adult panel (young_vs_adult.min_n_adult)
+[adult_layers]
+# the cortical hierarchy and modules of Harris et al. 2019 (Nature 575:195), relative to
+# the code root: Supplementary Table 9, "Cre_conf CC+TC+CT", 37 areas scored, 6 not
+hierarchy = "mapping/harris2019_hierarchy.csv"
+min_mice = 3               # adults with a value that an area and depth need for a mean and SEM: an SEM of two is no estimate
+t_max = 20.0               # |t| (mean over SEM across the adults) at which a bar's grey reaches black, as the MATLAB characterisation's bars
+# colour range of the mean flatmaps, in zref units: the band means run from -0.55 to 0.72
+# (1st and 99th percentiles of the supragranular band, the widest of the three), and
+# the floor sits a tenth of that range below it, so the darkest cortex stays dark red
+# rather than the black of the ground
+mean_lim = [-0.7, 0.8]
+sd_max = 0.35              # top of the colour range of the between-mouse SD flatmaps, in zref units: the 95th percentile of the supragranular band
+flatmap_cache = "flatmap_bands.npz"  # the band flatmaps of every adult, under adult_v2/layers
