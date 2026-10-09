@@ -78,7 +78,12 @@ section 2).
 Each driver sets its settings and calls one function in `pipeline/`
 (`collect_by_group`, `normalise_groups`, `group_differences`); the video
 writers (`write_lr_*`, `open_lr_video`, `set_lr_colormap`) and the atlas
-outlines (`lr_atlas_boundaries`) sit beside them. Shared: `../common/`
+outlines (`lr_atlas_boundaries`) sit beside them, and so do the parts of
+step 3 that other code reuses: each mouse's tissue and its smoothing
+(`tissue_only`), its plane profile (`plane_tissue_means`), the alignment of
+the two groups (`align_exp_to_ctrl`), the regions of the bars
+(`surprise_regions`, `surprise_region_acronyms`) and their permutation test
+(`region_permutation_test`). Shared: `../common/`
 (`get_cohort`, `get_cohort_spec`, `compute_lr_stats`, `sep_palette`) and
 `../atlas/` (`get_atlas_crop`, `get_allen_region_mask`).
 
