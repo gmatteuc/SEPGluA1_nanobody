@@ -402,6 +402,8 @@ def control_number_rows(n: dict) -> list[tuple]:
         ("control_e_quintic", round(n["curvature"][2], 4), "control E: to fifth powers"),
         ("control_f_genes", n["f_genes"], "control F: genes measured everywhere"),
         ("control_f_components", n["f_k"], "control F: components picked most often"),
+        ("control_f_components_lo", n["f_k_range"][0], "control F: fewest picked"),
+        ("control_f_components_hi", n["f_k_range"][1], "control F: most picked"),
         ("control_f_share", round(n["f_share"], 4), "control F: nested CV R2 / ceiling"),
         ("control_f_replication", round(n["f_rep"], 4), "control F: leftover replicates"),
         ("control_f_cal_structures", n["f_cal_n"], "control F's floor: structures"),
@@ -416,9 +418,25 @@ def control_number_rows(n: dict) -> list[tuple]:
             "control F: components of the highest held-out R2 (max_pcs the most tried)",
         ),
         (
-            "control_f_curve_plateau",
-            n["f_plateau"],
-            f"control F: fewest components within {n['f_plateau_r2']} of that R2",
+            "control_f_curve_peak_share",
+            round(n["f_peak_share"], 4),
+            "control F: held-out R2 / ceiling at its highest",
+        ),
+        (
+            "control_f_near_peak_from",
+            n["f_near_peak"][0],
+            f"control F: fewest components within {n['f_near_r2']} of that R2",
+        ),
+        (
+            "control_f_near_peak_to",
+            n["f_near_peak"][1],
+            f"control F: most components within {n['f_near_r2']} of that R2",
+        ),
+        ("control_f_curve_max", n["f_max_k"], "control F: most components tried"),
+        (
+            "control_f_curve_end_share",
+            round(n["f_end_share"], 4),
+            "control F: held-out R2 / ceiling at the most components tried",
         ),
         (
             "control_e_quintic_left",
@@ -550,6 +568,23 @@ def lost_text(n: dict) -> str:
     return "; ".join(parts)
 
 
+def curve_text(n: dict) -> str:
+    """Control F's held-out R2 over the components tried: its peak and the band near it.
+
+    The band is every number of components within [beyond_controls] plateau_r2 of the
+    peak; if it reaches the most tried, the peak may lie past the range.
+    """
+    first, last = n["f_near_peak"]
+    text = (
+        f"its held-out R2 is highest at {n['f_curve_peak']} components "
+        f"({n['f_peak_share']:.0%} of the ceiling), within {n['f_near_r2']} of that "
+        f"from {first} to {last}"
+    )
+    if last < n["f_max_k"]:
+        return text + f", lower beyond ({n['f_end_share']:.0%} at {n['f_max_k']})"
+    return text + ", the most tried, so its peak may lie past the range"
+
+
 def caption_lines(n: dict) -> list[str]:
     """numbers_for_the_caption.txt: the figures' numbers as sentences."""
     floor = n["floor"]
@@ -631,11 +666,11 @@ def caption_lines(n: dict) -> list[str]:
         f"{n['curvature'][1]:.3f}, to fifth powers {n['curvature'][2]:.3f} (left "
         f"{1 - n['curvature'][2] / n['ceiling']:.0%}): the curved row is a check, not "
         f"a bound. Control F: the components of the {n['f_genes']} genes measured in "
-        f"every structure (most often {n['f_k']}, picked inside each fold) predict "
+        f"every structure (1 to {n['f_max_k']} tried; picked inside each fold, "
+        f"{n['f_k_range'][0]} to {n['f_k_range'][1]}, most often {n['f_k']}) predict "
         f"{n['f_share']:.0%} of the reproducible map; on its own calibration the nano "
         f"map leaves {n['f_nano'][0]:.0%} to {n['f_nano'][1]:.0%}, a map made of those "
-        f"genes {n['f_floor'][0]:.0%} to {n['f_floor'][1]:.0%}; its held-out R2 is "
-        f"within {n['f_plateau_r2']} of its highest from {n['f_plateau']} components.",
+        f"genes {n['f_floor'][0]:.0%} to {n['f_floor'][1]:.0%}; {curve_text(n)}.",
         "",
         f"By division: {n['between']:.0%} of the leftover's variance lies between "
         f"divisions; above prediction as a whole {above or 'none'}, below "
@@ -679,13 +714,21 @@ def gene_space_row(summary: pd.DataFrame, calibration: pd.DataFrame) -> dict:
     )
 
 
-def plateau(curve: pd.DataFrame, within: float) -> int:
-    """The fewest components whose held-out R2 is within `within` of the curve's highest.
+def curve_numbers(curve: pd.DataFrame, within: float) -> dict:
+    """Control F's curve: the share at its peak and at the most components tried, and
+    the fewest and the most components whose held-out R2 is within `within` of the peak.
 
     `curve` is gene_space.csv: control F's held-out R2 per number of components.
     """
-    reached = curve[curve["cv_r2"] >= curve["cv_r2"].max() - within]
-    return int(reached["n_components"].min())
+    near = curve[curve["cv_r2"] >= curve["cv_r2"].max() - within]
+    last = curve.loc[curve["n_components"].idxmax()]
+    return dict(
+        f_peak_share=float(curve["share_of_ceiling"].max()),
+        f_near_peak=(int(near["n_components"].min()), int(near["n_components"].max())),
+        f_near_r2=within,
+        f_max_k=int(last["n_components"]),
+        f_end_share=float(last["share_of_ceiling"]),
+    )
 
 
 def load_tables() -> dict:
@@ -855,8 +898,7 @@ def model_numbers(
         controls_failed=failed_controls(tables["controls"]),
         n_controls=len(tables["controls"]),
         curvature=curvature_scores(y, covariates, inputs.terms),
-        f_plateau=plateau(tables["f_curve"], BEYOND_CONTROLS["plateau_r2"]),
-        f_plateau_r2=BEYOND_CONTROLS["plateau_r2"],
+        **curve_numbers(tables["f_curve"], BEYOND_CONTROLS["plateau_r2"]),
         n_blocks=len(blocks),
         **gene_space_row(tables["f_summary"], tables["f_calibration"]),
     )
