@@ -13,10 +13,9 @@ views of it (drawn by adult.plotting):
        leftover), because the leftover is a spatial claim.
 
 What is regressed on what is the main model of adult.beyond_density, which has the
-predictors and the reasons: the ten adults' mean zref per structure, ranked, on
-Gria1, synapse density (the mRNA panel of markers and psd_pc1, or the measured PSD95
-density when the rule of [beyond] says so) and autofluorescence, each bent (x, x^2,
-x^3).
+predictors and the reasons: the ten adults' mean zref per structure, ranked, on the
+ranks of Gria1 and of synapse density (the mean rank of the density genes), two
+straight terms.
 
 Guided figure 04 (adult.beyond_figures) draws its maps from regression_table.csv.
 
@@ -131,17 +130,14 @@ def main() -> dict:
     OUT.mkdir(parents=True, exist_ok=True)
     inputs = load_inputs()
     structures = inputs.structures
-    covariates, psd, _ = covariates_for(inputs)
+    covariates, _, _ = covariates_for(inputs)
     columns = model_columns(covariates, inputs.terms)
     observed = full_map(inputs.nano)
     leftover = residual(observed, columns)
     predicted = observed - leftover
     fitted, cv = r_squared(observed, columns), cv_r2(observed, columns)
     terms = [", ".join(inputs.terms[group]) for group in inputs.terms]
-    print(
-        f"{len(structures)} structures; predictors: {'; '.join(terms)} (psd_pc1 of "
-        f"{len(psd)} genes), each bent"
-    )
+    print(f"{len(structures)} structures; predictors: {'; '.join(terms)}, straight")
     print(
         f"  R2 {fitted:.3f} fitted, {cv:.3f} cross-validated; "
         f"map against prediction rho {spearmanr(observed, predicted).statistic:.3f}"

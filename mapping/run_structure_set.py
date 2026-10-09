@@ -44,7 +44,8 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                density leave; the leftover
     24. run_beyond_controls    seven attempts to break it
     25. run_beyond_calibration the same model on maps whose answer
-                               is known
+                               is known; the check rows, each
+                               with its own floor
     26. run_beyond_regression  the regression, per structure
     27. run_beyond_figures     figures 03, 03s1, 03s2, 04, 11s1, 14
     28. run_ish_top_genes      the genes that follow the map most,
@@ -61,7 +62,9 @@ Measures the three channels of every adult per structure, plain and eroded by on
 20 um voxel, declares the structures every comparison of the ISH line uses (grey
 matter measured in all ten adults, settings [structures]), and takes zref with that
 set as reference (the methods are in sepmap/structures.py and
-sepmap/adult/profiles.py). Writes, in adult_v2/ish_analysis/ under the data root:
+sepmap/adult/profiles.py); then measures nano again on the Allen 200 um grid, the
+structures assigned as the ISH values are, for a check row of part 1. Writes, in
+adult_v2/ish_analysis/ under the data root:
 
     tables/adult_per_mouse.csv       per adult and structure: voxels, the channel
                                      means plain and eroded (the cache), cref, zref
@@ -70,6 +73,8 @@ sepmap/adult/profiles.py). Writes, in adult_v2/ish_analysis/ under the data root
     tables/zref_reference.csv        per adult and channel, the zero and spread of
                                      zref, and the stored ones of region_plot
     tables/adult_profile.csv         per structure, the mean over the adults
+    tables/adult_allen_grid.csv      per adult and structure, nano on the Allen
+                                     200 um grid: voxels, mean, cref, zref
     tables/centroids.csv             the declared structures' centroids, one
                                      hemisphere, in mm
     tables/numbers_structure_set.csv the numbers of this step, for the text
@@ -149,6 +154,17 @@ def main(recompute):
     print(
         f"adult profile: {len(profile)} structures, {int(profile['in_set'].sum())} "
         f"in the set; order against the stored zref rho {agreement:.5f}"
+    )
+
+    # nano on the Allen 200 um grid, structures assigned as the ISH values are
+    grid = profiles.grid_table(meta, declared)
+    grid.to_csv(profiles.GRID_TABLE, index=False)
+    enough = grid[grid["n_voxels"] >= profiles.ISH["min_voxels"]]
+    n_adults = enough.groupby("structure")["mouse"].nunique()
+    n_every = int((n_adults == len(profiles.ADULTS)).sum())
+    print(
+        f"Allen grid: {grid['structure'].nunique()} structures with a 200 um voxel of "
+        f"nano, {n_every} with {profiles.ISH['min_voxels']} or more in every adult"
     )
 
     # centroids of the declared structures, one hemisphere

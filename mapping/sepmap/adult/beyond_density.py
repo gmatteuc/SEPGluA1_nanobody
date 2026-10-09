@@ -3,23 +3,25 @@
 The question: is the adult nano map just how much GluA1 a structure makes, or just
 how many synapses it has? Ranking genes against the map cannot tell, because a map
 of pure synapse density also puts the postsynaptic genes on top (analysis 3). So the
-question is turned round: predict the map as well as possible from Gria1 expression
-and synapse density, and ask how much is left, whether the leftover is more than one
-Allen map disagreeing with another, and what it looks like.
+question is turned round: predict the map from Gria1 expression and synapse density,
+and ask how much is left, whether the leftover is more than one Allen map
+disagreeing with another, and what it looks like.
 
-    nano map  ~  Gria1 + synapse density + autofluorescence  ->  leftover
+    nano map rank  ~  Gria1 rank + synapse-density rank  ->  leftover
 
 This is the main model of settings.toml [beyond], fixed before it was run
-(docs/ISH_ANALYSIS.md, section 4.1); the check rows beside it ([beyond.variants])
-are run by adult.beyond_controls. The steps, each printing its numbers:
+(docs/ISH_ANALYSIS.md, section 4.1); the check rows beside it ([beyond.checks]) are
+run by adult.beyond_checks, the controls by adult.beyond_controls. The steps, each
+printing its numbers:
 
     0  the structures   the declared set (sepmap.structures), less the structures
-                        where a subunit or marker gene has no ISH value; the
-                        density the main model uses, by the rule below
+                        where Gria1 or a density gene has no ISH value
     1  the ceiling      how reproducible the map is: nothing can predict variance
                         that is not there, so every R2 is read against it
-    2  the budget       what Gria1, then synapse density, then autofluorescence
-                        predict, on structures the fit has not seen
+    2  the partition    what Gria1 alone, synapse density alone and the two together
+                        predict on structures the fit has not seen, split into what
+                        only Gria1 predicts, what only density does, what they share
+                        and what is left; and the weight of each term
     3  the leftover     whether it replicates across mice, and the value the ceiling
                         and the fit alone imply it would replicate at
     4  where it lives   which structures carry it and how consistently across
@@ -27,35 +29,26 @@ are run by adult.beyond_controls. The steps, each printing its numbers:
                         leftover's own spatial null with the model removed from
                         every surrogate (leftover_genes)
 
-Everything is one number per structure, on ranks:
+Everything is one number per structure, on ranks across the structures:
 
-    y            the ten adults' mean zref per structure (the declared reference),
-                 ranked
+    y            the ten adults' mean zref per structure (the declared reference)
     abundance    Gria1 (beyond.abundance). The mice carry SEP-GluA1, and Gria1
                  alone encodes GluA1; Gria2 to Gria4 encode partner subunits the
                  nanobody does not see, whose availability sets GluA1's assembly
                  and trafficking, so they belong to what the leftover may hold,
-                 not to abundance. The four subunits as four terms are the variant
-                 four_subunits
-    density      synapse density, measured or from mRNA. Measured: the density of
-                 PSD95 puncta (adult.synaptome, Zhu et al. 2018), which counts
-                 excitatory synapses where they are. From Allen mRNA, the panel:
-                 the mean rank of the synaptic marker genes (beyond.markers) and
-                 psd_pc1, the first principal component of the postsynaptic-density
-                 genes of the ontology panel (role control_psd) with a value in
-                 every structure. mRNA sits in somata, so a presynaptic marker
-                 marks where the neurons that make the synapses are, not where
-                 their synapses are. PSD95 replaces the panel only if it covers
-                 beyond.min_psd95_coverage of the structures of the fit, and the
-                 fit then runs on the structures it covers (main_model); below that
-                 the panel stays, on every structure of the fit, and PSD95 is a
-                 variant
-    autofluo     the ten adults' mean autofluorescence zref, the only predictor
-                 measured in the same sections as the map
-    bent         every predictor enters as x, x^2 and x^3. The rank relationships
-                 are curved, and a straight line would leave the curvature in the
-                 leftover; control E (adult.beyond_controls) checks that bending
-                 further buys nothing
+                 not to abundance (the four subunits are the check row
+                 four_subunits)
+    density      synapse density: the mean rank of the postsynaptic genes that
+                 adult.density_markers chose by their agreement with the measured
+                 PSD95 punctum density, by a rule that read no nano value and left
+                 out every gene that places or regulates AMPA receptors
+                 (density_markers.chosen). mRNA sits in somata, and a postsynaptic
+                 gene's is made by the neurons that receive the synapses, the side
+                 the receptor is on
+    straight     each term enters once, as itself. A known map made of the two
+                 terms, the calibration's floor, then has no curvature the model
+                 could miss; the check row curved bends both (x, x^2, x^3), and its
+                 leftover bounds the straight model's from below
     CV R2        each structure predicted from a fit that never saw it: the
                  structures are shuffled, cut into five folds, and each fold
                  predicted from the other four; the share of variance missed is
@@ -72,10 +65,24 @@ agreement r into the reliability of the ten-adult map,
     ceiling = 2 r / (1 + r)
 
 A reliability is already a share of variance (true over observed), so the ceiling is
-not squared again. Then
+not squared again. Each model's share is its CV R2 over the ceiling. With A the share
+of Gria1 alone, D that of density alone and AD that of the two together, the
+reproducible map splits into
 
-    explained    CV R2 / ceiling        the share of the reproducible map predicted
-    left         1 - CV R2 / ceiling    the share not predicted: the leftover
+    Gria1 only     AD - D
+    density only   AD - A
+    shared         A + D - AD
+    left           1 - AD
+
+which add to 1. Held out, unlike in-sample, a part can come out negative: a term
+that adds nothing to the other still costs a little through overfitting (a part
+"only" below zero), and two terms that each predict little alone can predict more
+together (a shared part below zero). A part is reported as computed, signed and never
+clipped, and the figures draw a negative part leftwards from zero.
+
+The weights: the straight model fitted on every structure with the map and both
+terms z-scored, so the two coefficients share one unit, the SD of the map per SD of
+the term, and say how much each term carries once the other is in.
 
 The leftover is quoted as a range (adult.beyond_calibration, a jackknife over the
 structures) beside the calibration floor: what the same model leaves of a map that
@@ -111,6 +118,8 @@ Writes, in adult_v2/ish_analysis/beyond/ under the data root:
     structures_used.csv        every structure of the adult table, in the fit or
                                not, why, and whether PSD95 is measured there
     variance_partition.csv     what each model predicts, against the ceiling
+    partition.csv              the four parts of the reproducible map
+    weights.csv                the main model's two weights
     replication.csv            per split of the adults, how well the two half-maps
                                and their two leftovers agree
     residual_by_structure.csv  per structure: map, prediction, leftover, and the
@@ -140,37 +149,48 @@ from sepmap.config import SETTINGS
 from sepmap.ish import gene_ranking, gene_sets, gene_table, spatial_null
 from sepmap.structures import load_centroids, load_structure_set
 
-# the half-cohort size and the terms of the main model; the agreement a leftover
-# needs to count as replicating
+# the half-cohort size, the terms of the main model and of the check rows, the folds;
+# the agreement a leftover needs to count as replicating; the density genes the rule
+# of adult.density_markers chose
 BEYOND = SETTINGS["beyond"]
+DENSITY_MARKERS = SETTINGS["density_markers"]
 
 OUT = structures.ISH_OUT / "beyond"
 STRUCTURES_USED = OUT / "structures_used.csv"
 PARTITION = OUT / "variance_partition.csv"
+PARTS = OUT / "partition.csv"
+WEIGHTS = OUT / "weights.csv"
 REPLICATION = OUT / "replication.csv"
 RESIDUALS = OUT / "residual_by_structure.csv"
 LEFTOVER_GENES = OUT / "leftover_genes.csv"
 LEFTOVER_SETS = OUT / "leftover_sets.csv"
 LEFTOVER_NULL = OUT / "leftover_null.npz"
 
-# the abundance term (Gria1); the four subunits, which set the structures of the fit
-# and make the variant four_subunits
+# the abundance term (Gria1); the four subunits of the check row four_subunits
 ABUNDANCE = tuple(BEYOND["abundance"])
 SUBUNITS = tuple(BEYOND["subunits"])
 
-# synapse density measured (PSD95 puncta), and from mRNA (the panel: the marker
-# composite and psd_pc1); the markers, and the presynaptic ones that the variant
-# panel_postsynaptic leaves out
-MEASURED = tuple(BEYOND["density"])
-PANEL = tuple(BEYOND["density_panel"])
+# the genes of each density composite, by the name of its predictor: the main model's
+# (the genes the rule chose) and those of two check rows, the first proposal and the
+# first version's marker panel
+DENSITY_GENES = tuple(DENSITY_MARKERS["chosen"])
+FIRST_PROPOSAL = tuple(BEYOND["first_proposal"])
 MARKERS = tuple(BEYOND["markers"])
-PRESYNAPTIC = tuple(BEYOND["presynaptic_markers"])
+COMPOSITES = {
+    "density": DENSITY_GENES,
+    "first_proposal": FIRST_PROPOSAL,
+    "markers": MARKERS,
+}
 
-# the groups of predictors in the order the budget adds them
+# the groups of predictors, in the order a model lists them
 ORDER = ("abundance", "density", "autofluorescence")
 
-# the ontology panel's role whose genes make the density component
+# the ontology panel's role whose genes make psd_pc1, the density component of a check
+# row
 PSD_ROLE = "control_psd"
+
+# the parts of the reproducible map, in the order the tables and figures give them
+PART_NAMES = ("gria1_only", "shared", "density_only", "left")
 
 
 # ===== Loading =====
@@ -180,14 +200,14 @@ PSD_ROLE = "control_psd"
 class Inputs:
     """What every step of analysis 4 reads, loaded once.
 
-    `structures` are those the main model runs on; `nano` and `auto` are adults x
+    `structures` are those the model runs on; `nano` and `auto` are adults x
     structures (zref of the nano and of the autofluorescence channel) in their
     order, and `synapses` the measured densities there (one column per
     synaptome.MEASURES, NaN where not measured). `expr` holds every gene's merged
     profile (mean ranks per structure), `role` its role in the ontology panel (''
     outside it); `structures_used` lists every structure of the adult table, in
     the fit or not, with the reason (structures_used.csv); `terms` is the main
-    model, its predictors by group (main_model).
+    model, its predictors by group (model_terms).
     """
 
     structures: list[str]
@@ -203,30 +223,57 @@ class Inputs:
     terms: dict[str, tuple[str, ...]]
 
 
+def model_terms(
+    density: Sequence[str] = ("density",),
+    abundance: Sequence[str] = ABUNDANCE,
+    autofluorescence: bool = False,
+) -> dict[str, tuple[str, ...]]:
+    """A model's predictors by group, named as build_covariates names them.
+
+    Gria1 and the density composite by default, the main model; a check row changes
+    the density or the abundance, or adds autofluorescence.
+    """
+    terms = {"abundance": tuple(abundance), "density": tuple(density)}
+    if autofluorescence:
+        terms["autofluorescence"] = ("autofluo",)
+    return terms
+
+
+def model_genes(terms: dict[str, tuple[str, ...]]) -> tuple[str, ...]:
+    """The genes whose ISH values a model's predictors are made of.
+
+    The abundance genes, and the genes of each density composite it uses; psd_pc1
+    is made of whichever postsynaptic-density genes every structure has, and a
+    measured density of no gene.
+    """
+    genes = list(terms["abundance"])
+    for name in terms["density"]:
+        genes += [g for g in COMPOSITES.get(name, ()) if g not in genes]
+    return tuple(genes)
+
+
 def structure_rows(
     set_table: pd.DataFrame,
     expr: dict[str, dict[str, float]],
-    auto_ok: pd.Series,
-    markers: Sequence[str] = MARKERS,
+    genes: Sequence[str] | None = None,
 ) -> pd.DataFrame:
     """Every structure of the adult table: used by the fit or not, and why.
 
-    A declared structure is used when every subunit and marker gene has an ISH
-    value there (ish.min_voxels voxels in at least one of its experiments) and every
-    adult has autofluorescence above background (`auto_ok`, by structure).
-    Columns: structure, acronym, division, used, reason, missing_genes.
+    A declared structure is used when every one of `genes` (the main model's by
+    default) has an ISH value there: ish.min_voxels voxels in at least one of its
+    experiments, as the gene table's profiles hold it. Columns: structure, acronym,
+    division, used, reason, missing_genes.
     """
-    needed = SUBUNITS + tuple(markers)
+    if genes is None:
+        genes = model_genes(model_terms())
     rows = []
     for r in set_table.itertuples():
-        missing = [g for g in needed if r.structure not in expr.get(g, {})]
+        missing = [g for g in genes if r.structure not in expr.get(g, {})]
         if not r.in_set:
             reason = f"not in the declared set: {r.reason}"
             missing = []
         elif missing:
-            reason = "a subunit or marker gene has no ISH value there"
-        elif not bool(auto_ok.get(r.structure, False)):
-            reason = "autofluorescence not above background in every adult"
+            reason = f"not measured: {' '.join(missing)}"
         else:
             reason = ""
         rows.append(
@@ -242,21 +289,6 @@ def structure_rows(
     return pd.DataFrame(rows)
 
 
-def model_terms(
-    density: Sequence[str] = PANEL, abundance: Sequence[str] = ABUNDANCE
-) -> dict[str, tuple[str, ...]]:
-    """A model's predictors by group, named as build_covariates names them.
-
-    Gria1, the mRNA panel and autofluorescence by default; a variant changes the
-    density or the abundance.
-    """
-    return {
-        "abundance": tuple(abundance),
-        "density": tuple(density),
-        "autofluorescence": ("autofluo",),
-    }
-
-
 def measured_structures(synapses: pd.DataFrame, measures: Sequence[str]) -> list[str]:
     """The structures of `synapses` where every one of `measures` is measured.
 
@@ -266,69 +298,42 @@ def measured_structures(synapses: pd.DataFrame, measures: Sequence[str]) -> list
     return list(values.index[values.notna().all(axis=1)])
 
 
-def main_model(
-    fit: list[str], synapses: pd.DataFrame
-) -> tuple[dict[str, tuple[str, ...]], list[str]]:
-    """The main model's terms and its structures, by the rule of [beyond].
-
-    The measured density (beyond.density, PSD95 puncta) replaces the mRNA panel
-    when it covers at least beyond.min_psd95_coverage of the structures of the fit
-    (synaptome.in_main_model), and the fit then runs on the structures it covers;
-    below that the panel stays, on every structure of the fit. `synapses` holds
-    the measured densities on `fit`, NaN where not measured; a table without them
-    covers nothing.
-    """
-    covered = measured_structures(synapses.reindex(fit), MEASURED)
-    if synaptome.in_main_model(len(covered), len(fit)):
-        return model_terms(MEASURED), covered
-    return model_terms(PANEL), list(fit)
-
-
-def load_inputs(markers: Sequence[str] = MARKERS, measured: bool = True) -> Inputs:
+def load_inputs(genes: Sequence[str] | None = None, measured: bool = True) -> Inputs:
     """What every step reads: profiles, gene profiles, synapse density, structures.
 
-    The adult profiles, the gene table's profiles, the measured synapse density and the
-    structures of the main model.
-
-    The structures of the fit follow structure_rows, the main model and the
-    structures it runs on main_model. `markers` replaces beyond.markers in the rule
-    for the structures (a variant). With `measured` False the synaptome is not
-    read, so the main model keeps the panel on every structure of the fit:
-    run_synaptome, which writes the synaptome's table, reads the fit this way.
+    The structures are the declared ones where every one of `genes` is measured
+    (structure_rows; the main model's genes by default, a check row's otherwise).
+    With `measured` False the synaptome is not read: run_synaptome, which writes
+    the synaptome's table, reads the fit this way.
     """
     per_mouse = profiles.load_per_mouse()
     set_table = load_structure_set()
     expr = gene_table.load_profiles()
-    genes = gene_table.per_gene(gene_table.load_gene_table())
-    role = dict(zip(genes["symbol"], genes["ontology_role"]))
-    p9_genes = set(genes.loc[genes["p9_gene"], "symbol"])
-
-    # autofluorescence above background in every adult, by structure
-    auto = per_mouse.pivot(index="mouse", columns="structure", values="zref_auto")
-    auto_ok = auto.reindex(index=ADULTS).notna().all(axis=0)
-    used = structure_rows(set_table, expr, auto_ok, markers)
+    table = gene_table.per_gene(gene_table.load_gene_table())
+    role = dict(zip(table["symbol"], table["ontology_role"]))
+    p9_genes = set(table.loc[table["p9_gene"], "symbol"])
+    used = structure_rows(set_table, expr, genes)
     fit = sorted(used.loc[used["used"], "structure"])
 
-    # the measured densities on the fit, and the main model by the rule
+    # the measured densities on the fit, and where PSD95 is measured
     if measured:
         synapses = synaptome.load_density().reindex(fit)[list(synaptome.MEASURES)]
     else:
         synapses = pd.DataFrame(index=fit)
-    terms, fitted = main_model(fit, synapses)
-    measured = measured_structures(synapses, (synaptome.MEASURE,))
-    used["psd95_measured"] = used["structure"].isin(measured)
+    covered = measured_structures(synapses, (synaptome.MEASURE,))
+    used["psd95_measured"] = used["structure"].isin(covered)
     return Inputs(
-        structures=fitted,
-        nano=gene_ranking.adult_matrix(per_mouse, "zref_nano", fitted, ADULTS),
-        auto=gene_ranking.adult_matrix(per_mouse, "zref_auto", fitted, ADULTS),
-        synapses=synapses.reindex(fitted),
+        structures=fit,
+        nano=gene_ranking.adult_matrix(per_mouse, "zref_nano", fit, ADULTS),
+        auto=gene_ranking.adult_matrix(per_mouse, "zref_auto", fit, ADULTS),
+        synapses=synapses,
         expr=expr,
         role=role,
         p9_genes=p9_genes,
         division=dict(zip(set_table["structure"], set_table["division"])),
         acronym=dict(zip(set_table["structure"], set_table["acronym"])),
         structures_used=used,
-        terms=terms,
+        terms=model_terms(),
     )
 
 
@@ -355,13 +360,15 @@ def on_measured(inputs: Inputs, measures: Sequence[str]) -> Inputs:
 def composite(
     genes: Sequence[str], expr: dict[str, dict[str, float]], structures: list[str]
 ) -> np.ndarray:
-    """One predictor from a set of genes: the mean of their rank profiles.
+    """One predictor from a set of genes: the rank of the mean of their rank profiles.
 
     Ranks rather than values because each Allen experiment carries its own
     arbitrary intensity scale, so raw numbers are not comparable between genes
-    even when their orderings are.
+    even when their orderings are; ranked again, so the composite is a rank across
+    the structures as every other term.
     """
-    return np.mean([rankdata([expr[g][s] for s in structures]) for g in genes], axis=0)
+    mean = np.mean([rankdata([expr[g][s] for s in structures]) for g in genes], axis=0)
+    return rankdata(mean)
 
 
 def gene_matrix(
@@ -416,9 +423,9 @@ def r_squared(y: np.ndarray, predictors: Sequence[np.ndarray]) -> float:
 def flexible(predictors: Sequence[np.ndarray]) -> list[np.ndarray]:
     """The same predictors, allowed to bend: x, x^2 and x^3 of each.
 
-    A straight line through two rank variables assumes the relationship is not
-    only monotone but evenly paced; control E of adult.beyond_controls shows that
-    assumption is wrong here, so the main model bends.
+    The check row curved: a straight line through two rank variables assumes the
+    relationship is not only monotone but evenly paced, and bending each term shows
+    how much of the leftover is curvature the straight model misses.
     """
     return list(predictors) + [x**2 for x in predictors] + [x**3 for x in predictors]
 
@@ -429,7 +436,7 @@ def fold_labels(
     """The fold of each of n structures, one array per shuffling.
 
     Each shuffling orders the structures at random and deals them into the folds in
-    turn; the first, with seed 0, is the one shuffling of variants.csv.
+    turn; the first, with seed 0, is the one shuffling of folds.csv.
     beyond.cv_repeats shufflings by default.
     """
     if repeats is None:
@@ -511,9 +518,9 @@ def cv_r2(
 ) -> float:
     """Variance explained on structures the fit has never seen (cv_predictions).
 
-    The number to quote once a model has many terms: adding predictors always
-    improves the in-sample fit, and only held-out structures can say whether it
-    improved the prediction. 1 minus the variance missed, averaged over the
+    The number to quote once a model has more than one term: adding predictors
+    always improves the in-sample fit, and only held-out structures can say whether
+    it improved the prediction. 1 minus the variance missed, averaged over the
     shufflings, over the variance of y.
     """
     predicted = cv_predictions(y, predictors, labels)
@@ -615,27 +622,31 @@ def build_covariates(
     role: dict[str, str],
     auto: np.ndarray,
     structures: list[str],
-    markers: Sequence[str] = MARKERS,
     synapses: pd.DataFrame | None = None,
 ) -> tuple[dict[str, np.ndarray], list[str], float]:
     """Every predictor by name, built in one place so every module builds them alike.
 
-    Gria1 to Gria4 each ranked, the marker composite, psd_pc1, autofluo (the ranked
-    mean of `auto`, adults x structures) and each measured density of `synapses`
-    (structures x measures) that every structure has, ranked. Returns the
-    predictors, the postsynaptic-density genes behind psd_pc1 and the share of their
-    variance it carries. `markers` replaces beyond.markers (a variant of
-    adult.beyond_controls).
+    Each a rank across `structures`: the four subunits, each density composite of
+    COMPOSITES, psd_pc1, autofluo (the mean of `auto`, adults x structures) and each
+    measured density of `synapses` (structures x measures). A predictor whose genes
+    or measure are not there for every structure is left out, and a model that
+    needs it stops (predictors). Returns the predictors, the postsynaptic-density
+    genes behind psd_pc1 and the share of their variance it carries.
     """
+    out = {}
+    for g in SUBUNITS:
+        if all(s in expr.get(g, {}) for s in structures):
+            out[g] = rankdata([expr[g][s] for s in structures])
+    for name, genes in COMPOSITES.items():
+        if all(s in expr.get(g, {}) for g in genes for s in structures):
+            out[name] = composite(genes, expr, structures)
     psd = sorted(
         g
         for g in expr
         if role.get(g, "") == PSD_ROLE and all(s in expr[g] for s in structures)
     )
     psd_pc1, share = first_pc(psd, expr, structures)
-    out = {g: rankdata([expr[g][s] for s in structures]) for g in SUBUNITS}
-    out["markers"] = composite(markers, expr, structures)
-    out["psd_pc1"] = psd_pc1
+    out["psd_pc1"] = rankdata(psd_pc1)
     out["autofluo"] = rankdata(auto.mean(axis=0))
     if synapses is not None:
         for measure in synapses.columns:
@@ -645,55 +656,103 @@ def build_covariates(
     return out, psd, share
 
 
-def covariates_for(
-    inputs: Inputs, markers: Sequence[str] = MARKERS
-) -> tuple[dict[str, np.ndarray], list[str], float]:
+def covariates_for(inputs: Inputs) -> tuple[dict[str, np.ndarray], list[str], float]:
     """build_covariates on the inputs' own structures, measured densities included."""
     return build_covariates(
-        inputs.expr, inputs.role, inputs.auto, inputs.structures, markers, inputs.synapses
+        inputs.expr, inputs.role, inputs.auto, inputs.structures, inputs.synapses
     )
 
 
 def predictors(
     covariates: dict[str, np.ndarray],
     terms: dict[str, tuple[str, ...]],
-    groups: Sequence[str] = ORDER,
+    groups: Sequence[str] | None = None,
 ) -> list[np.ndarray]:
-    """The straight predictors of the groups named, in the order of the budget."""
-    return [covariates[name] for group in groups for name in terms[group]]
+    """The straight predictors of the groups named (every group of `terms` by default).
+
+    A predictor that build_covariates could not make on these structures stops the
+    run: the structures were chosen for another model.
+    """
+    if groups is None:
+        groups = [g for g in ORDER if g in terms]
+    out = []
+    for group in groups:
+        for name in terms[group]:
+            if name not in covariates:
+                raise ValueError(
+                    f"the predictor {name} is not measured on every structure of these "
+                    "inputs: load them with that model's genes (model_genes)"
+                )
+            out.append(covariates[name])
+    return out
 
 
 def model_columns(
     covariates: dict[str, np.ndarray],
     terms: dict[str, tuple[str, ...]],
-    groups: Sequence[str] = ORDER,
-    bend: bool = True,
+    groups: Sequence[str] | None = None,
+    bend: bool = False,
 ) -> list[np.ndarray]:
-    """The columns of a model: the groups' predictors, bent unless `bend` is False.
+    """The columns of a model: the groups' predictors, straight unless `bend`.
 
-    model_columns(covariates, inputs.terms) is the main model: Gria1, the density
-    terms and autofluorescence, each as x, x^2 and x^3.
+    model_columns(covariates, inputs.terms) is the main model: Gria1 and synapse
+    density, each once.
     """
     straight = predictors(covariates, terms, groups)
     return flexible(straight) if bend else straight
 
 
-def budget(
+def model_shares(
     y: np.ndarray,
     covariates: dict[str, np.ndarray],
     terms: dict[str, tuple[str, ...]],
     explainable: float,
     labels: list[np.ndarray] | None = None,
-) -> list[float]:
-    """The cumulative share of the explainable variance: abundance, + density, + auto.
+    bend: bool = False,
+) -> dict[str, float]:
+    """A model's shares of the reproducible map, held out: abundance, density, both.
 
-    Each step is the CV R2 of the bent model so far over the ceiling (folds
-    `labels`, fold_labels by default). The leftover is 1 minus the last.
+    The CV R2 over the ceiling of the abundance terms alone, of the density terms
+    alone and of the whole model (with autofluorescence when the model has it), and
+    the share the whole model leaves (folds `labels`, fold_labels by default).
     """
-    return [
-        cv_r2(y, model_columns(covariates, terms, ORDER[:k]), labels) / explainable
-        for k in range(1, len(ORDER) + 1)
-    ]
+    out = {}
+    for key, groups in (
+        ("abundance", ("abundance",)),
+        ("density", ("density",)),
+        ("model", None),
+    ):
+        columns = model_columns(covariates, terms, groups, bend)
+        out[key] = cv_r2(y, columns, labels) / explainable
+    out["left"] = 1 - out["model"]
+    return out
+
+
+def partition(shares: dict[str, float]) -> dict[str, float]:
+    """The four parts of the reproducible map from the shares of a two-group model.
+
+    `shares` holds abundance (A), density (D) and model (AD), as model_shares gives
+    them: Gria1 only AD - D, density only AD - A, shared A + D - AD, left 1 - AD.
+    They add to 1; a part may come out negative held out, and is kept as it is.
+    """
+    a, d, ad = shares["abundance"], shares["density"], shares["model"]
+    return dict(gria1_only=ad - d, shared=a + d - ad, density_only=ad - a, left=1 - ad)
+
+
+def weights(
+    y: np.ndarray, covariates: dict[str, np.ndarray], terms: dict[str, tuple[str, ...]]
+) -> dict[str, float]:
+    """The straight model's coefficients with the map and every term z-scored.
+
+    Fitted on every structure. Each is the SD of the map one SD of the term moves
+    once the other terms are in, so the terms' weights compare directly.
+    """
+    names = [name for group in ORDER if group in terms for name in terms[group]]
+    columns = predictors(covariates, terms)
+    z = [(x - x.mean()) / x.std() for x in columns]
+    target = (y - y.mean()) / y.std()
+    beta = np.linalg.lstsq(np.column_stack(z), target, rcond=None)[0]
+    return dict(zip(names, (float(b) for b in beta)))
 
 
 # ===== Reading back =====
@@ -732,14 +791,23 @@ def load_leftover_null(structures: list[str]) -> dict:
     return null
 
 
+def load_partition() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """variance_partition.csv by key, partition.csv by part, weights.csv by term."""
+    for path in (PARTITION, PARTS, WEIGHTS):
+        if not path.exists():
+            raise FileNotFoundError(f"{path} not found: run run_beyond_density.py first")
+    return (
+        pd.read_csv(PARTITION).set_index("key"),
+        pd.read_csv(PARTS).set_index("part"),
+        pd.read_csv(WEIGHTS).set_index("term"),
+    )
+
+
 # ===== Steps =====
 
 
 def step0_structures(inputs: Inputs) -> None:
-    """Write the structures the fit runs on, why the others are left out, and the density.
-
-    The density is the one the main model uses, measured or from mRNA.
-    """
+    """Write the structures the fit runs on, and why the others are left out."""
     print("\nstep 0  which structures the fit runs on")
     used = inputs.structures_used
     used.to_csv(STRUCTURES_USED, index=False)
@@ -757,14 +825,11 @@ def step0_structures(inputs: Inputs) -> None:
             "  genes without a value in a declared structure: "
             + ", ".join(f"{g} {n}" for g, n in sorted(lacking.items()))
         )
-
-    # the measured density replaces the panel only when it covers enough of the fit
     n_measured = int(used["psd95_measured"].sum())
-    density = ", ".join(inputs.terms["density"])
     print(
-        f"  PSD95 density measured in {n_measured} of the {n_fit} "
-        f"({n_measured / n_fit:.0%}; the rule asks {synaptome.n_needed(n_fit)}): the "
-        f"main model's density is {density}, on {len(inputs.structures)} structures"
+        f"  synapse density: the mean rank of {', '.join(DENSITY_GENES)} "
+        f"(density_markers.chosen); PSD95 puncta measured in {n_measured} of the "
+        f"{n_fit}"
     )
 
 
@@ -788,65 +853,64 @@ def step1_ceiling(
 
 def partition_models(
     covariates: dict[str, np.ndarray], terms: dict[str, tuple[str, ...]]
-) -> list[tuple[str, str, list]]:
-    """The models of variance_partition.csv as (key, label, columns).
+) -> list[tuple[str, str, list, bool]]:
+    """The models of variance_partition.csv as (key, label, columns, bent).
 
-    "model" is the main one, whose terms are `terms`.
+    "abundance", "density" and "model" make the partition; the others describe it:
+    autofluorescence alone, straight, and the main model curved (the check row
+    curved). The four subunits are measured on fewer structures, so they are a check
+    row of their own (adult.beyond_checks).
     """
     abundance = ", ".join(terms["abundance"])
-    density = ", ".join(terms["density"])
+    genes = ", ".join(DENSITY_GENES)
+    auto = {"abundance": (), "density": (), "autofluorescence": ("autofluo",)}
     return [
         (
             "abundance",
-            f"abundance alone: {abundance}",
+            f"{abundance} alone",
             model_columns(covariates, terms, ("abundance",)),
-        ),
-        (
-            "subunits",
-            "Gria1 to Gria4 alone, four terms",
-            flexible([covariates[g] for g in SUBUNITS]),
+            False,
         ),
         (
             "density",
-            f"density alone: {density}",
+            f"synapse density alone ({genes})",
             model_columns(covariates, terms, ("density",)),
+            False,
+        ),
+        (
+            "model",
+            f"the main model: {abundance} + synapse density",
+            model_columns(covariates, terms),
+            False,
         ),
         (
             "autofluorescence",
             "autofluorescence alone",
-            model_columns(covariates, terms, ("autofluorescence",)),
+            model_columns(covariates, auto, ("autofluorescence",)),
+            False,
         ),
         (
-            "abundance_density",
-            f"{abundance} + {density}",
-            model_columns(covariates, terms, ("abundance", "density")),
-        ),
-        (
-            "straight",
-            "the main model, straight",
-            model_columns(covariates, terms, bend=False),
-        ),
-        (
-            "model",
-            f"the main model: {abundance} + {density} + autofluo",
-            model_columns(covariates, terms),
+            "curved",
+            "the main model curved (x, x^2, x^3 of each term)",
+            model_columns(covariates, terms, bend=True),
+            True,
         ),
     ]
 
 
 def partition_table(
-    y: np.ndarray, models: list[tuple[str, str, list]], explainable: float
+    y: np.ndarray, models: list[tuple[str, str, list, bool]], explainable: float
 ) -> pd.DataFrame:
     """variance_partition.csv: each model's terms, R2 held out and in-sample, shares."""
     rows = []
-    for key, label, columns in models:
+    for key, label, columns, bent in models:
         cv = cv_r2(y, columns)
         rows.append(
             dict(
                 key=key,
                 model=label,
                 terms=len(columns) + 1,
-                bent=key != "straight",
+                bent=bent,
                 cv_r2=cv,
                 in_sample_r2=r_squared(y, columns),
                 share_of_ceiling=cv / explainable,
@@ -856,20 +920,38 @@ def partition_table(
     return pd.DataFrame(rows)
 
 
-def step2_budget(
+def parts_table(table: pd.DataFrame) -> pd.DataFrame:
+    """partition.csv: the four parts of the reproducible map, from variance_partition."""
+    shares = table.set_index("key")["share_of_ceiling"]
+    parts = partition(shares)
+    return pd.DataFrame(dict(part=list(parts), share=list(parts.values())))
+
+
+def weights_table(
+    y: np.ndarray, covariates: dict[str, np.ndarray], terms: dict[str, tuple[str, ...]]
+) -> pd.DataFrame:
+    """weights.csv: the main model's weights, and each term's rho with the map."""
+    found = weights(y, covariates, terms)
+    return pd.DataFrame(
+        dict(
+            term=list(found),
+            weight=list(found.values()),
+            rho_with_map=[float(spearmanr(y, covariates[t]).statistic) for t in found],
+        )
+    )
+
+
+def step2_partition(
     y: np.ndarray,
     covariates: dict[str, np.ndarray],
     terms: dict[str, tuple[str, ...]],
-    psd: list[str],
-    share: float,
     explainable: float,
-) -> pd.DataFrame:
-    """What Gria1, synapse density and autofluorescence predict; the partition."""
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """What Gria1 and synapse density predict, the partition and the weights.
+
+    Returns variance_partition.csv's, partition.csv's and weights.csv's tables.
+    """
     print("\nstep 2  what Gria1 and synapse density predict")
-    print(
-        f"  psd_pc1 is the first component of {len(psd)} postsynaptic-density genes, "
-        f"carrying {share:.1%} of their variance"
-    )
     print("  each predictor on its own (Spearman with the map):")
     for key in covariates:
         print(f"    {key:20s} rho {spearmanr(y, covariates[key]).statistic:+.3f}")
@@ -882,13 +964,19 @@ def step2_budget(
             f"    {r.model:52s} CV R2 {r.cv_r2:+.3f}   in-sample {r.in_sample_r2:.3f}"
             f"   {r.share_of_ceiling:6.1%} of the ceiling"
         )
-    steps = budget(y, covariates, terms, explainable)
+    parts = parts_table(table)
+    parts.to_csv(PARTS, index=False)
     print(
-        f"  the budget: {', '.join(terms['abundance'])} {steps[0]:.1%}, + density "
-        f"{steps[1] - steps[0]:+.1%}, + autofluorescence {steps[2] - steps[1]:+.1%}; "
-        f"left {1 - steps[2]:.1%}"
+        "  the reproducible map: "
+        + ", ".join(f"{r.part} {r.share:+.1%}" for r in parts.itertuples())
     )
-    return table
+    found = weights_table(y, covariates, terms)
+    found.to_csv(WEIGHTS, index=False)
+    print(
+        "  the weights (z-scored): "
+        + ", ".join(f"{r.term} {r.weight:+.3f}" for r in found.itertuples())
+    )
+    return table, parts, found
 
 
 def replication_table(
@@ -1006,26 +1094,30 @@ def leftover_boot(
     return np.array([residual(rankdata(b), columns) for b in boot])
 
 
+def model_membership(terms: dict[str, tuple[str, ...]]) -> dict[str, str]:
+    """{gene: its part of the model}: 'abundance' for a term, 'density' in a composite."""
+    out = {g: "abundance" for g in terms["abundance"]}
+    for name in terms["density"]:
+        out.update({g: "density" for g in COMPOSITES.get(name, ())})
+    return out
+
+
 def leftover_genes(
-    inputs: Inputs,
-    leftover: np.ndarray,
-    columns: list[np.ndarray],
-    psd: list[str],
+    inputs: Inputs, leftover: np.ndarray, columns: list[np.ndarray]
 ) -> tuple[pd.DataFrame, pd.DataFrame, np.ndarray, np.ndarray, list[str]]:
     """Every gene against the leftover, with the leftover's own spatial null.
 
     The leftover is a map of its own, with its own smoothness, so a gene's rho with
     it is tested as in analysis 1: against the leftover's surrogates (Burt 2020, on
     the structures' one-hemisphere centroids). The leftover is what a fit leaves,
-    so it carries nothing of the model's columns; a surrogate drawn from it does
-    (about a third of its variance), and against it a gene sharing the model's
-    pattern would meet a null far too wide. So each surrogate goes through the same
-    fit and only its residual is kept (a Freedman-Lane null with spatial
-    surrogates). Gria1 and the markers enter the main model directly and correlate
-    with the leftover near zero by construction; the postsynaptic-density genes
-    enter only through their first component, and need not (in_model says which).
-    A gene that follows the leftover predicts what Gria1 and synapse density leave.
-    The gene sets of analysis 3 are read the same way. Cacng8 and the AMPA receptor
+    so it carries nothing of the model's columns; a surrogate drawn from it does,
+    and against it a gene sharing the model's pattern would meet a null far too
+    wide. So each surrogate goes through the same fit and only its residual is kept
+    (a Freedman-Lane null with spatial surrogates). Gria1 enters the model directly
+    and correlates with the leftover near zero by construction; the density genes
+    enter only through their mean rank, and need not (in_model says which). A gene
+    that follows the leftover predicts what Gria1 and synapse density leave. The
+    gene sets of analysis 3 are read the same way. Cacng8 and the AMPA receptor
     complex family were named for the leftover in advance (ish.gene_sets); these
     tables describe every gene alike.
 
@@ -1042,12 +1134,7 @@ def leftover_genes(
     vectors = gene_ranking.gene_vectors(inputs.expr, s)
     table, null = gene_ranking.rank_genes(leftover, surr, boot, vectors)
     table = gene_ranking.with_q_and_ranks(table, inputs.p9_genes)
-    in_model = {g: "abundance" for g in inputs.terms["abundance"]}
-    if "psd_pc1" in inputs.terms["density"]:
-        in_model.update({g: "PSD component" for g in psd})
-    if "markers" in inputs.terms["density"]:
-        in_model.update({g: "markers" for g in MARKERS})
-    table["in_model"] = table["symbol"].map(in_model).fillna("")
+    table["in_model"] = table["symbol"].map(model_membership(inputs.terms)).fillna("")
     table["p9_gene"] = table["symbol"].isin(inputs.p9_genes)
     genes = gene_table.per_gene(gene_table.load_gene_table()).set_index("symbol")
     table["gene_sets"] = table["symbol"].map(genes["gene_sets"]).fillna("")
@@ -1077,7 +1164,6 @@ def print_leftover_rows(table: pd.DataFrame) -> None:
 def step4_where(
     inputs: Inputs,
     columns: list[np.ndarray],
-    psd: list[str],
     splits: list[tuple[list[int], list[int]]],
 ) -> pd.DataFrame:
     """Which structures carry the leftover, how steadily, and which genes follow it.
@@ -1099,7 +1185,7 @@ def step4_where(
     print("  below:")
     print_leftover_rows(table.tail(6))
 
-    genes, sets, surr, null, tested = leftover_genes(inputs, leftover, columns, psd)
+    genes, sets, surr, null, tested = leftover_genes(inputs, leftover, columns)
     genes.to_csv(LEFTOVER_GENES, index=False)
     sets.to_csv(LEFTOVER_SETS, index=False)
     np.savez(
@@ -1146,20 +1232,21 @@ def main() -> dict:
     step0_structures(inputs)
     print(f"  {len(inputs.structures)} structures, {len(ADULTS)} adults")
 
-    # the ceiling, the budget, the leftover's replication, and where it lives
+    # the ceiling, the partition, the leftover's replication, and where it lives
     splits = half_splits()
     map_agreement, explainable = step1_ceiling(inputs.nano, splits)
-    covariates, psd, share = covariates_for(inputs)
+    covariates, _, _ = covariates_for(inputs)
     y = full_map(inputs.nano)
-    partition = step2_budget(y, covariates, inputs.terms, psd, share, explainable)
+    table, parts, _ = step2_partition(y, covariates, inputs.terms, explainable)
     columns = model_columns(covariates, inputs.terms)
     agreement, implied = step3_replication(inputs.nano, columns, splits, map_agreement)
-    residuals = step4_where(inputs, columns, psd, splits)
+    residuals = step4_where(inputs, columns, splits)
     return dict(
         structures_used=inputs.structures_used,
         map_agreement=map_agreement,
         explainable=explainable,
-        partition=partition,
+        partition=table,
+        parts=parts,
         agreement=agreement,
         implied=implied,
         residuals=residuals,

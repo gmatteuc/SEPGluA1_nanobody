@@ -5,7 +5,13 @@ import pandas as pd
 import pytest
 from scipy.stats import rankdata, spearmanr
 
-from sepmap.adult import beyond_calibration, beyond_density, sep_channel_check
+from sepmap.adult import (
+    beyond_calibration,
+    beyond_checks,
+    beyond_density,
+    profiles,
+    sep_channel_check,
+)
 from sepmap.adult.profiles import ADULTS
 
 BEYOND = beyond_density.OUT
@@ -106,56 +112,95 @@ def test_cross_validation_does_not_reward_noise_predictors():
     assert beyond_density.cv_r2(y, xs) < 0.05
 
 
-def test_the_main_model_bends_gria1_the_panel_and_autofluorescence():
-    """Four predictors bent; seven with the four subunits; three with PSD95."""
-    names = beyond_density.SUBUNITS + ("markers", "psd_pc1", "autofluo", "psd95")
+def test_the_main_model_is_gria1_and_the_density_term_straight():
+    """Two columns; six curved; five with the four subunits; three with autofluo."""
+    names = beyond_density.SUBUNITS + ("density", "psd_pc1", "autofluo", "psd95")
     covariates = {k: np.arange(10.0) for k in names}
     main = beyond_density.model_terms()
-    assert main["abundance"] == ("Gria1",)
-    assert len(beyond_density.model_columns(covariates, main)) == 3 * 4
-    assert (
-        len(
-            beyond_density.model_columns(
-                covariates, beyond_density.model_terms(abundance=beyond_density.SUBUNITS)
-            )
-        )
-        == 3 * 7
+    assert main == {"abundance": ("Gria1",), "density": ("density",)}
+    assert len(beyond_density.model_columns(covariates, main)) == 2
+    assert len(beyond_density.model_columns(covariates, main, bend=True)) == 6
+    subunits = beyond_density.model_terms(abundance=beyond_density.SUBUNITS)
+    assert len(beyond_density.model_columns(covariates, subunits)) == 5
+    auto = beyond_density.model_terms(autofluorescence=True)
+    assert len(beyond_density.model_columns(covariates, auto)) == 3
+    assert len(beyond_density.model_columns(covariates, main, ("abundance",))) == 1
+
+
+def test_a_model_without_its_predictor_on_these_structures_stops():
+    """A term build_covariates could not make (a gene not measured) stops the run."""
+    covariates = {"Gria1": np.arange(10.0)}
+    with pytest.raises(ValueError, match="density"):
+        beyond_density.model_columns(covariates, beyond_density.model_terms())
+
+
+def test_the_model_genes_are_gria1_and_the_genes_of_its_composites():
+    """The main model needs Gria1 and the chosen genes; psd_pc1 and PSD95 need none."""
+    main = beyond_density.model_terms()
+    assert beyond_density.model_genes(main) == ("Gria1",) + beyond_density.DENSITY_GENES
+    first = beyond_density.model_terms(("first_proposal",))
+    assert beyond_density.model_genes(first) == ("Gria1",) + beyond_density.FIRST_PROPOSAL
+    extra = beyond_density.model_terms(("density", "psd_pc1"))
+    assert beyond_density.model_genes(extra) == beyond_density.model_genes(main)
+    assert beyond_density.model_genes(beyond_density.model_terms(("psd95",))) == (
+        "Gria1",
     )
-    assert (
-        len(
-            beyond_density.model_columns(
-                covariates, beyond_density.model_terms(beyond_density.MEASURED)
-            )
-        )
-        == 3 * 3
+
+
+def test_the_four_parts_add_to_one_and_a_negative_one_is_kept():
+    """Gria1 only, shared, density only and left from three shares; signs as computed."""
+    parts = beyond_density.partition(dict(abundance=0.5, density=0.6, model=0.7))
+    assert parts["gria1_only"] == pytest.approx(0.1)
+    assert parts["density_only"] == pytest.approx(0.2)
+    assert parts["shared"] == pytest.approx(0.4)
+    assert parts["left"] == pytest.approx(0.3)
+    assert sum(parts.values()) == pytest.approx(1.0)
+    # a term that adds nothing held out costs a little: its own part below zero
+    parts = beyond_density.partition(dict(abundance=0.5, density=0.02, model=0.49))
+    assert parts["density_only"] == pytest.approx(-0.01)
+    assert sum(parts.values()) == pytest.approx(1.0)
+
+
+def test_a_map_of_gria1_alone_leaves_density_nothing_of_its_own():
+    """When the map is Gria1 plus noise, density's own part is near zero."""
+    rng = np.random.default_rng(15)
+    n = 300
+    gria1 = rng.standard_normal(n)
+    density = 0.5 * gria1 + rng.standard_normal(n)
+    adults = cohort(gria1, sd=0.5)
+    covariates = {"Gria1": rankdata(gria1), "density": rankdata(density)}
+    y = beyond_density.full_map(adults)
+    _, explainable = beyond_density.ceiling(adults, SPLITS[:20])
+    shares = beyond_density.model_shares(
+        y, covariates, beyond_density.model_terms(), explainable
     )
-    assert (
-        len(beyond_density.model_columns(covariates, main, ("abundance",), bend=False))
-        == 1
+    parts = beyond_density.partition(shares)
+    # 300 structures: a held-out share is known to within a few points
+    assert abs(parts["density_only"]) < 0.03
+    assert parts["gria1_only"] > 0.2
+
+
+def test_the_weights_recover_planted_coefficients():
+    """A map 0.8 Gria1 + 0.4 density on ranks gives weights in that ratio."""
+    rng = np.random.default_rng(16)
+    n = 400
+    a, b = rng.standard_normal(n), rng.standard_normal(n)
+    covariates = {"Gria1": rankdata(a), "density": rankdata(b)}
+    z = [(x - x.mean()) / x.std() for x in covariates.values()]
+    y = 0.8 * z[0] + 0.4 * z[1] + 0.1 * rng.standard_normal(n)
+    found = beyond_density.weights(y, covariates, beyond_density.model_terms())
+    assert list(found) == ["Gria1", "density"]
+    # the map's SD is about 0.9, so the z-scored weights are 0.8 / 0.9 and 0.4 / 0.9
+    assert found["Gria1"] / found["density"] == pytest.approx(2.0, rel=0.1)
+    assert found["Gria1"] == pytest.approx(
+        0.8 / np.sqrt(0.8**2 + 0.4**2 + 0.01), rel=0.05
     )
 
 
-def test_psd95_replaces_the_panel_only_when_it_covers_enough_of_the_fit():
-    """8 of 10 structures measured is the 80% the rule asks; 7 of 10, or none, is not."""
-    fit = [f"s{i}" for i in range(10)]
-    synapses = pd.DataFrame({"psd95": np.arange(10.0)}, index=fit)
-    synapses.loc[["s0", "s1"], "psd95"] = np.nan
-    terms, used = beyond_density.main_model(fit, synapses)
-    assert terms["density"] == beyond_density.MEASURED
-    assert used == fit[2:]
-    synapses.loc["s2", "psd95"] = np.nan
-    terms, used = beyond_density.main_model(fit, synapses)
-    assert terms["density"] == beyond_density.PANEL
-    assert used == fit
-    terms, used = beyond_density.main_model(fit, pd.DataFrame(index=fit))
-    assert terms["density"] == beyond_density.PANEL
-    assert used == fit
-
-
-def test_a_measured_density_is_a_predictor_only_where_every_structure_has_it():
-    """psd95, measured everywhere, is ranked; sap102, missing in one place, is not."""
+def test_a_composite_is_a_rank_and_is_made_only_where_every_gene_is_measured():
+    """psd95 and the density term are ranks; sap102 and a composite with a gap absent."""
     structures = ["a", "b", "c", "d"]
-    genes = beyond_density.SUBUNITS + beyond_density.MARKERS + ("Psd1", "Psd2")
+    genes = beyond_density.SUBUNITS + beyond_density.DENSITY_GENES + ("Psd1", "Psd2")
     rng = np.random.default_rng(14)
     expr = {g: dict(zip(structures, rng.standard_normal(4))) for g in genes}
     role = {"Psd1": beyond_density.PSD_ROLE, "Psd2": beyond_density.PSD_ROLE}
@@ -169,26 +214,28 @@ def test_a_measured_density_is_a_predictor_only_where_every_structure_has_it():
     )
     assert psd == ["Psd1", "Psd2"]
     assert list(covariates["psd95"]) == [3.0, 1.0, 4.0, 2.0]
+    # ranks of four structures, ties averaged, add to 1 + 2 + 3 + 4
+    assert covariates["density"].sum() == pytest.approx(10.0)
     assert "sap102" not in covariates
+    assert "first_proposal" not in covariates
 
 
-def test_the_genes_measured_once_are_those_of_the_main_model():
-    """A marker with one experiment is listed, a subunit outside the model is not."""
+def test_the_genes_measured_once_are_those_of_the_model():
+    """A density gene with one experiment is listed, a subunit outside the model not."""
+    once = beyond_density.DENSITY_GENES[0]
     split = [
         g
-        for g in beyond_density.SUBUNITS + beyond_density.MARKERS
-        if g not in ("Gria4", "Shank2")
+        for g in beyond_density.SUBUNITS + beyond_density.DENSITY_GENES
+        if g not in ("Gria4", once)
     ]
-    assert beyond_calibration.measured_once(split, beyond_density.model_terms()) == [
-        "Shank2"
-    ]
+    assert beyond_calibration.measured_once(split, beyond_density.model_terms()) == [once]
     assert beyond_calibration.measured_once(
-        split, beyond_density.model_terms(beyond_density.MEASURED)
+        split, beyond_density.model_terms(("psd95",))
     ) == ["psd95"]
 
 
 def test_structure_rows_give_the_reason_a_structure_is_left_out():
-    """A declared structure without a marker gene's value is left out, and says why."""
+    """A declared structure without a density gene's value is left out, and says why."""
     set_table = pd.DataFrame(
         dict(
             structure=["kept", "no_gene", "outside"],
@@ -198,16 +245,16 @@ def test_structure_rows_give_the_reason_a_structure_is_left_out():
             reason=["", "", "not grey matter"],
         )
     )
-    genes = beyond_density.SUBUNITS + beyond_density.MARKERS
+    genes = beyond_density.model_genes(beyond_density.model_terms())
     expr = {g: {"kept": 1.0, "no_gene": 1.0, "outside": 1.0} for g in genes}
-    del expr[beyond_density.MARKERS[0]]["no_gene"]
-    rows = beyond_density.structure_rows(
-        set_table, expr, pd.Series(True, index=set_table.structure)
-    )
+    missing = beyond_density.DENSITY_GENES[1]
+    del expr[missing]["no_gene"]
+    rows = beyond_density.structure_rows(set_table, expr)
     by = rows.set_index("structure")
     assert bool(by.loc["kept", "used"])
     assert not by.loc["no_gene", "used"]
-    assert by.loc["no_gene", "missing_genes"] == beyond_density.MARKERS[0]
+    assert by.loc["no_gene", "missing_genes"] == missing
+    assert by.loc["no_gene", "reason"] == f"not measured: {missing}"
     assert by.loc["outside", "reason"].startswith("not in the declared set")
 
 
@@ -272,27 +319,6 @@ def test_green_channel_rows_are_computed_on_the_structures_all_channels_have():
     assert (rows["rho_sepresid_gria"].abs() < 0.5).all()
 
 
-@pytest.mark.skipif(
-    not (BEYOND / "variance_partition.csv").exists(), reason="data not connected"
-)
-def test_written_tables_hold_the_main_model_its_variants_and_the_calibration():
-    """The main model has 13 terms; the variants their rows; the calibration both maps."""
-    partition = pd.read_csv(BEYOND / "variance_partition.csv").set_index("key")
-    assert {"model", "abundance", "subunits", "density"} <= set(partition.index)
-    model = partition.loc["model"]
-    assert model["left"] == pytest.approx(1 - model["share_of_ceiling"])
-    assert model["terms"] == 13
-    variants = pd.read_csv(BEYOND / "variants.csv").set_index("key")
-    assert variants.loc["main", "left"] == pytest.approx(model["left"])
-    assert {"psd95", "panel", "four_subunits"} <= set(variants.index)
-    assert variants.loc["psd95", "n_structures"] == variants.loc["panel", "n_structures"]
-    calibration = pd.read_csv(BEYOND / "calibration.csv")
-    counts = calibration["map"].value_counts()
-    assert (
-        counts[beyond_calibration.FLOOR_MAP] == counts[beyond_calibration.GRIA1_MAP] > 0
-    )
-
-
 def test_the_first_shuffling_is_one_seeded_permutation_dealt_in_turn():
     """fold_labels' first shuffling deals a seeded permutation into the folds."""
     n = 126
@@ -331,29 +357,6 @@ def test_repeated_folds_score_a_known_model_as_one_shuffling_does_on_average():
     assert min(single) <= repeated <= max(single)
 
 
-def test_density_contrasts_take_the_rows_difference_and_its_paired_interval():
-    """The point is the rows' difference, its paired interval narrower than a row's."""
-    rng = np.random.default_rng(14)
-    variants = pd.DataFrame(
-        dict(
-            key=["psd95", "panel", "psd95_and_panel"],
-            left=[0.46, 0.39, 0.39],
-            density_alone=[0.22, 0.45, 0.42],
-        )
-    )
-    shared = rng.normal(0, 0.1, 400)
-    jack = pd.DataFrame(dict(n_structures=np.full(400, 77), n_left_out=15))
-    for key, row in variants.set_index("key").iterrows():
-        jack[f"left_{key}"] = row["left"] + shared + rng.normal(0, 0.01, 400)
-        jack[f"alone_{key}"] = row["density_alone"] + shared + rng.normal(0, 0.01, 400)
-    contrasts = beyond_calibration.density_contrasts(variants, jack)
-    point, (lo, hi) = contrasts["psd95_minus_panel_left"]
-    assert point == pytest.approx(0.07)
-    assert lo < point < hi
-    own = beyond_calibration.jackknife_sd(jack["left_psd95"], 77, 15)
-    assert (hi - lo) / 2 < 1.96 * own / 3
-
-
 def test_jackknife_sd_of_a_mean_matches_its_standard_error():
     """For a mean, the delete-d jackknife SD is close to SD / sqrt(n)."""
     rng = np.random.default_rng(13)
@@ -364,3 +367,46 @@ def test_jackknife_sd_of_a_mean_matches_its_standard_error():
     assert beyond_calibration.jackknife_sd(values, 100, d) == pytest.approx(
         x.std(ddof=1) / 10, rel=0.08
     )
+
+
+def test_nano_on_the_allen_grid_is_the_mean_of_each_voxels_tissue():
+    """A 200 um voxel takes the mean of its tissue; under half tissue it has none."""
+    values = np.zeros((20, 10, 10), dtype=np.float32)
+    tissue = np.zeros((20, 10, 10), dtype=bool)
+    values[:10] = 2.0
+    values[:10, :5] = 4.0
+    tissue[:10] = True
+    tissue[10:, :4] = True
+    means = profiles.grid_means(values, tissue, 0.5)
+    assert means.shape == (2, 1, 1)
+    assert means[0, 0, 0] == pytest.approx(3.0)
+    assert np.isnan(means[1, 0, 0])
+    with pytest.raises(ValueError):
+        profiles.grid_means(values[:15], tissue[:15], 0.5)
+
+
+@pytest.mark.skipif(
+    not (BEYOND / "variance_partition.csv").exists(), reason="data not connected"
+)
+def test_written_tables_hold_the_main_model_its_check_rows_and_the_floor():
+    """Two terms; four parts adding to one; every check row with a floor; no benchmark."""
+    partition, parts, weights = beyond_density.load_partition()
+    assert {"model", "abundance", "density", "curved"} <= set(partition.index)
+    model = partition.loc["model"]
+    assert model["left"] == pytest.approx(1 - model["share_of_ceiling"])
+    assert model["terms"] == 3
+    assert parts["share"].sum() == pytest.approx(1.0)
+    assert parts.loc["left", "share"] == pytest.approx(model["left"])
+    assert list(weights.index) == ["Gria1", "density"]
+    folds = pd.read_csv(BEYOND / "folds.csv").set_index("key")
+    assert folds.loc["main", "left"] == pytest.approx(model["left"])
+    checks = beyond_checks.load_check_rows().set_index("key")
+    assert list(checks.index) == list(beyond_density.BEYOND["checks"])
+    assert checks["nano_minus_floor"].notna().all()
+    used = pd.read_csv(BEYOND / "structures_used.csv")
+    assert checks.loc["curved", "n_structures"] == int(used["used"].sum())
+    calibration = beyond_calibration.load_calibration()
+    assert set(calibration["map"]) == {
+        beyond_calibration.NANO,
+        beyond_calibration.FLOOR_MAP,
+    }

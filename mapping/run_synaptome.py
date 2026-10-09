@@ -44,7 +44,8 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                density leave; the leftover
     24. run_beyond_controls    seven attempts to break it
     25. run_beyond_calibration the same model on maps whose answer
-                               is known
+                               is known; the check rows, each
+                               with its own floor
     26. run_beyond_regression  the regression, per structure
     27. run_beyond_figures     figures 03, 03s1, 03s2, 04, 11s1, 14
     28. run_ish_top_genes      the genes that follow the map most,
@@ -61,12 +62,12 @@ Downloads the PSD95 and SAP102 punctum densities of Zhu et al. 2018, as Hansen e
 share them, from their repository at a pinned commit into reference/synaptome/ under
 the data root (only what is missing, each file checked against the commit's hash),
 places each of the 775 samples in a structure of the adult table through the CCF
-ontology, and takes per structure the PSD95 density analysis 4 uses, with three
-variants. Then counts how many structures of the declared set and of analysis 4's
-fit it covers, which decides whether it replaces the mRNA density terms in the main
-model (beyond.min_psd95_coverage), and how it agrees with those terms, with Gria1,
-with the nano map and across the two hemispheres. The method is in
-sepmap/adult/synaptome.py. Writes, under the data root:
+ontology, and takes per structure the PSD95 density that chooses the density genes
+(step 22) and enters a check row of analysis 4, with three variants. Then counts how
+many structures of the declared set and of analysis 4's fit it covers, and how it
+agrees with the fit's density term, with Gria1, with the nano map and across the two
+hemispheres. The method is in sepmap/adult/synaptome.py. Writes, under the data
+root:
 
     reference/synaptome/              the source's files and fetch_log.txt (source,
                                       commit, citation, hashes, date)
@@ -78,8 +79,8 @@ sepmap/adult/synaptome.py. Writes, under the data root:
                                       not, its units, weights and densities
         coverage.csv                  per division, the declared and fitted
                                       structures and how many are measured
-        agreement.csv                 Spearman of each density with the mRNA density
-                                      terms, Gria1, the nano and autofluorescence maps
+        agreement.csv                 Spearman of each density with the density term,
+                                      Gria1, the nano and autofluorescence maps
     adult_v2/ish_analysis/tables/numbers_synaptome.csv   the numbers for the text
     adult_v2/ish_analysis/figures/14s1_synaptome_detail.png
                                       the coverage, the two hemispheres and the
@@ -105,17 +106,17 @@ from sepmap.ish.figure_index import figure_path
 from sepmap.structures import load_structure_set
 from sepmap.volumes.per_mouse import annotation_20
 
-# the share of the fit the measured density must cover to enter the main model
-BEYOND = config.SETTINGS["beyond"]
+# the gene of the stained protein, which the densities are set against
 ISH = config.SETTINGS["ish"]
 
 
 def agreement_terms(inputs, set_table):
     """The maps each density is compared with, on the fit and on the declared set.
 
-    On the structures of the fit, the density terms, Gria1, autofluorescence and
-    the map as the fit builds them; on the declared set, Gria1's profile and the
-    two maps. Returns both and the declared structures.
+    On the structures of the fit, the density term (the genes chosen by their
+    agreement with PSD95, so its agreement here is optimistic), Gria1,
+    autofluorescence and the map as the fit builds them; on the declared set,
+    Gria1's profile and the two maps. Returns both and the declared structures.
     """
     covariates, _, _ = beyond_density.build_covariates(
         inputs.expr, inputs.role, inputs.auto, inputs.structures
@@ -124,8 +125,7 @@ def agreement_terms(inputs, set_table):
     fit_terms = {
         name: pd.Series(covariates[key], index=inputs.structures)
         for name, key in (
-            ("markers", "markers"),
-            ("psd_pc1", "psd_pc1"),
+            ("density", "density"),
             (gene, gene),
             ("autofluorescence", "autofluo"),
         )
@@ -189,21 +189,16 @@ def main(offline):
         "units weighted alike (a unit not drawn in the CCF)"
     )
 
-    # coverage of the declared set and of the fit, and the rule
+    # coverage of the declared set and of the fit
     coverage = synaptome.coverage_table(table)
     coverage.to_csv(synaptome.COVERAGE, index=False)
     n_fit = len(inputs.structures)
     n_fit_measured = int(coverage["fit_measured"].sum())
     n_set = int(coverage["declared"].sum())
     n_set_measured = int(coverage["declared_measured"].sum())
-    if synaptome.in_main_model(n_fit_measured, n_fit):
-        verdict = "replaces the mRNA density terms"
-    else:
-        verdict = "is a variant only"
     print(
         f"coverage: fit {n_fit_measured} of {n_fit} ({n_fit_measured / n_fit:.0%}), "
-        f"declared {n_set_measured} of {n_set}; the rule asks "
-        f"{BEYOND['min_psd95_coverage']:.0%}, so PSD95 {verdict}"
+        f"declared {n_set_measured} of {n_set}"
     )
 
     # agreement with the terms of the fit, and on the declared set
@@ -231,8 +226,7 @@ def main(offline):
         table,
         coverage,
         agreement,
-        fit_terms["markers"],
-        BEYOND["min_psd95_coverage"],
+        fit_terms["density"],
         save=figure_path("synaptome_detail"),
     )
     plt.close(fig)

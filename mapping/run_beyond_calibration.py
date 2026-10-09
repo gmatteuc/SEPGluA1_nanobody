@@ -1,4 +1,4 @@
-"""The model of analysis 4 on maps whose answer is known: the floor.
+"""The model of analysis 4 on maps whose answer is known, and its check rows.
 
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
@@ -44,7 +44,8 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                density leave; the leftover
     24. run_beyond_controls    seven attempts to break it
     25. run_beyond_calibration the same model on maps whose answer   <- this script
-                               is known
+                               is known; the check rows, each
+                               with its own floor
     26. run_beyond_regression  the regression, per structure
     27. run_beyond_figures     figures 03, 03s1, 03s2, 04, 11s1, 14
     28. run_ish_top_genes      the genes that follow the map most,
@@ -58,19 +59,24 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                index; the numbers for the text
 
 Each gene's Allen experiments split in two halves; a map made only of Gria1 and
-synapse density (the floor), and a map of one Gria1 experiment (the benchmark),
-built from one half, given ten made-up adults as noisy as ours, and predicted from
-the other half with the main model of run_beyond_density; the real map read the
-same way, on the same structures. The method is in
-sepmap/adult/beyond_calibration.py. Writes, in adult_v2/ish_analysis/beyond/ under
-the data root:
+synapse density, the main model fitted to nano with one half's predictors, given
+ten made-up adults as noisy as ours and predicted from the other half: the floor.
+The real map is read the same way, on the same structures, and their difference
+resampled over structures. Then each check row of [beyond.checks], the main model
+changed one thing at a time, on its own structures and with its own floor. The
+methods are in sepmap/adult/beyond_calibration.py and beyond_checks.py. Writes, in
+adult_v2/ish_analysis/beyond/ under the data root:
 
-    calibration.csv            per folds (random, spatial blocks), map, direction
-                               and draw: the ceiling, the CV R2, the share left
-                               and the leftover's replication
-    calibration_jackknife.csv  per subsample of the calibration structures: the
-                               nano map's share left, the floor's, the Gria1
-                               map's, and the differences
+    calibration.csv             per folds (random, spatial blocks), map, direction
+                                and draw: the ceiling, the CV R2, the share left
+                                and the leftover's replication
+    calibration_jackknife.csv   per subsample of the calibration structures: the
+                                nano map's share left, the floor's, the difference
+    check_rows.csv              per check row: its structures and terms, the
+                                shares, the share left, its floor and nano minus
+                                the floor with its interval
+    check_rows_calibration.csv  every check row's calibration
+    check_rows_jackknife.csv    every check row's paired jackknife
 
     python run_beyond_calibration.py
 """
@@ -80,13 +86,14 @@ import argparse
 import matplotlib
 
 from sepmap import config, plotting
-from sepmap.adult import beyond_calibration
+from sepmap.adult import beyond_calibration, beyond_checks
 
 
 def main():
-    """Print the settings in force, then run the calibration."""
+    """Print the settings in force, then run the calibration and the check rows."""
     config.print_settings({})
     beyond_calibration.main()
+    beyond_checks.main()
 
 
 if __name__ == "__main__":
@@ -96,7 +103,7 @@ if __name__ == "__main__":
 
     # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(
-        description="analysis 4 on maps whose answer is known"
+        description="analysis 4 on maps whose answer is known, and its check rows"
     )
     parser.parse_args()
     main()

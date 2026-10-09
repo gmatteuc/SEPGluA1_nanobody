@@ -44,7 +44,8 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                density leave; the leftover
     24. run_beyond_controls    seven attempts to break it
     25. run_beyond_calibration the same model on maps whose answer
-                               is known
+                               is known; the check rows, each
+                               with its own floor
     26. run_beyond_regression  the regression, per structure
     27. run_beyond_figures     figures 03, 03s1, 03s2, 04, 11s1, 14
     28. run_ish_top_genes      the genes that follow the map most,   <- this script

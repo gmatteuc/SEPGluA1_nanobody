@@ -44,7 +44,8 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                density leave; the leftover
     24. run_beyond_controls    seven attempts to break it
     25. run_beyond_calibration the same model on maps whose answer
-                               is known
+                               is known; the check rows, each
+                               with its own floor
     26. run_beyond_regression  the regression, per structure
     27. run_beyond_figures     figures 03, 03s1, 03s2, 04, 11s1, 14
     28. run_ish_top_genes      the genes that follow the map most,
@@ -57,17 +58,21 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     30. run_ish_overview       figures 00, 16 and 16s, the figure
                                index; the numbers for the text
 
-The main model of [beyond]: the ceiling (how reproducible the map is),
-what Gria1, synapse density and autofluorescence predict on structures the fit has
-not seen, whether the leftover replicates across mice, where it lives, and every
-gene of the gene table against it with the leftover's spatial null. The rule of
-[beyond] picks the density (the mRNA panel, or PSD95 puncta when run_synaptome finds
-them in enough structures); the method is in sepmap/adult/beyond_density.py. Writes,
-in adult_v2/ish_analysis/beyond/ under the data root:
+The main model of [beyond], nano rank ~ Gria1 rank + synapse-density rank, two
+straight terms: the ceiling (how reproducible the map is), what Gria1 alone, synapse
+density alone and both predict on structures the fit has not seen, split into what
+only Gria1 predicts, what the two share, what only density predicts and what is
+left, and the weight of each term; whether the leftover replicates across mice,
+where it lives, and every gene of the gene table against it with the leftover's
+spatial null. Synapse density is the mean rank of the genes run_density_markers
+chose ([density_markers] chosen); the method is in sepmap/adult/beyond_density.py.
+Writes, in adult_v2/ish_analysis/beyond/ under the data root:
 
     structures_used.csv        every structure of the adult table, in the fit or not,
                                why, and whether PSD95 is measured there
     variance_partition.csv     what each model predicts, against the ceiling
+    partition.csv              the four parts of the reproducible map
+    weights.csv                the two weights, map and terms z-scored
     replication.csv            per split of the adults, the two agreements
     residual_by_structure.csv  per structure: map, prediction, leftover, steadiness
     leftover_genes.csv         every gene against the leftover, with its spatial p

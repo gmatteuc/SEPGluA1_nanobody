@@ -152,14 +152,15 @@ RULE_GO = "GO term"
 PLASTICITY = re.compile(r"synaptic plasticity|long-term (synaptic )?potentiation", re.I)
 
 # the composites the chosen genes are compared with: the first proposal for the term
-# (two of its genes are excluded by the rule), the synaptic marker panel of [beyond], and
-# the first component of the ontology panel's postsynaptic-density genes
-FIRST_PROPOSAL = ("Dlg4", "Homer1", "Camk2a")
+# (beyond.first_proposal; two of its genes are excluded by the rule), the synaptic
+# marker panel of [beyond], and the first component of the ontology panel's
+# postsynaptic-density genes
+FIRST_PROPOSAL = tuple(BEYOND["first_proposal"])
 PSD_ROLE = "control_psd"
 CHOSEN = "chosen"
 COMPARED = {
     CHOSEN: "the genes the rule chose",
-    "first_proposal": "Dlg4, Homer1, Camk2a",
+    "first_proposal": ", ".join(FIRST_PROPOSAL),
     "marker_panel": "the synaptic marker panel (beyond.markers)",
     "psd_pc1": "first component of the postsynaptic-density genes",
 }

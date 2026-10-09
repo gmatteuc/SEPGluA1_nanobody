@@ -138,7 +138,7 @@ def synthetic_inputs(n: int = 80, seed: int = 0):
     profiles = {"Gria1": gria1}
     for k, gene in enumerate(("Gria2", "Gria3", "Gria4")):
         profiles[gene] = fields[4 + k]
-    for gene in beyond_density.MARKERS:
+    for gene in beyond_density.DENSITY_GENES:
         profiles[gene] = density + 0.3 * rng.standard_normal(n)
     role = {}
     for k in range(3):

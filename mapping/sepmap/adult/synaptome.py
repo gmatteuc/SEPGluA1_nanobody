@@ -1,10 +1,11 @@
 """The measured synapse density: PSD95 puncta per structure in one adult mouse (Zhu 2018).
 
 Analysis 4 asks how much of the nano map Gria1 and synapse density leave. Its
-density terms from Allen ISH are mRNA, and mRNA sits in cell bodies: a presynaptic
-marker's mRNA marks where the neurons that make the synapses sit, not where their
-synapses are. Zhu et al. 2018 counted excitatory synapses where they
-are. In a knock-in mouse with PSD95 and SAP102 tagged (Dlg4-eGFP, Dlg3-mKO2), every
+density term is Allen mRNA of postsynaptic genes, and mRNA sits in cell bodies;
+Zhu et al. 2018 counted excitatory synapses where they are. Their map is one mouse
+and covers about half the declared structures, so it is the yardstick that chooses
+the density genes (adult.density_markers) and a check row of analysis 4, not its
+term. In a knock-in mouse with PSD95 and SAP102 tagged (Dlg4-eGFP, Dlg3-mKO2), every
 punctum was detected in coronal sections of one adult male (postnatal day 80, five
 18 um sections, as Hansen et al. describe it), sorted into 37 subtypes by its
 intensity, size and shape, and the density of each subtype (puncta per unit area)
@@ -20,7 +21,7 @@ each the mean over its subtypes:
 
     psd95        the 30 subtypes whose puncta hold PSD95 (1 to 11 and 19 to 37): the
                  count of PSD95 puncta, the measured excitatory-synapse density that
-                 analysis 4 uses
+                 the density genes are chosen by and analysis 4's check row uses
     psd95_only   1 to 11, the "PSD95 synapses" of Hansen et al.
     sap102       the 26 subtypes holding SAP102 (12 to 37)
     all_puncta   all 37, PSD95 or SAP102
@@ -83,8 +84,7 @@ from sepmap.config import DATA, SETTINGS
 from sepmap.ish.numbers import numbers_frame, numbers_path
 from sepmap.structures import ISH_OUT
 
-# the subtypes of each density, and the coverage the measured map needs to replace the
-# mRNA density terms of analysis 4
+# the subtypes of each density
 BEYOND = SETTINGS["beyond"]
 
 REFERENCE = DATA / "reference" / "synaptome"
@@ -150,7 +150,7 @@ SAP102_ONLY = tuple(sorted(set(SAP102) - set(PSD95)))
 BOTH = tuple(sorted(set(PSD95) & set(SAP102)))
 
 # the densities taken per sample, each the mean over these subtypes; the first is the
-# one analysis 4 uses
+# one the density genes are chosen by and analysis 4's check row uses
 MEASURES = {
     "psd95": PSD95,
     "psd95_only": PSD95_ONLY,
@@ -774,23 +774,6 @@ def coverage_table(density: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def n_needed(n_fit: int) -> int:
-    """The structures of the fit the measured map must cover to enter the main model.
-
-    beyond.min_psd95_coverage of them, rounded up: 101 of 126 at 0.8.
-    """
-    return int(np.ceil(BEYOND["min_psd95_coverage"] * n_fit))
-
-
-def in_main_model(n_measured: int, n_fit: int) -> bool:
-    """Whether the measured map replaces the mRNA density terms in the main model.
-
-    The rule of [beyond]: when it covers at least n_needed of the structures of the
-    fit.
-    """
-    return n_measured >= n_needed(n_fit)
-
-
 # ===== Agreement =====
 
 
@@ -905,8 +888,7 @@ def sample_numbers(samples: pd.DataFrame, density: pd.DataFrame) -> list[tuple]:
 def coverage_numbers(density: pd.DataFrame) -> list[tuple]:
     """The numbers of the coverage, of the declared set and of the fit.
 
-    With the rule, how the measured structures of the fit are measured, and the
-    divisions missing.
+    How the measured structures of the fit are measured, and the divisions missing.
     """
     fit = density[density["in_fit"]]
     declared = density[density["in_set"]]
@@ -924,12 +906,6 @@ def coverage_numbers(density: pd.DataFrame) -> list[tuple]:
             "fit_share",
             round(n_fit / len(fit), 4),
             "share of the fit's structures measured",
-        ),
-        ("fit_needed", n_needed(len(fit)), "structures of the fit the rule asks for"),
-        (
-            "in_main_model",
-            in_main_model(n_fit, len(fit)),
-            "the measured density replaces the mRNA density terms in the main model",
         ),
         (
             "fit_measured_under_half",

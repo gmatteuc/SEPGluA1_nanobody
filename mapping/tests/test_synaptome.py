@@ -283,12 +283,6 @@ def test_a_structure_under_a_sampled_region_stays_missing_with_its_reason():
     assert "region above it was sampled (P)" in table.loc["C", "reason"]
 
 
-def test_the_coverage_rule_asks_for_80_percent_of_the_fit():
-    """101 of 126 is enough, 100 is not (0.8 x 126 = 100.8)."""
-    assert synaptome.in_main_model(101, 126)
-    assert not synaptome.in_main_model(100, 126)
-
-
 @pytest.mark.skipif(not synaptome.DENSITY_FILE.exists(), reason="data not connected")
 def test_the_fetched_source_is_the_pinned_one():
     """The files match the commit; 37 subtypes by 775 samples, one sample empty."""

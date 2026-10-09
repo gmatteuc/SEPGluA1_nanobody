@@ -1,4 +1,4 @@
-"""Seven attempts to break the result of run_beyond_density, and its variants.
+"""Seven attempts to break the result of run_beyond_density, and its other folds.
 
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
@@ -44,7 +44,8 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                density leave; the leftover
     24. run_beyond_controls    seven attempts to break it           <- this script
     25. run_beyond_calibration the same model on maps whose answer
-                               is known
+                               is known; the check rows, each
+                               with its own floor
     26. run_beyond_regression  the regression, per structure
     27. run_beyond_figures     figures 03, 03s1, 03s2, 04, 11s1, 14
     28. run_ish_top_genes      the genes that follow the map most,
@@ -58,19 +59,18 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                index; the numbers for the text
 
 Spatial gradient, structure size, single animals, the whisker manipulation,
-curvature, the whole gene space and the reading; and the variants: the main model
-under other folds, its check rows of [beyond.variants] (another density measure,
-the four subunits) and on other structures; described in
-sepmap/adult/beyond_controls.py. Writes, in adult_v2/ish_analysis/beyond/ under the
-data root:
+curvature, the whole gene space and the reading; and the main model under other
+folds; described in sepmap/adult/beyond_controls.py (the check rows, which change
+the model, run with the calibration at step 25). Writes, in
+adult_v2/ish_analysis/beyond/ under the data root:
 
     controls.csv            one row per control, with its number and verdict
     gene_space.csv          control F, per number of components
     gene_space_calibration.csv  control F's own floor
     gene_space_summary.csv  control F's numbers
     readings.csv            control G, per reading
-    variants.csv            the main model and every variant: structures,
-                            budget, density alone, share left
+    folds.csv               the main model under its folds and others: the
+                            shares of Gria1, density and both, the share left
     fig4_controls.png       working figures: controls A to D, E and F, and G
     fig5_model_space.png
     fig6_readings.png
@@ -89,7 +89,7 @@ from sepmap.adult import plotting as adult_plotting
 
 
 def main():
-    """Print the settings in force, run the seven controls and the variants, draw."""
+    """Print the settings in force, run the seven controls and the other folds, draw."""
     config.print_settings({})
     found = beyond_controls.main()
 
@@ -111,8 +111,7 @@ def main():
             found["curve"],
             found["k_most"],
             found["explainable"],
-            found["cubic"],
-            found["quintic"],
+            (found["linear"], found["cubic"], found["quintic"]),
             passed,
             save=out / "fig5_model_space.png",
         ),
@@ -132,7 +131,7 @@ if __name__ == "__main__":
 
     # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(
-        description="seven controls of analysis 4, and its variants"
+        description="seven controls of analysis 4, and its other folds"
     )
     parser.parse_args()
     main()

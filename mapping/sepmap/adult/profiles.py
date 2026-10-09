@@ -23,6 +23,11 @@ channel check and the beyond analysis all read the same numbers:
                     autofluorescence. The eroded zref uses the plain reference, so
                     only the structure means change between the two
     profile         per structure, the mean over the adults that measure it
+    Allen grid      per adult and structure, nano on the 200 um grid of the Allen ISH
+                    maps: each 200 um voxel the mean of its tissue, a structure the
+                    mean of its voxels, labelled as ish.regions labels the ISH grids,
+                    with zref taken the same way. A check row of part 1 reads it, so
+                    that the grids' mismatch cannot pass for a leftover
 
 The channel means take about ten minutes for the ten adults, so they are cached
 in adult_per_mouse.csv beside the zref columns; run_structure_set.py --recompute
@@ -45,19 +50,29 @@ from scipy.stats import spearmanr
 
 from sepmap.config import SETTINGS
 from sepmap.ish.numbers import numbers_frame, numbers_path
-from sepmap.structures import TABLES, zref
+from sepmap.ish.regions import annotation_200
+from sepmap.structures import TABLES, name_volume, zref
 from sepmap.volumes.cohort import NAIVE, RWS
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
+from sepmap.volumes.per_mouse import atlas_grid, structure_terms
 from sepmap.young_vs_adult.region_plot import REGION_MEANS
 
-# the smallest structure a brain's table keeps; the adults a declared structure needs
+# the smallest structure a brain's table keeps; the adults a declared structure needs;
+# the voxels a gene value needs, which the Allen-grid table asks of nano too; the
+# tissue a 200 um voxel of nano needs
 REGION_TABLES = SETTINGS["region_tables"]
 STRUCTURES = SETTINGS["structures"]
+ISH = SETTINGS["ish"]
+BEYOND = SETTINGS["beyond"]
 
 PER_MOUSE_TABLE = TABLES / "adult_per_mouse.csv"
 PROFILE = TABLES / "adult_profile.csv"
 REFERENCE = TABLES / "zref_reference.csv"
+GRID_TABLE = TABLES / "adult_allen_grid.csv"
 NUMBERS = numbers_path("structure_set")
+
+# 20 um voxels to a 200 um voxel of the Allen grids, along each axis
+GRID_BLOCK = 10
 
 # the ten adults, naive then rws, with their group
 ADULTS = NAIVE + RWS
@@ -319,6 +334,125 @@ def load_per_mouse() -> pd.DataFrame:
     table = read_table(PER_MOUSE_TABLE)
     check_channel_table(table)
     return table
+
+
+# ===== Nano on the Allen 200 um grid =====
+
+
+def grid_codes() -> tuple[np.ndarray, list[str], int]:
+    """The CCF on the Allen 200 um grid as structure codes, and where the adults start.
+
+    The labels are those ish.regions gives the ISH grids (the 10 um annotation
+    sampled every 20th voxel), keyed by structure name as the nano tables are.
+    Returns the codes (AP, DV, ML), their names, and the Allen plane of the first
+    ten 20 um planes of the adults' grid: that grid starts at 10 um plane 180
+    (counted from 1), so its 20 um voxel k is centred at the edge 180 + 2k and lies
+    in the 200 um voxel 9 + k // 10.
+    """
+    names, _, _ = structure_terms()
+    codes, label_names = name_volume(annotation_200(), names)
+    _, (lo, _), _ = atlas_grid("ccf")
+    if lo % 20:
+        raise ValueError(
+            f"the adults' 20 um grid starts at 10 um plane {lo}, which does not cut "
+            "the 200 um grid into whole voxels; nano on the Allen grid needs it to"
+        )
+    return codes, label_names, lo // 20
+
+
+def grid_means(values: np.ndarray, tissue: np.ndarray, min_tissue: float) -> np.ndarray:
+    """A 20 um volume's mean over the tissue of each 200 um voxel, NaN off the tissue.
+
+    `values` and `tissue` are (AP, DV, ML) on the adults' 20 um grid, ten 20 um
+    voxels to a 200 um one along each axis. A 200 um voxel has a value when at least
+    `min_tissue` of its 20 um voxels are tissue.
+    """
+    if any(n % GRID_BLOCK for n in tissue.shape):
+        raise ValueError(
+            f"a 20 um volume of shape {tissue.shape} does not cut into 200 um voxels"
+        )
+    a, d, m = (n // GRID_BLOCK for n in tissue.shape)
+    shape = (a, GRID_BLOCK, d, GRID_BLOCK, m, GRID_BLOCK)
+    on_tissue = np.where(tissue, values, 0.0).astype(np.float64)
+    sums = on_tissue.reshape(shape).sum(axis=(1, 3, 5))
+    counts = tissue.reshape(shape).sum(axis=(1, 3, 5))
+    out = np.full(counts.shape, np.nan)
+    enough = counts >= min_tissue * GRID_BLOCK**3
+    out[enough] = sums[enough] / counts[enough]
+    return out
+
+
+def grid_rows(
+    mouse: str,
+    codes: np.ndarray,
+    label_names: list[str],
+    first_plane: int,
+    meta: dict[str, tuple[str, str]],
+) -> list[dict]:
+    """One adult's nano per structure on the Allen grid, one row per structure.
+
+    Each 200 um voxel with a value (grid_means, beyond.grid_min_tissue) counts once,
+    as a voxel of an ISH grid does; a structure's value is the mean of its voxels.
+    """
+    z = np.load(PER_MOUSE / (mouse + ".npz"))
+    means = grid_means(z["sig"], z["tissue"], BEYOND["grid_min_tissue"])
+    a, d, m = means.shape
+    labels = codes[first_plane : first_plane + a, :d, :m]
+    valid = np.isfinite(means) & (labels > 0)
+    n = np.bincount(labels[valid], minlength=len(label_names))
+    sums = np.bincount(labels[valid], weights=means[valid], minlength=len(label_names))
+    rows = []
+    for code in np.nonzero(n)[0]:
+        structure = label_names[code]
+        acronym, division = meta.get(structure, ("", ""))
+        rows.append(
+            dict(
+                mouse=mouse,
+                group=GROUP[mouse],
+                structure=structure,
+                acronym=acronym,
+                division=division,
+                n_voxels=int(n[code]),
+                nano_mean=sums[code] / n[code],
+            )
+        )
+    return rows
+
+
+def grid_table(meta: dict[str, tuple[str, str]], declared: list[str]) -> pd.DataFrame:
+    """Nano of the ten adults on the Allen 200 um grid, with zref, per structure.
+
+    The check row allen_grid of part 1 reads it: nano assigned to the structures as
+    the ISH values are, on their grid, so a mismatch of grids cannot pass for a
+    leftover. zref is taken as on the 20 um grid: log2 over the brain's isocortex
+    mean (over every isocortex voxel with a value), median and spread over the
+    `declared` structures with ish.min_voxels voxels.
+    """
+    codes, label_names, first_plane = grid_codes()
+    rows = []
+    for mouse in ADULTS:
+        rows += grid_rows(mouse, codes, label_names, first_plane, meta)
+    table = pd.DataFrame(rows)
+    for mouse in ADULTS:
+        mine = table["mouse"] == mouse
+        part = table[mine].set_index("structure")
+        iso = part[part["division"] == "Isocortex"]
+        reference = float(
+            (iso["nano_mean"] * iso["n_voxels"]).sum() / iso["n_voxels"].sum()
+        )
+        v = log2_over(part["nano_mean"], reference)
+        enough = part.index[part["n_voxels"] >= ISH["min_voxels"]]
+        z, _, _ = zref(v, [s for s in declared if s in enough])
+        table.loc[mine, "cref_nano"] = v.to_numpy()
+        table.loc[mine, "zref_nano"] = z.to_numpy()
+    return table
+
+
+def load_grid_table() -> pd.DataFrame:
+    """The table of nano on the Allen grid that run_structure_set wrote."""
+    if not GRID_TABLE.exists():
+        raise FileNotFoundError(f"{GRID_TABLE} not found: run run_structure_set.py first")
+    return pd.read_csv(GRID_TABLE)
 
 
 def stored_agreement(profile: pd.DataFrame) -> float:
