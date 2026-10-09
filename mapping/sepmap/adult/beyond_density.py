@@ -24,8 +24,8 @@ printing its numbers:
                         and what is left; and the weight of each term
     3  the leftover     whether it replicates across mice, and the value the ceiling
                         and the fit alone imply it would replicate at
-    4  where it lives   which structures carry it and how consistently across
-                        half-cohorts, and which genes' maps follow it, against the
+    4  where it lives   which structures and divisions carry it and how consistently
+                        across adults, and which genes' maps follow it, against the
                         leftover's own spatial null with the model removed from
                         every surrogate (leftover_genes)
 
@@ -47,8 +47,9 @@ Everything is one number per structure, on ranks across the structures:
                  the receptor is on
     straight     each term enters once, as itself. A known map made of the two
                  terms, the calibration's floor, then has no curvature the model
-                 could miss; the check row curved bends both (x, x^2, x^3), and its
-                 leftover bounds the straight model's from below
+                 could miss; the check row curved bends both (x, x^2, x^3) to show how
+                 much of the leftover is curvature. It is a check, not a bound: terms
+                 bent further take a little more (control E's fifth powers)
     CV R2        each structure predicted from a fit that never saw it: the
                  structures are shuffled, cut into five folds, and each fold
                  predicted from the other four; the share of variance missed is
@@ -85,11 +86,11 @@ terms z-scored, so the two coefficients share one unit, the SD of the map per SD
 the term, and say how much each term carries once the other is in.
 
 The leftover is quoted as a range (adult.beyond_calibration, a jackknife over the
-structures) beside the calibration floor: what the same model leaves of a map that
-is exactly Gria1 and synapse density, measured with other Allen experiments. Part
-of any leftover is one Allen map disagreeing with another, and the floor says how
-much; the difference between the two is taken on the same structures and resampled
-with them.
+structures, and one over spatial blocks of them) beside the calibration floor: what
+the same model leaves of a map that is exactly Gria1 and synapse density, measured
+with other Allen experiments. Part of any leftover is one Allen map disagreeing with
+another, and the floor says how much; the difference between the two is taken on the
+same structures and resampled with them.
 
 The leftover replicating across mice is not separate evidence. If the map
 replicates, what is left of it once a smooth fit is removed must replicate too;
@@ -124,7 +125,9 @@ Writes, in adult_v2/ish_analysis/beyond/ under the data root:
                                and their two leftovers agree
     residual_by_structure.csv  per structure: map, prediction, leftover, and the
                                share of half-cohort leftovers with the same sign
-    leftover_genes.csv         every gene's rho with the leftover, its spatial p
+    residual_by_division.csv   per division: the mean leftover, with its 95% over
+                               resampled adults
+    leftover_genes.csv        every gene's rho with the leftover, its spatial p
     leftover_sets.csv          the gene sets of analysis 3 against the leftover
     leftover_null.npz          the leftover's surrogates and every gene's rho with them
 
@@ -162,6 +165,7 @@ PARTS = OUT / "partition.csv"
 WEIGHTS = OUT / "weights.csv"
 REPLICATION = OUT / "replication.csv"
 RESIDUALS = OUT / "residual_by_structure.csv"
+RESIDUAL_DIVISIONS = OUT / "residual_by_division.csv"
 LEFTOVER_GENES = OUT / "leftover_genes.csv"
 LEFTOVER_SETS = OUT / "leftover_sets.csv"
 LEFTOVER_NULL = OUT / "leftover_null.npz"
@@ -451,6 +455,20 @@ def fold_labels(
     return out
 
 
+def spatial_blocks(
+    xyz: np.ndarray, n_blocks: int | None = None, seed: int = 0
+) -> np.ndarray:
+    """The spatial block of each structure: k-means clusters of the centroids.
+
+    `xyz` is structures x 3 (mm); beyond.cv_blocks clusters by default, seeded. The
+    folds of spatial blocks and the jackknife over blocks both use them.
+    """
+    if n_blocks is None:
+        n_blocks = BEYOND["cv_blocks"]
+    _, block = kmeans2(np.asarray(xyz, float), n_blocks, seed=seed, minit="++")
+    return block
+
+
 def block_labels(
     xyz: np.ndarray,
     n_blocks: int | None = None,
@@ -461,7 +479,7 @@ def block_labels(
     """Folds of spatial blocks: neighbouring structures held out together.
 
     The structures' centroids (xyz, structures x 3, mm) are cut into
-    beyond.cv_blocks clusters (k-means, seeded); each shuffling deals the clusters
+    beyond.cv_blocks clusters (spatial_blocks); each shuffling deals the clusters
     into the folds in turn. A structure is then predicted from a fit that saw none
     of its neighbours, so smooth gradients cannot carry the prediction across.
     """
@@ -469,7 +487,7 @@ def block_labels(
         n_blocks = BEYOND["cv_blocks"]
     if repeats is None:
         repeats = BEYOND["cv_repeats"]
-    _, block = kmeans2(np.asarray(xyz, float), n_blocks, seed=seed, minit="++")
+    block = spatial_blocks(xyz, n_blocks, seed)
     rng = np.random.default_rng(seed)
     out = []
     for _ in range(repeats):
@@ -617,12 +635,24 @@ def implied_replication(half_agreement: float, r2: float, terms: int, n: int) ->
 # ===== The model =====
 
 
+def psd_genes_measured(
+    expr: dict[str, dict[str, float]], role: dict[str, str], structures: list[str]
+) -> list[str]:
+    """The panel's postsynaptic-density genes measured on every one of `structures`."""
+    return sorted(
+        g
+        for g in expr
+        if role.get(g, "") == PSD_ROLE and all(s in expr[g] for s in structures)
+    )
+
+
 def build_covariates(
     expr: dict[str, dict[str, float]],
     role: dict[str, str],
     auto: np.ndarray,
     structures: list[str],
     synapses: pd.DataFrame | None = None,
+    psd_genes: Sequence[str] | None = None,
 ) -> tuple[dict[str, np.ndarray], list[str], float]:
     """Every predictor by name, built in one place so every module builds them alike.
 
@@ -630,8 +660,10 @@ def build_covariates(
     COMPOSITES, psd_pc1, autofluo (the mean of `auto`, adults x structures) and each
     measured density of `synapses` (structures x measures). A predictor whose genes
     or measure are not there for every structure is left out, and a model that
-    needs it stops (predictors). Returns the predictors, the postsynaptic-density
-    genes behind psd_pc1 and the share of their variance it carries.
+    needs it stops (predictors). psd_pc1 is the first component of `psd_genes`, by
+    default every postsynaptic-density gene measured on the structures
+    (psd_genes_measured); the calibration gives both halves one list. Returns the
+    predictors, the genes behind psd_pc1 and the share of their variance it carries.
     """
     out = {}
     for g in SUBUNITS:
@@ -640,11 +672,9 @@ def build_covariates(
     for name, genes in COMPOSITES.items():
         if all(s in expr.get(g, {}) for g in genes for s in structures):
             out[name] = composite(genes, expr, structures)
-    psd = sorted(
-        g
-        for g in expr
-        if role.get(g, "") == PSD_ROLE and all(s in expr[g] for s in structures)
-    )
+    if psd_genes is None:
+        psd_genes = psd_genes_measured(expr, role, structures)
+    psd = list(psd_genes)
     psd_pc1, share = first_pc(psd, expr, structures)
     out["psd_pc1"] = rankdata(psd_pc1)
     out["autofluo"] = rankdata(auto.mean(axis=0))
@@ -1094,6 +1124,49 @@ def leftover_boot(
     return np.array([residual(rankdata(b), columns) for b in boot])
 
 
+def between_share(values: np.ndarray, groups: Sequence[str]) -> float:
+    """The share of the variance of `values` that lies between `groups`.
+
+    The variance of the group means, each weighted by its size, over the total: 0 when
+    every group has the same mean, 1 when every value equals its group's mean.
+    """
+    values = np.asarray(values, float)
+    frame = pd.DataFrame(dict(value=values, group=list(groups)))
+    means = frame.groupby("group")["value"].transform("mean").to_numpy()
+    return float(
+        np.sum((means - values.mean()) ** 2) / np.sum((values - values.mean()) ** 2)
+    )
+
+
+def division_table(
+    inputs: Inputs, leftover: np.ndarray, boot: np.ndarray
+) -> pd.DataFrame:
+    """residual_by_division.csv: per division, the mean leftover and its spread.
+
+    The mean and median of the cohort's leftover over the division's structures, and
+    the 2.5 and 97.5 percentiles of the mean over the cohorts of resampled adults
+    (`boot`, resamples x structures, leftover_boot); highest mean first. A division
+    whose interval excludes zero sits above or below prediction as a whole.
+    """
+    division = np.array([inputs.division.get(s, "") for s in inputs.structures])
+    rows = []
+    for name in sorted(set(division)):
+        mine = division == name
+        resampled = boot[:, mine].mean(axis=1)
+        rows.append(
+            dict(
+                division=name,
+                n_structures=int(mine.sum()),
+                mean=float(leftover[mine].mean()),
+                median=float(np.median(leftover[mine])),
+                lo=float(np.percentile(resampled, 2.5)),
+                hi=float(np.percentile(resampled, 97.5)),
+            )
+        )
+    table = pd.DataFrame(rows)
+    return table.sort_values("mean", ascending=False, ignore_index=True)
+
+
 def model_membership(terms: dict[str, tuple[str, ...]]) -> dict[str, str]:
     """{gene: its part of the model}: 'abundance' for a term, 'density' in a composite."""
     out = {g: "abundance" for g in terms["abundance"]}
@@ -1103,7 +1176,10 @@ def model_membership(terms: dict[str, tuple[str, ...]]) -> dict[str, str]:
 
 
 def leftover_genes(
-    inputs: Inputs, leftover: np.ndarray, columns: list[np.ndarray]
+    inputs: Inputs,
+    leftover: np.ndarray,
+    columns: list[np.ndarray],
+    boot: np.ndarray | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, np.ndarray, np.ndarray, list[str]]:
     """Every gene against the leftover, with the leftover's own spatial null.
 
@@ -1121,8 +1197,9 @@ def leftover_genes(
     complex family were named for the leftover in advance (ish.gene_sets); these
     tables describe every gene alike.
 
-    Returns the gene table, the set table, the surrogates, every gene's null rho
-    (genes x surrogates) and the genes in the order of its rows.
+    `boot` holds the leftovers of resampled cohorts (leftover_boot, computed when
+    not given). Returns the gene table, the set table, the surrogates, every gene's
+    null rho (genes x surrogates) and the genes in the order of its rows.
     """
     s = inputs.structures
     centroids = load_centroids().loc[s]
@@ -1130,7 +1207,8 @@ def leftover_genes(
     surr = spatial_null.surrogates(leftover, d, seed=0)
     design = np.column_stack(list(columns) + [np.ones(len(leftover))])
     surr = surr - surr @ projection(design).T
-    boot = leftover_boot(inputs.nano, columns)
+    if boot is None:
+        boot = leftover_boot(inputs.nano, columns)
     vectors = gene_ranking.gene_vectors(inputs.expr, s)
     table, null = gene_ranking.rank_genes(leftover, surr, boot, vectors)
     table = gene_ranking.with_q_and_ranks(table, inputs.p9_genes)
@@ -1185,7 +1263,23 @@ def step4_where(
     print("  below:")
     print_leftover_rows(table.tail(6))
 
-    genes, sets, surr, null, tested = leftover_genes(inputs, leftover, columns)
+    # the leftover by division, with its spread over resampled cohorts
+    boot = leftover_boot(inputs.nano, columns)
+    divisions = division_table(inputs, leftover, boot)
+    divisions.to_csv(RESIDUAL_DIVISIONS, index=False)
+    division = [inputs.division.get(s, "") for s in inputs.structures]
+    between = between_share(leftover, division)
+    print(
+        f"  by division (mean leftover in ranks; 95% over resampled adults); "
+        f"{between:.0%} of its variance lies between divisions:"
+    )
+    for r in divisions.itertuples():
+        print(
+            f"    {r.division:10s} {r.n_structures:3d} structures  {r.mean:+6.1f} "
+            f"({r.lo:+.1f} to {r.hi:+.1f})"
+        )
+
+    genes, sets, surr, null, tested = leftover_genes(inputs, leftover, columns, boot)
     genes.to_csv(LEFTOVER_GENES, index=False)
     sets.to_csv(LEFTOVER_SETS, index=False)
     np.savez(

@@ -157,7 +157,8 @@ chosen = ["Rock2", "Cap2", "Slc8a2"]  # the genes the rule chose, highest agreem
 
 # analysis 4 (adult.beyond_density): what Gria1 expression and synapse density leave of
 # the adult map, the map being the zref of the adult profile (adult.profiles). The main
-# model (docs/ISH_ANALYSIS.md, section 4.1, says when it was fixed and what was known):
+# model (docs/ISH_ANALYSIS.md, the opening of section 4 and section 8.1, say when it was
+# fixed and what was known):
 #     nano zref rank ~ Gria1 rank + synapse-density rank
 # two straight terms, ranks across the structures, scored on held-out structures as
 # below; synapse density is the mean rank of the genes [density_markers] chose. The
@@ -186,7 +187,7 @@ markers = ["Syp", "Syn1", "Vamp2", "Bsn", "Syt1", "Dlg4", "Homer1", "Shank2", "S
 psd95_subtypes = [[1, 11], [19, 37]]  # Zhu 2018's subtypes whose puncta carry PSD95, as inclusive ranges: 1-11 PSD95 alone, 19-37 PSD95 with SAP102. The shared table divides each subtype's density by its largest value over the 775 regions, so counts cannot be summed: the density is the mean of these subtypes' scaled densities, each subtype's map weighing alike
 sap102_subtypes = [[12, 37]]  # the subtypes whose puncta carry SAP102: 12-18 SAP102 alone, 19-37 with PSD95 (the densities sap102 and all_puncta of the synaptome's tables), taken the same way
 cv_repeats = 20            # shufflings of the structures into five folds, the held-out R2 averaged over them: one shuffling alone moves the leftover by several points (the single shufflings of folds.csv), so it is not quoted; the mean of 20 is steady to about half a point
-cv_blocks = 20             # spatial blocks of the folds of spatial blocks: k-means clusters of the structures' centroids, about eight structures each, dealt into the five folds
+cv_blocks = 20             # spatial blocks: k-means clusters of the structures' centroids, about eight structures each, dealt into the five folds of the folds of spatial blocks, and left out one at a time by the jackknife over blocks
 replication = 0.5          # the agreement above which a half-cohort map or leftover is said to replicate in the steps' printouts and working figures (any reproducible map's leftover passes it, so no verdict rests on it)
 large_voxels = 50          # 200 um voxels of the CCF annotation (0.4 mm3) a structure needs for the check row large: five times what a gene value needs (ish.min_voxels), so registration and the coarse Allen grid blur it less
 grid_min_tissue = 0.5      # share of a 200 um voxel's 20 um voxels that must be tissue for nano on the Allen grid to have a value there (the check row allen_grid): a voxel mostly off the section is its edge, not its structure
@@ -208,7 +209,8 @@ large = "only structures of at least 0.4 mm3 (50 Allen voxels)"
 allen_grid = "nano on the Allen 200 um grid, structures assigned as the ISH values"
 
 [beyond_controls]
-max_pcs = 40               # the largest gene-space model of control F, in components: past the turn of its held-out R2, which peaks near 25 components and falls after
+max_pcs = 40               # the largest gene-space model of control F, in components: twice the 20 its nested cross-validation picks most often, and past where its held-out R2 flattens (plateau_r2)
+plateau_r2 = 0.01          # F: the fewest components whose held-out R2 is within this of the curve's highest, which the text quotes as where the curve flattens
 nested_repeats = 5         # shufflings of the outer and of the inner folds of control F's nested cross-validation, which picks the number of components inside each training fold
 f_draws = 5                # draws of made-up animals per direction in control F's own calibration
 n_single = 200             # single shufflings of the folds whose leftovers give the spread one shuffling alone would have (folds.csv)
@@ -216,14 +218,16 @@ gradient_r2 = 0.5          # A: a smooth quadratic in position explaining more t
 size_rho = 0.4             # B: |rho| of the residual with structure volume above this, size drives it
 pair_rho = 0.1             # C: two mice whose leftovers agree below this, one animal may carry it
 groups_rho = 0.5           # D: naive and RWS leftovers agreeing below this, the pooling hides something
-curvature_gain = 0.05      # E: cross-validated R2 gained by squares and cubes of the straight terms above this, the straight model misses curvature (the check row curved is then its bound)
+curvature_gain = 0.05      # E: cross-validated R2 gained by squares and cubes of the straight terms above this, the straight model misses curvature (the check row curved then shows how much, a check, not a bound)
 readings_replication = 0.8 # G: every reading's leftover must replicate above this
 
 # analysis 4's calibration (adult.beyond_calibration): the main model, and each check row
 # with its own model, on maps whose answer is known. Every gene of the main model has
-# two or more usable Allen experiments, so its floor holds the mismatch of one Allen map
-# with another; a measured density (the check row psd95) is one measurement, the same in
-# both halves, so its own mismatch is not in that row's floor
+# two or more usable Allen experiments, so its floor holds the disagreement of two halves
+# of them; a measured density (the check row psd95) is one measurement, the same in both
+# halves, so its own mismatch is not in that row's floor. Every interval is computed over
+# random fifths of the structures left out, and again over spatial blocks ([beyond]
+# cv_blocks) left out one at a time
 [beyond_calibration]
 n_noise = 20               # draws of animal noise per known map and direction, which give the floor a range rather than one value
 n_jackknife = 400          # subsamples of the calibration structures on which the nano map and the floor are recomputed together: the interval of their difference
@@ -236,6 +240,7 @@ jackknife_splits = 20      # half-cohort splits behind the ceiling on each subsa
 [beyond_figures]
 n_perm = 10000             # shuffles of one half's leftover, what two unrelated leftovers agree at (for scale)
 t_max_structures = 10.0    # figure 04: a structure's bar is black at this t of the adults' own leftovers, near the 90th percentile of |t| over the structures
+leftover_span_pct = 90.0   # figure 04: the leftover's colour scale on the planes runs to this percentile of |leftover|, rounded up to ten ranks, so about a tenth of the structures saturate
 
 [beyond_regression]
 # coronal planes to draw, in 20 um planes of the cropped CCF grid (450 of them; 10 um
@@ -255,7 +260,7 @@ n_added_surrogates = 1000  # maps with a gene's own smoothness added to the main
 # the leftover's tests again against smoother nulls than its own surrogates, which
 # the projection of the model leaves rough at short range: Gaussian fields of
 # exponential covariance, projected the same way (top_genes.smooth_null_check)
-null_check_ranges_mm = [2.0, 6.0, 10.0]  # ranges of the fields, around the 4 mm the spatial null's calibration fitted to the map (ish.spatial_null)
+null_check_ranges_mm = [2.0, 6.0, 10.0, 20.0, 40.0]  # ranges of the fields: around the 4 mm the spatial null's calibration fitted to the map (ish.spatial_null), and longer, the smoothest the fields give once the model is projected out
 null_check_maps = 5000     # fields per range; a p near 0.05 is then placed within about 0.006
 neighbours = 5             # nearest structures whose mean a map is set against to say how smooth it is at short range
 

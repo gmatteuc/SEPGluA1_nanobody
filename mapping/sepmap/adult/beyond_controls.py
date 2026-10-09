@@ -198,7 +198,7 @@ def control_a_space(
     return dict(
         control="A spatial gradient",
         number=f"smooth R2 {smooth:.3f}, replication with position {with_pos:.3f}",
-        verdict="pass" if passed else "look closer",
+        verdict="pass" if passed else "does not pass",
     )
 
 
@@ -229,7 +229,7 @@ def control_b_size(leftover: np.ndarray, sizes: np.ndarray) -> dict[str, str]:
     return dict(
         control="B structure size",
         number=f"rho with volume {rho:+.3f}",
-        verdict="pass" if passed else "look closer",
+        verdict="pass" if passed else "does not pass",
     )
 
 
@@ -273,7 +273,7 @@ def control_c_mice(
         dict(
             control="C single animals",
             number=f"pairwise median {np.median(pairs):+.3f}, min {min(pairs):+.3f}",
-            verdict="pass" if passed else "look closer",
+            verdict="pass" if passed else "does not pass",
         ),
         pairs,
     )
@@ -300,7 +300,7 @@ def control_d_groups(
         dict(
             control="D naive vs RWS",
             number=f"rho {rho:+.3f}",
-            verdict="pass" if passed else "look closer",
+            verdict="pass" if passed else "does not pass",
         ),
         naive,
         rws,
@@ -356,7 +356,7 @@ def control_e_curvature(
             control="E curvature",
             number=f"CV R2 {linear:.3f} straight, {cubic:.3f} cubic, "
             f"{quintic:.3f} quintic",
-            verdict="pass" if passed else "look closer",
+            verdict="pass" if passed else "does not pass",
         ),
         linear,
         cubic,
@@ -577,7 +577,7 @@ def control_f_gene_space(
         f"{nested:.3f} ({nested / explainable:.0%} of ceiling); nano leaves "
         f"{nano_left.min():.0%} to {nano_left.max():.0%} against "
         f"{known.min():.0%} to {known.max():.0%}; replication {rep:.3f}",
-        verdict="pass" if passed else "look closer",
+        verdict="pass" if passed else "does not pass",
     )
     summary = dict(
         genes=len(genes),
@@ -765,7 +765,7 @@ def control_g_readings(
             number="; ".join(
                 f"{r.reading} {r.leftover_replication:.2f}" for r in table.itertuples()
             ),
-            verdict="pass" if passed else "look closer",
+            verdict="pass" if passed else "does not pass",
         ),
         table,
     )

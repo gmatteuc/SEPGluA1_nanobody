@@ -81,3 +81,15 @@ def ordinal(value: str | float) -> str:
     if k % 100 not in (11, 12, 13):
         suffix = {1: "st", 2: "nd", 3: "rd"}.get(k % 10, "th")
     return f"{k}{suffix}"
+
+
+def points(share: float) -> str:
+    """A difference of two shares in points with its sign: '+27', '-0.2'.
+
+    Whole points, but one decimal under one point, so a small difference below zero
+    does not read as '-0' and one above it as '+0'.
+    """
+    value = 100 * share
+    if abs(value) < 1:
+        return f"{value:+.1f}"
+    return f"{value:+.0f}"

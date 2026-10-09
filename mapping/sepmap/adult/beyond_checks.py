@@ -7,15 +7,18 @@ sees how much each choice matters:
 
     curved            each term bent (x, x^2, x^3). A straight model leaves any
                       curvature of the map's relation to its terms in the leftover,
-                      and the floor of a straight model holds none, so this row's
-                      leftover is the conservative bound of the main one
+                      and the floor of a straight model holds none, so this row shows
+                      how much of the main one is curvature. A check, not a bound:
+                      terms bent further take a little more (control E)
     autofluorescence  + the autofluorescence of the same sections, the one predictor
                       measured in our own brains
     first_proposal    the density genes proposed before the rule (Dlg4, Homer1,
                       Camk2a; the rule excludes Dlg4 and Camk2a as AMPA-receptor-linked)
     marker_panel      the 11 synaptic marker genes of the first version's density
     psd_pc1           + the first component of the postsynaptic-density genes of the
-                      ontology panel, in the density group
+                      ontology panel, in the density group: those measured on every
+                      structure, and in the calibration those with two halves of
+                      experiments, one list for both (the columns psd_genes)
     four_subunits     Gria1 to Gria4 in place of Gria1, each its own term
     psd95             the measured PSD95 punctum density as the density term, on the
                       structures it covers (adult.synaptome)
@@ -33,10 +36,10 @@ there; its shares are held out as the main model's. Each has its own floor: the
 calibration of adult.beyond_calibration with the row's own model, on the row's
 structures where both halves of the Allen experiments measure its genes, random
 folds, and nano minus that floor with its interval from the same paired jackknife
-over structures. A floor misses the mismatch of what is measured once, the same in
-both halves: the PSD95 density of the row psd95 (one mouse), and any gene of a row
-with a single usable experiment (the column once names them), so such a floor errs
-low by more than the main model's.
+over structures, and over spatial blocks. A floor misses the mismatch of what is
+measured once, the same in both halves: the PSD95 density of the row psd95 (one
+mouse), and any gene of a row with a single usable experiment (the column once names
+them), so such a floor errs low by more than the main model's.
 
 Writes, in adult_v2/ish_analysis/beyond/ under the data root:
 
@@ -44,10 +47,12 @@ Writes, in adult_v2/ish_analysis/beyond/ under the data root:
                                 shares of abundance, density and the whole model,
                                 the share left, the calibration's structures, nano
                                 there, the floor, nano minus the floor with its 95%
-                                interval, and what is measured once
+                                intervals (over structures, over spatial blocks),
+                                what is measured once, and the genes behind psd_pc1
     check_rows_calibration.csv  every row's calibration (as calibration.csv, random
                                 folds, without the leftovers' replication)
     check_rows_jackknife.csv    every row's paired jackknife of nano and the floor
+    check_rows_jackknife_blocks.csv  the same over spatial blocks
 
 Run by run_beyond_calibration.py.
 """
@@ -68,6 +73,7 @@ ISH = SETTINGS["ish"]
 CHECK_ROWS = beyond_density.OUT / "check_rows.csv"
 CHECK_CALIBRATION = beyond_density.OUT / "check_rows_calibration.csv"
 CHECK_JACKKNIFE = beyond_density.OUT / "check_rows_jackknife.csv"
+CHECK_JACKKNIFE_BLOCKS = beyond_density.OUT / "check_rows_jackknife_blocks.csv"
 
 
 # ===== The rows =====
@@ -154,35 +160,59 @@ def terms_text(terms: dict[str, tuple[str, ...]], bend: bool) -> str:
     return "; ".join(groups) + ("; bent" if bend else "")
 
 
+def psd_gene_counts(
+    inputs: beyond_density.Inputs,
+    terms: dict[str, tuple[str, ...]],
+    halves: dict,
+    psd: list[str],
+) -> tuple[float, float]:
+    """The genes behind psd_pc1 in the row's fit and in its calibration; NaN without it.
+
+    `psd` is the list the fit used (beyond_density.covariates_for).
+    """
+    if "psd_pc1" not in terms["density"]:
+        return float("nan"), float("nan")
+    cal = beyond_calibration.calibration_inputs(inputs, halves, terms)
+    shared = beyond_calibration.shared_psd_genes(cal, halves)
+    return float(len(psd)), float(len(shared))
+
+
 def check_row(
     key: str,
     inputs: beyond_density.Inputs,
     model: tuple[dict[str, tuple[str, ...]], bool],
     halves: dict,
     split: list[str],
-) -> tuple[dict, pd.DataFrame, pd.DataFrame]:
-    """One check row: its shares, its floor and nano minus the floor with its interval.
+) -> tuple[dict, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """One check row: its shares, its floor and nano minus the floor with its intervals.
 
     `model` is the row's terms and whether they bend; `halves` and `split` are those
     of beyond_calibration.half_profiles. Returns the row, its calibration and its
-    paired jackknife, each with the row's key.
+    paired jackknives over structures and over spatial blocks, each with the row's
+    key.
     """
     terms, bend = model
     splits = beyond_density.half_splits()
     _, explainable = beyond_density.ceiling(inputs.nano, splits)
     y = beyond_density.full_map(inputs.nano)
-    cov, _, _ = beyond_density.covariates_for(inputs)
+    cov, psd, _ = beyond_density.covariates_for(inputs)
     shares = beyond_density.model_shares(y, cov, terms, explainable, bend=bend)
 
-    # the row's own floor, and nano minus it on the same subsamples
+    # the row's own floor, and nano minus it on the same subsamples, at random and
+    # one spatial block at a time
     calibration = beyond_calibration.calibration_rows(
         inputs, halves, terms, bend, blocks=False, replication=False
     )
     jack = beyond_calibration.paired_jackknife(inputs, halves, terms, bend)
+    blocks = beyond_calibration.paired_jackknife(inputs, halves, terms, bend, blocks=True)
     floor = beyond_calibration.left_summary(calibration)
     nano = beyond_calibration.nano_left(calibration)
     point = nano - floor["left_median"]
     lo, hi = beyond_calibration.jackknife_interval(jack, jack["nano_minus_floor"], point)
+    block_lo, block_hi = beyond_calibration.jackknife_interval(
+        blocks, blocks["nano_minus_floor"], point
+    )
+    n_psd, n_psd_cal = psd_gene_counts(inputs, terms, halves, psd)
     row = dict(
         key=key,
         check=CHECKS[key],
@@ -201,11 +231,15 @@ def check_row(
         nano_minus_floor=point,
         nano_minus_floor_lo=lo,
         nano_minus_floor_hi=hi,
+        nano_minus_floor_blocks_lo=block_lo,
+        nano_minus_floor_blocks_hi=block_hi,
         once=" ".join(beyond_calibration.measured_once(split, terms)),
+        psd_genes=n_psd,
+        psd_genes_calibration=n_psd_cal,
     )
-    calibration.insert(0, "key", key)
-    jack.insert(0, "key", key)
-    return row, calibration, jack
+    for table in (calibration, jack, blocks):
+        table.insert(0, "key", key)
+    return row, calibration, jack, blocks
 
 
 # ===== Reading back =====
@@ -226,27 +260,36 @@ def main() -> pd.DataFrame:
     """Run every check row with its floor and write the three tables; returns the rows."""
     inputs = beyond_density.load_inputs()
     halves, split = beyond_calibration.half_profiles()
-    rows, calibrations, jackknives = [], [], []
+    rows, calibrations, jackknives, in_blocks = [], [], [], []
     print(
-        f"\nthe check rows, beside the main model on {len(inputs.structures)} structures:"
+        f"\nthe check rows, beside the main model on {len(inputs.structures)} structures"
+        " (95% over structures; over spatial blocks):"
     )
     for key, mine, terms, bend in check_models(inputs):
-        row, calibration, jack = check_row(key, mine, (terms, bend), halves, split)
+        row, calibration, jack, blocks = check_row(
+            key, mine, (terms, bend), halves, split
+        )
         rows.append(row)
         calibrations.append(calibration)
         jackknives.append(jack)
+        in_blocks.append(blocks)
         once = f"; the same in both halves: {row['once']}" if row["once"] else ""
         print(
             f"  {key:17s} {row['n_structures']:4d} structures, left {row['left']:6.1%}; "
             f"on {row['cal_structures']} nano {row['nano_cal_left']:6.1%}, floor "
             f"{row['floor']:6.1%}, nano minus floor {row['nano_minus_floor']:+6.1%} "
-            f"({row['nano_minus_floor_lo']:+.1%} to {row['nano_minus_floor_hi']:+.1%})"
-            f"{once}",
+            f"({row['nano_minus_floor_lo']:+.1%} to {row['nano_minus_floor_hi']:+.1%}; "
+            f"{row['nano_minus_floor_blocks_lo']:+.1%} to "
+            f"{row['nano_minus_floor_blocks_hi']:+.1%}){once}",
             flush=True,
         )
     table = pd.DataFrame(rows)
     table.to_csv(CHECK_ROWS, index=False)
     pd.concat(calibrations, ignore_index=True).to_csv(CHECK_CALIBRATION, index=False)
     pd.concat(jackknives, ignore_index=True).to_csv(CHECK_JACKKNIFE, index=False)
-    print(f"  -> {CHECK_ROWS.name}, {CHECK_CALIBRATION.name}, {CHECK_JACKKNIFE.name}")
+    pd.concat(in_blocks, ignore_index=True).to_csv(CHECK_JACKKNIFE_BLOCKS, index=False)
+    print(
+        f"  -> {CHECK_ROWS.name}, {CHECK_CALIBRATION.name}, {CHECK_JACKKNIFE.name}, "
+        f"{CHECK_JACKKNIFE_BLOCKS.name}"
+    )
     return table

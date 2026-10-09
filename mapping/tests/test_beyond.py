@@ -1,5 +1,7 @@
 """Known-answer checks of analysis 4 (beyond) and analysis 5 (the green channel)."""
 
+from types import SimpleNamespace
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -369,6 +371,89 @@ def test_jackknife_sd_of_a_mean_matches_its_standard_error():
     )
 
 
+def test_block_jackknife_sd_of_a_mean_is_the_spread_of_the_block_means():
+    """Leaving out one of G equal blocks gives the SD of the block means over sqrt(G)."""
+    rng = np.random.default_rng(17)
+    x = rng.standard_normal(100)
+    blocks = x.reshape(20, 5)
+    values = [np.delete(blocks, g, axis=0).mean() for g in range(20)]
+    expected = blocks.mean(axis=1).std(ddof=1) / np.sqrt(20)
+    assert beyond_calibration.block_jackknife_sd(values) == pytest.approx(expected)
+
+    # the table of a jackknife over blocks says so, and its interval uses that SD
+    table = beyond_calibration.jackknife_table([dict(v=v) for v in values], 100, True)
+    assert int(table["n_blocks"].iloc[0]) == 20
+    lo, hi = beyond_calibration.jackknife_interval(table, table["v"], 0.0)
+    assert hi == pytest.approx(1.96 * expected)
+
+
+def test_the_share_between_groups_is_zero_for_equal_means_and_one_for_constant_groups():
+    """Groups of equal means share nothing between them; groups of one value, all."""
+    groups = ["a"] * 4 + ["b"] * 4
+    assert beyond_density.between_share(
+        np.array([1.0, 2, 3, 4, 4, 3, 2, 1]), groups
+    ) == pytest.approx(0.0)
+    assert beyond_density.between_share(
+        np.array([1.0, 1, 1, 1, 5, 5, 5, 5]), groups
+    ) == pytest.approx(1.0)
+
+
+def test_the_calibration_builds_psd_pc1_from_genes_with_two_halves_alone():
+    """A gene measured once, or missing a structure in one half, is not in psd_pc1."""
+    structures = ["a", "b", "c"]
+    two = {"a": 1.0, "b": 2.0, "c": 3.0}
+    other = {"a": 3.0, "b": 1.0, "c": 2.0}
+    halves = {
+        "A": {"P1": two, "P2": two, "P3": two},
+        "B": {"P1": other, "P2": two, "P3": {"a": 1.0, "b": 2.0}},
+    }
+    role = {g: beyond_density.PSD_ROLE for g in ("P1", "P2", "P3")}
+    inputs = SimpleNamespace(role=role, structures=structures)
+    assert beyond_calibration.shared_psd_genes(inputs, halves) == ["P1"]
+
+
+def test_the_own_half_reading_leaves_noise_and_the_floors_draws_as_they_are():
+    """Read with its own half the known map leaves little; the floor does not move."""
+    rng = np.random.default_rng(18)
+    n = 80
+    structures = [f"s{k:02d}" for k in range(n)]
+    genes = beyond_density.model_genes(beyond_density.model_terms())
+    base = {g: rng.standard_normal(n) for g in genes + ("Psd1", "Psd2")}
+    per_half = {
+        h: {g: dict(zip(structures, v + rng.normal(0, 0.7, n))) for g, v in base.items()}
+        for h in beyond_calibration.HALVES
+    }
+    truth = base["Gria1"] + base[genes[1]]
+    inputs = beyond_density.Inputs(
+        structures=structures,
+        nano=cohort(truth, sd=0.5),
+        auto=rng.standard_normal((N_ADULTS, n)),
+        synapses=pd.DataFrame(index=structures),
+        expr=per_half["A"],
+        role={"Psd1": beyond_density.PSD_ROLE, "Psd2": beyond_density.PSD_ROLE},
+        p9_genes=set(),
+        division={},
+        acronym={},
+        structures_used=pd.DataFrame(),
+        terms=beyond_density.model_terms(),
+    )
+    kwargs = dict(blocks=False, replication=False, n_noise=2)
+    plain = beyond_calibration.calibration_rows(inputs, per_half, **kwargs)
+    both = beyond_calibration.calibration_rows(inputs, per_half, own_half=True, **kwargs)
+    floor = beyond_calibration.FLOOR_MAP
+    pd.testing.assert_frame_equal(
+        plain[plain["map"] == floor].reset_index(drop=True),
+        both[both["map"] == floor].reset_index(drop=True),
+    )
+    own = both[both["map"] == beyond_calibration.OWN_HALF]
+    assert len(own) == 4
+    assert (own["truth_from"] == own["predictors_from"]).all()
+    assert (
+        beyond_calibration.own_half_left(both)
+        < plain.loc[plain["map"] == floor, "left"].median()
+    )
+
+
 def test_nano_on_the_allen_grid_is_the_mean_of_each_voxels_tissue():
     """A 200 um voxel takes the mean of its tissue; under half tissue it has none."""
     values = np.zeros((20, 10, 10), dtype=np.float32)
@@ -409,4 +494,10 @@ def test_written_tables_hold_the_main_model_its_check_rows_and_the_floor():
     assert set(calibration["map"]) == {
         beyond_calibration.NANO,
         beyond_calibration.FLOOR_MAP,
+        beyond_calibration.OWN_HALF,
     }
+    blocks = checks[["nano_minus_floor_blocks_lo", "nano_minus_floor_blocks_hi"]]
+    assert blocks.notna().all().all()
+    assert (checks["nano_minus_floor_blocks_lo"] <= checks["nano_minus_floor"]).all()
+    assert checks.loc["psd_pc1", "psd_genes_calibration"] > 0
+    assert checks.loc["psd_pc1", "once"] == ""
