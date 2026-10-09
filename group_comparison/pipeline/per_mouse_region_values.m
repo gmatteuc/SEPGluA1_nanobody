@@ -1915,7 +1915,7 @@ strip_x = 10 ^ (first_decade - 0.5);
 hold on;
 box on;
 grid on;
-set(gca, 'XScale', 'log');
+set(gca, 'XScale', 'log', 'XMinorGrid', 'off', 'XMinorTick', 'off');
 scatter(mass(has_cluster), difference(has_cluster), 14, sep_palette('paired_lines'), ...
     'filled', 'MarkerFaceAlpha', 0.6, 'MarkerEdgeColor', 'none');
 scatter(strip_x, 0, 30, sep_palette('paired_lines'), 's', 'filled');
@@ -1926,26 +1926,27 @@ xline(mass(1), '--', 'Color', sep_palette('experimental_mean'), 'LineWidth', 0.8
 yline(difference(1), '--', 'Color', sep_palette('experimental_mean'), 'LineWidth', 0.8);
 scatter(mass(1), difference(1), 50, sep_palette('experimental_mean'), 'filled');
 
-% the strip's tick, then a tick per decade
+% the strip's tick, then a tick per decade, as powers of ten so they stay level
 xlim(10 .^ [first_decade - 0.75, last_decade]);
-decades = 10 .^ (first_decade:last_decade);
-xticks([strip_x, decades]);
-xticklabels([{'none'}, arrayfun(@(d) sprintf('%g', d), decades, 'UniformOutput', false)]);
+powers = first_decade:last_decade;
+xticks([strip_x, 10 .^ powers]);
+xticklabels([{'none'}, arrayfun(@(k) sprintf('10^{%d}', k), powers, ...
+    'UniformOutput', false)]);
+set(gca, 'FontSize', 9, 'TickLabelInterpreter', 'tex', 'XTickLabelRotation', 0);
 xlabel('mass of the split''s cluster (step 3''s score)', 'FontSize', 9);
 ylabel(sprintf('mean raw AI, ''%s'' - ''%s''', comparison.exp_type, ...
     comparison.ctrl_type), 'FontSize', 9);
 
-% the counts, the p of each statistic beside them
+% the counts, the p of each statistic beside them; the observed split in red
 n_splits = numel(mass);
 title(sprintf('The same %d splits: cluster mass and AI difference', n_splits), ...
     'FontSize', 10);
 subtitle({
-    sprintf('mass >= observed: %d (p %.3f; either sign p %.3f, step 3''s)', ...
-        nnz(reach_mass), comparison.sm_place.mass_p_one, comparison.sm_place.mass_p)
-    sprintf('AI difference >= observed: %d (p %.3f); both: %d; observed in red', ...
+    sprintf('mass >= observed: %d (p %.3f; either sign %.3f)', nnz(reach_mass), ...
+        comparison.sm_place.mass_p_one, comparison.sm_place.mass_p)
+    sprintf('AI difference >= observed: %d (p %.3f); both: %d', ...
         nnz(reach_difference), test.p_one, nnz(reach_mass & reach_difference))
     }, 'FontSize', 8);
-set(gca, 'FontSize', 9);
 end
 
 function lines = stat_lines(stat, kind, comparison)
@@ -1969,16 +1970,15 @@ switch kind
             without = flip(without);
         end
         lines = {
-            sprintf('p %s [%.3f, %.3f without empty splits]', p_pair(stat.p_exp_higher, ...
-                stat.p_two_sided, comparison, 'either direction'), without)
-            sprintf('null median %+.3f (splits with a cluster), observed %+.3f; n %d and %d', ...
+            sprintf('p %s [%.3f, %.3f]', p_pair(stat.p_exp_higher, stat.p_two_sided, ...
+                comparison, 'either direction'), without)
+            sprintf('null median %+.3f, observed %+.3f; n %d and %d', ...
                 stat.null_median_difference, stat.difference, stat.n_ctrl, stat.n_exp)
             };
         if strcmp(stat.either_direction_cluster, 'ctrl higher')
-            lines{end + 1} = sprintf(['either direction: %s - %s %+.3f, in the ' ...
-                '%s-higher cluster (%d voxels)'], comparison.ctrl_type, ...
-                comparison.exp_type, stat.difference_either_direction, ...
-                comparison.ctrl_type, comparison.sm_place.n_negative);
+            lines{end + 1} = sprintf('either direction: %s-higher cluster (%d voxels), %+.3f', ...
+                comparison.ctrl_type, comparison.sm_place.n_negative, ...
+                stat.difference_either_direction);
         end
     case 'loo'
         lines = {
@@ -2045,8 +2045,8 @@ if ~isempty(place)
         sprintf('  (here p %s; step 3''s p: either sign);', ...
             p_pair(place.mass_p_one, place.mass_p, comparison, 'either sign'))
         '  this takes the mice''s mean AI, which does not. Every split''s cluster separates'
-        '  its own groups by construction: hence the null median under each p.'
-        '  Top right: both statistics over the same splits.'
+        '  its own groups by construction: hence the null median under each p (over the'
+        '  splits with a cluster). Top right: both statistics over the same splits.'
         }];
 end
 left = [left; {
@@ -2098,12 +2098,11 @@ if any(strcmp(T_stats.value, 'sm_ai_auto'))
         '  its off-tissue level, smoothed in the nano channel''s tissue, read in the same'
         '  clusters and tested the same way. A misregistration of the surface would'
         '  raise |L - R| in both channels, in the same mice. Here:'
-        sprintf(['  %s - %s %+.3f (nano, raw stack, %+.3f), p %s; its AI against the ' ...
-                 'nano'], exp_type, ctrl_type, auto_stats.difference, ...
-                 nano_stats.difference, p_pair(auto_stats.p_exp_higher, ...
-                 auto_stats.p_two_sided, comparison, 'either'))
-        sprintf('  raw AI over the mice r %.2f, within the groups r %.2f.', r_pooled, ...
-            r_within)
+        sprintf('  %s - %s %+.3f (nano, raw stack, %+.3f), p %s;', exp_type, ...
+            ctrl_type, auto_stats.difference, nano_stats.difference, ...
+            p_pair(auto_stats.p_exp_higher, auto_stats.p_two_sided, comparison, 'either'))
+        sprintf(['  its AI against the nano raw AI over the mice r %.2f, within the ' ...
+                 'groups r %.2f.'], r_pooled, r_within)
         }];
 end
 
@@ -2158,8 +2157,8 @@ if ~isempty(sm_stats)
         '  Stricter about circularity by design than the selection-matched test, whose p,'
         sprintf('  raw stack, is %s', p_pair(sm_stats.p_exp_higher, ...
             sm_stats.p_two_sided, comparison, 'either direction'))
-        sprintf(['  (Per_Mouse_Values_%s); why the leave-one-out''s p can be the ' ...
-                 'lower: README.'], file_tag)
+        sprintf('  (Per_Mouse_Values_%s);', file_tag)
+        '  why the leave-one-out''s p can be the lower: README.'
         }];
 end
 if loo_stats.n_splits > 0
