@@ -480,7 +480,7 @@ def fit_all(matrix, return_flags=False):
   line's is numbered in the order of its argument, a main figure of two to four
   panels with one line saying what to take from it, its detailed version the
   same number with an s (`03_beyond.png`, then `03s1_beyond_budget.png` to
-  `03s3_density_markers.png` where it has several).
+  `03s4_synaptome_detail.png` where it has several).
 - Tests use pytest, in `tests/` next to the package, run from the pipeline
   folder as `python -m pytest tests`; one `test_<topic>.py` per sub-package or
   topic, and a `tests/README.md` listing them (file, what it checks, data).

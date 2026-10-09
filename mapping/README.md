@@ -80,8 +80,8 @@ mapping/
 | ontology panel | 11 `run_panel_build`, 12 `run_panel_fetch` | a 390-gene panel from Gene Ontology terms, and its ISH grids (network, once; not rerun for an analysis) |
 | ISH inputs | 13 `run_structure_set`, 14 `run_ish_section_qc`, 15 `run_ish_gene_table`, 16 `run_ish_spatial_null` | the declared structures and the adult profiles (A1); section QC of every experiment (A2); one gene table, merged profiles, gene sets, documentation (A9); surrogate maps with the map's smoothness (A7) |
 | the genes against the map | 17 `run_ish_gene_ranking`, 18 `run_ish_robustness`, 19 `run_ish_divisions`, 20 `run_ish_gene_sets` | each gene against the map and the autofluorescence map, with the null (A8); the ranking under other choices (A3); between or within divisions (A6); gene sets and localisation against matched controls |
-| the measured synapse density | 21 `run_synaptome`, 22 `run_density_markers` | fetches the PSD95 and SAP102 punctum densities of Zhu et al. 2018 as Hansen et al. share them, from their repository at a pinned commit (network, once; `--offline` stops instead), into `<data>\reference\synaptome\`; places the samples in the CCF structures; how much of the declared set and of analysis 4's fit the PSD95 density covers, and how it agrees with the mRNA density terms, Gria1 and the map; then the synapse-density genes of analysis 4 (`[density_markers]`): postsynaptic genes of mouse GO, one release fetched once into `<data>\reference\go\<release>\` (`--offline` stops instead), the AMPA-linked genes left out, the three highest with PSD95 density chosen without reading the map, and the choice on random halves of the structures; figures 14s1 and 03s3 |
-| beyond Gria1 expression and synapse density | 23 `run_beyond_density`, 24 `run_beyond_controls`, 25 `run_beyond_calibration`, 26 `run_beyond_regression`, 27 `run_beyond_figures` | how much of the map the main model (Gria1 and synapse density, two straight terms; `[beyond]`) predicts, split into what only Gria1 predicts, what the two share, what only density predicts and what is left, the two weights, and the genes against what it leaves; seven controls, and the leftover under other folds; the same model on a map whose answer is known (the floor), the nano map against it on the same structures, and every check row of `[beyond.checks]` with its own floor; the regression per structure; figures 03 (with the density genes against PSD95), 03s1 (the check rows), 03s2 (the controls), 04, 11s1 and 14 |
+| the measured synapse density | 21 `run_synaptome`, 22 `run_density_markers` | fetches the PSD95 and SAP102 punctum densities of Zhu et al. 2018 as Hansen et al. share them, from their repository at a pinned commit (network, once; `--offline` stops instead), into `<data>\reference\synaptome\`; places the samples in the CCF structures; how much of the declared set and of analysis 4's fit the PSD95 density covers, and how it agrees with the density term, Gria1 and the map; then the synapse-density genes of analysis 4 (`[density_markers]`): postsynaptic genes of mouse GO, one release fetched once into `<data>\reference\go\<release>\` (`--offline` stops instead), the AMPA-linked genes left out, the three highest with PSD95 density chosen without reading the map, and the choice on random halves of the structures, whole brain and inside divisions; figures 03s4 and 03s3 |
+| beyond Gria1 expression and synapse density | 23 `run_beyond_density`, 24 `run_beyond_controls`, 25 `run_beyond_calibration`, 26 `run_beyond_regression`, 27 `run_beyond_figures` | how much of the map the main model (Gria1 and synapse density, two straight terms; `[beyond]`) predicts, split into what only Gria1 predicts, what the two share, what only density predicts and what is left, the two weights, and the genes against what it leaves; seven controls, and the leftover under other folds; the same model on a map whose answer is known (the floor), the nano map against it on the same structures, and every check row of `[beyond.checks]` with its own floor; the regression per structure; figures 03 (with the density genes against PSD95), 03s1 (the check rows), 03s2 (the controls), 04 and 11s1 |
 | the genes that follow the map | 28 `run_ish_top_genes` | the genes past the map's null, Gria1, Cacng8 and the AMPA receptor complex family described on every axis of the ISH line, each added to the main model against maps of its smoothness; the tests named in advance for the leftover (Cacng8, then the family as a group and gene by gene; `ish/gene_sets.py`); per-gene sheets |
 | the green channel, the overview | 29 `run_sep_channel_check`, 30 `run_ish_overview` | what the green channel reports; April's headline, the numbers for the text, the overview and the index of the figures |
 
@@ -177,7 +177,7 @@ Under `<data>\adult_v2\`:
   its coverage and agreement), `density_markers\` (the pool, the exclusions,
   the agreement with PSD95, the random halves), `beyond\` (part 1's tables
   and working figures), `green_channel\`, `figures\` (the guided figures
-  `00_overview.png` to `16_april_headline.png`, each main figure with its
+  `00_overview.png` to `15_april_headline.png`, each main figure with its
   detailed versions, `03s1_beyond_budget.png` and so on, the index `README.md`,
   `qc\`, `genes\` and `top_genes\`), `cache\` (Allen
   experiment lists, mygene records, `go-basic.obo`). The table of every file:
@@ -220,11 +220,15 @@ the ISH tables, the API answers and the grids.
   kind (about 4% false positives at 0.05). A difference between two genes'
   correlations is tested against maps related to both alike, and still needs
   to be large to pass.
-- The calibration floor of part 1 holds the mismatch of one Allen map with
-  another (every gene of the main model has two or more experiments), not that
-  of Allen's P56 mice with these brains (age, strain, the grid, registration),
-  so it errs low; a measured density, the same in both halves, is not in its
-  check row's floor.
+- The calibration floor of part 1 holds the disagreement of two halves of the
+  Allen experiments (every gene of the main model has two or more), where nano,
+  read with one half, meets one half's error and the mismatch of Allen's P56
+  mice with these brains (age, strain, the grid, registration), which the floor
+  lacks; so it errs low only if that mismatch costs more than one half's error.
+  A measured density, the same in both halves, is not in its check row's floor.
+- Neighbouring structures are not independent, so every interval of part 1 is
+  given twice: over structures left out at random, and over spatial blocks left
+  out one at a time, which is wider.
 - The measured synapse density is one adult mouse, sampled in a few coronal
   sections: it covers about half of part 1's fit and 96 of the 204 declared
   structures, so it chooses the density genes and is a check row, not the

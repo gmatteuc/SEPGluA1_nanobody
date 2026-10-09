@@ -277,7 +277,7 @@ question, not necessarily with the same output. Once A1 to A5 are in:
   `merged_naive_rws_auto\`, the `merged_naive_rws_vs_ish_*` folders,
   `nano_vs_auto\`). The `gene_panel_summary.csv` of
   `run_compare_with_allen_ish` stays an input of `run_ish_overview` (April's
-  headline, then and now: figure 16 of the ISH line).
+  headline, then and now: figure 15 of the ISH line).
 - Giulio checks the Python route against the old code, run from the tag
   `refactor-start` in its own check tree; then `archive/` is deleted (L2), the
   tag keeping the files.
@@ -717,7 +717,8 @@ detailed version, and part 1 run once more the same day in its second version
 ([ISH_ANALYSIS.md](ISH_ANALYSIS.md)). Still open: what the leftover of the
 beyond-abundance analysis is (a total-receptor channel); the broad negative
 pattern of genes expressed in every neuron against the second version's leftover,
-exploratory so far (ISH_ANALYSIS.md, section 8.2); a background panel of a few
+which are also the genes the tissue's autofluorescence follows, exploratory so far
+(ISH_ANALYSIS.md, section 8.2); a background panel of a few
 thousand Allen genes, to place the panel's genes among genes nobody chose; and
 the true absences of the section QC, proposed and not yet reviewed.
 
@@ -761,8 +762,11 @@ For the reasons, see the plan and the documents named.
   predicted by Gria1 expression and synapse density, two straight terms (35% to
   54% over structures), and that leftover replicates across halves of the cohort
   at 0.933. On the same structures it is 27 points above the calibration floor
-  (42% against 15%; 95% +15 to +40), and every check row stays above its own
-  floor (`adult_v2\ish_analysis\beyond\` on the development copy).
+  (42% against 15%; 95% +15 to +40, +10 to +45 over spatial blocks), and every
+  check row stays above its own floor at its point value
+  (`adult_v2\ish_analysis\beyond\` on the development copy). The floor errs
+  both ways (it lacks Allen's P56 mice against these brains, and holds two Allen
+  halves where nano meets one), by less than the margin.
 - **Part 1's main model, second version** (Giulio, 9 October, after seeing the
   first): nano rank ~ Gria1 rank + synapse-density rank, two straight terms;
   synapse density the mean rank of three postsynaptic genes chosen without the
@@ -770,9 +774,13 @@ For the reasons, see the plan and the documents named.
   calibration floor only, the one-experiment Gria1 benchmark removed; check rows
   each with its own floor (`mapping/settings.toml` `[density_markers]`,
   `[beyond]`). Figure 03: the map against the prediction, the four parts, nano
-  against the floor with their difference, the density genes against PSD95 (held
-  out 0.79); 03s1 the check rows, 03s2 the controls, 03s3 the choice of the
-  genes. The first version (8 October: Gria1 + the mRNA panel +
+  against the floor with their difference, the density genes against PSD95 (the
+  rule re-run on random halves 0.79 on the other half, mostly between divisions:
+  0.08 inside them); 03s1 the check rows, 03s2 the controls, 03s3 the choice of
+  the genes, 03s4 the measured synapse density. Reviewed the same evening: every
+  interval also over spatial blocks, the floor's error both ways, the curved
+  model a check and not a bound, psd_pc1's floor from one list of genes
+  (ISH_ANALYSIS.md, section 8.1). The first version (8 October: Gria1 + the mRNA panel +
   autofluorescence, curved; 29% left, +14 points over its floor, -2 to +30) is
   kept on the development copy in `adult_v2\ish_analysis_9oct_v1\`, its numbers
   in ISH_ANALYSIS.md, section 4.6.
@@ -792,7 +800,8 @@ For the reasons, see the plan and the documents named.
   family does not follow it (p 0.92); 53 genes pass BH over all, 50 of them with
   a negative rho (exploratory).
 - **The ISH figures** (9 October): numbered in the order of the argument,
-  `00_overview.png` to `16_april_headline.png`; each main figure two to four
+  `00_overview.png` to `15_april_headline.png` (figure 14, the measured synapse
+  density, folded into part 1 as 03s4 after the reviews); each main figure two to four
   panels with one line saying what to take from it, its detailed version the
   same number with an s; the overview a one-page summary. The arm modules and
   their run scripts moved to `archive/`.

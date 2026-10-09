@@ -153,16 +153,16 @@ questions of the map:
   brain, and how reproducible that is across mice.
 - **Cohort.** The five naive and five RWS mice, pooled. Pooling was checked:
   the part of the map that Gria1 expression and synapse density do not
-  predict (line 3) agrees between the naive and the RWS mice at rho +0.877
+  predict (line 3) agrees between the naive and the RWS mice at rho +0.895
   (`adult_v2\ish_analysis\beyond\controls.csv`, control D). The behaviour mice
   enter only the plasticity comparison.
 - **Reproducibility.** Over the 126 ways of splitting the ten adults into two
-  halves of five, the two half-cohort maps agree at rho 0.974 over 126
+  halves of five, the two half-cohort maps agree at rho 0.972 over 163
   grey-matter structures
   (`adult_v2\ish_analysis\beyond\numbers_for_the_caption.txt`; the structures
-  in `beyond\structures_used.csv` there). Spearman-Brown takes this to 0.987
+  in `beyond\structures_used.csv` there). Spearman-Brown takes this to 0.986
   for the full cohort. The autofluorescence of the same brains predicts none
-  of the map (-2% of its reproducible part, `beyond\variance_partition.csv`).
+  of the map (-1% of its reproducible part, `beyond\variance_partition.csv`).
 - **The structures** every adult analysis of the ISH line reads: the 204
   grey-matter structures measured in all ten adults (A1, S1;
   `adult_v2\ish_analysis\tables\structure_set.csv`), with `zref` taken over
@@ -188,7 +188,7 @@ to A9 for the ISH line; part 1 run again on 9 October with its main model, and
 the same day in its second version). The
 outputs are in `adult_v2\ish_analysis\`, the numbers in its
 `tables\numbers_for_the_text.csv`. Its figures follow the argument,
-`figures\00_overview.png` (the line on one page) to `16_april_headline.png`,
+`figures\00_overview.png` (the line on one page) to `15_april_headline.png`,
 each main figure of two to four panels beside its detailed version (the same
 number with an s).
 
@@ -197,7 +197,7 @@ number with an s).
 controls in 03s2 and the choice of the density genes in 03s3). This is the second
 version of part 1, decided by Giulio on 9 October 2026 after seeing the first
 (ISH_ANALYSIS.md, section 8.1; the first version's numbers are in its section
-4.6):
+4.6), and reported as three reviews of it asked the same evening:
 
 ```
 nano map rank  ~  Gria1 rank + synapse-density rank
@@ -209,9 +209,10 @@ availability sets GluA1's assembly and trafficking). Synapse density is the mean
 rank of three postsynaptic genes, Rock2, Cap2 and Slc8a2, chosen without the map
 by their agreement with the measured PSD95 punctum density of Zhu et al. (2018),
 after every gene that places or regulates AMPA receptors was left out as the
-surface side (held out on random halves of the structures, the three agree with
-PSD95 at 0.79, 95% 0.71 to 0.86, against 0.82 for Dlg4, Homer1 and Camk2a; figure
-03 D). The two terms enter straight, so a term is credited with the map's order
+surface side. The rule that chose them, re-run on random halves of the
+structures, agrees with PSD95 on the other half at 0.79 (95% 0.71 to 0.86),
+against 0.82 for Dlg4, Homer1 and Camk2a, but mostly between divisions: inside
+them 0.08 (Dlg4, Homer1, Camk2a 0.40; figure 03 D). The two terms enter straight, so a term is credited with the map's order
 and not with a bend of it, and a map made of them, the calibration floor, holds
 no curvature the model could miss; autofluorescence, a property of the tissue
 that alone predicts nothing of the map (-1%), is not a term. The curved model
@@ -222,12 +223,16 @@ held-out structures (20 shufflings of five folds) against the map's own
 reliability: two halves of the cohort agree at 0.972, so 98.6% of the map is
 reproducible (Spearman-Brown for ten adults).
 
-| held out | share of the reproducible map (95% over structures) |
+| held out | share of the reproducible map (95% over structures; over spatial blocks) |
 |---|---|
-| Gria1 alone | 41% (27% to 55%) |
-| synapse density alone | 46% (35% to 56%) |
-| both: Gria1 only 10%, shared 31%, density only 15% | 56% (46% to 65%) |
-| left | 44% (35% to 54%) |
+| Gria1 alone | 41% (27% to 55%; 12% to 70%) |
+| synapse density alone | 46% (35% to 56%; 17% to 75%) |
+| both: Gria1 only 10%, shared 31%, density only 15% | 56% (46% to 65%; 38% to 74%) |
+| left | 44% (35% to 54%; 26% to 62%) |
+
+The second interval leaves out one of 20 spatial blocks of neighbouring
+structures at a time, since neighbours are not independent; it is wider, and the
+split between Gria1 and density is loosely fixed under it.
 
 - The weights, map and terms z-scored: Gria1 +0.39 (+0.23 to +0.54), synapse
   density +0.47 (+0.32 to +0.61).
@@ -239,10 +244,12 @@ reproducible (Spearman-Brown for ten adults).
   synapse density, predicted from the other half, leaves 15% (the floor that
   Allen-to-Allen mismatch produces); the nano map, read the same way on the same
   structures, leaves 42%, 27 points more (95% +15 to +40, the difference
-  resampled with the structures). Every gene of the model has two or more Allen
-  experiments, so the floor holds the whole mismatch of one Allen map with
-  another; it does not hold that of Allen's P56 mice with these brains (age,
-  strain, grid, registration), so it errs low. The first version's second
+  resampled with the structures; +10 to +45 over spatial blocks). The floor errs
+  both ways: it lacks the mismatch of Allen's P56 mice with these brains (age,
+  strain, grid, registration), which makes it low, and it holds the
+  disagreement of two Allen halves (about 14 of its 15 points; read with its own
+  half the known map leaves 1%) where nano, read with one half, meets one, which
+  makes it high by about half of that. The first version's second
   benchmark, a map of one Allen Gria1 experiment, is gone: its made-up animals
   share one Allen brain's quirks, which then count as reproducible, while the
   nano map averages ten brains. It was dropped after the first version had shown
@@ -255,7 +262,9 @@ reproducible (Spearman-Brown for ten adults).
   density term 50% on its 89 structures (+31), against 50% for the density genes
   there (+27); on the 118 structures of 0.4 mm³ or more 49% (+24); with nano
   measured on the Allen 200 um grid 42% (+29). Every row stays above its own
-  floor; curvature and the partner subunits take the most.
+  floor at its point value, and 9 of 10 over spatial blocks (the main model on
+  the 89 PSD95 structures reaches -0.2); curvature and the partner subunits take
+  the most.
 - Under other folds: spatial blocks leave 53% (on the calibration's structures
   nano 48%, the floor 15%); one shuffling of the folds 43%, ten folds and leave
   one out 44%.
@@ -263,23 +272,29 @@ reproducible (Spearman-Brown for ten adults).
   animals, naive against RWS, curvature, the choice of predictors, the reading);
   six pass (figure 03s2; `adult_v2\ish_analysis\beyond\controls.csv`). Control E
   does not: curving the two terms raises the held-out R² from 0.551 to 0.615, so
-  part of the straight leftover is curvature, and the curved check row is its
-  bound. The components of the 209 genes measured in every structure predict
+  part of the straight leftover is curvature; the curved check row shows how much
+  (not a bound: fifth powers leave 36%). The components of the 209 genes measured in every structure predict
   81%, and the nano map stands above that model's own floor (22% to 24% left
   against 3% to 5%). So the claim is "not predicted by Gria1 expression or
   synapse density", never "beyond gene expression".
-- The leftover is highest relative to prediction in the triangular nucleus of
-  the septum (+91 ranks), the septofimbrial nucleus, the medial geniculate, the
-  indusium griseum and the lateral geniculate, and lowest in the preoptic and
-  paraventricular hypothalamic nuclei, the rhomboid nucleus, the nucleus of
-  reuniens and the arcuate nucleus (`beyond\regression_table.csv`); on the planes
-  the isocortex sits below prediction and the hippocampal formation above. A
-  claim about one structure needs its own null.
+- The leftover is in good part a contrast between divisions (40% of its
+  variance): the hippocampal formation, the striatum and olfactory areas sit
+  above prediction as a whole, the isocortex and the hypothalamus below
+  (`beyond\residual_by_division.csv`, figure 04 C). Of single structures it is
+  highest in the triangular nucleus of the septum (+91 ranks), the septofimbrial
+  nucleus, the medial geniculate, the indusium griseum and the lateral
+  geniculate, and lowest in the preoptic part of the periventricular
+  hypothalamic nucleus, the paraventricular hypothalamic nucleus, the rhomboid
+  nucleus, the nucleus of reuniens and the arcuate nucleus
+  (`beyond\regression_table.csv`). A claim about one structure needs its own
+  null.
 - **What it means.** About 44% of the map's reproducible pattern is not
   predicted by Gria1 expression or synapse density, reproducibly across mice,
   and on the same structures it is well above what Allen-to-Allen mismatch would
-  leave. The share depends on the model (curved 38%, with the partner subunits
-  28%), and the floor errs low by an unmeasured amount. The reading the data
+  leave, under both resamplings. The share depends on the model (curved 38%, with
+  the partner subunits 28%), it is loosely fixed once neighbours are allowed for
+  (26% to 62%), and the floor errs both ways, by less than the margin. The
+  reading the data
   support is the surface fraction of the receptor, shaped by trafficking
   regulation and scaffolding. It is an interpretation, not a measurement:
   translation, turnover, subunit composition or nanobody access would land in the
@@ -325,7 +340,8 @@ ordinary Spearman p gives 62%.
   localisation is no better either (+0.0073, p 0.839).
 - Against the leftover of the main model (surrogates put through the same
   fit), Cacng8, the gene named for it, follows it: +0.200, spatial p 0.0066, and
-  so under smoother nulls (p 0.0018 to 0.0030). It is a re-test: its p against
+  so under smoother nulls (p 0.0018 to 0.0030, though none reaches the
+  leftover's own smoothness). It is a re-test: its p against
   the four-subunit leftover (0.0024) and against the first version's (0.0002)
   were seen before. Added to the main model as one more term, Cacng8 takes 9.8
   points of the reproducible map from the leftover: more than its plain
@@ -339,10 +355,13 @@ ordinary Spearman p gives 62%.
   (Gria4 -0.52, Olfm2 -0.45, Olfm1 -0.21), and Cacng8 misses that BH by a hair
   (q 0.051).
 - Over every gene, an exploratory reading: 53 of 451 pass BH against the
-  leftover, 50 of them with a negative rho, most of them expressed in every
-  neuron (vesicle genes such as Syp, Syt1, Snap25; ribosomal proteins; Mapt): the
-  map sits below what Gria1 and the three postsynaptic genes predict where
-  neuronal mRNA in general is high. The glia set, which passed against the
+  leftover (45 to 59 under smoother nulls), 50 of them with a negative rho, most
+  of them expressed in every neuron (vesicle genes such as Syp, Syt1, Snap25;
+  ribosomal proteins; Mapt): the map sits below what Gria1 and the three
+  postsynaptic genes predict where neuronal mRNA in general is high. The same
+  genes are the ones the tissue's autofluorescence follows (all 53 positively;
+  over every gene the two rhos agree at -0.36), so the tissue is a second
+  reading; which holds is not settled. The glia set, which passed against the
   four-subunit leftover (q 0.04, not named in advance), does not (q 0.45); it
   stays an unplanned lead, not pursued.
 - The 12 genes past the null are maps much like Gria1 and synapse density (rho
@@ -352,9 +371,9 @@ ordinary Spearman p gives 62%.
 - April's headline, P9's category violins with ANOVA p 0.032, rested on a
   split written after looking (p 0.20 without it) and on genes treated as
   independent draws: today's F across April's groups, against the F of the
-  surrogates, gives p 0.289. The gene order reproduces (0.959; figure 16).
+  surrogates, gives p 0.289. The gene order reproduces (0.959; figure 15).
 
-**The green channel is not total receptor** (figure 15).
+**The green channel is not total receptor** (figure 14).
 
 - **The plan.** The SEP tag fluoresces green, so the green channel was meant
   to report all SEP-GluA1, surface and internal, and nano divided by it a
