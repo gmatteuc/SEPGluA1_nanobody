@@ -1,4 +1,4 @@
-"""The guided figures of part 1, with their intervals: 03, 03s1, 03s2, 04, 11s1, 14.
+"""The guided figures of part 1, with their intervals: 03, 03s1, 03s2, 04, 11s1.
 
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
@@ -36,7 +36,7 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                10s1, 10s2
     21. run_synaptome          the measured synapse density (network,
                                once): PSD95 puncta per structure,
-                               its coverage of the fit; figure 14s1
+                               its coverage of the fit; figure 03s4
     22. run_density_markers    the synapse-density genes, chosen by
                                PSD95 without the map (network,
                                once); figure 03s3
@@ -47,25 +47,28 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                is known; the check rows, each
                                with its own floor
     26. run_beyond_regression  the regression, per structure
-    27. run_beyond_figures     figures 03, 03s1, 03s2, 04, 11s1, 14  <- this script
+    27. run_beyond_figures     figures 03, 03s1, 03s2, 04, 11s1  <- this script
     28. run_ish_top_genes      the genes that follow the map most,
                                characterised; Cacng8 and the AMPA
                                receptor complex family against the
                                leftover; figures 07, 08, 11, 11s2,
                                sheets
     29. run_sep_channel_check  analysis 5: what the green channel
-                               reports; figures 15, 15s
-    30. run_ish_overview       figures 00, 16 and 16s, the figure
+                               reports; figures 14, 14s
+    30. run_ish_overview       figures 00, 15 and 15s, the figure
                                index; the numbers for the text
 
-Jackknife intervals over structures of the shares, the four parts and the
-weights, the noise band of the replication, the numbers the text quotes, and the
-figures of part 1; it reads the tables of steps 21 to 26. The method is in
+Jackknife intervals of the shares, the four parts and the weights, over
+structures and over spatial blocks, the noise band of the replication, the
+numbers the text quotes, and the figures of part 1; it reads the tables of steps
+17 and 21 to 26. The method is in
 sepmap/adult/beyond_figures.py. Writes, under adult_v2/ish_analysis/ in the data
 root:
 
     beyond/jackknife.csv                per subsample, the ceiling, the shares,
                                         the four parts and the weights
+    beyond/jackknife_blocks.csv         the same, one spatial block left out at
+                                        a time
     beyond/numbers_for_the_caption.txt  the figures' numbers as sentences
     tables/numbers_beyond.csv           the numbers of analysis 4, for the text
     figures/03_beyond.png               what Gria1 and synapse density predict,
@@ -75,10 +78,10 @@ root:
     figures/03s1_beyond_budget.png      the check rows with their floors, and
                                         the main model in detail
     figures/03s2_beyond_controls.png    the seven controls
-    figures/04_beyond_where.png         where the leftover lives
-    figures/11s1_leftover_genes.png     every gene and gene set against the leftover
-    figures/14_synaptome.png            the measured synapse density against the
-                                        density term, and in the model
+    figures/04_beyond_where.png         where the leftover lives, by structure
+                                        and by division
+    figures/11s1_leftover_genes.png     every gene and gene set against the
+                                        leftover, and against the tissue
 
     python run_beyond_figures.py
 """

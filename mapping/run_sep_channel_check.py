@@ -1,4 +1,4 @@
-"""Analysis 5 of the ISH line: what the green channel reports; figure 15.
+"""Analysis 5 of the ISH line: what the green channel reports; figure 14.
 
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
@@ -36,7 +36,7 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                10s1, 10s2
     21. run_synaptome          the measured synapse density (network,
                                once): PSD95 puncta per structure,
-                               its coverage of the fit; figure 14s1
+                               its coverage of the fit; figure 03s4
     22. run_density_markers    the synapse-density genes, chosen by
                                PSD95 without the map (network,
                                once); figure 03s3
@@ -47,15 +47,15 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                is known; the check rows, each
                                with its own floor
     26. run_beyond_regression  the regression, per structure
-    27. run_beyond_figures     figures 03, 03s1, 03s2, 04, 11s1, 14
+    27. run_beyond_figures     figures 03, 03s1, 03s2, 04, 11s1
     28. run_ish_top_genes      the genes that follow the map most,
                                characterised; Cacng8 and the AMPA
                                receptor complex family against the
                                leftover; figures 07, 08, 11, 11s2,
                                sheets
     29. run_sep_channel_check  analysis 5: what the green channel   <- this script
-                               reports; figures 15, 15s
-    30. run_ish_overview       figures 00, 16 and 16s, the figure
+                               reports; figures 14, 14s
+    30. run_ish_overview       figures 00, 15 and 15s, the figure
                                index; the numbers for the text
 
 Per adult, on the declared structures: the dynamic range of each raw channel, what
@@ -68,7 +68,7 @@ adult_v2/ish_analysis/ in the data root:
     green_channel/sep_channel_check.png   the working figure: the ranges, one adult,
                                           the Gria1 correlations
     tables/numbers_green_channel.csv      the numbers of analysis 5, for the text
-    figures/15_green_channel.png          the guided figure (15s in detail)
+    figures/14_green_channel.png          the guided figure (14s in detail)
 
     python run_sep_channel_check.py
 """
@@ -91,7 +91,7 @@ ISH = config.SETTINGS["ish"]
 
 
 def main():
-    """Print the settings, measure the channels per adult, draw figure 15."""
+    """Print the settings, measure the channels per adult, draw figure 14."""
     config.print_settings({})
     per, rows = sep_channel_check.main()
     rows = pd.DataFrame(rows)
@@ -108,7 +108,7 @@ def main():
     plt.close(fig)
     print(f"\nworking figure: {working}")
 
-    # figure 15, and 15s with the first adult's raw channels on the plane of the
+    # figure 14, and 14s with the first adult's raw channels on the plane of the
     # guided figures
     fig = adult_plotting.plot_green_channel(
         rows, n_structures, save=figure_path("green_channel")

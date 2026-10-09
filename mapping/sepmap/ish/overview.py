@@ -30,6 +30,7 @@ from sepmap.ish.figure_index import (
     figure_ref,
 )
 from sepmap.ish.numbers import numbers_frame, ordinal
+from sepmap.ish.numbers import points as points_text
 from sepmap.ish.spatial_null import ALPHA
 from sepmap.structures import FIGURES
 
@@ -184,7 +185,46 @@ def points_with_interval(n: dict[str, str], key: str) -> str:
     '+7 points, 95% -12 to +27'.
     """
     lo, hi = num(n, f"{key}_lo"), num(n, f"{key}_hi")
-    return f"{100 * num(n, key):+.0f} points, 95% {100 * lo:+.0f} to {100 * hi:+.0f}"
+    return (
+        f"{points_text(num(n, key))} points, 95% {points_text(lo)} to {points_text(hi)}"
+    )
+
+
+def blocks_interval(n: dict[str, str], key: str) -> str:
+    """A difference's 95% over spatial blocks in points: '+10 to +45'."""
+    lo, hi = num(n, f"{key}_blocks_lo"), num(n, f"{key}_blocks_hi")
+    return f"{points_text(lo)} to {points_text(hi)}"
+
+
+def density_words(n: dict[str, str]) -> str:
+    """The agreement of the rule's density genes with PSD95, as figure 03 D gives it.
+
+    The rule re-run on random halves, on the other half, whole brain and inside
+    divisions; the full set's, optimistic; the first proposal's beside it.
+    """
+    return (
+        "the rule that chose them, re-run on random halves, follows measured PSD95 "
+        f"puncta at {num(n, 'density_markers.chosen_held_out'):.2f} on the other half "
+        f"({num(n, 'density_markers.chosen_held_out_lo'):.2f} to "
+        f"{num(n, 'density_markers.chosen_held_out_hi'):.2f}), mostly between "
+        "divisions: inside them "
+        f"{num(n, 'density_markers.chosen_within_held_out'):+.2f} (full set "
+        f"{num(n, 'density_markers.chosen_full_set'):.2f}, optimistic; Dlg4, Homer1 "
+        "and Camk2a, excluded as AMPA-linked, "
+        f"{num(n, 'density_markers.first_proposal_held_out'):.2f}, inside divisions "
+        f"{num(n, 'density_markers.first_proposal_within_held_out'):+.2f})"
+    )
+
+
+def floor_words(n: dict[str, str]) -> str:
+    """What the floor holds and lacks, and so which way it errs, in words."""
+    return (
+        "the floor lacks the mismatch of Allen's P56 mice with these brains, which "
+        "makes it low, and holds the disagreement of two halves of the Allen "
+        "experiments where nano meets one, which makes it high (read with its own "
+        f"half the floor's map leaves {pct(n, 'beyond.floor_own_half')}, so two halves "
+        f"cost about {100 * num(n, 'beyond.floor_two_halves'):.0f} points)"
+    )
 
 
 def gap_words(n: dict[str, str]) -> str:
@@ -229,9 +269,11 @@ def input_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
             f"Part 1: Gria1 and synapse density predict {pct(n, 'beyond.share_model')} "
             f"of the map's reproducible pattern and leave {pct(n, 'beyond.left')} "
             f"({pct(n, 'beyond.left_lo')} to {pct(n, 'beyond.left_hi')}), nano minus "
-            f"the floor {points_with_interval(n, 'beyond.nano_minus_floor')}; "
-            "synapse density follows measured PSD95 puncta at "
-            f"{num(n, 'density_markers.chosen_held_out'):.2f} held out. Part 2: "
+            f"the floor {points_with_interval(n, 'beyond.nano_minus_floor')} (over "
+            f"spatial blocks {blocks_interval(n, 'beyond.nano_minus_floor')}); the "
+            "rule that chose the density genes follows measured PSD95 puncta at "
+            f"{num(n, 'density_markers.chosen_held_out'):.2f} on held-out halves, "
+            "mostly between divisions. Part 2: "
             f"Cacng8 follows the map at {num(n, 'top_genes.rho_Cacng8'):+.2f} and what "
             f"the model leaves at p {num(n, 'top_genes.leftover_p_Cacng8'):.4f}.",
         ),
@@ -269,7 +311,8 @@ def check_margin(n: dict[str, str], key: str) -> str:
 def checks_text(n: dict[str, str]) -> str:
     """Part 1's check rows that change the model, in two sentences."""
     return (
-        "Curved, the bound of the straight model, it leaves "
+        "Curved, a check rather than a bound (to fifth powers it leaves "
+        f"{pct(n, 'beyond.control_e_quintic_left')}), it leaves "
         f"{pct(n, 'beyond.check_left_curved')} (nano minus its floor "
         f"{check_margin(n, 'curved')}); with autofluorescence "
         f"{pct(n, 'beyond.check_left_autofluorescence')}, with the first proposal "
@@ -284,7 +327,11 @@ def checks_text(n: dict[str, str]) -> str:
         f"on the {n['beyond.check_structures_large']} structures of 0.4 mm3 or more "
         f"{pct(n, 'beyond.check_left_large')} ({check_margin(n, 'large')}); with nano on "
         f"the Allen grid {pct(n, 'beyond.check_left_allen_grid')} "
-        f"({check_margin(n, 'allen_grid')})."
+        f"({check_margin(n, 'allen_grid')}). "
+        f"{n['beyond.checks_above_point']} of {n['beyond.check_rows']} rows stay above "
+        f"their own floor at the point value, {n['beyond.checks_above_interval']} over "
+        f"the 95% over structures and {n['beyond.checks_above_blocks']} over spatial "
+        "blocks."
     )
 
 
@@ -317,8 +364,10 @@ def beyond_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
             "share, what only synapse density predicts and what is left, with its "
             "interval; C, what the same model leaves of nano and of a map made only of "
             "Gria1 and synapse density (the floor) on the same structures, and their "
-            "difference with its interval; D, the density term against the measured "
-            f"PSD95 punctum density. Synapse density is the mean rank of {genes}, "
+            "difference on an axis of its own, with its 95% over structures (thick) "
+            "and over spatial blocks (thin); D, the density term against the measured "
+            "PSD95 punctum density, with the rule's agreement held out and inside "
+            f"divisions. Synapse density is the mean rank of {genes}, "
             "postsynaptic genes chosen by their agreement with PSD95 punctum density "
             f"without the map ({figure_ref('density_markers')}). The check rows are in "
             f"{figure_ref('beyond_budget')}, the seven controls in "
@@ -331,27 +380,31 @@ def beyond_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
             f"{num(n, 'beyond.part_shared'):+.0%}, density only "
             f"{num(n, 'beyond.part_density_only'):+.0%}. {pct(n, 'beyond.left')} is "
             f"left ({pct(n, 'beyond.left_lo')} to {pct(n, 'beyond.left_hi')} over "
-            "resampled structures), and one half of the cohort's leftover agrees with "
+            f"resampled structures, {pct(n, 'beyond.left_blocks_lo')} to "
+            f"{pct(n, 'beyond.left_blocks_hi')} over spatial blocks), and one half of "
+            "the cohort's leftover agrees with "
             f"the other's at {num(n, 'beyond.replication_leftover'):.2f}. The weights, "
             f"map and terms z-scored: Gria1 {num(n, 'beyond.weight_Gria1'):+.2f}, "
             f"density {num(n, 'beyond.weight_density'):+.2f}. On the "
             f"{n['beyond.calibration_structures']} structures of the calibration, nano "
             f"leaves {pct(n, 'beyond.nano_calibration_left')}, the floor "
             f"{pct(n, 'beyond.floor')}: nano minus the floor "
-            f"{points_with_interval(n, 'beyond.nano_minus_floor')}. "
+            f"{points_with_interval(n, 'beyond.nano_minus_floor')} (over spatial "
+            f"blocks {blocks_interval(n, 'beyond.nano_minus_floor')}); "
+            f"{floor_words(n)}. "
             + checks_text(n)
-            + " The density genes follow measured PSD95 puncta at "
-            f"{num(n, 'density_markers.chosen_held_out'):.2f} on held-out structures "
-            f"({num(n, 'density_markers.chosen_held_out_lo'):.2f} to "
-            f"{num(n, 'density_markers.chosen_held_out_hi'):.2f} over "
-            "random halves; on the full set "
-            f"{num(n, 'density_markers.chosen_full_set'):.2f}, optimistic), Dlg4, Homer1 "
-            f"and Camk2a at {num(n, 'density_markers.first_proposal_held_out'):.2f}.",
+            + f" As for the density genes, {density_words(n)}.",
         ),
         "beyond_where": (
             "A, the map, the prediction and the leftover on three planes (red above "
             "prediction, blue below); B, the structures furthest from prediction, "
-            "grey by how steady they are across the adults.",
+            "grey by how steady they are across the adults; C, the leftover by "
+            "division, with its 95% over resampled adults.",
+            f"{pct(n, 'beyond.leftover_between_divisions')} of the leftover's variance "
+            "lies between divisions: above prediction as a whole "
+            f"{', '.join(n['beyond.leftover_divisions_above'].split()) or 'none'}, "
+            "below "
+            f"{', '.join(n['beyond.leftover_divisions_below'].split()) or 'none'}. "
             f"Most above prediction: {above}; most below: {below}.",
         ),
     }
@@ -460,6 +513,13 @@ def kinds_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
     )
     glia_q = n.get("beyond.leftover_set_q_glia", "")
     glia = f"{float(glia_q):.2f}" if glia_q else "not tested"
+    if int(num(n, "top_genes.family_leftover_outside_changed")) == 0:
+        outside = "no matched control is a model term, so the check row repeats the test"
+    else:
+        outside = (
+            "against controls outside the model's terms p "
+            f"{num(n, 'top_genes.family_leftover_outside_p'):.2f}"
+        )
     return {
         "gene_kinds": (
             "A, the gene sets fixed in advance, a dot per gene, each median against "
@@ -499,18 +559,20 @@ def kinds_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
             f"{num(n, 'top_genes.family_leftover_without_cacng8_p'):.3f}); "
             f"{num(n, 'top_genes.family_leftover_controls_difference'):+.3f} above "
             f"{n['top_genes.family_controls']} matched postsynaptic genes, p "
-            f"{num(n, 'top_genes.family_leftover_controls_p'):.2f} (against controls "
-            "outside the model's terms p "
-            f"{num(n, 'top_genes.family_leftover_outside_p'):.2f}); past BH within the "
-            f"family: {within_family or 'none'}. Every gene: "
+            f"{num(n, 'top_genes.family_leftover_controls_p'):.2f} ({outside}); past "
+            f"BH within the family: {within_family or 'none'}. Every gene: "
             f"{n['beyond.leftover_genes_pass']} past BH "
             f"({n['beyond.leftover_genes_pass_negative']} of them below zero, the lowest "
-            f"{', '.join(n['beyond.leftover_genes_pass_lowest'].split()[:5])}); the "
-            "highest rho, "
+            f"{', '.join(n['beyond.leftover_genes_pass_lowest'].split()[:5])}); of "
+            f"those, {n['beyond.leftover_pass_auto_positive']} follow the "
+            "autofluorescence map positively and "
+            f"{n['beyond.leftover_pass_auto_bh']} pass its own null (over every gene, "
+            "rho with the leftover against rho with autofluorescence "
+            f"{num(n, 'beyond.leftover_genes_against_auto'):+.2f}); the highest rho, "
             f"{n['beyond.leftover_top_gene']} "
             f"({num(n, 'beyond.leftover_top_rho'):+.2f}, p "
-            f"{num(n, 'beyond.leftover_top_p'):.2f}). The glia set, the lead of the "
-            f"first, four-subunit run, has q {glia} here.",
+            f"{num(n, 'beyond.leftover_top_p'):.2f}). The glia set, the lead of an "
+            f"earlier model, has q {glia} here.",
         ),
     }
 
@@ -536,8 +598,8 @@ def control_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
         ),
         "robustness": (
             "A, how well each variant's gene order agrees with the primary's; B, "
-            "where Cacng8 and Gria1 sit; C, the gap between them against the band of "
-            "its null.",
+            "where Cacng8 and Gria1 sit; C, the gap between them, behind it the lead "
+            "either way the primary's two-sided test does not pass.",
             f"Over {n['overview.robustness_variants']} variants (statistic, borders, "
             "reading, inputs, structure set, and the route of 5 October) the gene "
             "order agrees with the primary at "
@@ -550,29 +612,9 @@ def control_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
             f"{ordinal(n['top_genes.rank_variants_max_Gria1'])} of all genes over the "
             "variants that hold every gene), and the gap stays between "
             f"{num(n, 'overview.robustness_gap_min'):+.2f} and "
-            f"{num(n, 'overview.robustness_gap_max'):+.2f}, around the edge of the "
-            "primary's band.",
-        ),
-        "synaptome": (
-            "A, the structures of the fit with a measured PSD95 density, by division; "
-            "B, the PSD95 density against the density term; C, what the model leaves "
-            "with the density genes and with PSD95 as its density term on the "
-            "structures PSD95 covers, each with nano minus its own floor.",
-            f"PSD95 puncta (Zhu et al. 2018) are measured in "
-            f"{n['synaptome.fit_measured']} of the {n['synaptome.fit']} structures of "
-            f"the fit ({pct(n, 'synaptome.fit_share')}). There the density genes "
-            "order the structures as PSD95 does at "
-            f"{num(n, 'synaptome.rho_fit_density'):.2f} (optimistic: they were chosen "
-            "by it; held out "
-            f"{num(n, 'density_markers.chosen_held_out'):.2f}), and the two hemispheres "
-            f"of the one mouse agree at {num(n, 'synaptome.hemispheres_rho'):.2f}. On "
-            f"the {n['beyond.check_structures_psd95']} structures with PSD95 and Gria1, "
-            f"PSD95 alone predicts {pct(n, 'beyond.check_density_alone_psd95')} of the "
-            "map, the density genes "
-            f"{pct(n, 'beyond.check_density_alone_psd95_main')}; the model leaves "
-            f"{pct(n, 'beyond.check_left_psd95')} with PSD95 (nano minus its floor "
-            f"{check_margin(n, 'psd95')}), {pct(n, 'beyond.check_left_psd95_main')} "
-            f"with the genes ({check_margin(n, 'psd95_main')}).",
+            f"{num(n, 'overview.robustness_gap_max'):+.2f}; the primary's two-sided "
+            "test passes only a lead beyond "
+            f"±{num(n, 'gene_ranking.gap_two_sided'):.2f}.",
         ),
         "green_channel": (
             "A, the three channels and how each pair agrees across structures; B, "
@@ -605,10 +647,19 @@ def control_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
 def part1_standing(n: dict[str, str]) -> str:
     """Where part 1 stands, in words that follow the numbers: a clause, no capital."""
     lo = num(n, "beyond.nano_minus_floor_lo")
+    block_lo = num(n, "beyond.nano_minus_floor_blocks_lo")
     floor = num(n, "beyond.floor")
     curved_lo = num(n, "beyond.check_nano_minus_floor_curved_lo")
-    if lo >= 0.05:
-        above = f"well above the floor ({floor:.0%}) on the same structures"
+    if lo >= 0.05 and block_lo > 0:
+        above = (
+            f"well above the floor ({floor:.0%}) on the same structures, whether "
+            "structures or whole spatial blocks are resampled"
+        )
+    elif lo >= 0.05:
+        above = (
+            f"well above the floor ({floor:.0%}) on the same structures, though over "
+            f"spatial blocks the interval reaches {block_lo:+.0%}"
+        )
     elif lo > 0:
         above = (
             f"above the floor ({floor:.0%}) on the same structures, though the "
@@ -622,13 +673,22 @@ def part1_standing(n: dict[str, str]) -> str:
     else:
         above = f"no more than the floor ({floor:.0%}) on the same structures"
     if curved_lo > 0:
-        bound = "and so is the curved model's against its own floor"
+        curved = "and so is the curved check's against its own floor"
     else:
-        bound = (
-            "while the curved model's, the bound, has an interval against its own "
-            f"floor that reaches {curved_lo:+.0%}"
+        curved = (
+            "while the curved check's has an interval against its own floor that "
+            f"reaches {curved_lo:+.0%}"
         )
-    return f"the leftover is reproducible, {above}, {bound}"
+    text = f"the leftover is reproducible, {above}, {curved}"
+    if "E" in n["beyond.controls_failed"].split():
+        taken = num(n, "beyond.check_left_curved") - num(n, "beyond.left")
+        text += (
+            f"; control E does not pass: curving the terms takes {-100 * taken:.1f} "
+            f"points ({pct(n, 'beyond.check_left_curved')} left), still "
+            f"{100 * num(n, 'beyond.check_nano_minus_floor_curved'):+.0f} above its "
+            "own floor"
+        )
+    return text
 
 
 def part1_verdict(n: dict[str, str]) -> str:
@@ -667,8 +727,8 @@ def named_tests_text(n: dict[str, str]) -> str:
     first = "follows it" if cacng8 < ALPHA else "does not follow it"
     return (
         f"Against what Gria1 and synapse density leave, Cacng8 {first} (p "
-        f"{cacng8:.4f}), a re-test of what was seen on 8 October; {family_text(n)} (p "
-        f"{num(n, 'top_genes.family_leftover_p'):.3f} and "
+        f"{cacng8:.4f}), a re-test of what two earlier leftovers showed; "
+        f"{family_text(n)} (p {num(n, 'top_genes.family_leftover_p'):.3f} and "
         f"{num(n, 'top_genes.family_leftover_controls_p'):.3f})"
     )
 
@@ -774,7 +834,10 @@ def gene_meanings(n: dict[str, str]) -> dict[str, str]:
         out["leftover"] += (
             f"; {n_pass} genes pass once every gene is corrected for, "
             f"{n['beyond.leftover_genes_pass_negative']} of them with a negative rho "
-            "(nano below prediction where they are high), an exploratory finding"
+            "(nano below prediction where they are high), an exploratory finding: "
+            f"{n['beyond.leftover_pass_auto_positive']} of them follow the "
+            "autofluorescence map too, so neuronal mRNA in general and the tissue are "
+            "both readings of it"
         )
     out["leftover"] += "."
     return out
@@ -790,10 +853,12 @@ def other_meanings(n: dict[str, str]) -> dict[str, str]:
         "genes": "A gene measured once is only as good as one Allen mouse; a low rho "
         "of an unreliable gene says little.",
         "beyond": upper_first(part1_standing(n))
-        + "; it is what the model does not predict, not a measurement of the surface "
-        "fraction.",
-        "beyond_where": "The departure from prediction sits in particular structures, "
-        "steadily across the adults; a claim about one structure needs its own null.",
+        + ". The leftover is what the model does not predict, not a measurement of the "
+        "surface fraction.",
+        "beyond_where": "The departure from prediction is in part a contrast between "
+        "divisions that two straight terms do not reproduce, and in part particular "
+        "structures, steadily across the adults; a claim about one structure needs its "
+        "own null.",
         "robustness": "Cacng8 first of P9's genes holds under every choice; Gria1's "
         "rank moves with them, so it is quoted with its null, not as a place.",
     }
@@ -806,19 +871,6 @@ def other_meanings(n: dict[str, str]) -> dict[str, str]:
         )
     else:
         out["autofluorescence"] = "The tissue shares part of the label's ranking."
-    psd95 = num(n, "beyond.check_left_psd95")
-    genes = num(n, "beyond.check_left_psd95_main")
-    if psd95 > genes:
-        out["synaptome"] = (
-            "The measured density covers about half the fit; where it exists, the "
-            "model leaves more with it than with the density genes, so the genes make "
-            "part 1 no easier to pass."
-        )
-    else:
-        out["synaptome"] = (
-            "The measured density covers about half the fit; where it exists, the "
-            "model leaves no more with it than with the density genes."
-        )
     if num(n, "green_channel.rho_sep_auto_min") > 0.5:
         out["green_channel"] = (
             "The green channel reports mostly the tissue in every adult: these "
@@ -930,20 +982,10 @@ def figure_index(n: dict[str, str]) -> str:
 # ===== The overview figure =====
 
 
-def checks_above_floor(n: dict[str, str]) -> tuple[int, int]:
-    """Part 1's check rows whose nano minus their floor stays above zero, and all."""
-    prefix, suffix = "beyond.check_nano_minus_floor_", "_lo"
-    lows = [
-        float(value)
-        for key, value in n.items()
-        if key.startswith(prefix) and key.endswith(suffix)
-    ]
-    return sum(1 for lo in lows if lo > 0), len(lows)
-
-
 def part1_content(n: dict[str, str]) -> dict:
     """The box of part 1: its claim, three key numbers, where it stands."""
-    above, rows = checks_above_floor(n)
+    above, rows = n["beyond.checks_above_point"], n["beyond.check_rows"]
+    blocks = n["beyond.checks_above_blocks"]
     genes = ", ".join(n["beyond.main_density_genes"].split())
     return dict(
         part="part 1",
@@ -964,15 +1006,20 @@ def part1_content(n: dict[str, str]) -> dict:
                 f"{pct(n, 'beyond.floor')}; nano {pct(n, 'beyond.nano_calibration_left')}"
                 f" on the same {n['beyond.calibration_structures']} structures), 95% "
                 f"{100 * num(n, 'beyond.nano_minus_floor_lo'):+.0f} to "
-                f"{100 * num(n, 'beyond.nano_minus_floor_hi'):+.0f}; {above} of {rows} "
-                f"check rows above their own floor ({figure_ref('beyond_budget')})",
+                f"{100 * num(n, 'beyond.nano_minus_floor_hi'):+.0f} (over spatial "
+                f"blocks {blocks_interval(n, 'beyond.nano_minus_floor')}); the floor's "
+                "own error runs both ways; "
+                f"{above} of {rows} check rows above their own floor, {blocks} over "
+                f"spatial blocks ({figure_ref('beyond_budget')})",
             ),
             (
                 f"{num(n, 'density_markers.chosen_held_out'):.2f}",
-                f"synapse density is {genes}, chosen without the map: they follow "
-                "measured PSD95 puncta on held-out structures (95% "
-                f"{num(n, 'density_markers.chosen_held_out_lo'):.2f} to "
-                f"{num(n, 'density_markers.chosen_held_out_hi'):.2f}; figures "
+                f"synapse density is {genes}, chosen without the map; the rule, re-run "
+                "on random halves, follows measured PSD95 puncta on the other half "
+                f"(95% {num(n, 'density_markers.chosen_held_out_lo'):.2f} to "
+                f"{num(n, 'density_markers.chosen_held_out_hi'):.2f}), mostly between "
+                "divisions (inside them "
+                f"{num(n, 'density_markers.chosen_within_held_out'):+.2f}; figures "
                 f"{FIGURE_NUMBERS['beyond']} D, {FIGURE_NUMBERS['density_markers']})",
             ),
         ],
@@ -987,8 +1034,8 @@ def cacng8_follows(n: dict[str, str]) -> str:
     else:
         verb = "does not follow"
     return (
-        f"Cacng8 {verb} what Gria1 and synapse density leave, a re-test of what was "
-        "seen on 8 October"
+        f"Cacng8 {verb} what Gria1 and synapse density leave, a re-test of what two "
+        "earlier leftovers showed"
     )
 
 
@@ -1034,9 +1081,10 @@ def part2_content(n: dict[str, str]) -> dict:
             ),
             (
                 f"p {num(n, 'top_genes.family_leftover_p'):.3f}",
-                f"{upper_first(family_text(n))} (p "
-                f"{num(n, 'top_genes.family_leftover_controls_p'):.2f}); without "
-                "Cacng8 the group's p is "
+                f"{upper_first(family_text(n))}: p "
+                f"{num(n, 'top_genes.family_leftover_p'):.3f} against its surrogates, "
+                f"{num(n, 'top_genes.family_leftover_controls_p'):.2f} against matched "
+                "postsynaptic genes; without Cacng8 "
                 f"{num(n, 'top_genes.family_leftover_without_cacng8_p'):.3f}",
             ),
         ],

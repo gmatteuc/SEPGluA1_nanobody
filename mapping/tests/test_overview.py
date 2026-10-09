@@ -135,4 +135,4 @@ def test_written_index_and_overview_fill_from_the_numbers():
         assert figure_file(key) in text
     content = overview.overview_content(n)
     assert [len(part["numbers"]) for part in content["parts"]] == [3, 3]
-    assert sum(len(figures) for _, figures in overview.figure_map()) == 16
+    assert sum(len(figures) for _, figures in overview.figure_map()) == 15

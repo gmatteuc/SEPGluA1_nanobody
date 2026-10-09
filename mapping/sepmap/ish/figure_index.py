@@ -1,10 +1,11 @@
 """The guided figures of the ISH line: their numbers, questions and file names.
 
 The figures are numbered in the order of the argument: the question (00), the inputs
-(01, 02), part 1, how much of the map Gria1 and synapse density leave (03, 04), part
-2, the genes against the map and against the leftover (05 to 11), the controls (12
-to 14), the limit (15) and April's headline (16). A main figure's detailed version
-carries its number with an s. Every figure's title, its file name and the figures'
+(01, 02), part 1, how much of the map Gria1 and synapse density leave (03, 04, with
+the measured synapse density among 03's detailed versions), part 2, the genes against
+the map and against the leftover (05 to 11), the controls of part 2 (12, 13), the
+limit (14) and April's headline (15). A main figure's detailed version carries its
+number with an s. Every figure's title, its file name and the figures'
 references to each other read the tables here, and so do the index of the figures
 (figures/README.md) and the overview figure that ish.overview writes: the parts of
 the walk, the detailed versions of each main figure and the run script that draws
@@ -28,6 +29,7 @@ FIGURE_NUMBERS = {
     "beyond_budget": "03s1",
     "beyond_controls": "03s2",
     "density_markers": "03s3",
+    "synaptome_detail": "03s4",
     "beyond_where": "04",
     "one_comparison": "05",
     "one_comparison_detail": "05s",
@@ -48,12 +50,10 @@ FIGURE_NUMBERS = {
     "autofluorescence_detail": "12s",
     "robustness": "13",
     "robustness_detail": "13s",
-    "synaptome": "14",
-    "synaptome_detail": "14s1",
-    "green_channel": "15",
-    "green_channel_detail": "15s",
-    "april_headline": "16",
-    "april_headline_detail": "16s",
+    "green_channel": "14",
+    "green_channel_detail": "14s",
+    "april_headline": "15",
+    "april_headline_detail": "15s",
 }
 
 # the question each guided figure answers: its title, and its heading in the index of
@@ -97,9 +97,8 @@ QUESTIONS = {
     "each map, the counts past each null",
     "robustness": "Does the ranking depend on the choices made?",
     "robustness_detail": "The choices made, with every gene under four of them",
-    "synaptome": "Does a measured synapse density change part 1?",
-    "synaptome_detail": "The measured synapse density in detail: coverage, the two "
-    "hemispheres, agreement with every map",
+    "synaptome_detail": "The measured synapse density: what it covers, its two "
+    "hemispheres, how it agrees with every map",
     "density_markers": "How the synapse-density genes were chosen, without the map",
     "green_channel": "Does the green channel report the tagged receptor, or the tissue?",
     "green_channel_detail": "The three channels in detail: one adult's raw planes, each "
@@ -129,12 +128,7 @@ PARTS = (
             "leftover",
         ),
     ),
-    (
-        f"Controls ({FIGURE_NUMBERS['autofluorescence']} and "
-        f"{FIGURE_NUMBERS['robustness']} of part 2, {FIGURE_NUMBERS['synaptome']} of "
-        "part 1)",
-        ("autofluorescence", "robustness", "synaptome"),
-    ),
+    ("Controls of part 2", ("autofluorescence", "robustness")),
     ("The limit", ("green_channel",)),
     ("April's headline", ("april_headline",)),
 )
@@ -166,7 +160,14 @@ SUPPLEMENTS = {
             "the choice of the synapse-density genes without the map: the pool ranked "
             "by agreement with PSD95 puncta, the AMPA-linked genes left out and why, "
             "the choice on random halves of the structures, and the held-out agreement "
-            "beside the first proposal, the 11 markers and psd_pc1",
+            "beside the first proposal, the 11 markers and psd_pc1, inside divisions "
+            "too",
+        ),
+        (
+            "synaptome_detail",
+            "the measured PSD95 punctum density that chose the density genes: which "
+            "structures of the fit it covers, its two hemispheres, and how each "
+            "density agrees with the density term, Gria1 and the maps",
         ),
     ),
     "one_comparison": (
@@ -213,8 +214,9 @@ SUPPLEMENTS = {
     "leftover": (
         (
             "leftover_genes",
-            "the genes closest to the leftover with their null bands, and every gene "
-            "set against it",
+            "the genes highest and lowest with the leftover with their null bands, "
+            "every gene set against it, and each gene's rho with the leftover against "
+            "its rho with the autofluorescence map",
         ),
         (
             "ampa_family",
@@ -230,13 +232,6 @@ SUPPLEMENTS = {
         ),
     ),
     "robustness": (("robustness_detail", "every gene under four of the choices"),),
-    "synaptome": (
-        (
-            "synaptome_detail",
-            "the two hemispheres of the one mouse, and each density's agreement with "
-            "the density term, Gria1 and the maps",
-        ),
-    ),
     "green_channel": (
         (
             "green_channel_detail",
@@ -279,7 +274,6 @@ DRAWN_BY = {
     "autofluorescence_detail": "run_ish_gene_ranking.py",
     "robustness": "run_ish_robustness.py",
     "robustness_detail": "run_ish_robustness.py",
-    "synaptome": "run_beyond_figures.py",
     "synaptome_detail": "run_synaptome.py",
     "green_channel": "run_sep_channel_check.py",
     "green_channel_detail": "run_sep_channel_check.py",

@@ -36,7 +36,7 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                10s1, 10s2
     21. run_synaptome          the measured synapse density (network,
                                once): PSD95 puncta per structure,
-                               its coverage of the fit; figure 14s1
+                               its coverage of the fit; figure 03s4
     22. run_density_markers    the synapse-density genes, chosen by
                                PSD95 without the map (network,
                                once); figure 03s3
@@ -47,36 +47,42 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                is known; the check rows, each
                                with its own floor
     26. run_beyond_regression  the regression, per structure
-    27. run_beyond_figures     figures 03, 03s1, 03s2, 04, 11s1, 14
+    27. run_beyond_figures     figures 03, 03s1, 03s2, 04, 11s1
     28. run_ish_top_genes      the genes that follow the map most,
                                characterised; Cacng8 and the AMPA
                                receptor complex family against the
                                leftover; figures 07, 08, 11, 11s2,
                                sheets
     29. run_sep_channel_check  analysis 5: what the green channel
-                               reports; figures 15, 15s
-    30. run_ish_overview       figures 00, 16 and 16s, the figure
+                               reports; figures 14, 14s
+    30. run_ish_overview       figures 00, 15 and 15s, the figure
                                index; the numbers for the text
 
 Each gene's Allen experiments split in two halves; a map made only of Gria1 and
 synapse density, the main model fitted to nano with one half's predictors, given
 ten made-up adults as noisy as ours and predicted from the other half: the floor.
 The real map is read the same way, on the same structures, and their difference
-resampled over structures. Then each check row of [beyond.checks], the main model
-changed one thing at a time, on its own structures and with its own floor. The
-methods are in sepmap/adult/beyond_calibration.py and beyond_checks.py. Writes, in
+resampled over structures and over spatial blocks; the known map is also read with
+its own half's predictors, which leaves only the animals' noise. Then each check
+row of [beyond.checks], the main model changed one thing at a time, on its own
+structures and with its own floor. The methods are in
+sepmap/adult/beyond_calibration.py and beyond_checks.py. Writes, in
 adult_v2/ish_analysis/beyond/ under the data root:
 
-    calibration.csv             per folds (random, spatial blocks), map, direction
+    calibration.csv             per folds (random, spatial blocks), map (nano, the
+                                floor, the floor's map with its own half), direction
                                 and draw: the ceiling, the CV R2, the share left
                                 and the leftover's replication
     calibration_jackknife.csv   per subsample of the calibration structures: the
                                 nano map's share left, the floor's, the difference
+    calibration_jackknife_blocks.csv  the same, one spatial block left out at a
+                                time
     check_rows.csv              per check row: its structures and terms, the
                                 shares, the share left, its floor and nano minus
-                                the floor with its interval
+                                the floor with its two intervals
     check_rows_calibration.csv  every check row's calibration
     check_rows_jackknife.csv    every check row's paired jackknife
+    check_rows_jackknife_blocks.csv  the same over spatial blocks
 
     python run_beyond_calibration.py
 """
