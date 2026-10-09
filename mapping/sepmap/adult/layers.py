@@ -1,90 +1,49 @@
 """The adult map by cortical depth: every isocortex area, depth by depth, mouse by mouse.
 
-The young against adult close-ups unroll the isocortex into flatmaps by depth band;
-this module gives the adult map the same treatment on its own, and beside it the
-numbers per mouse, so the variability from one adult to the next can be seen area
-by area and layer by layer.
+The ten adults in the depth bands of the young against adult close-up, with the
+numbers per mouse beside the flatmaps, so the variability from one adult to the
+next shows area by area and layer by layer.
 
 The reading is zref as the region tables compute it (young_vs_adult.region_plot):
 per brain, the voxel-weighted mean nano (sig) of a set of labels, then
 
     zref = ( log2(mean / isocortex mean) - median ) / (p90 - p10)
 
-with the median and the spread of that brain's structures taken over the structures
-every brain of the region tables shares (region_plot.range_match, over the young
-brains and the adults alike). The same function on the same brains, so a cell taken
-over an area's whole depth equals that area's row of region_means_per_mouse.csv,
-which the run checks. Zero is the brain's median structure, one unit its own
-spread; no zref value is a fold change.
+with the median and spread over the structures every brain of the region tables
+shares (region_plot.range_match). A cell over an area's whole depth therefore equals
+that area's row of region_means_per_mouse.csv, which the run checks. Zero is the
+brain's median structure, one unit its own spread; no zref is a fold change.
 
-The cells, per adult, area and depth:
+Per adult and isocortex area (the 43 of the structure term set), a cell is the mean
+over the area's labels of one depth (region_groups.group_cells): the whole depth;
+the bands, supragranular (L1, L2/3), granular (L4) and infragranular (L5, L6a, L6b);
+the layers L1, L2/3, L4, L5 and L6; and two contrasts within each brain,
+supragranular minus infragranular and L2/3 minus L5, which leaves out the pial L1
+and the deep L6. A cell has a value from region_tables.min_vox20 tissue voxels, as a
+structure in the region tables. It enters the statistics when it also covers
+adult_layers.min_coverage of its area's atlas voxels at that depth: a smaller cell
+samples the end of an area where the sections stop rather than the area, and keeps
+its value in the table, marked, drawn hollow. A depth the CCF draws no voxel of
+(RSPd layer 4) is left out.
 
-    areas    the 43 isocortex areas of the structure term set, as in the region
-             tables
-    bands    supragranular (layers 1, 2/3), granular (4) and infragranular (5, 6a,
-             6b), the bands of young_vs_adult.region_groups and of the close-up
-    layers   L1, L2/3, L4, L5 and L6 (6a and 6b pooled), for the laminar profiles
-    whole    the area through its whole depth, for the check
-    contrast supragranular minus infragranular, mouse by mouse: a difference
-             within one brain, so its level owes nothing to that brain's median
+Across the adults: mean, SD, SEM and t from adult_layers.min_mice adults; per depth,
+the reliability of the profile across areas (the ten cut into two fives all 126
+ways, Spearman between the halves over the areas every adult counts in, then
+2 r / (1 + r) for all ten) and the Spearman of the area means with the hierarchy,
+descriptive since neighbouring areas are not independent.
 
-A cell is the voxel-weighted mean over the area's labels of that depth in that
-brain (region_groups.group_cells), kept from region_tables.min_vox20 tissue voxels
-(250, 2 nl), as a structure is in the region tables. A smaller cell, mostly an area
-at the edge of what the sections reached, is missing, and the table says why. The
-CCF draws no voxel of RSPd layer 4 though the ontology names it, so a depth with no
-voxel in the atlas is left out of every table. Across the adults, an area and depth
-gets a mean, SD, SEM and t = mean / SEM from adult_layers.min_mice adults.
+The areas follow the cortical hierarchy of Harris et al. 2019 (Nature 575:195, Fig.
+6d), adult_layers.hierarchy: Supplementary Table 9, tab "all area hr scores_Cre +
+WT", column "Cre_conf CC+TC+CT" (MD5 55b69aeba95468559ff025e3c08b24b6), 37 areas.
+The six it does not score (AUDv, SSp-un, ECT, GU, PERI, VISC) follow, in the order
+of Harris's modules.
 
-The order of the areas is the cortical hierarchy of Harris et al. 2019 (Nature
-575:195), the final hierarchy of their Fig. 6d from corticocortical,
-thalamocortical and corticothalamic connections with Cre-line confidence: column
-"Cre_conf CC+TC+CT" of the tab "all area hr scores_Cre + WT" of Supplementary Table
-9 (41586_2019_1716_MOESM10_ESM.xlsx, MD5 55b69aeba95468559ff025e3c08b24b6, the MD5
-that PubMed Central lists for the same table), fetched on 9 October 2026. All 37
-scores equal those of the authors' code, github.com/AllenInstitute/MouseBrainHierarchy
-at commit 8e4e0dd (Results/hierarchy_summary_CreConf.xlsx, "CC+TC+CT iterated", to
-1e-9; Output/TCCT_CCconf_iter.xls to 1e-16), and as the paper says, VISp is lowest
-and ORBvl highest. The modules are the authors' too (Input/CC_TC_CT_clusters.xlsx),
-and they name all 43 areas. Six areas carry no score, AUDv, SSp-un, ECT, GU, PERI
-and VISC; they follow the 37, in the order of Harris's hierarchy of modules (Fig.
-6f: auditory, visual, somatomotor, medial, lateral, prefrontal). The table, with
-the CCF's spelling of AId, AIp and AIv, is adult_layers.hierarchy.
-
-Two numbers per depth say how far the profile across areas can be trusted and how
-it lies along the hierarchy:
-
-    reliability   the ten adults cut into two fives every possible way (126 cuts),
-                  the two half-cohort profiles over the areas every adult has
-                  compared by Spearman, the mean of that, and the Spearman-Brown
-                  value for all ten, 2 r / (1 + r), as adult.beyond_density takes
-                  the ceiling of the whole map
-    hierarchy     Spearman of the area means with the hierarchy scores. Descriptive:
-                  neighbouring areas share signal and a hierarchy, so its p treats
-                  as independent what is not
-
-The flatmaps are drawn from the voxel maps, as the close-up's: each adult's zref
-volume (volumes.cohort.mouse_modes, whose median and spread come from the brain's
-own structures, which is why the route quotes numbers from its tables and reads
-pattern from its maps), hemispheres folded, smoothed inside its tissue as the
-close-up smooths a cohort (closeup.smooth_within, closeup.smooth), projected along
-the streamlines into depth bins (closeup.project_slab) and averaged over each band
-(closeup.band_average). Per pixel, the mean and the SD of the ten band maps, from
-young_vs_adult.min_n_adult adults, the threshold of the close-up's adult panel.
-Taking the SD over each adult's own band map makes it the variability between
-mice of what the mean shows, not that of single voxels. The projection takes about
-a minute per brain, so the ten band maps are cached.
-
-Writes, in adult_v2/layers/ under the data root:
-
-    area_layers_per_mouse.csv  one row per adult, area and depth, kept or missing
-                               with the reason
-    area_layers_summary.csv    one row per area and depth: n, mean, SD, SEM, t, the
-                               adults missing
-    depth_summary.csv          per depth, the reliability and the hierarchy rho
-    flatmap_bands.npz          the cached band maps of every adult
-
-and the figures of adult.layers_plotting.
+The flatmaps follow the close-up: each adult's voxel zref (volumes.cohort.mouse_modes),
+folded, smoothed within its tissue (closeup.smooth), projected into depth bins and
+averaged per band; per pixel the mean and SD across the adults, from
+young_vs_adult.min_n_adult. A voxel's zref is scaled by its brain's own structures,
+not by the shared ones, so the numbers to quote are the tables'; the run writes how
+far the two scalings lie apart. The ten band maps are cached.
 
 Run by run_adult_layers.py.
 """
@@ -101,7 +60,7 @@ from scipy.stats import spearmanr
 
 from sepmap.config import DATA, SETTINGS, code_root
 from sepmap.hemispheres import fold
-from sepmap.volumes.cohort import NAIVE, RWS, mouse_modes
+from sepmap.volumes.cohort import NAIVE, RWS, mouse_modes, mouse_scalars
 from sepmap.volumes.per_mouse import MICE, annotation_20
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 from sepmap.young_vs_adult import closeup
@@ -115,6 +74,7 @@ from sepmap.young_vs_adult.region_groups import (
 from sepmap.young_vs_adult.region_plot import GROUPS, REGION_MEANS, label_sums, value
 
 ADULT_LAYERS = SETTINGS["adult_layers"]
+READINGS = SETTINGS["readings"]
 REGION_TABLES = SETTINGS["region_tables"]
 
 OUT = DATA / "adult_v2" / "layers"
@@ -137,19 +97,29 @@ LAYERS_5 = [
     ("L6", ("6", "6a", "6b")),
 ]
 
-# the laminar contrast, taken mouse by mouse
-CONTRAST = "supragranular - infragranular"
+# the laminar contrasts, upper minus deeper cell of the same brain, so their level
+# owes nothing to that brain's median: the two outer bands, and L2/3 against L5,
+# without the pial layer 1 and the deep layer 6 the bands carry
+CONTRASTS = [
+    (
+        "supragranular - infragranular",
+        ("band", "supragranular"),
+        ("band", "infragranular"),
+    ),
+    ("L2/3 - L5", ("layer", "L2/3"), ("layer", "L5")),
+]
 
 # the depths in the order of the tables: the whole depth, the bands, the layers, the
-# contrast
+# contrasts
 DEPTHS = (
     [("whole", "whole")]
     + [("band", name) for name in BANDS]
     + [("layer", name) for name, _ in LAYERS_5]
-    + [("contrast", CONTRAST)]
+    + [("contrast", name) for name, _, _ in CONTRASTS]
 )
 
-# the columns of the two tables
+# the columns of the two tables; excluded means left out of the statistics, with or
+# without a value
 PER_MOUSE_COLUMNS = [
     "reading",
     "depth_kind",
@@ -179,7 +149,7 @@ SUMMARY_COLUMNS = [
     "sd",
     "sem",
     "t",
-    "mice_missing",
+    "mice_left_out",
 ]
 
 
@@ -302,19 +272,27 @@ def measure(
                 for k, ids in groups.items()
             }
             n_kept = sum(c is not None for c in cells[mouse].values())
-            print(f"  {mouse:20s} {n_kept}/{len(groups)} cells kept", flush=True)
+            print(f"  {mouse:20s} {n_kept}/{len(groups)} cells with a value", flush=True)
     return cells, n_vox, refs, struct_mean
 
 
-def exclusion(n: int, zref: float | None) -> str:
-    """Why a cell has no value, or '' when it has one."""
-    if zref is not None:
-        return ""
-    if n == 0:
-        return "no tissue in the sections"
-    if n < REGION_TABLES["min_vox20"]:
-        return f"{n} tissue voxels, under region_tables.min_vox20"
-    return "mean nano at or below background"
+def exclusion(n: int, zref: float | None, coverage: float, min_coverage: float) -> str:
+    """Why a cell is left out of the statistics, or '' when it is not.
+
+    A cell without a value is left out for its voxels; a cell with one, when it
+    covers less than `min_coverage` of its area's atlas voxels.
+    """
+    if zref is None:
+        if n == 0:
+            return "no tissue in the sections"
+        if n < REGION_TABLES["min_vox20"]:
+            return f"{n} tissue voxels, under region_tables.min_vox20"
+        return "mean nano at or below background"
+    if coverage < min_coverage:
+        return (
+            f"{coverage:.1%} of the area's atlas voxels, under adult_layers.min_coverage"
+        )
+    return ""
 
 
 def _mouse_rows(
@@ -325,12 +303,15 @@ def _mouse_rows(
     refs: dict[str, dict[str, float]],
     by_area: pd.DataFrame,
     atlas_n: dict[tuple, int],
+    min_coverage: float,
 ) -> list[dict]:
     """The rows of one group, one per adult."""
     kind, depth, area = key
     rows = []
     for mouse in ADULTS:
         z = value("zref", mouse, key, cells, norm, refs)
+        coverage = n_vox[mouse][key] / atlas_n[key]
+        reason = exclusion(n_vox[mouse][key], z, coverage, min_coverage)
         rows.append(
             dict(
                 reading="zref",
@@ -344,10 +325,10 @@ def _mouse_rows(
                 group=MICE[mouse][0],
                 n_vox20=n_vox[mouse][key],
                 atlas_vox20=atlas_n[key],
-                coverage=n_vox[mouse][key] / atlas_n[key],
+                coverage=coverage,
                 zref=np.nan if z is None else z,
-                excluded=z is None,
-                exclude_reason=exclusion(n_vox[mouse][key], z),
+                excluded=reason != "",
+                exclude_reason=reason,
             )
         )
     return rows
@@ -361,67 +342,80 @@ def per_mouse_table(
     refs: dict[str, dict[str, float]],
     hier: pd.DataFrame,
     atlas_n: dict[tuple, int],
+    min_coverage: float | None = None,
 ) -> pd.DataFrame:
-    """One row per adult and group the atlas draws, with its zref or why it has none.
+    """One row per adult and group the atlas draws, with its zref and whether it counts.
 
-    `norm` is region_plot.range_match's median and spread per brain. A group with
-    no voxel in the atlas (RSPd layer 4) gets no row. Rows run by depth (DEPTHS),
-    then along the hierarchy, then by adult.
+    `norm` is region_plot.range_match's median and spread per brain; `min_coverage`
+    defaults to adult_layers.min_coverage. A group with no voxel in the atlas (RSPd
+    layer 4) gets no row. Rows run by depth (DEPTHS), then along the hierarchy, then
+    by adult.
     """
+    if min_coverage is None:
+        min_coverage = ADULT_LAYERS["min_coverage"]
     by_area = hier.set_index("acronym")
     rows = []
     for kind, depth in DEPTHS:
         for area in hier["acronym"]:
             key = (kind, depth, area)
             if key in groups and atlas_n[key] > 0:
-                rows.extend(_mouse_rows(key, cells, n_vox, norm, refs, by_area, atlas_n))
+                rows.extend(
+                    _mouse_rows(
+                        key, cells, n_vox, norm, refs, by_area, atlas_n, min_coverage
+                    )
+                )
     return pd.DataFrame(rows, columns=PER_MOUSE_COLUMNS)
 
 
-def with_contrast(table: pd.DataFrame) -> pd.DataFrame:
-    """The per-mouse table with the supragranular minus infragranular rows added.
+def _contrast_row(name: str, upper: pd.Series, deeper: pd.Series) -> dict:
+    """One adult's contrast of two cells of one area, as a row of the per-mouse table."""
+    reason = ""
+    if upper["excluded"]:
+        reason = f"{upper['depth']}: {upper['exclude_reason']}"
+    elif deeper["excluded"]:
+        reason = f"{deeper['depth']}: {deeper['exclude_reason']}"
+    row = upper.to_dict()
+    row.update(
+        depth_kind="contrast",
+        depth=name,
+        n_vox20=min(upper["n_vox20"], deeper["n_vox20"]),
+        atlas_vox20=min(upper["atlas_vox20"], deeper["atlas_vox20"]),
+        coverage=min(upper["coverage"], deeper["coverage"]),
+        zref=upper["zref"] - deeper["zref"],
+        excluded=reason != "",
+        exclude_reason=reason,
+    )
+    return row
 
-    Per adult and area, a difference of two cells of the same brain; missing when
-    either is, with the reason of the first that is. Its voxel counts are the
-    smaller of the two, its coverage too.
+
+def with_contrasts(table: pd.DataFrame) -> pd.DataFrame:
+    """The per-mouse table with the rows of CONTRASTS added.
+
+    Per adult and area with both depths, the upper cell minus the deeper: NaN when
+    either has no value, left out of the statistics when either is, with the reason
+    of the first that is. Its voxel count and coverage are the smaller of the two.
     """
-    bands = table[table["depth_kind"] == "band"].set_index(["area", "mouse", "depth"])
     rows = []
-    for (area, mouse), part in bands.groupby(level=["area", "mouse"], sort=False):
-        part = part.droplevel(["area", "mouse"])
-        if "supragranular" not in part.index or "infragranular" not in part.index:
-            continue
-        supra, infra = part.loc["supragranular"], part.loc["infragranular"]
-        excluded = bool(supra["excluded"] or infra["excluded"])
-        reason = ""
-        if supra["excluded"]:
-            reason = "supragranular: " + supra["exclude_reason"]
-        elif infra["excluded"]:
-            reason = "infragranular: " + infra["exclude_reason"]
-        row = supra.to_dict()
-        row.update(
-            depth_kind="contrast",
-            depth=CONTRAST,
-            area=area,
-            mouse=mouse,
-            n_vox20=min(supra["n_vox20"], infra["n_vox20"]),
-            atlas_vox20=min(supra["atlas_vox20"], infra["atlas_vox20"]),
-            coverage=min(supra["coverage"], infra["coverage"]),
-            zref=np.nan if excluded else supra["zref"] - infra["zref"],
-            excluded=excluded,
-            exclude_reason=reason,
-        )
-        rows.append(row)
+    for name, (kind_up, depth_up), (kind_deep, depth_deep) in CONTRASTS:
+        upper = table[(table["depth_kind"] == kind_up) & (table["depth"] == depth_up)]
+        deeper = table[
+            (table["depth_kind"] == kind_deep) & (table["depth"] == depth_deep)
+        ]
+        deeper = deeper.set_index(["area", "mouse"], drop=False)
+        for _, up in upper.iterrows():
+            key = (up["area"], up["mouse"])
+            if key in deeper.index:
+                rows.append(_contrast_row(name, up, deeper.loc[key]))
     contrast = pd.DataFrame(rows, columns=PER_MOUSE_COLUMNS)
     return pd.concat([table, contrast], ignore_index=True)
 
 
 def summary_table(table: pd.DataFrame, min_mice: int | None = None) -> pd.DataFrame:
-    """One row per area and depth: the adults with a value, their mean, SD, SEM and t.
+    """One row per area and depth: the adults that count, their mean, SD, SEM and t.
 
     t is mean / SEM, signed. The statistics are NaN with fewer than `min_mice` adults
-    (adult_layers.min_mice); mice_missing names the adults without a value,
-    semicolon separated.
+    (adult_layers.min_mice); mice_left_out names the adults left out, semicolon
+    separated.
     """
     if min_mice is None:
         min_mice = ADULT_LAYERS["min_mice"]
@@ -450,7 +444,7 @@ def summary_table(table: pd.DataFrame, min_mice: int | None = None) -> pd.DataFr
                 sd=sd,
                 sem=sem,
                 t=t,
-                mice_missing=";".join(part.loc[part["excluded"], "mouse"]),
+                mice_left_out=";".join(part.loc[part["excluded"], "mouse"]),
             )
         )
     return pd.DataFrame(rows, columns=SUMMARY_COLUMNS)
@@ -481,13 +475,14 @@ def split_half(values: np.ndarray) -> tuple[float, float, int]:
 def depth_summary(table: pd.DataFrame, summary: pd.DataFrame) -> pd.DataFrame:
     """Per depth: the reliability of the profile across areas, and its hierarchy rho.
 
-    The reliability is taken over the areas every adult has at that depth
+    The reliability is taken over the areas every adult counts in at that depth
     (split_half); the hierarchy rho over the scored areas with a group mean.
     """
     rows = []
     for (kind, depth), part in table.groupby(["depth_kind", "depth"], sort=False):
-        # the areas every adult has, as a (mice, areas) array
-        wide = part.pivot(index="mouse", columns="area", values="zref")
+        # the areas every adult counts in, as a (mice, areas) array
+        counted = part.assign(zref=part["zref"].where(~part["excluded"]))
+        wide = counted.pivot(index="mouse", columns="area", values="zref")
         complete = wide.dropna(axis=1)
         r = whole = np.nan
         n_cuts = 0
@@ -518,44 +513,92 @@ def depth_summary(table: pd.DataFrame, summary: pd.DataFrame) -> pd.DataFrame:
 
 
 def check_against_region_table(table: pd.DataFrame, path: Path = REGION_MEANS) -> int:
-    """Stop unless every whole-depth cell equals its row of the region table.
+    """Stop unless the whole-depth cells hold the region table's values for the adults.
 
-    The region table holds zref to four decimals, so a cell may differ by half the
-    last of them; a larger gap, or an area kept here and missing there, means the
-    two were made from different per-mouse files or brains. Returns the cells
-    compared.
+    Every whole-depth cell with a value, counted or not, must have its row in the
+    region table and equal it to the table's four decimals (half the last of them),
+    and every isocortex row of the table for the mice of `table` must have such a
+    cell. Otherwise the two were made from different per-mouse files or brains.
+    Returns the cells compared.
     """
     region = pd.read_csv(path)
-    region = region[(region["reading"] == "zref") & (region["division"] == "Isocortex")]
-    region = region.set_index(["acronym", "mouse"])["log2_value"]
-    whole = table[(table["depth_kind"] == "whole") & ~table["excluded"]]
+    keep = (
+        (region["reading"] == "zref")
+        & (region["division"] == "Isocortex")
+        & region["mouse"].isin(set(table["mouse"]))
+    )
+    region = region[keep].set_index(["acronym", "mouse"])["log2_value"]
+    whole = table[(table["depth_kind"] == "whole") & table["zref"].notna()]
     whole = whole.set_index(["area", "mouse"])["zref"]
+    fix = "run run_region_plot.py again on these per-mouse files"
     missing = whole.index.difference(region.index)
     if len(missing):
         raise ValueError(
             f"{len(missing)} whole-area cells have no row in {path}, e.g. "
-            f"{list(missing[:3])}; run run_region_plot.py again on these per-mouse files"
+            f"{list(missing[:3])}; {fix}"
+        )
+    extra = region.index.difference(whole.index)
+    if len(extra):
+        raise ValueError(
+            f"{len(extra)} isocortex rows of {path} have no whole-area cell here, e.g. "
+            f"{list(extra[:3])}; {fix}"
         )
     gap = (whole - region.loc[whole.index]).abs().max()
     if gap > 0.5e-4 + 1e-9:
-        raise ValueError(
-            f"whole-area zref differs from {path} by up to {gap:.5f}; "
-            "run run_region_plot.py again on these per-mouse files"
-        )
+        raise ValueError(f"whole-area zref differs from {path} by up to {gap:.5f}; {fix}")
     return len(whole)
 
 
-def source_dates(mice: Sequence[str]) -> np.ndarray:
-    """The modification times of each adult's per-mouse files, CCF and own atlas."""
-    return np.array(
-        [
+def scaling_table(norm: dict[str, tuple[float, float]]) -> pd.DataFrame:
+    """Per adult, the zref scaling of the flatmaps beside that of the tables.
+
+    Both scale L = log2(sig / cortex mean): the maps by the median and spread of the
+    brain's own structures (volumes.cohort.mouse_scalars), the tables by those of the
+    structures every brain shares (`norm`, region_plot.range_match). offset_at_cortex
+    is map minus table where L = 0, at the cortex mean; spread_ratio is the table's
+    spread over the map's, the factor between the two away from it.
+    """
+    rows = []
+    for mouse in ADULTS:
+        own = mouse_scalars(mouse)
+        med, spread = norm[mouse]
+        rows.append(
+            dict(
+                mouse=mouse,
+                group=MICE[mouse][0],
+                median_map=own["z_median"],
+                spread_map=own["z_spread"],
+                median_table=med,
+                spread_table=spread,
+                offset_at_cortex=med / spread - own["z_median"] / own["z_spread"],
+                spread_ratio=spread / own["z_spread"],
+            )
+        )
+    return pd.DataFrame(rows)
+
+
+def source_key(mice: Sequence[str]) -> np.ndarray:
+    """What each adult's band maps are made from, one row per mouse.
+
+    The dates of its per-mouse files (CCF and own atlas), the numbers mouse_modes
+    scales its zref by (cortex mean, median, spread), and the settings behind them,
+    readings.log2_floor and region_tables.min_vox20.
+    """
+    rows = []
+    for m in mice:
+        own = mouse_scalars(m)
+        rows.append(
             [
                 (PER_MOUSE_CCF / f"{m}.npz").stat().st_mtime,
                 (PER_MOUSE / f"{m}.npz").stat().st_mtime,
+                own["cortex_mean"],
+                own["z_median"],
+                own["z_spread"],
+                READINGS["log2_floor"],
+                REGION_TABLES["min_vox20"],
             ]
-            for m in mice
-        ]
-    )
+        )
+    return np.array(rows)
 
 
 def mouse_band_maps(mouse: str, p3, sigma: float | list[float]) -> np.ndarray:
@@ -592,18 +635,19 @@ def band_maps(sigma: float | list[float], recompute: bool = False) -> np.ndarray
     """The band flatmaps of every adult, (mouse, band, row, col), cached.
 
     The cache (adult_layers.flatmap_cache under OUT) is used when it holds the same
-    adults, the same smoothing and per-mouse files of the same dates; `recompute`
-    projects again whatever it holds.
+    adults, the same smoothing and the same source_key; `recompute` projects again
+    whatever it holds.
     """
     cache = OUT / ADULT_LAYERS["flatmap_cache"]
     sig = np.atleast_1d(np.asarray(sigma, dtype=float))
-    dates = source_dates(ADULTS)
+    key = source_key(ADULTS)
     if cache.exists() and not recompute:
         z = np.load(cache)
         same = (
             list(z["mice"]) == ADULTS
             and np.array_equal(z["sigma"], sig)
-            and np.array_equal(z["dates"], dates)
+            and "key" in z.files
+            and np.array_equal(z["key"], key)
         )
         if same:
             print(
@@ -619,7 +663,7 @@ def band_maps(sigma: float | list[float], recompute: bool = False) -> np.ndarray
         maps.append(mouse_band_maps(mouse, p3, sigma))
         print(f"  projected {mouse}", flush=True)
     maps = np.stack(maps)
-    np.savez_compressed(cache, maps=maps, mice=np.array(ADULTS), sigma=sig, dates=dates)
+    np.savez_compressed(cache, maps=maps, mice=np.array(ADULTS), sigma=sig, key=key)
     return maps
 
 
