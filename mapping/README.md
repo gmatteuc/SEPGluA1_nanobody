@@ -81,7 +81,7 @@ mapping/
 | ISH inputs | 13 `run_structure_set`, 14 `run_ish_section_qc`, 15 `run_ish_gene_table`, 16 `run_ish_spatial_null` | the declared structures and the adult profiles (A1); section QC of every experiment (A2); one gene table, merged profiles, gene sets, documentation (A9); surrogate maps with the map's smoothness (A7) |
 | the genes against the map | 17 `run_ish_gene_ranking`, 18 `run_ish_robustness`, 19 `run_ish_divisions`, 20 `run_ish_gene_sets` | each gene against the map and the autofluorescence map, with the null (A8); the ranking under other choices (A3); between or within divisions (A6); gene sets and localisation against matched controls |
 | the measured synapse density | 21 `run_synaptome`, 22 `run_density_markers` | fetches the PSD95 and SAP102 punctum densities of Zhu et al. 2018 as Hansen et al. share them, from their repository at a pinned commit (network, once; `--offline` stops instead), into `<data>\reference\synaptome\`; places the samples in the CCF structures; how much of the declared set and of analysis 4's fit the PSD95 density covers, and how it agrees with the mRNA density terms, Gria1 and the map; then the synapse-density genes of analysis 4 (`[density_markers]`): postsynaptic genes of mouse GO, one release fetched once into `<data>\reference\go\<release>\` (`--offline` stops instead), the AMPA-linked genes left out, the three highest with PSD95 density chosen without reading the map, and the choice on random halves of the structures |
-| beyond Gria1 expression and synapse density | 23 `run_beyond_density`, 24 `run_beyond_controls`, 25 `run_beyond_calibration`, 26 `run_beyond_regression`, 27 `run_beyond_figures` | how much of the map the main model (Gria1, synapse density, autofluorescence; `[beyond]`) predicts, and the genes against what it leaves; seven controls, and the leftover under other folds, structures and the check rows of `[beyond.variants]` (PSD95 or SAP102 puncta, the four subunits); the same model on maps whose answer is known, and the nano map against them on the same structures; the regression per structure; the figures of part 1 |
+| beyond Gria1 expression and synapse density | 23 `run_beyond_density`, 24 `run_beyond_controls`, 25 `run_beyond_calibration`, 26 `run_beyond_regression`, 27 `run_beyond_figures` | how much of the map the main model (Gria1 and synapse density, two straight terms; `[beyond]`) predicts, split into what only Gria1 predicts, what the two share, what only density predicts and what is left, the two weights, and the genes against what it leaves; seven controls, and the leftover under other folds; the same model on a map whose answer is known (the floor), the nano map against it on the same structures, and every check row of `[beyond.checks]` with its own floor; the regression per structure; the figures of part 1 |
 | the genes that follow the map | 28 `run_ish_top_genes` | the genes past the map's null, Gria1, Cacng8 and the AMPA receptor complex family described on every axis of the ISH line, each added to the main model against maps of its smoothness; the tests named in advance for the leftover (Cacng8, then the family as a group and gene by gene; `ish/gene_sets.py`); per-gene sheets |
 | the green channel, the overview | 29 `run_sep_channel_check`, 30 `run_ish_overview` | what the green channel reports; April's headline, the numbers for the text, the overview and the index of the figures |
 
@@ -146,11 +146,11 @@ against the genes have no premise.
   and on the autofluorescence map, and the genes that follow the map most
   described one by one, with the tests named in advance for what the main
   model leaves (part 2); what the green channel reports.
-  Synapse density is also measured, not only read from mRNA: PSD95 puncta per
+  Synapse density is the mean rank of three postsynaptic genes chosen without
+  the map by their agreement with a measured synapse density, PSD95 puncta per
   structure in one adult mouse (Zhu et al. 2018), placed in the CCF structures
-  by Allen id (`run_synaptome`); whether it enters the main model is the rule
-  of `[beyond] min_psd95_coverage` (Known limitations). Method, figures and
-  results: `../docs/ISH_ANALYSIS.md`.
+  by Allen id (`run_synaptome`, `run_density_markers`); PSD95 itself is a check
+  row. Method, figures and results: `../docs/ISH_ANALYSIS.md`.
 - The results and what they mean: `../docs/SCIENTIFIC_CONTEXT.md`.
 
 ## Outputs
@@ -219,15 +219,16 @@ the ISH tables, the API answers and the grids.
   kind (about 4% false positives at 0.05). A difference between two genes'
   correlations is tested against maps related to both alike, and still needs
   to be large to pass.
-- The calibration floor of part 1 errs low: a gene measured by one Allen
-  experiment is the same in both halves, so its mismatch is not in it.
+- The calibration floor of part 1 holds the mismatch of one Allen map with
+  another (every gene of the main model has two or more experiments), not that
+  of Allen's P56 mice with these brains (age, strain, the grid, registration),
+  so it errs low; a measured density, the same in both halves, is not in its
+  check row's floor.
 - The measured synapse density is one adult mouse, sampled in a few coronal
-  sections: it covers 77 of the 126 structures of part 1's fit, under the 80%
-  that `[beyond] min_psd95_coverage` asks, so the main model keeps the mRNA
-  terms and PSD95 is a check row, and 96 of the 204 declared ones; a region the
-  source gives only above
-  several structures (PTLp, the midbrain's motor part) is never spread onto
-  them. As shared, each of its 37 punctum subtypes is scaled to 0..1, so the
+  sections: it covers about half of part 1's fit and 96 of the 204 declared
+  structures, so it chooses the density genes and is a check row, not the
+  density term; a region the source gives only above several structures (PTLp,
+  the midbrain's motor part) is never spread onto them. As shared, each of its 37 punctum subtypes is scaled to 0..1, so the
   PSD95 density is a mean of subtype maps, not a count of puncta.
 - The true absences of the section QC (`ish_section_exceptions.csv`, one
   section today) and the sections kept at a step in expression are a human

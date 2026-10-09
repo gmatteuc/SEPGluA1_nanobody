@@ -711,15 +711,15 @@ separates them.
 
 **The ISH comparison.** Rebuilt on 8 October with the spatial null and gene
 sets fixed before looking, run again on 9 October with part 1's main model and
-the tests named for its leftover, and its figures renumbered the same day in
-the order of the argument, each a main figure of two to four panels beside its
-detailed version ([ISH_ANALYSIS.md](ISH_ANALYSIS.md)). Still open:
-what the leftover of the beyond-abundance analysis is (a total-receptor
-channel); a background panel of a few thousand Allen genes, to place the
-panel's genes among genes nobody chose; the true absences of the section QC,
-proposed and not yet reviewed; and which benchmark a claim about the leftover
-uses (the calibration floor or a one-experiment Gria1 map; ISH_ANALYSIS.md,
-section 8).
+the tests named for its leftover, its figures renumbered the same day in the
+order of the argument, each a main figure of two to four panels beside its
+detailed version, and part 1 run once more the same day in its second version
+([ISH_ANALYSIS.md](ISH_ANALYSIS.md)). Still open: what the leftover of the
+beyond-abundance analysis is (a total-receptor channel); the broad negative
+pattern of genes expressed in every neuron against the second version's leftover,
+exploratory so far (ISH_ANALYSIS.md, section 8.2); a background panel of a few
+thousand Allen genes, to place the panel's genes among genes nobody chose; and
+the true absences of the section QC, proposed and not yet reviewed.
 
 **Young against adult.** A critical period cannot be claimed from P16 to P22
 against adults (section 6). Also open:
@@ -756,19 +756,22 @@ For the reasons, see the plan and the documents named.
   with their mice; the line is paused, not closed.
 - **The SEP channel** (26 September): mostly autofluorescence in these
   sections; `sepratio` is not a surface fraction.
-- **The beyond-abundance result** (26 September, restated 8 October, run
-  with the main model on 9 October): 29% of the map's reproducible pattern is
-  not predicted by Gria1 expression or synapse density (15% to 42% over
-  structures), and that leftover replicates across halves of the cohort at
-  0.933. On the same structures it is above the calibration floor at its point
-  value only (26% against 12%, difference -2% to +30%), and no larger than what
-  a map of one Allen Gria1 experiment leaves (34%) (`adult_v2\ish_analysis\beyond\` on the
-  development copy).
-- **Part 1's main model** (8 October, before it was run): Gria1 + synapse
-  density + autofluorescence; synapse density the measured PSD95 puncta if
-  they cover 80% of the structures, else the mRNA panel. They cover 77 of
-  126, so the panel stays and PSD95 is a check row
-  (`mapping/settings.toml` `[beyond]`).
+- **The beyond-abundance result** (26 September, restated 8 October, run in
+  its second version on 9 October): 44% of the map's reproducible pattern is not
+  predicted by Gria1 expression and synapse density, two straight terms (35% to
+  54% over structures), and that leftover replicates across halves of the cohort
+  at 0.933. On the same structures it is 27 points above the calibration floor
+  (42% against 15%; 95% +15 to +40), and every check row stays above its own
+  floor (`adult_v2\ish_analysis\beyond\` on the development copy).
+- **Part 1's main model, second version** (Giulio, 9 October, after seeing the
+  first): nano rank ~ Gria1 rank + synapse-density rank, two straight terms;
+  synapse density the mean rank of three postsynaptic genes chosen without the
+  map by their agreement with PSD95 puncta (Rock2, Cap2, Slc8a2); the test the
+  calibration floor only, the one-experiment Gria1 benchmark removed; check rows
+  each with its own floor (`mapping/settings.toml` `[density_markers]`,
+  `[beyond]`). The first version (8 October: Gria1 + the mRNA panel +
+  autofluorescence, curved) is kept on the development copy in
+  `adult_v2\ish_analysis_9oct_v1\`.
 - **The tests of the leftover** (8 October, before the main model ran):
   Cacng8 named, its uncorrected p the test (its p against the near-identical
   leftover of the four-subunit model had been seen, so it is a re-test); the AMPA
@@ -776,10 +779,13 @@ For the reasons, see the plan and the documents named.
   complex family (Schwenk et al. 2012 and GO:0032281, the partner subunits,
   without Gria1) as a group against the surrogates and against matched
   postsynaptic genes, then gene by gene within it; every other gene
-  exploratory (`mapping/sepmap/ish/gene_sets.py`). Run on 9 October: Cacng8
-  follows the leftover (p 0.0002); the family passes the surrogates only at
-  the edge (p 0.047, 0.050 without Cacng8) and does no better than matched
-  postsynaptic genes (p 0.55).
+  exploratory (`mapping/sepmap/ish/gene_sets.py`). Against the first version's
+  leftover (9 October, morning): Cacng8 follows it (p 0.0002); the family passes
+  the surrogates only at the edge (p 0.047) and does no better than matched
+  postsynaptic genes (p 0.55). Against the second version's: Cacng8 follows it
+  (p 0.0066) and takes more of it than its plain surrogates (p 0.001); the
+  family does not follow it (p 0.92); 53 genes pass BH over all, 50 of them with
+  a negative rho (exploratory).
 - **The ISH figures** (9 October): numbered in the order of the argument,
   `00_overview.png` to `16_april_headline.png`; each main figure two to four
   panels with one line saying what to take from it, its detailed version the
