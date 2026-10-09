@@ -1,4 +1,4 @@
-"""The guided figures of analysis 4, with their intervals: figures 03, 04 and 11.
+"""The guided figures of part 1, with their intervals: 03, 03s, 04, 11s1 and 14.
 
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
@@ -21,35 +21,38 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                section QC; QC sheets
     15. run_ish_gene_table     A9: region means, the gene table,
                                merged profiles, gene sets,
-                               documentation; figure 02
+                               documentation; figures 02, 02s
     16. run_ish_spatial_null   A7: surrogate maps and their checks
     17. run_ish_gene_ranking   analysis 1: each gene against the
                                map, the null, autofluorescence (A8),
-                               the Cacng8 - Gria1 gap; figures 05 to 07 and 15
+                               the Cacng8 - Gria1 gap; figures 05,
+                               06, 07s and 12, with their s
     18. run_ish_robustness     A3: the ranking under other choices;
-                               figure 16
+                               figures 13, 13s
     19. run_ish_divisions      analysis 2 (A6): between or within
-                               divisions; figure 10, gene sheets
+                               divisions; figures 09, 09s, gene sheets
     20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
-                               against matched controls; figures 08, 09
+                               against matched controls; figures 10,
+                               10s1, 10s2
     21. run_synaptome          the measured synapse density (network,
                                once): PSD95 puncta per structure,
-                               its coverage of the fit
+                               its coverage of the fit; figure 14s
     22. run_beyond_density     analysis 4: what Gria1 and synapse
                                density leave; the leftover
     23. run_beyond_controls    seven attempts to break it
     24. run_beyond_calibration the same model on maps whose answer
                                is known
     25. run_beyond_regression  the regression, per structure
-    26. run_beyond_figures     figures 03, 04 and 11                <- this script
+    26. run_beyond_figures     figures 03, 03s, 04, 11s1 and 14     <- this script
     27. run_ish_top_genes      the genes that follow the map most,
                                characterised; Cacng8 and the AMPA
                                receptor complex family against the
-                               leftover; figures 12 to 14, sheets
+                               leftover; figures 07, 08, 11, 11s2,
+                               sheets
     28. run_sep_channel_check  analysis 5: what the green channel
-                               reports; figure 17
-    29. run_ish_overview       figures 00 and 18, the figure index;
-                               the numbers for the text
+                               reports; figures 15, 15s
+    29. run_ish_overview       figures 00, 16 and 16s, the figure
+                               index; the numbers for the text
 
 Jackknife intervals over structures, the noise band of the replication, the
 numbers the text quotes, and the three figures; it reads the tables of steps 22 to
@@ -59,9 +62,12 @@ adult_v2/ish_analysis/ in the data root:
     beyond/jackknife.csv                per subsample, the ceiling and the shares
     beyond/numbers_for_the_caption.txt  the figures' numbers as sentences
     tables/numbers_beyond.csv           the numbers of analysis 4, for the text
-    figures/03_beyond_budget.png        what Gria1 and synapse density predict
+    figures/03_beyond.png               what Gria1 and synapse density predict,
+                                        and whether what they leave is real
+    figures/03s_beyond_budget.png       the same in detail, with the check rows
     figures/04_beyond_where.png         where the leftover lives
-    figures/11_leftover_genes.png       the genes and gene sets against the leftover
+    figures/11s1_leftover_genes.png     every gene and gene set against the leftover
+    figures/14_synaptome.png            the measured synapse density in the model
 
     python run_beyond_figures.py
 """
@@ -75,7 +81,7 @@ from sepmap.adult import beyond_figures
 
 
 def main():
-    """Print the settings in force, then run the intervals and figures 03, 04 and 11."""
+    """Print the settings in force, then run the intervals and draw the figures."""
     config.print_settings({})
     beyond_figures.main()
 
@@ -86,6 +92,6 @@ if __name__ == "__main__":
     plotting.set_style()
 
     # no options; parsing still gives the script its --help
-    parser = argparse.ArgumentParser(description="figures 03, 04 and 11 of analysis 4")
+    parser = argparse.ArgumentParser(description="the figures of part 1, analysis 4")
     parser.parse_args()
     main()

@@ -21,35 +21,38 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                section QC; QC sheets
     15. run_ish_gene_table     A9: region means, the gene table,
                                merged profiles, gene sets,
-                               documentation; figure 02
+                               documentation; figures 02, 02s
     16. run_ish_spatial_null   A7: surrogate maps and their checks
     17. run_ish_gene_ranking   analysis 1: each gene against the
                                map, the null, autofluorescence (A8),
-                               the Cacng8 - Gria1 gap; figures 05 to 07 and 15
+                               the Cacng8 - Gria1 gap; figures 05,
+                               06, 07s and 12, with their s
     18. run_ish_robustness     A3: the ranking under other choices;
-                               figure 16
+                               figures 13, 13s
     19. run_ish_divisions      analysis 2 (A6): between or within
-                               divisions; figure 10, gene sheets
+                               divisions; figures 09, 09s, gene sheets
     20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
-                               against matched controls; figures 08, 09
+                               against matched controls; figures 10,
+                               10s1, 10s2
     21. run_synaptome          the measured synapse density (network,
                                once): PSD95 puncta per structure,
-                               its coverage of the fit
+                               its coverage of the fit; figure 14s
     22. run_beyond_density     analysis 4: what Gria1 and synapse
                                density leave; the leftover
     23. run_beyond_controls    seven attempts to break it
     24. run_beyond_calibration the same model on maps whose answer
                                is known
     25. run_beyond_regression  the regression, per structure
-    26. run_beyond_figures     figures 03, 04 and 11
+    26. run_beyond_figures     figures 03, 03s, 04, 11s1 and 14
     27. run_ish_top_genes      the genes that follow the map most,
                                characterised; Cacng8 and the AMPA
                                receptor complex family against the
-                               leftover; figures 12 to 14, sheets
+                               leftover; figures 07, 08, 11, 11s2,
+                               sheets
     28. run_sep_channel_check  analysis 5: what the green channel
-                               reports; figure 17
-    29. run_ish_overview       figures 00 and 18, the figure index;
-                               the numbers for the text
+                               reports; figures 15, 15s
+    29. run_ish_overview       figures 00, 16 and 16s, the figure
+                               index; the numbers for the text
 
 Measures the three channels of every adult per structure, plain and eroded by one
 20 um voxel, declares the structures every comparison of the ISH line uses (grey

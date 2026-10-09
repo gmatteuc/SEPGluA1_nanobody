@@ -21,35 +21,38 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                section QC; QC sheets
     15. run_ish_gene_table     A9: region means, the gene table,
                                merged profiles, gene sets,
-                               documentation; figure 02
+                               documentation; figures 02, 02s
     16. run_ish_spatial_null   A7: surrogate maps and their checks
     17. run_ish_gene_ranking   analysis 1: each gene against the
                                map, the null, autofluorescence (A8),
-                               the Cacng8 - Gria1 gap; figures 05 to 07 and 15
+                               the Cacng8 - Gria1 gap; figures 05,
+                               06, 07s and 12, with their s
     18. run_ish_robustness     A3: the ranking under other choices;
-                               figure 16
+                               figures 13, 13s
     19. run_ish_divisions      analysis 2 (A6): between or within
-                               divisions; figure 10, gene sheets
+                               divisions; figures 09, 09s, gene sheets
     20. run_ish_gene_sets      analysis 3: kinds of genes; localisation   <- this script
-                               against matched controls; figures 08, 09
+                               against matched controls; figures 10,
+                               10s1, 10s2
     21. run_synaptome          the measured synapse density (network,
                                once): PSD95 puncta per structure,
-                               its coverage of the fit
+                               its coverage of the fit; figure 14s
     22. run_beyond_density     analysis 4: what Gria1 and synapse
                                density leave; the leftover
     23. run_beyond_controls    seven attempts to break it
     24. run_beyond_calibration the same model on maps whose answer
                                is known
     25. run_beyond_regression  the regression, per structure
-    26. run_beyond_figures     figures 03, 04 and 11
+    26. run_beyond_figures     figures 03, 03s, 04, 11s1 and 14
     27. run_ish_top_genes      the genes that follow the map most,
                                characterised; Cacng8 and the AMPA
                                receptor complex family against the
-                               leftover; figures 12 to 14, sheets
+                               leftover; figures 07, 08, 11, 11s2,
+                               sheets
     28. run_sep_channel_check  analysis 5: what the green channel
-                               reports; figure 17
-    29. run_ish_overview       figures 00 and 18, the figure index;
-                               the numbers for the text
+                               reports; figures 15, 15s
+    29. run_ish_overview       figures 00, 16 and 16s, the figure
+                               index; the numbers for the text
 
 Tests the gene sets fixed in advance (sepmap/ish/gene_sets.py) against the adult
 map: each set's median rho against the medians its genes give with the map's
@@ -72,8 +75,10 @@ Writes, in adult_v2/ish_analysis/ under the data root:
     tables/localisation_power.csv      what the test finds when localisation genes
                                        do shape the map, per effect size
     tables/numbers_gene_sets.csv       the numbers of this step, for the text
-    figures/08_gene_sets.png           the sets against the null
-    figures/09_localisation.png        localisation against matched controls
+    figures/10_gene_kinds.png          the sets, and localisation against
+                                       matched controls
+    figures/10s1_gene_sets.png         the sets in detail
+    figures/10s2_localisation.png      the localisation test in detail
 
     python run_ish_gene_sets.py
 """
@@ -284,12 +289,25 @@ def main():
     numbers = numbers_table(shown, tests, contrasts, summary, power)
     numbers.to_csv(tables / "numbers_gene_sets.csv", index=False)
 
-    # figures 08 and 09
+    # figure 10, and its detailed versions: the gene sets, the localisation test
     rules = dict(gene_sets.GENE_SETS)
     rules[gene_sets.CONTEXT_SET] = gene_sets.CONTEXT_RULE
     _, term_names, _ = gene_table.load_obo(offline=True)
     rules = {k: named_terms(v, term_names) for k, v in rules.items()}
     n_surrogates = surr.shape[0]
+    fig = ish_plotting.plot_gene_kinds(
+        member_rows,
+        tests,
+        list(gene_sets.SET_ORDER),
+        loc_table,
+        summary,
+        pairs,
+        power,
+        q,
+        n_surrogates,
+        save=figures / ish_plotting.figure_file("gene_kinds"),
+    )
+    plt.close(fig)
     fig = ish_plotting.plot_gene_sets(
         member_rows,
         tests,
@@ -315,7 +333,8 @@ def main():
         save=figures / ish_plotting.figure_file("localisation"),
     )
     plt.close(fig)
-    drawn = [ish_plotting.figure_file(k) for k in ("gene_sets", "localisation")]
+    keys = ("gene_kinds", "gene_sets", "localisation")
+    drawn = [ish_plotting.figure_file(k) for k in keys]
     print(f"figures: {', '.join(drawn)} in {figures}")
 
 

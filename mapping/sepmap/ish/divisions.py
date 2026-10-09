@@ -51,7 +51,7 @@ WITHIN_DETAIL = TABLES / "within_division_detail.csv"
 # the percentiles of a null distribution that a value must leave to pass at 0.05
 BAND = (2.5, 97.5)
 
-# the genes of the gene sheets and of figure 10 D (A6): the top of P9's ranking, the
+# the genes of the gene sheets and of figure 09s D (A6): the top of P9's ranking, the
 # subunit, a metabotropic receptor and a scaffold near the top, and an astrocyte
 # gene as the control
 DETAIL_GENES = ("Cacng8", "Gria1", "Grm5", "Dlg2", "Aqp4")

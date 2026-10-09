@@ -21,35 +21,38 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                section QC; QC sheets
     15. run_ish_gene_table     A9: region means, the gene table,
                                merged profiles, gene sets,
-                               documentation; figure 02
+                               documentation; figures 02, 02s
     16. run_ish_spatial_null   A7: surrogate maps and their checks
     17. run_ish_gene_ranking   analysis 1: each gene against the
                                map, the null, autofluorescence (A8),
-                               the Cacng8 - Gria1 gap; figures 05 to 07 and 15
+                               the Cacng8 - Gria1 gap; figures 05,
+                               06, 07s and 12, with their s
     18. run_ish_robustness     A3: the ranking under other choices;
-                               figure 16
+                               figures 13, 13s
     19. run_ish_divisions      analysis 2 (A6): between or within
-                               divisions; figure 10, gene sheets
+                               divisions; figures 09, 09s, gene sheets
     20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
-                               against matched controls; figures 08, 09
+                               against matched controls; figures 10,
+                               10s1, 10s2
     21. run_synaptome          the measured synapse density (network,
                                once): PSD95 puncta per structure,
-                               its coverage of the fit
+                               its coverage of the fit; figure 14s
     22. run_beyond_density     analysis 4: what Gria1 and synapse
                                density leave; the leftover
     23. run_beyond_controls    seven attempts to break it
     24. run_beyond_calibration the same model on maps whose answer
                                is known
     25. run_beyond_regression  the regression, per structure
-    26. run_beyond_figures     figures 03, 04 and 11
+    26. run_beyond_figures     figures 03, 03s, 04, 11s1 and 14
     27. run_ish_top_genes      the genes that follow the map most,
                                characterised; Cacng8 and the AMPA
                                receptor complex family against the
-                               leftover; figures 12 to 14, sheets
+                               leftover; figures 07, 08, 11, 11s2,
+                               sheets
     28. run_sep_channel_check  analysis 5: what the green channel
-                               reports; figure 17
-    29. run_ish_overview       figures 00 and 18, the figure index;   <- this script
-                               the numbers for the text
+                               reports; figures 15, 15s
+    29. run_ish_overview       figures 00, 16 and 16s, the figure   <- this script
+                               index; the numbers for the text
 
 Measures what is left of April's headline (the category violins and their ANOVA)
 on today's inputs and against the map's surrogates, gathers the numbers every step
@@ -65,7 +68,8 @@ Writes, in adult_v2/ish_analysis/ under the data root:
                                        docs/ISH_ANALYSIS.md (and a .txt to read)
     figures/00_overview.png            the question, the argument, which figure
                                        answers what
-    figures/18_april_headline.png      April's headline, then and now
+    figures/16_april_headline.png      April's headline, then and now (16s in
+                                       detail)
     figures/README.md                  the guided walk: each figure with its
                                        question, what to look at, what to take
 
@@ -133,22 +137,33 @@ def main():
     n = overview.lookup(numbers)
     print(f"numbers: {len(numbers)} from {numbers['step'].nunique()} steps")
 
-    # figure 18: April's headline; figure 00: the overview; the index
+    # figure 16 and its detailed version: April's headline; figure 00: the
+    # overview; the index
+    q = overview.ISH_ANALYSIS["q"]
     fig = ish_plotting.plot_april_headline(
+        headline,
+        anova,
+        groups,
+        f_info,
+        null.shape[1],
+        q,
+        save=figures / ish_plotting.figure_file("april_headline"),
+    )
+    plt.close(fig)
+    fig = ish_plotting.plot_april_headline_detail(
         headline,
         anova,
         groups,
         f_info,
         overview.HEADLINE_ORDER,
         null.shape[1],
-        overview.ISH_ANALYSIS["q"],
-        save=figures / ish_plotting.figure_file("april_headline"),
+        q,
+        save=figures / ish_plotting.figure_file("april_headline_detail"),
     )
     plt.close(fig)
     fig = ish_plotting.plot_overview(
-        overview.argument_text(n),
-        overview.overview_rows(n),
-        overview.ITEMS,
+        overview.overview_content(n),
+        overview.figure_map(),
         save=figures / ish_plotting.figure_file("overview"),
     )
     plt.close(fig)
@@ -159,7 +174,8 @@ def main():
         for key in ish_plotting.FIGURES
         if not (figures / ish_plotting.figure_file(key)).exists()
     ]
-    drawn = [ish_plotting.figure_file(k) for k in ("overview", "april_headline")]
+    keys = ("overview", "april_headline", "april_headline_detail")
+    drawn = [ish_plotting.figure_file(k) for k in keys]
     print(f"figures: {', '.join(drawn)} and the index, in {figures}")
     if missing:
         print(f"  warning: the index names figures not drawn yet: {', '.join(missing)}")

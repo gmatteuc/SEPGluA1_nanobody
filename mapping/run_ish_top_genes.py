@@ -21,35 +21,38 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                section QC; QC sheets
     15. run_ish_gene_table     A9: region means, the gene table,
                                merged profiles, gene sets,
-                               documentation; figure 02
+                               documentation; figures 02, 02s
     16. run_ish_spatial_null   A7: surrogate maps and their checks
     17. run_ish_gene_ranking   analysis 1: each gene against the
                                map, the null, autofluorescence (A8),
-                               the Cacng8 - Gria1 gap; figures 05 to 07 and 15
+                               the Cacng8 - Gria1 gap; figures 05,
+                               06, 07s and 12, with their s
     18. run_ish_robustness     A3: the ranking under other choices;
-                               figure 16
+                               figures 13, 13s
     19. run_ish_divisions      analysis 2 (A6): between or within
-                               divisions; figure 10, gene sheets
+                               divisions; figures 09, 09s, gene sheets
     20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
-                               against matched controls; figures 08, 09
+                               against matched controls; figures 10,
+                               10s1, 10s2
     21. run_synaptome          the measured synapse density (network,
                                once): PSD95 puncta per structure,
-                               its coverage of the fit
+                               its coverage of the fit; figure 14s
     22. run_beyond_density     analysis 4: what Gria1 and synapse
                                density leave; the leftover
     23. run_beyond_controls    seven attempts to break it
     24. run_beyond_calibration the same model on maps whose answer
                                is known
     25. run_beyond_regression  the regression, per structure
-    26. run_beyond_figures     figures 03, 04 and 11
-    27. run_ish_top_genes      the genes that follow the map most,  <- this script
+    26. run_beyond_figures     figures 03, 03s, 04, 11s1 and 14
+    27. run_ish_top_genes      the genes that follow the map most,   <- this script
                                characterised; Cacng8 and the AMPA
                                receptor complex family against the
-                               leftover; figures 12 to 14, sheets
+                               leftover; figures 07, 08, 11, 11s2,
+                               sheets
     28. run_sep_channel_check  analysis 5: what the green channel
-                               reports; figure 17
-    29. run_ish_overview       figures 00 and 18, the figure index;
-                               the numbers for the text
+                               reports; figures 15, 15s
+    29. run_ish_overview       figures 00, 16 and 16s, the figure
+                               index; the numbers for the text
 
 Describes the genes past the spatial null after BH in analysis 1, Gria1, Cacng8 and
 every member of the AMPA receptor complex family on every axis of the ISH line, adds
@@ -64,9 +67,10 @@ steps 15 to 22. Writes, in adult_v2/ish_analysis/ under the data root:
     tables/family_members.csv         the family: each member's sources, tested or
                                       why not
     tables/numbers_top_genes.csv      the numbers of this step, for the text
-    figures/12_top_genes.png          the genes that follow the map
-    figures/13_cacng8_gria1.png       Cacng8 against Gria1
-    figures/14_ampa_family.png        the AMPA receptor complex against the leftover
+    figures/07_top_genes.png          the genes that follow the map
+    figures/08_cacng8_gria1.png       Cacng8 against Gria1
+    figures/11_leftover.png           the three tiers against the leftover
+    figures/11s2_ampa_family.png      the family against the leftover in detail
     figures/top_genes/<gene>.png      with --sheets, one sheet per gene characterised
 
     python run_ish_top_genes.py [--sheets]
@@ -248,10 +252,107 @@ def control_columns(pairs, leftover, nano, level):
     return pd.DataFrame(rows)
 
 
+def draw_figures(
+    out,
+    inputs,
+    map_values,
+    residual,
+    set_table,
+    tests,
+    group_nulls,
+    members,
+    leftover,
+    n_surrogates,
+    n_map_surrogates,
+):
+    """Figures 07 and 08, and 11 and 11s2 on the main model's leftover."""
+    q = ISH_ANALYSIS["q"]
+    figures = OUT / "figures"
+    fig = ish_plotting.plot_top_genes(
+        out, q, ISH_FIGURES["t_max"], save=figures / ish_plotting.figure_file("top_genes")
+    )
+    plt.close(fig)
+    gap = pd.read_csv(gene_ranking.GAP)
+    gap_null, _ = gene_ranking.load_null_rho("gap")
+    fig = ish_plotting.plot_cacng8_gria1(
+        out.set_index("symbol"),
+        map_values,
+        inputs.expr,
+        gap[gap["kind"] == "merged profiles"].iloc[0],
+        gap_null[0],
+        set_table,
+        n_map_surrogates,
+        save=figures / ish_plotting.figure_file("cacng8_gria1"),
+    )
+    plt.close(fig)
+    fig = ish_plotting.plot_leftover(
+        out,
+        residual,
+        inputs.expr[gene_sets.LEFTOVER_GENE],
+        tests,
+        group_nulls,
+        leftover,
+        set_table,
+        q,
+        n_surrogates,
+        save=figures / ish_plotting.figure_file("leftover"),
+    )
+    plt.close(fig)
+    fig = ish_plotting.plot_ampa_family(
+        out[out["family"]],
+        tests,
+        group_nulls,
+        members,
+        q,
+        ISH_FIGURES["t_max"],
+        n_surrogates,
+        n_map_surrogates,
+        save=figures / ish_plotting.figure_file("ampa_family"),
+    )
+    plt.close(fig)
+    keys = ("top_genes", "cacng8_gria1", "leftover", "ampa_family")
+    drawn = [ish_plotting.figure_file(k) for k in keys]
+    print(f"figures: {', '.join(drawn)} in {figures}")
+
+
+def draw_sheets(
+    out,
+    inputs,
+    map_values,
+    residual,
+    added_nulls,
+    set_table,
+    n_surrogates,
+    n_map_surrogates,
+):
+    """One sheet per gene characterised, in figures/top_genes/."""
+    plane = ISH_FIGURES["plane"]
+    structure_names, _, _ = structure_terms()
+    lab = planes.label_plane(plane)
+    folder = OUT / "figures" / "top_genes"
+    folder.mkdir(parents=True, exist_ok=True)
+    for _, row in out.iterrows():
+        fig = ish_plotting.plot_top_gene_sheet(
+            row,
+            map_values,
+            inputs.expr[row["symbol"]],
+            residual,
+            added_nulls[row["symbol"]],
+            set_table,
+            lab,
+            structure_names,
+            plane,
+            n_surrogates,
+            n_map_surrogates,
+            save=folder / f"{row['symbol']}.png",
+        )
+        plt.close(fig)
+    print(f"gene sheets: {len(out)} in {folder}")
+
+
 def main(sheets):
     """Print the settings; characterise the genes, run the named tests, draw."""
     config.print_settings({"sheets": sheets})
-    figures = OUT / "figures"
     q = ISH_ANALYSIS["q"]
 
     # the tables of analyses 1 to 4, and the main model with its leftover's null
@@ -383,18 +484,7 @@ def main(sheets):
     numbers = numbers_table(out, members, tests, pairs)
     numbers.to_csv(top_genes.NUMBERS, index=False)
 
-    # figure 12, the genes that follow the map
-    n_surrogates = int(leftover_null.shape[1])
-    fig = ish_plotting.plot_top_genes(
-        out,
-        q,
-        ISH_FIGURES["t_max"],
-        n_surrogates,
-        save=figures / ish_plotting.figure_file("top_genes"),
-    )
-    plt.close(fig)
-
-    # figure 13, Cacng8 against Gria1, with the leftover of the main model
+    # the map and the main model's leftover, which the figures and sheets draw
     set_table = structures.load_structure_set()
     declared = structures.declared_structures()
     map_values = profiles.load_profile().loc[declared, "zref_nano"]
@@ -403,65 +493,36 @@ def main(sheets):
     residual = pd.Series(
         bd.residual(y, bd.model(covariates, inputs.terms)), index=inputs.structures
     )
-    gap = pd.read_csv(gene_ranking.GAP)
-    gap_null, _ = gene_ranking.load_null_rho("gap")
+    n_surrogates = int(leftover_null.shape[1])
     n_map_surrogates = int(nano_null.shape[1])
-    fig = ish_plotting.plot_cacng8_gria1(
-        out.set_index("symbol"),
-        map_values,
-        inputs.expr,
-        residual,
-        gap[gap["kind"] == "merged profiles"].iloc[0],
-        gap_null[0],
-        set_table,
-        n_surrogates,
-        n_map_surrogates,
-        save=figures / ish_plotting.figure_file("cacng8_gria1"),
-    )
-    plt.close(fig)
 
-    # figure 14, the AMPA receptor complex against the leftover
-    fig = ish_plotting.plot_ampa_family(
-        out[out["family"]],
+    # figures 07, 08, 11 and 11s2
+    draw_figures(
+        out,
+        inputs,
+        map_values,
+        residual,
+        set_table,
         tests,
         group_nulls,
         members,
-        q,
-        ISH_FIGURES["t_max"],
+        leftover,
         n_surrogates,
         n_map_surrogates,
-        save=figures / ish_plotting.figure_file("ampa_family"),
     )
-    plt.close(fig)
-    drawn = [ish_plotting.figure_file(k) for k in ("top_genes", "cacng8_gria1")]
-    drawn.append(ish_plotting.figure_file("ampa_family"))
-    print(f"figures: {', '.join(drawn)} in {figures}")
 
     # the gene sheets
-    if not sheets:
-        return
-    plane = ISH_FIGURES["plane"]
-    structure_names, _, _ = structure_terms()
-    lab = planes.label_plane(plane)
-    folder = figures / "top_genes"
-    folder.mkdir(parents=True, exist_ok=True)
-    for _, row in out.iterrows():
-        fig = ish_plotting.plot_top_gene_sheet(
-            row,
+    if sheets:
+        draw_sheets(
+            out,
+            inputs,
             map_values,
-            inputs.expr[row["symbol"]],
             residual,
-            added_nulls[row["symbol"]],
+            added_nulls,
             set_table,
-            lab,
-            structure_names,
-            plane,
             n_surrogates,
             n_map_surrogates,
-            save=folder / f"{row['symbol']}.png",
         )
-        plt.close(fig)
-    print(f"gene sheets: {len(out)} in {folder}")
 
 
 if __name__ == "__main__":

@@ -94,21 +94,29 @@ def test_ordinal_words():
 
 
 def test_every_guided_figure_has_a_question_a_part_and_a_script():
-    """The walk of the index names each figure once, in the order of its number."""
+    """The walk names each main figure once in the order of its number, and each
+    detailed version once, under its main figure's number."""
     walked = [key for _, keys in overview.PARTS for key in keys]
-    assert sorted(walked) == sorted(FIGURES)
-    assert [FIGURES[k] for k in walked] == sorted(FIGURES.values())
+    details = [d for key in walked for d, _ in overview.SUPPLEMENTS.get(key, ())]
+    assert sorted(walked + details) == sorted(FIGURES)
+    assert [FIGURES[k] for k in walked] == sorted(FIGURES[k] for k in walked)
+    assert all("s" not in FIGURES[k] for k in walked)
+    for key in walked:
+        for detail, _ in overview.SUPPLEMENTS.get(key, ()):
+            assert FIGURES[detail].startswith(FIGURES[key] + "s")
     assert set(QUESTIONS) == set(FIGURES) == set(overview.DRAWN_BY)
 
 
 @pytest.mark.skipif(
     not (TABLES / "numbers_for_the_text.csv").exists(), reason="no run of the overview"
 )
-def test_todays_index_and_rows_fill_from_the_numbers():
+def test_todays_index_and_overview_fill_from_the_numbers():
     """Every number the index and the overview figure name is in today's numbers."""
     numbers = pd.read_csv(TABLES / "numbers_for_the_text.csv", dtype=str)
     n = overview.lookup(numbers)
     text = overview.figure_index(n)
     for key in FIGURES:
-        assert QUESTIONS[key] in text
-    assert len(overview.overview_rows(n)) == 9
+        assert overview.figure_file(key) in text
+    content = overview.overview_content(n)
+    assert [len(part["numbers"]) for part in content["parts"]] == [3, 3]
+    assert sum(len(figures) for _, figures in overview.figure_map()) == 16

@@ -21,35 +21,38 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                section QC; QC sheets
     15. run_ish_gene_table     A9: region means, the gene table,
                                merged profiles, gene sets,
-                               documentation; figure 02
+                               documentation; figures 02, 02s
     16. run_ish_spatial_null   A7: surrogate maps and their checks
     17. run_ish_gene_ranking   analysis 1: each gene against the    <- this script
                                map, the null, autofluorescence (A8),
-                               the Cacng8 - Gria1 gap; figures 05 to 07 and 15
+                               the Cacng8 - Gria1 gap; figures 05,
+                               06, 07s and 12, with their s
     18. run_ish_robustness     A3: the ranking under other choices;
-                               figure 16
+                               figures 13, 13s
     19. run_ish_divisions      analysis 2 (A6): between or within
-                               divisions; figure 10, gene sheets
+                               divisions; figures 09, 09s, gene sheets
     20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
-                               against matched controls; figures 08, 09
+                               against matched controls; figures 10,
+                               10s1, 10s2
     21. run_synaptome          the measured synapse density (network,
                                once): PSD95 puncta per structure,
-                               its coverage of the fit
+                               its coverage of the fit; figure 14s
     22. run_beyond_density     analysis 4: what Gria1 and synapse
                                density leave; the leftover
     23. run_beyond_controls    seven attempts to break it
     24. run_beyond_calibration the same model on maps whose answer
                                is known
     25. run_beyond_regression  the regression, per structure
-    26. run_beyond_figures     figures 03, 04 and 11
+    26. run_beyond_figures     figures 03, 03s, 04, 11s1 and 14
     27. run_ish_top_genes      the genes that follow the map most,
                                characterised; Cacng8 and the AMPA
                                receptor complex family against the
-                               leftover; figures 12 to 14, sheets
+                               leftover; figures 07, 08, 11, 11s2,
+                               sheets
     28. run_sep_channel_check  analysis 5: what the green channel
-                               reports; figure 17
-    29. run_ish_overview       figures 00 and 18, the figure index;
-                               the numbers for the text
+                               reports; figures 15, 15s
+    29. run_ish_overview       figures 00, 16 and 16s, the figure
+                               index; the numbers for the text
 
 Correlates every gene of the gene table with the adult nano map and with the
 autofluorescence map of the same sections on the declared structures, tests each
@@ -68,10 +71,12 @@ adult_v2/ish_analysis/ under the data root:
     tables/null_rho.npz                every gene's rho with every surrogate, per map,
                                        and the gap of every surrogate
     tables/numbers_gene_ranking.csv    the numbers of this step, for the text
-    figures/05_one_comparison.png      what one comparison is
-    figures/06_spatial_null.png        why a null, and the null itself
-    figures/07_gene_ranking.png        P9's genes against the map and its null
-    figures/15_autofluorescence.png    the same on the autofluorescence map
+    figures/05_one_comparison.png      what one comparison is (05s in detail)
+    figures/06_spatial_null.png        why a null, and that it works (06s in
+                                       detail)
+    figures/07s_gene_ranking.png       P9's genes against the map and its null,
+                                       the Cacng8 - Gria1 gap
+    figures/12_autofluorescence.png    the label or the tissue (12s in detail)
 
     python run_ish_gene_ranking.py
 """
@@ -291,15 +296,15 @@ def main():
     numbers = numbers_table(ranking, gap, per_adult)
     numbers.to_csv(tables / "numbers_gene_ranking.csv", index=False)
 
-    # figure 05: one comparison
+    # figure 05 and its detailed version: one comparison
     plane = ISH_FIGURES["plane"]
     names, _, _ = structure_terms()
     lab = planes.label_plane(plane)
     map_values = profile.loc[declared, "zref_nano"]
+    rows = comparison_rows(ranking, merged, table, lab, plane)
     fig = ish_plotting.plot_one_comparison(
         map_values,
-        planes.nano_plane(plane),
-        comparison_rows(ranking, merged, table, lab, plane),
+        rows,
         set_table,
         lab,
         names,
@@ -308,8 +313,29 @@ def main():
         save=figures / ish_plotting.figure_file("one_comparison"),
     )
     plt.close(fig)
+    fig = ish_plotting.plot_one_comparison_detail(
+        map_values,
+        planes.nano_plane(plane),
+        rows,
+        set_table,
+        lab,
+        names,
+        plane,
+        n_surrogates,
+        save=figures / ish_plotting.figure_file("one_comparison_detail"),
+    )
+    plt.close(fig)
 
-    # figure 06: the spatial null, with the two genes against it
+    # figure 06 and its detailed version: the spatial null, with two genes against it
+    variogram = pd.read_csv(spatial_null.VARIOGRAM)
+    calibration = pd.read_csv(spatial_null.CALIBRATION)
+    fig = ish_plotting.plot_spatial_null(
+        variogram,
+        calibration,
+        n_surrogates,
+        save=figures / ish_plotting.figure_file("spatial_null"),
+    )
+    plt.close(fig)
     n = len(declared)
     map_ranks = dict(zip(declared, ish_plotting.ranks01(map_values.to_numpy())))
     surrogate_ranks = [
@@ -321,9 +347,9 @@ def main():
         (g, nano.loc[g, "rho"], nulls["nano"][tested.index(g)], nano.loc[g, "p_spatial"])
         for g in gene_ranking.GAP_GENES
     ]
-    fig = ish_plotting.plot_spatial_null(
-        pd.read_csv(spatial_null.VARIOGRAM),
-        pd.read_csv(spatial_null.CALIBRATION),
+    fig = ish_plotting.plot_spatial_null_detail(
+        variogram,
+        calibration,
         map_ranks,
         surrogate_ranks,
         lab,
@@ -331,11 +357,12 @@ def main():
         plane,
         n_surrogates,
         genes=shown,
-        save=figures / ish_plotting.figure_file("spatial_null"),
+        save=figures / ish_plotting.figure_file("spatial_null_detail"),
     )
     plt.close(fig)
 
-    # figure 07: the ranking; figure 15: the autofluorescence map
+    # figure 07s: P9's genes and the gap; figure 12 and its detailed version: the
+    # autofluorescence map
     fig = ish_plotting.plot_gene_ranking(
         ranking,
         gap,
@@ -351,12 +378,28 @@ def main():
         ranking,
         per_adult,
         subunits,
-        q,
         n_surrogates,
         save=figures / ish_plotting.figure_file("autofluorescence"),
     )
     plt.close(fig)
-    keys = ("one_comparison", "spatial_null", "gene_ranking", "autofluorescence")
+    fig = ish_plotting.plot_autofluorescence_detail(
+        ranking,
+        per_adult,
+        subunits,
+        q,
+        n_surrogates,
+        save=figures / ish_plotting.figure_file("autofluorescence_detail"),
+    )
+    plt.close(fig)
+    keys = (
+        "one_comparison",
+        "one_comparison_detail",
+        "spatial_null",
+        "spatial_null_detail",
+        "gene_ranking",
+        "autofluorescence",
+        "autofluorescence_detail",
+    )
     drawn = [ish_plotting.figure_file(k) for k in keys]
     print(f"figures: {', '.join(drawn)} in {figures}")
 

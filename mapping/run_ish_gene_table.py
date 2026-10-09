@@ -21,35 +21,38 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                section QC; QC sheets
     15. run_ish_gene_table     A9: region means, the gene table,    <- this script
                                merged profiles, gene sets,
-                               documentation; figure 02
+                               documentation; figures 02, 02s
     16. run_ish_spatial_null   A7: surrogate maps and their checks
     17. run_ish_gene_ranking   analysis 1: each gene against the
                                map, the null, autofluorescence (A8),
-                               the Cacng8 - Gria1 gap; figures 05 to 07 and 15
+                               the Cacng8 - Gria1 gap; figures 05,
+                               06, 07s and 12, with their s
     18. run_ish_robustness     A3: the ranking under other choices;
-                               figure 16
+                               figures 13, 13s
     19. run_ish_divisions      analysis 2 (A6): between or within
-                               divisions; figure 10, gene sheets
+                               divisions; figures 09, 09s, gene sheets
     20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
-                               against matched controls; figures 08, 09
+                               against matched controls; figures 10,
+                               10s1, 10s2
     21. run_synaptome          the measured synapse density (network,
                                once): PSD95 puncta per structure,
-                               its coverage of the fit
+                               its coverage of the fit; figure 14s
     22. run_beyond_density     analysis 4: what Gria1 and synapse
                                density leave; the leftover
     23. run_beyond_controls    seven attempts to break it
     24. run_beyond_calibration the same model on maps whose answer
                                is known
     25. run_beyond_regression  the regression, per structure
-    26. run_beyond_figures     figures 03, 04 and 11
+    26. run_beyond_figures     figures 03, 03s, 04, 11s1 and 14
     27. run_ish_top_genes      the genes that follow the map most,
                                characterised; Cacng8 and the AMPA
                                receptor complex family against the
-                               leftover; figures 12 to 14, sheets
+                               leftover; figures 07, 08, 11, 11s2,
+                               sheets
     28. run_sep_channel_check  analysis 5: what the green channel
-                               reports; figure 17
-    29. run_ish_overview       figures 00 and 18, the figure index;
-                               the numbers for the text
+                               reports; figures 15, 15s
+    29. run_ish_overview       figures 00, 16 and 16s, the figure
+                               index; the numbers for the text
 
 Takes the experiments and the section flags of run_ish_section_qc, sets the flagged
 sections missing, measures every experiment per structure, and gathers per gene its
@@ -68,6 +71,7 @@ adult_v2/ish_analysis/ under the data root:
     tables/numbers_gene_table.csv   the numbers of this step, for the text
     cache/                          mygene records and go-basic.obo
     figures/02_genes.png            the genes and how good their maps are
+    figures/02s_genes_detail.png    the same with the section QC and the repair
 
     python run_ish_gene_table.py [--offline]
 
@@ -189,21 +193,26 @@ def main(offline):
     numbers.to_csv(tables / "numbers_gene_table.csv", index=False)
     print(f"gene table: {len(table)} experiments, {len(documentation)} genes documented")
 
-    # figure 02
+    # figure 02 and its detailed version
+    figures = OUT / "figures"
     usable_genes = labels[labels["symbol"].isin(set(profiles["symbol"]))]
     sections = section_qc.load_section_qc()
-    path = OUT / "figures" / ish_plotting.figure_file("genes")
     fig = ish_plotting.plot_genes(
+        usable_genes, table, rel, save=figures / ish_plotting.figure_file("genes")
+    )
+    plt.close(fig)
+    fig = ish_plotting.plot_genes_detail(
         usable_genes,
         table,
         sections,
         summary,
         rel,
         set(members["subunits"]),
-        save=path,
+        save=figures / ish_plotting.figure_file("genes_detail"),
     )
     plt.close(fig)
-    print(f"figure: {path}")
+    drawn = [ish_plotting.figure_file(k) for k in ("genes", "genes_detail")]
+    print(f"figures: {', '.join(drawn)} in {figures}")
 
 
 if __name__ == "__main__":

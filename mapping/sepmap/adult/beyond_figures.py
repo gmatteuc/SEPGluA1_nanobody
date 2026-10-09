@@ -1,20 +1,22 @@
-"""The guided figures of analysis 4, with their intervals: figures 03, 04 and 11.
+"""The guided figures of analysis 4, with their intervals: figures 03, 04, 11s1 and 14.
 
 adult.beyond_density, adult.beyond_controls, adult.beyond_calibration and
 adult.beyond_regression write the tables. This module adds the intervals, gathers
-the numbers the text quotes, and has ish.plotting draw the two figures of the guided
-walk:
+the numbers the text quotes, and has ish.plotting draw the figures of part 1:
 
-    03  how much of the nano map Gria1 and synapse density predict, and whether
-        what they leave is real: the map against Gria1, against synapse density
-        and against the whole model; the variance budget with the leftover's range
-        and the calibration floor; the calibration; the leftover's replication
-        across mice; the leftover under other folds, structures and models
-    04  where the leftover lives: map, prediction and leftover on three coronal
-        planes, and the structures with the largest leftovers
-    11  every gene of the gene table and every gene set against the leftover, with
-        the leftover's spatial null (after figure 10, once the null and the sets
-        have been shown)
+    03   what Gria1 and synapse density predict of the map: the map against the
+         main model's prediction, the budget with the leftover's range, the
+         leftover beside the calibration floor and the benchmark, its replication
+    03s  the same in detail: the map against each predictor, the budget beside its
+         four-subunit check row and control F, the calibration, the leftover under
+         other folds, structures and models
+    04   where the leftover lives: map, prediction and leftover on three coronal
+         planes, and the structures with the largest leftovers
+    11s1 every gene of the gene table and every gene set against the leftover, with
+         the leftover's spatial null
+    14   the measured synapse density: how much of the fit it covers, against the
+         mRNA it would replace, and what each density measure leaves (step 21
+         draws its detailed version)
 
 Intervals come from resampling structures, not animals: the claim is about where in
 the brain the map departs from prediction, so what would differ in a repeat of the
@@ -45,9 +47,11 @@ Writes, under adult_v2/ish_analysis/ in the data root:
                                         share of it
     beyond/numbers_for_the_caption.txt  the figures' numbers as sentences
     tables/numbers_beyond.csv           the numbers of analysis 4, for the text
-    figures/03_beyond_budget.png        (and .eps)
-    figures/04_beyond_where.png         (and .eps)
-    figures/11_leftover_genes.png       (and .eps)
+    figures/03_beyond.png               (and .eps, as every figure)
+    figures/03s_beyond_budget.png
+    figures/04_beyond_where.png
+    figures/11s1_leftover_genes.png
+    figures/14_synaptome.png
 
 Run by run_beyond_figures.py.
 """
@@ -171,7 +175,12 @@ def noise_band(
 
 
 def numbers_table(n: dict) -> pd.DataFrame:
-    """numbers_beyond.csv: the numbers of analysis 4 that the text quotes."""
+    """numbers_beyond.csv: the numbers of analysis 4 that the text quotes.
+
+    The jackknife intervals keep six decimals: the text quotes them as whole
+    percentages, and a value such as 0.154996 kept as 0.155 would round to 16%,
+    not 15%.
+    """
     rows = [
         ("structures", n["n_structures"], "structures of the main model's fit"),
         ("adults", n["n_adults"], "adults, naive and RWS pooled"),
@@ -185,8 +194,8 @@ def numbers_table(n: dict) -> pd.DataFrame:
         ("psd95_needed", n["psd95_needed"], "structures the rule asks PSD95 to cover"),
         ("half_agreement", round(n["half"], 4), "half-cohort maps agree (126 splits)"),
         ("ceiling", round(n["ceiling"], 4), "Spearman-Brown: reproducible share"),
-        ("ceiling_lo", round(n["ceiling_ci"][0], 4), "2.5%, jackknife over structures"),
-        ("ceiling_hi", round(n["ceiling_ci"][1], 4), "97.5%, jackknife over structures"),
+        ("ceiling_lo", round(n["ceiling_ci"][0], 6), "2.5%, jackknife over structures"),
+        ("ceiling_hi", round(n["ceiling_ci"][1], 6), "97.5%, jackknife over structures"),
         ("psd_genes", n["psd_genes"], "postsynaptic-density genes behind psd_pc1"),
     ]
     for key, r in n["partition_table"].iterrows():
@@ -202,8 +211,8 @@ def numbers_table(n: dict) -> pd.DataFrame:
         ("budget_density", round(n["steps"][1] - n["steps"][0], 4), "budget: + density"),
         ("budget_auto", round(n["steps"][2] - n["steps"][1], 4), "budget: + autofluo"),
         ("left", round(1 - n["steps"][2], 4), "share of the reproducible map left"),
-        ("left_lo", round(n["left_ci"][0], 4), "2.5%, jackknife over structures"),
-        ("left_hi", round(n["left_ci"][1], 4), "97.5%, jackknife over structures"),
+        ("left_lo", round(n["left_ci"][0], 6), "2.5%, jackknife over structures"),
+        ("left_hi", round(n["left_ci"][1], 6), "97.5%, jackknife over structures"),
         ("cv_r2", round(n["cv_r2"], 4), "the main model's CV R2"),
         ("in_sample_r2", round(n["r2"], 4), "the main model's in-sample R2"),
         ("terms", n["n_terms"], "the main model's columns, the intercept included"),
@@ -252,11 +261,11 @@ def numbers_table(n: dict) -> pd.DataFrame:
             "nano's share left over the floor's, same structures",
         ),
         ("nano_minus_floor", round(n["minus_floor"], 4), "nano minus the floor"),
-        ("nano_minus_floor_lo", round(n["minus_floor_ci"][0], 4), "2.5%, jackknife"),
-        ("nano_minus_floor_hi", round(n["minus_floor_ci"][1], 4), "97.5%, jackknife"),
+        ("nano_minus_floor_lo", round(n["minus_floor_ci"][0], 6), "2.5%, jackknife"),
+        ("nano_minus_floor_hi", round(n["minus_floor_ci"][1], 6), "97.5%, jackknife"),
         ("nano_minus_gria1", round(n["minus_gria1"], 4), "nano minus the Gria1 map"),
-        ("nano_minus_gria1_lo", round(n["minus_gria1_ci"][0], 4), "2.5%, jackknife"),
-        ("nano_minus_gria1_hi", round(n["minus_gria1_ci"][1], 4), "97.5%, jackknife"),
+        ("nano_minus_gria1_lo", round(n["minus_gria1_ci"][0], 6), "2.5%, jackknife"),
+        ("nano_minus_gria1_hi", round(n["minus_gria1_ci"][1], 6), "97.5%, jackknife"),
         ("gria1_map_left_A", round(n["gria1_halves"]["A"], 4), "Gria1 map from half A"),
         ("gria1_map_left_B", round(n["gria1_halves"]["B"], 4), "Gria1 map from half B"),
         ("blocks_nano_left", round(n["blocks"]["nano"], 4), "spatial blocks: nano"),
@@ -398,7 +407,7 @@ def caption_lines(n: dict) -> list[str]:
 
 
 def density_label(terms: dict[str, tuple[str, ...]], n_psd: int) -> str:
-    """The main model's density terms in words, for figure 03."""
+    """The main model's density terms in words, for figure 03s."""
     parts = []
     if "markers" in terms["density"]:
         parts.append(f"{len(bd.MARKERS)} marker genes")
@@ -454,8 +463,89 @@ def plane_images(regression: pd.DataFrame) -> list[dict]:
     return out
 
 
+def draw_figures(
+    inputs: bd.Inputs,
+    covariates: dict[str, np.ndarray],
+    y: np.ndarray,
+    xs: list[np.ndarray],
+    numbers: dict,
+    calibration: pd.DataFrame,
+    replication: pd.DataFrame,
+    regression: pd.DataFrame,
+    residuals: pd.DataFrame,
+    genes: pd.DataFrame,
+    sets: pd.DataFrame,
+) -> None:
+    """Draw figures 03 and 03s, 04, 11s1 and 14 from the main model and the tables."""
+    s = inputs.structures
+
+    # figure 03 and its detailed version: the map against its predictors, the budget,
+    # the floor and the benchmark, the replication
+    groups = ish_plotting.group_of(load_structure_set())
+    held_out = dict(
+        density=bd.cv_predict(y, bd.model(covariates, inputs.terms, ("density",))),
+        model=bd.cv_predict(y, xs),
+    )
+    shared = dict(
+        y=y,
+        held_out=held_out,
+        residual=bd.residual(y, xs),
+        groups=[groups[x] for x in s],
+        acronyms=[inputs.acronym.get(x, "") for x in s],
+        numbers=numbers,
+        calibration=calibration,
+        replication=replication,
+    )
+    fig = ish_plotting.plot_beyond(
+        **shared, save=FIGURES / ish_plotting.figure_file("beyond")
+    )
+    plt.close(fig)
+    fig = ish_plotting.plot_beyond_budget(
+        structures=s,
+        gria1=covariates["Gria1"],
+        **shared,
+        save=FIGURES / ish_plotting.figure_file("beyond_budget"),
+    )
+    plt.close(fig)
+
+    # figure 04: where the leftover lives; figure 11s1: every gene against it
+    fig = ish_plotting.plot_beyond_where(
+        planes=plane_images(regression),
+        residuals=residuals,
+        numbers=numbers,
+        t_max=BEYOND_FIGURES["t_max_structures"],
+        save=FIGURES / ish_plotting.figure_file("beyond_where"),
+    )
+    plt.close(fig)
+    null = np.load(bd.LEFTOVER_NULL)
+    fig = ish_plotting.plot_leftover_genes(
+        genes=genes,
+        sets=sets,
+        numbers=numbers,
+        n_surrogates=int(null["surrogates"].shape[0]),
+        t_max=ISH_FIGURES["t_max"],
+        save=FIGURES / ish_plotting.figure_file("leftover_genes"),
+    )
+    plt.close(fig)
+
+    # figure 14: the measured synapse density against the mRNA it would replace, with
+    # the check rows that put it in the model
+    fig = ish_plotting.plot_synaptome(
+        density=synaptome.load_density().reset_index(),
+        coverage=pd.read_csv(synaptome.COVERAGE),
+        markers=pd.Series(covariates["markers"], index=s),
+        variants=numbers["variants"],
+        min_coverage=bd.BEYOND["min_psd95_coverage"],
+        save=FIGURES / ish_plotting.figure_file("synaptome"),
+    )
+    plt.close(fig)
+    keys = ("beyond", "beyond_budget", "beyond_where", "leftover_genes", "synaptome")
+    drawn = [ish_plotting.figure_file(k) for k in keys]
+    print(f"figures: {', '.join(drawn)} in {FIGURES}")
+
+
 def main() -> None:
-    """Compute the intervals, write the numbers and draw figures 03, 04 and 11.
+    """Compute the intervals, write the numbers and draw the figures of part 1.
 
     One seeded generator feeds the jackknife and then the noise null.
     """
@@ -570,48 +660,16 @@ def main() -> None:
         fh.write("\n".join(lines) + "\n")
     print("\n".join(lines))
 
-    # figure 03: the map against its predictors, the budget, the calibration, the
-    # replication
-    set_table = load_structure_set()
-    groups = ish_plotting.group_of(set_table)
-    held_out = dict(
-        density=bd.cv_predict(y, bd.model(covariates, inputs.terms, ("density",))),
-        model=bd.cv_predict(y, xs),
-    )
-    fig = ish_plotting.plot_beyond_budget(
-        structures=s,
+    draw_figures(
+        inputs=inputs,
+        covariates=covariates,
         y=y,
-        gria1=covariates["Gria1"],
-        held_out=held_out,
-        residual=bd.residual(y, xs),
-        groups=[groups[x] for x in s],
-        acronyms=[inputs.acronym.get(x, "") for x in s],
+        xs=xs,
         numbers=numbers,
         calibration=calibration,
         replication=replication,
-        save=FIGURES / ish_plotting.figure_file("beyond_budget"),
-    )
-    plt.close(fig)
-
-    # figure 04: where the leftover lives; figure 11: the genes against it
-    fig = ish_plotting.plot_beyond_where(
-        planes=plane_images(regression),
+        regression=regression,
         residuals=residuals,
-        numbers=numbers,
-        t_max=BEYOND_FIGURES["t_max_structures"],
-        save=FIGURES / ish_plotting.figure_file("beyond_where"),
-    )
-    plt.close(fig)
-    null = np.load(bd.LEFTOVER_NULL)
-    fig = ish_plotting.plot_leftover_genes(
         genes=genes,
         sets=sets,
-        numbers=numbers,
-        n_surrogates=int(null["surrogates"].shape[0]),
-        t_max=ISH_FIGURES["t_max"],
-        save=FIGURES / ish_plotting.figure_file("leftover_genes"),
     )
-    plt.close(fig)
-    keys = ("beyond_budget", "beyond_where", "leftover_genes")
-    drawn = [ish_plotting.figure_file(k) for k in keys]
-    print(f"figures: {', '.join(drawn)} in {FIGURES}")
