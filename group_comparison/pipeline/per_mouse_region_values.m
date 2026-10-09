@@ -972,8 +972,8 @@ end
 
 function T_stats = value_statistics(T_mice, values, ctrl_type, exp_type)
 % Per value, over the mice with a value: each group's mean and SEM, the exact
-% permutation p (one-sided for the experimental group higher, the direction
-% named before the experiment, and two-sided), the Welch t and Hedges' g.
+% permutation p (one-sided for the experimental group higher, and two-sided),
+% the Welch t and Hedges' g.
 
 is_ctrl = strcmp(T_mice.group, ctrl_type);
 rows = cell(numel(values), 1);
