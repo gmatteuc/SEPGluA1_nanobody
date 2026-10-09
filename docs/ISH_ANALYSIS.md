@@ -476,7 +476,9 @@ density. Tables: `beyond\variance_partition.csv`, `partition.csv`, `weights.csv`
 `jackknife.csv`, `jackknife_blocks.csv`, `calibration.csv`,
 `calibration_jackknife.csv`, `calibration_jackknife_blocks.csv`,
 `replication.csv`, `controls.csv`, `folds.csv`, `check_rows.csv`,
-`residual_by_division.csv`.
+`residual_by_division.csv`, and control F's `gene_space.csv` (its held-out R²
+per number of components), `gene_space_summary.csv` and
+`gene_space_calibration.csv`.
 
 | held out, on 163 structures | share of the reproducible map (95% over structures; over spatial blocks) |
 |---|---|
@@ -544,19 +546,21 @@ density. Tables: `beyond\variance_partition.csv`, `partition.csv`, `weights.csv`
   +0.762 (lowest pair +0.578); the naive and RWS groups' at +0.895; every reading
   gives a leftover that replicates at 0.93 to 0.94. Control F: the components of
   the 209 genes measured in every structure (1 to 60, `[beyond_controls]
-  max_pcs`; most often 47, picked inside each training fold) predict 85%, and
-  the leftover of 47 components still replicates at 0.83; on its own calibration
-  nano leaves 22% to 24%, against 3% to 5% for a map made of those genes. Its
-  held-out R² is highest at 47 components (87% of the ceiling), within 0.01 of
-  that from 45 to 51, and lower beyond (83% at 60), so the range holds its
-  peak; up to 40, the range first allowed, it was flat from 30 and highest at
-  40, with 20 components picked most often and 81% predicted. **Control E does
-  not pass**: held out, the
-  straight model reaches R² 0.551, the model curved 0.615 and fifth powers 0.636
-  (36% left), so curving buys more than the 0.05 the control allows. Part of the
-  straight model's leftover is curvature; the curved check row shows how much,
-  and it stays above its own floor (+20 points, +8 to +32; over spatial blocks +5
-  to +35).
+  max_pcs`; picked inside each training fold, 20 to 48, most often 47) predict
+  85%, and the leftover of 47 components still replicates at 0.83; on its own
+  calibration nano leaves 22% to 24%, against 3% to 5% for a map made of those
+  genes. Its held-out R² is highest at 47 components (87% of the ceiling),
+  within 0.01 of that from 45 to 51, and lower beyond (83% at 60), so the range
+  holds its peak. The peak comes from a step, not a steady climb: the held-out
+  R² stays at 81% to 83% of the ceiling from 28 to 42 components and steps to
+  85% at 43 (`gene_space.csv`), so the 85% predicted rests on that step. Up to
+  40, the range first allowed, the curve was flat from 30 and highest at 40,
+  with 20 components picked most often and 81% predicted. **Control E does not pass**:
+  held out, the straight model reaches R² 0.551, the model curved 0.615 and
+  fifth powers 0.636 (36% left), so curving buys more than the 0.05 the control
+  allows. Part of the straight model's leftover is curvature; the curved check
+  row shows how much, and it stays above its own floor (+20 points, +8 to +32;
+  over spatial blocks +5 to +35).
 
 **Where it sits** (`figures\04_beyond_where.png`; `beyond\regression_table.csv`,
 `residual_by_structure.csv`, `residual_by_division.csv`). In large part it is a
@@ -1384,8 +1388,8 @@ asks it again on sets fixed in advance.
   6. control F's range of components is widened from 40 to 60
      (`[beyond_controls] max_pcs`), since its held-out R² was highest at 40, the
      edge. Steps 24, 27 and 30 were rerun on 10 October: the curve now peaks
-     inside the range, at 47 components (87% of the ceiling), and is lower
-     beyond; picked inside each training fold (20 to 48 components, most often
+     inside the range, at 47 components (87% of the ceiling), after a step at
+     43, and is lower beyond; picked inside each training fold (20 to 48 components, most often
      47) the components predict 85% (81% up to 40, most often 20), and their
      leftover replicates at 0.83 (0.90); on its own calibration nano still
      leaves 22% to 24% against 3% to 5%, so the control passes as before. Every
