@@ -145,12 +145,16 @@ Each is defined in one place; never copy a value into a script.
   hippocampal formation `#c0392b`, thalamus `#3a6db5`, other grey matter
   `#555555`), the gene sets (`SET_COLOURS`: subunits dark blue, localisation
   red, other postsynaptic `#555555`, presynaptic `#9a9a9a`, GABAergic markers
-  `#7f9cc9`, glia `#c8c8c8`), the 95% band of a null distribution behind the
-  data (`NULL_BAND`, `#c9d6ea`), the density step of a variance budget
-  (`DENSITY_BLUE`, `#7f9cc9`), and the green (SEP) channel in blue so the three
-  channels stay apart (`SEP` `#3a6db5`, its per-mouse dots `SEP_DOT` `#24427f`,
-  what is left of it once autofluorescence is regressed out `SEP_REMAINDER`
-  `#8fb3e0`). `plotting.bars_grey(t, t_max)` is
+  `#7f9cc9`, glia `#c8c8c8`; a gene in no set `NO_SET_GREY`, `#ececec`), the
+  95% band of a null distribution behind the data (`NULL_BAND`, `#c9d6ea`),
+  the density step of a variance budget (`DENSITY_BLUE`, `#7f9cc9`), and the
+  green (SEP) channel in blue so the three channels stay apart (`SEP`
+  `#3a6db5`, its per-mouse dots `SEP_DOT` `#24427f`, what is left of it once
+  autofluorescence is regressed out `SEP_REMAINDER` `#8fb3e0`). The greys and
+  blues these reuse have names of their own (`LIGHT_GREY` `#c8c8c8`,
+  `PALE_GREY` `#e6e6e6`, `NOTE_GREY` 0.4 for a note on a figure, `MID_BLUE`
+  `#3a6db5`, `PALE_BLUE` `#7f9cc9`), so a figure function names a colour and
+  never types one. `plotting.bars_grey(t, t_max)` is
   `sep_palette('bars')`: grey 0.78 at t = 0 to black at t_max.
 - Scatter plots of many structures: 35-point dots, no edge, alpha 0.85.
 - Names beside dots never sit on each other: `ish/plotting.spread_labels` (a
@@ -296,8 +300,10 @@ file follows it, `tools/` included (Y5).
   sub-package with figures); the modules that compute draw nothing. In the
   Python route, `mapping/sepmap/plotting.py` holds the palette, the
   colormaps, `save_figure` and the drawing several modules share (the coronal
-  frame); the figure functions of each analysis are still in its module, and
-  new figure code goes into a plotting module.
+  frame, a structure map painted on a plane and its borders); `ish/plotting.py`
+  and `adult/plotting.py` hold the figures of those two sub-packages. The
+  figure functions of `volumes/` and `young_vs_adult/` are still in their
+  modules, and new figure code goes into a plotting module.
 - Only run scripts have an `if __name__ == "__main__":` block. `__init__.py`
   is empty or a one-line docstring.
 - Notebooks are optional, numbered (`01_exploration.ipynb`), and only call the
@@ -457,7 +463,9 @@ def fit_all(matrix, return_flags=False):
   spine, Type 42 fonts in an EPS), `bars_grey`, `draw_plane` (one coronal
   plane in a panel: the atlas dark grey under the data, borders on top), the
   save function and `tidy` for the axes. The figure functions of the ISH
-  analysis are in `mapping/sepmap/ish/plotting.py`.
+  analysis are in `mapping/sepmap/ish/plotting.py`, those of the adult map
+  (part 1 of the ISH line, the green channel and the working figures of steps
+  22 to 25) in `mapping/sepmap/adult/plotting.py`.
 - The save function closes the figure after `fig.savefig(save, dpi=150,
   bbox_inches="tight")`; new figures use its dpi, existing ones keep theirs.
   The route's `plotting.save_figure(fig, path, dpi)` writes the PNG and, by

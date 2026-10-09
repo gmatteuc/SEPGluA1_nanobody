@@ -9,11 +9,10 @@ map as the corroboration. Each step has its method, figure, result and meaning;
 then the controls, the limit, April's headline, how to rerun it and the files.
 
 The line was built on 8 October 2026 from the decisions of the ISH discussion
-([history/ISH_DISCUSSION.md](history/ISH_DISCUSSION.md), section 8), revised the
-same day after three reviews (statistics, figures, facts), and run again on 9
-October with part 1's main model and the tests named for its leftover, both fixed
-on 8 October before they were run (section 8 says what was known by then); three
-more reviews of that run followed on 9 October, and their corrections are in.
+([history/ISH_DISCUSSION.md](history/ISH_DISCUSSION.md), section 8), and run
+again on 9 October with part 1's main model and the tests named for its leftover,
+both fixed on 8 October before they were run (section 8.1 says what was known by
+then).
 
 - Code: `mapping/sepmap/structures.py`, `mapping/sepmap/adult/` and
   `mapping/sepmap/ish/`, run by steps 13 to 29 of the Python route
@@ -1014,7 +1013,9 @@ asks it again on sets fixed in advance.
 | tests | one ANOVA over genes | a spatial null for every rho, the gap, the sets, the contrasts and the leftover |
 | controls | none | autofluorescence through the same chain, robustness, positive controls, a power check, a measured synapse density |
 
-## 8. Points to settle
+## 8. Fixed in advance, and what is left to settle
+
+### 8.1 Fixed in advance, and what was known then
 
 - **The rebuild of part 1, its rules fixed first (8 October).** Written down
   and committed before it was run (what was known by then: each term's share
@@ -1054,6 +1055,9 @@ asks it again on sets fixed in advance.
   leftover ran the same day (section 5.7): Cacng8 follows it (p 0.0002); the
   family passes against the surrogates only at the edge (p 0.047, 0.050 without
   Cacng8), not against matched controls (p 0.55).
+
+### 8.2 To settle
+
 - **What a gene takes of the leftover.** Two nulls (section 5.3): plain
   surrogates of the gene, the null this step was first given and a wide one,
   and maps that relate to the model as the gene does, added after the first's
@@ -1091,10 +1095,6 @@ asks it again on sets fixed in advance.
 - **The production run.** The outputs quoted here were made on a full copy of
   the production inputs; steps 13 to 29 run on the production data root after
   the merge.
-
-Settled on 9 October: `adult/arms.py`, `ish/arms.py` and their run scripts
-moved to `archive/` (see its README); nothing in `mapping/` imports them, and
-`sep_channel_check` (analysis 5) stays.
 
 ## 9. How to rerun
 
@@ -1140,10 +1140,8 @@ read), `[spatial_null]`, `[beyond]`, `[beyond_controls]`, `[beyond_calibration]`
 
 The outputs of 5 October in `adult_v2\ish\`, `arms\`, `beyond\` and `panel\`
 are frozen; nothing here writes there but steps 11 and 12 (`panel\`). The run
-scripts that still write into them (`run_ish_regions`, `run_ish_compare`,
-`run_ish_words`, `run_ish_roles`, `run_ish_reliability`, `run_ish_panel_test`)
-are out of the run order and move to `archive/` next; `run_ish_arms` and
-`run_adult_arms` are there already.
+scripts that still write into them are out of the run order
+([mapping/README.md](../mapping/README.md) lists them).
 
 ## 10. Files
 

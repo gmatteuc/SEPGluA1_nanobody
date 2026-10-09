@@ -20,7 +20,8 @@ mapping/
   sepmap/               the package the run scripts call
     config.py           the data root (SEP_DATA_ROOT and its guards), the settings, the cohort table
     plotting.py         the palette, the style, the colormaps, the save function, the coronal drawing
-    structures.py       the declared structure set (A1), its zref, one-hemisphere centroids
+    structures.py       the declared structure set, its zref, one-hemisphere centroids;
+                        the folders of the ISH line's outputs
     hemispheres.py      the two hemispheres of a volume folded onto one (volumes, young_vs_adult)
     diagnostics.py      the sheets that audit each step
     volumes/            per_mouse, to_ccf, cohort: per-brain volumes, the adult CCF, cohort means
@@ -29,10 +30,17 @@ mapping/
     adult/              profiles (per adult and structure, the channels and zref),
                         synaptome (the measured synapse density, Zhu 2018),
                         beyond_density, beyond_controls, beyond_calibration,
-                        beyond_regression, beyond_figures, sep_channel_check
-    ish/                panel_build, panel_fetch, regions, reliability (the inputs);
+                        beyond_regression, beyond_figures, sep_channel_check;
+                        plotting (their figures, the guided ones of part 1 and
+                        analysis 5 and the working ones)
+    ish/                panel_build, panel_fetch, regions, reliability (the inputs,
+                        regions and reliability used by gene_table; their run
+                        scripts belong to the run of 5 October);
                         section_qc, gene_table, spatial_null, gene_ranking, robustness,
-                        divisions, gene_sets, top_genes, overview (the ISH analysis);
+                        divisions, gene_sets, top_genes, april_headline, overview
+                        (the ISH analysis); numbers (each step's numbers for the
+                        text), figure_index (the guided figures' numbers and
+                        questions), planes (the coronal images a figure shows),
                         plotting (its figures); compare, words, roles, panel_test
                         (the run of 5 October, retiring)
 ```
@@ -72,8 +80,8 @@ mapping/
 | ISH inputs | 13 `run_structure_set`, 14 `run_ish_section_qc`, 15 `run_ish_gene_table`, 16 `run_ish_spatial_null` | the declared structures and the adult profiles (A1); section QC of every experiment (A2); one gene table, merged profiles, gene sets, documentation (A9); surrogate maps with the map's smoothness (A7) |
 | the genes against the map | 17 `run_ish_gene_ranking`, 18 `run_ish_robustness`, 19 `run_ish_divisions`, 20 `run_ish_gene_sets` | each gene against the map and the autofluorescence map, with the null (A8); the ranking under other choices (A3); between or within divisions (A6); gene sets and localisation against matched controls |
 | the measured synapse density | 21 `run_synaptome` | fetches the PSD95 and SAP102 punctum densities of Zhu et al. 2018 as Hansen et al. share them, from their repository at a pinned commit (network, once; `--offline` stops instead), into `<data>\reference\synaptome\`; places the samples in the CCF structures; how much of the declared set and of analysis 4's fit the PSD95 density covers, and how it agrees with the mRNA density terms, Gria1 and the map |
-| beyond Gria1 expression and synapse density | 22 `run_beyond_density`, 23 `run_beyond_controls`, 24 `run_beyond_calibration`, 25 `run_beyond_regression`, 26 `run_beyond_figures` | how much of the map the main model of 8 October (Gria1, synapse density, autofluorescence) predicts, and the genes against what it leaves; seven controls, and the leftover under other folds, structures and the check rows of `[beyond.variants]` (PSD95 or SAP102 puncta, the four subunits); the same model on maps whose answer is known, and the nano map against them on the same structures; the regression per structure; the figures of part 1 |
-| the genes that follow the map | 27 `run_ish_top_genes` | the genes past the map's null, Gria1, Cacng8 and the AMPA receptor complex family described on every axis of the ISH line, each added to the main model against maps of its smoothness; the tests named on 8 October for the leftover (Cacng8, then the family as a group and gene by gene); per-gene sheets |
+| beyond Gria1 expression and synapse density | 22 `run_beyond_density`, 23 `run_beyond_controls`, 24 `run_beyond_calibration`, 25 `run_beyond_regression`, 26 `run_beyond_figures` | how much of the map the main model (Gria1, synapse density, autofluorescence; `[beyond]`) predicts, and the genes against what it leaves; seven controls, and the leftover under other folds, structures and the check rows of `[beyond.variants]` (PSD95 or SAP102 puncta, the four subunits); the same model on maps whose answer is known, and the nano map against them on the same structures; the regression per structure; the figures of part 1 |
+| the genes that follow the map | 27 `run_ish_top_genes` | the genes past the map's null, Gria1, Cacng8 and the AMPA receptor complex family described on every axis of the ISH line, each added to the main model against maps of its smoothness; the tests named in advance for the leftover (Cacng8, then the family as a group and gene by gene; `ish/gene_sets.py`); per-gene sheets |
 | the green channel, the overview | 28 `run_sep_channel_check`, 29 `run_ish_overview` | what the green channel reports; April's headline, the numbers for the text, the overview and the index of the figures |
 
 What fixes the order: step 5's `region_means_per_mouse.csv` is read by steps
@@ -91,9 +99,9 @@ full run the plasticity chain comes first. The scripts of the ISH run of 5
 October (`run_ish_regions`, `run_ish_compare`, `run_ish_words`,
 `run_ish_roles`, `run_ish_reliability`, `run_ish_panel_test`) are out of the run
 order: they write the frozen folder `adult_v2\ish\`, and move to `archive/`
-next. `run_ish_arms` and `run_adult_arms` are in `../archive/` already (9
-October): the green channel is mostly autofluorescence, so the channel ratios
-they tested against the genes have no premise.
+next. `run_ish_arms` and `run_adult_arms` are in `../archive/` already: the
+green channel is mostly autofluorescence, so the channel ratios they tested
+against the genes have no premise.
 
 ## Assumptions and preprocessing
 
@@ -134,14 +142,13 @@ they tested against the genes have no premise.
   gene, each gene set fixed in advance and the localisation genes against the
   map, with a spatial null of surrogate maps, between and within divisions,
   and on the autofluorescence map, and the genes that follow the map most
-  described one by one, with the tests named on 8 October for what the main
+  described one by one, with the tests named in advance for what the main
   model leaves (part 2); what the green channel reports.
   Synapse density is also measured, not only read from mRNA: PSD95 puncta per
   structure in one adult mouse (Zhu et al. 2018), placed in the CCF structures
-  by Allen id (`run_synaptome`). They cover 77 of the 126 structures of the
-  fit, under the 80% the rule of 8 October asks, so the main model keeps the
-  mRNA terms and PSD95 is a check row. Method, figures and results:
-  `../docs/ISH_ANALYSIS.md`.
+  by Allen id (`run_synaptome`); whether it enters the main model is the rule
+  of `[beyond] min_psd95_coverage` (Known limitations). Method, figures and
+  results: `../docs/ISH_ANALYSIS.md`.
 - The results and what they mean: `../docs/SCIENTIFIC_CONTEXT.md`.
 
 ## Outputs
@@ -211,8 +218,10 @@ the ISH tables, the API answers and the grids.
 - The calibration floor of part 1 errs low: a gene measured by one Allen
   experiment is the same in both halves, so its mismatch is not in it.
 - The measured synapse density is one adult mouse, sampled in a few coronal
-  sections: it covers 77 of the 126 structures of part 1's fit and 96 of the
-  204 declared ones (8 October), and a region the source gives only above
+  sections: it covers 77 of the 126 structures of part 1's fit, under the 80%
+  that `[beyond] min_psd95_coverage` asks, so the main model keeps the mRNA
+  terms and PSD95 is a check row, and 96 of the 204 declared ones; a region the
+  source gives only above
   several structures (PTLp, the midbrain's motor part) is never spread onto
   them. As shared, each of its 37 punctum subtypes is scaled to 0..1, so the
   PSD95 density is a mean of subtype maps, not a count of puncta.

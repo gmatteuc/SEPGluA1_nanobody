@@ -197,8 +197,8 @@ October 2026 before it was run (each term alone and the four-subunit model were
 known from the first run that day): Gria1 mRNA as abundance (the stained protein
 is GluA1, which Gria1 alone encodes; Gria2 to Gria4 make partners the
 nanobody does not see, whose availability sets GluA1's assembly and
-trafficking), synapse density, and the cohort's own autofluorescence. Synapse density was to be the measured PSD95
-punctum density (Zhu et al. 2018) if it covered 80% of the structures; it
+trafficking), synapse density, and the cohort's own autofluorescence. Synapse
+density was to be the measured PSD95 punctum density (Zhu et al. 2018) if it covered 80% of the structures; it
 covers 77 of 126, so the main model keeps the mRNA density terms (11 marker
 genes and the first principal component of 186 postsynaptic-density genes),
 and PSD95 is a check row. Over the 126 grey-matter structures, each predictor
@@ -627,8 +627,8 @@ expression in the adult mouse brain. *Nature* 445:168-176. `Lein_2007.pdf`
   grid, downloaded per experiment. Each experiment is one mouse, and it
   measures mRNA, not protein. Hence the reliability of each map was measured
   (median 0.69 over 222 genes with repeats), and a leftover cannot be read as
-  a measurement of the surface fraction. The ISH mice are younger than our adults (P56,
-  against well above P60).
+  a measurement of the surface fraction. The ISH mice are younger than our
+  adults (P56, against well above P60).
 
 **Fulcher BD, Arnatkeviciute A, Fornito A (2021).** Overcoming false-positive
 gene-category enrichment in the analysis of spatially resolved transcriptomic

@@ -37,6 +37,6 @@ Deleted on 5 October, and still at the tag `refactor-start`:
   creates that folder as soon as it is imported.
 - `extractAxioscanImages.m` writes an `extracted_cy3\` folder next to the
   `.czi` files it reads: run on a raw folder, it writes beside the raw data.
-- The four arms files import `sepmap.adult.arms` and `sepmap.ish.arms`, which
-  are no longer in the package, so they fail at once; restored, they would
-  overwrite `<data>\adult_v2\arms\`, the frozen run of 5 October.
+- The two arms run scripts import `sepmap.adult.arms` and `sepmap.ish.arms`,
+  which are no longer in the package, so they fail at once; restored, the four
+  files would overwrite `<data>\adult_v2\arms\`, the frozen run of 5 October.
