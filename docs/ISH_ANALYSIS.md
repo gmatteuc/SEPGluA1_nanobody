@@ -818,15 +818,18 @@ The leftover's own smoothness is 0.636.
 - Beside Cacng8, the members of the highest rho with the leftover are Lrrtm4
   (+0.314, p 0.074), Vwc2l (+0.252), Shisa6 (+0.210) and Cpt1c (+0.193); after
   Cacng8, Abhd12 (p 0.013) and Dlg3 (p 0.036) have the smallest p, q 0.21 and
-  0.33 within the family. The partner subunits sit near zero or below (Gria2 -0.064, Gria3
-  +0.062, Gria4 -0.105).
+  0.33 within the family. The partner subunits sit near zero or below (Gria2
+  -0.064, Gria3 +0.062, Gria4 -0.105).
 - Over every gene the highest rho is Aldh1l1's, an astrocyte gene (+0.321, p
   0.20, q 0.80). The glia set has median +0.164 (p 0.043, q 0.19), localisation
-  +0.048 (p 0.116). In the family, Cnih2's two Allen experiments disagree
-  (reliability 0.08), so its place on the map and against the leftover is weak.
-- Added to the main model, Cacng8 takes 4.6% of the reproducible map (28.6%
-  left, 24.0% with it): more than 95% of maps alike to the model take (p
-  0.009), not more than 95% of its plain surrogates (p 0.059; section 5.3).
+  +0.048 (p 0.116). In the family, the two Allen experiments of Cnih2 and of
+  Cacng4 disagree (reliability 0.08 and 0.20), so their place on the map and
+  against the leftover is weak; Lrrtm4, the member of the highest rho, has a
+  single experiment.
+- Added to the main model, Cacng8 takes 4.6 points of the reproducible map
+  (28.6% left, 24.0% with it): more than 95% of maps alike to the model take (p
+  0.009, a null added after the first was seen), not more than 95% of its plain
+  surrogates (p 0.059; section 5.3).
 
 **What it means.** The gene named for the leftover, a TARP, follows what Gria1
 and synapse density leave, beyond the leftover's own null and under every
