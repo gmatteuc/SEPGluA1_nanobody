@@ -39,7 +39,7 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                its coverage of the fit; figure 14s1
     22. run_density_markers    the synapse-density genes, chosen by   <- this script
                                PSD95 without the map (network,
-                               once); figure 14s2
+                               once); figure 03s3
     23. run_beyond_density     analysis 4: what Gria1 and synapse
                                density leave; the leftover
     24. run_beyond_controls    seven attempts to break it
@@ -87,7 +87,7 @@ under the data root:
         comparison.csv                each composite's agreement with PSD95, held out
                                       and on the full set
     adult_v2/ish_analysis/tables/numbers_density_markers.csv   the numbers for the text
-    adult_v2/ish_analysis/figures/14s2_density_markers.png     the choice (and .eps)
+    adult_v2/ish_analysis/figures/03s3_density_markers.png     the choice (and .eps)
 
     python run_density_markers.py [--offline]
 
@@ -234,7 +234,8 @@ def main(offline):
     )
     numbers.to_csv(density_markers.NUMBERS, index=False)
 
-    # figure 14s2
+    # figure 03s3, with the genes left out grouped by their first reason
+    reasons = density_markers.exclusion_reasons(excluded)
     fig = adult_plotting.plot_density_markers(
         agreement,
         density_markers.composite_on(chosen, profiles, measured),
@@ -242,12 +243,16 @@ def main(offline):
         ish_plotting.group_of(set_table),
         selection,
         comparison,
+        reasons,
         DENSITY_MARKERS["n_halves"],
         density_markers.GO_RELEASE,
         save=figure_path("density_markers"),
     )
     plt.close(fig)
-    print(f"figure: {figure_path('density_markers')}")
+    print(
+        f"figure: {figure_path('density_markers')}; {len(reasons)} reasons for the "
+        f"{int(reasons['n_genes'].sum())} genes left out"
+    )
 
     # the genes chosen against those the model reads
     density_markers.check_chosen(chosen)

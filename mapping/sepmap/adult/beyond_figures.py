@@ -8,12 +8,14 @@ adult.plotting draw the figures of part 1:
 
     03   what Gria1 and synapse density predict of the map: the map against the
          main model's prediction, the reproducible map in four parts (Gria1 only,
-         shared, density only, left) with the leftover's range, the leftover beside
-         the calibration floor, its replication
-    03s1 the same in detail: the map against each term, every model's share, the
-         four parts with their intervals and the weights, the calibration, the
-         replication, the main model under other folds and every check row with
-         its own floor
+         shared, density only, left) with the leftover's range, nano and the
+         calibration floor on the same structures with their difference, and the
+         density term against the measured PSD95 density that chose its genes
+         (adult.density_markers)
+    03s1 the check rows and the main model under other folds, each with what it
+         leaves and nano minus its own floor; then the map against each term,
+         every model's share, the four parts with their intervals and the
+         weights, the calibration and the replication
     03s2 the seven controls of adult.beyond_controls, one panel each
     04   where the leftover lives: map, prediction and leftover on three coronal
          planes, and the structures with the largest leftovers
@@ -21,7 +23,8 @@ adult.plotting draw the figures of part 1:
          the leftover's spatial null
     14   the measured synapse density: how much of the fit it covers, against the
          density term, and in the model in its place, each with its own floor (step
-         21 draws its detailed version)
+         21 draws its detailed version, step 22 figure 03s3, the choice of the
+         density genes)
 
 The leftover and the floor are compared on the same structures, the calibration's,
 and their difference is resampled with them (beyond_calibration.paired_jackknife);
@@ -57,6 +60,7 @@ from sepmap.adult import (
     beyond_checks,
     beyond_density,
     beyond_regression,
+    density_markers,
     synaptome,
 )
 from sepmap.adult import plotting as adult_plotting
@@ -782,8 +786,9 @@ def draw_beyond(
 ) -> None:
     """Draw figure 03 and its detailed versions 03s1 and 03s2.
 
-    The map against its predictors, the partition, the floor, the replication, the
-    check rows, and the seven controls.
+    The map against its predictors, the partition, the floor, the density term
+    against the measured synapse density, the check rows, the replication, and the
+    seven controls (03s3, the choice of the density genes, is step 22's).
     """
     s = inputs.structures
     y = beyond_density.full_map(inputs.nano)
@@ -797,16 +802,23 @@ def draw_beyond(
         acronyms=[inputs.acronym.get(x, "") for x in s],
         numbers=numbers,
         calibration=tables["calibration"],
-        replication=tables["replication"],
     )
-    fig = adult_plotting.plot_beyond(**shared, save=figure_path("beyond"))
+    fig = adult_plotting.plot_beyond(
+        **shared,
+        markers=density_markers.load_validation(),
+        structure_groups=groups,
+        save=figure_path("beyond"),
+    )
     plt.close(fig)
     terms = {
         "Gria1": covariates[beyond_density.ABUNDANCE[0]],
         "density": covariates["density"],
     }
     fig = adult_plotting.plot_beyond_budget(
-        terms=terms, **shared, save=figure_path("beyond_budget")
+        terms=terms,
+        replication=tables["replication"],
+        **shared,
+        save=figure_path("beyond_budget"),
     )
     plt.close(fig)
     fig = adult_plotting.plot_beyond_controls(

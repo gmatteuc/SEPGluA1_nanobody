@@ -39,7 +39,7 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                its coverage of the fit; figure 14s1
     22. run_density_markers    the synapse-density genes, chosen by
                                PSD95 without the map (network,
-                               once); figure 14s2
+                               once); figure 03s3
     23. run_beyond_density     analysis 4: what Gria1 and synapse
                                density leave; the leftover
     24. run_beyond_controls    seven attempts to break it

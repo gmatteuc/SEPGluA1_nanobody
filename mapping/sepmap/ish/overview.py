@@ -228,7 +228,10 @@ def input_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
             "and where it stands; the limit; and the map of the figures.",
             f"Part 1: Gria1 and synapse density predict {pct(n, 'beyond.share_model')} "
             f"of the map's reproducible pattern and leave {pct(n, 'beyond.left')} "
-            f"({pct(n, 'beyond.left_lo')} to {pct(n, 'beyond.left_hi')}). Part 2: "
+            f"({pct(n, 'beyond.left_lo')} to {pct(n, 'beyond.left_hi')}), nano minus "
+            f"the floor {points_with_interval(n, 'beyond.nano_minus_floor')}; "
+            "synapse density follows measured PSD95 puncta at "
+            f"{num(n, 'density_markers.chosen_held_out'):.2f} held out. Part 2: "
             f"Cacng8 follows the map at {num(n, 'top_genes.rho_Cacng8'):+.2f} and what "
             f"the model leaves at p {num(n, 'top_genes.leftover_p_Cacng8'):.4f}.",
         ),
@@ -313,12 +316,13 @@ def beyond_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
             "reproducible map in four parts, what only Gria1 predicts, what the two "
             "share, what only synapse density predicts and what is left, with its "
             "interval; C, what the same model leaves of nano and of a map made only of "
-            "Gria1 and synapse density (the floor); D, one half of the cohort's "
-            "leftover against the other's, over every split. Synapse density is the "
-            f"mean rank of {genes}, postsynaptic genes chosen by their agreement with "
-            f"PSD95 punctum density without the map ({figure_ref('density_markers')}). "
-            f"The seven controls are in {figure_ref('beyond_controls')}, the check rows "
-            f"in {figure_ref('beyond_budget')}.",
+            "Gria1 and synapse density (the floor) on the same structures, and their "
+            "difference with its interval; D, the density term against the measured "
+            f"PSD95 punctum density. Synapse density is the mean rank of {genes}, "
+            "postsynaptic genes chosen by their agreement with PSD95 punctum density "
+            f"without the map ({figure_ref('density_markers')}). The check rows are in "
+            f"{figure_ref('beyond_budget')}, the seven controls in "
+            f"{figure_ref('beyond_controls')}.",
             f"On {n['beyond.structures']} structures (left out, {lost_text(n)}), Gria1 "
             f"mRNA alone predicts {pct(n, 'beyond.share_abundance')} of the map's "
             "reproducible pattern, synapse density alone "
@@ -334,7 +338,15 @@ def beyond_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
             f"{n['beyond.calibration_structures']} structures of the calibration, nano "
             f"leaves {pct(n, 'beyond.nano_calibration_left')}, the floor "
             f"{pct(n, 'beyond.floor')}: nano minus the floor "
-            f"{points_with_interval(n, 'beyond.nano_minus_floor')}. " + checks_text(n),
+            f"{points_with_interval(n, 'beyond.nano_minus_floor')}. "
+            + checks_text(n)
+            + " The density genes follow measured PSD95 puncta at "
+            f"{num(n, 'density_markers.chosen_held_out'):.2f} on held-out structures "
+            f"({num(n, 'density_markers.chosen_held_out_lo'):.2f} to "
+            f"{num(n, 'density_markers.chosen_held_out_hi'):.2f} over "
+            "random halves; on the full set "
+            f"{num(n, 'density_markers.chosen_full_set'):.2f}, optimistic), Dlg4, Homer1 "
+            f"and Camk2a at {num(n, 'density_markers.first_proposal_held_out'):.2f}.",
         ),
         "beyond_where": (
             "A, the map, the prediction and the leftover on three planes (red above "
@@ -902,10 +914,15 @@ def figure_index(n: dict[str, str]) -> str:
                 lines.append(f"- [{FIGURE_NUMBERS[detail]}]({other}) in detail: {adds}.")
             if details:
                 lines.append("")
-            lines.append(
-                f"Drawn by `{DRAWN_BY[key]}`; every figure also as an EPS of the same "
-                "name.\n"
-            )
+            others = [
+                f"{FIGURE_NUMBERS[d]} by `{DRAWN_BY[d]}`"
+                for d, _ in details
+                if DRAWN_BY[d] != DRAWN_BY[key]
+            ]
+            drawn = f"Drawn by `{DRAWN_BY[key]}`"
+            if others:
+                drawn += f" ({', '.join(others)})"
+            lines.append(f"{drawn}; every figure also as an EPS of the same name.\n")
     lines.append(index_tail())
     return "\n".join(lines)
 
@@ -913,34 +930,50 @@ def figure_index(n: dict[str, str]) -> str:
 # ===== The overview figure =====
 
 
+def checks_above_floor(n: dict[str, str]) -> tuple[int, int]:
+    """Part 1's check rows whose nano minus their floor stays above zero, and all."""
+    prefix, suffix = "beyond.check_nano_minus_floor_", "_lo"
+    lows = [
+        float(value)
+        for key, value in n.items()
+        if key.startswith(prefix) and key.endswith(suffix)
+    ]
+    return sum(1 for lo in lows if lo > 0), len(lows)
+
+
 def part1_content(n: dict[str, str]) -> dict:
     """The box of part 1: its claim, three key numbers, where it stands."""
+    above, rows = checks_above_floor(n)
+    genes = ", ".join(n["beyond.main_density_genes"].split())
     return dict(
         part="part 1",
         claim="Part 1. The map is not fully explained by Gria1 expression and "
         "synapse density: a reproducible part is left over",
         numbers=[
             (
-                pct(n, "beyond.share_model"),
-                "of the map's reproducible pattern is predicted by Gria1 and synapse "
-                "density, on structures the fit has not seen (Gria1 alone "
-                f"{pct(n, 'beyond.share_abundance')}) "
+                f"{pct(n, 'beyond.left')} left",
+                "of the map's reproducible pattern, on structures the fit has not "
+                f"seen ({pct(n, 'beyond.left_lo')} to {pct(n, 'beyond.left_hi')}); "
+                f"Gria1 and synapse density predict {pct(n, 'beyond.share_model')}, "
+                f"Gria1 alone {pct(n, 'beyond.share_abundance')} "
                 f"({figure_ref('beyond')})",
             ),
             (
-                f"{pct(n, 'beyond.left')} left",
-                f"{pct(n, 'beyond.left_lo')} to {pct(n, 'beyond.left_hi')} over "
-                "structures; the two halves of the cohort leave the same leftover "
-                f"(rho {num(n, 'beyond.replication_leftover'):.2f})",
+                f"{100 * num(n, 'beyond.nano_minus_floor'):+.0f} points",
+                "above what Allen-to-Allen mismatch alone leaves (the floor, "
+                f"{pct(n, 'beyond.floor')}; nano {pct(n, 'beyond.nano_calibration_left')}"
+                f" on the same {n['beyond.calibration_structures']} structures), 95% "
+                f"{100 * num(n, 'beyond.nano_minus_floor_lo'):+.0f} to "
+                f"{100 * num(n, 'beyond.nano_minus_floor_hi'):+.0f}; {above} of {rows} "
+                f"check rows above their own floor ({figure_ref('beyond_budget')})",
             ),
             (
-                f"{pct(n, 'beyond.nano_calibration_left')} vs {pct(n, 'beyond.floor')}",
-                f"on the {n['beyond.calibration_structures']} structures of the "
-                "calibration, what the model leaves of nano, and of a map made only of "
-                "Gria1 and density (the floor): nano minus it "
-                f"{points_with_interval(n, 'beyond.nano_minus_floor')}; curved, against "
-                "its own floor, "
-                f"{points_with_interval(n, 'beyond.check_nano_minus_floor_curved')}",
+                f"{num(n, 'density_markers.chosen_held_out'):.2f}",
+                f"synapse density is {genes}, chosen without the map: they follow "
+                "measured PSD95 puncta on held-out structures (95% "
+                f"{num(n, 'density_markers.chosen_held_out_lo'):.2f} to "
+                f"{num(n, 'density_markers.chosen_held_out_hi'):.2f}; figures "
+                f"{FIGURE_NUMBERS['beyond']} D, {FIGURE_NUMBERS['density_markers']})",
             ),
         ],
         stands=part1_verdict(n),

@@ -27,6 +27,7 @@ FIGURE_NUMBERS = {
     "beyond": "03",
     "beyond_budget": "03s1",
     "beyond_controls": "03s2",
+    "density_markers": "03s3",
     "beyond_where": "04",
     "one_comparison": "05",
     "one_comparison_detail": "05s",
@@ -49,7 +50,6 @@ FIGURE_NUMBERS = {
     "robustness_detail": "13s",
     "synaptome": "14",
     "synaptome_detail": "14s1",
-    "density_markers": "14s2",
     "green_channel": "15",
     "green_channel_detail": "15s",
     "april_headline": "16",
@@ -65,8 +65,8 @@ QUESTIONS = {
     "genes_detail": "The genes in detail: experiments, section QC, reliability, what "
     "was left out",
     "beyond": "Do Gria1 expression and synapse density explain the map?",
-    "beyond_budget": "Part 1 in detail: each term, the partition, the calibration, "
-    "the check rows with their floors",
+    "beyond_budget": "Part 1's check rows, each against its own floor, and the main "
+    "model in detail",
     "beyond_controls": "Part 1's seven controls: could the leftover be an artefact?",
     "beyond_where": "Where does the map sit above or below what they predict?",
     "one_comparison": "What is a gene's rho with the map?",
@@ -100,7 +100,7 @@ QUESTIONS = {
     "synaptome": "Does a measured synapse density change part 1?",
     "synaptome_detail": "The measured synapse density in detail: coverage, the two "
     "hemispheres, agreement with every map",
-    "density_markers": "Which genes stand for synapse density, chosen without the map?",
+    "density_markers": "How the synapse-density genes were chosen, without the map",
     "green_channel": "Does the green channel report the tagged receptor, or the tissue?",
     "green_channel_detail": "The three channels in detail: one adult's raw planes, each "
     "channel against Gria1",
@@ -151,14 +151,22 @@ SUPPLEMENTS = {
     "beyond": (
         (
             "beyond_budget",
-            "the map against each term, every model's share, the four parts with "
-            "their intervals and the weights, every draw of the calibration, and the "
-            "main model under other folds and every check row, each with its own floor",
+            "the check rows and the main model under other folds, what each leaves "
+            "and nano minus its own floor; the map against each term, every model's "
+            "share, the four parts with their intervals and the weights, every draw "
+            "of the calibration, and the leftover half against half",
         ),
         (
             "beyond_controls",
             "the seven controls, one panel each: a gradient, structure size, single "
             "animals, naive against RWS, curvature, the whole gene table, the reading",
+        ),
+        (
+            "density_markers",
+            "the choice of the synapse-density genes without the map: the pool ranked "
+            "by agreement with PSD95 puncta, the AMPA-linked genes left out and why, "
+            "the choice on random halves of the structures, and the held-out agreement "
+            "beside the first proposal, the 11 markers and psd_pc1",
         ),
     ),
     "one_comparison": (
@@ -228,12 +236,6 @@ SUPPLEMENTS = {
             "the two hemispheres of the one mouse, and each density's agreement with "
             "the density term, Gria1 and the maps",
         ),
-        (
-            "density_markers",
-            "the postsynaptic genes of the density term, chosen by their agreement with "
-            "PSD95 puncta without the map, the AMPA-linked genes left out, and the "
-            "choice on random halves of the structures",
-        ),
     ),
     "green_channel": (
         (
@@ -256,6 +258,7 @@ DRAWN_BY = {
     "beyond": "run_beyond_figures.py",
     "beyond_budget": "run_beyond_figures.py",
     "beyond_controls": "run_beyond_figures.py",
+    "density_markers": "run_density_markers.py",
     "beyond_where": "run_beyond_figures.py",
     "one_comparison": "run_ish_gene_ranking.py",
     "one_comparison_detail": "run_ish_gene_ranking.py",
@@ -278,7 +281,6 @@ DRAWN_BY = {
     "robustness_detail": "run_ish_robustness.py",
     "synaptome": "run_beyond_figures.py",
     "synaptome_detail": "run_synaptome.py",
-    "density_markers": "run_density_markers.py",
     "green_channel": "run_sep_channel_check.py",
     "green_channel_detail": "run_sep_channel_check.py",
     "april_headline": "run_ish_overview.py",

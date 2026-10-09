@@ -59,12 +59,13 @@ import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
 
+from sepmap.adult import synaptome
 from sepmap.adult.beyond_density import composite, first_pc
 from sepmap.config import DATA, SETTINGS
 from sepmap.ish import gene_sets, gene_table
 from sepmap.ish.numbers import numbers_frame, numbers_path
 from sepmap.ish.spatial_null import BAND
-from sepmap.structures import ISH_OUT
+from sepmap.structures import ISH_OUT, load_structure_set
 
 # the rule's thresholds, the number of genes and of halves, and the genes it gave; the
 # gene that encodes the stained protein and the voxels a gene value needs; the marker
@@ -519,6 +520,43 @@ def candidate_table(
     return pd.DataFrame(rows), pd.DataFrame(excluded)
 
 
+def exclusion_reasons(excluded: pd.DataFrame) -> pd.DataFrame:
+    """Why the genes that met the rule were left out: one row per reason, its genes.
+
+    A gene counts once, under its first reason in the order subunit, AMPA receptor
+    complex family, localisation set, then the terms of EXCLUSION_TERMS as listed.
+    `excluded` is excluded.csv. Columns: rule, term (the GO id, empty for a set),
+    reason (the set, or the term with its name), n_genes and genes (joined,
+    alphabetical).
+    """
+    eligible = excluded[excluded["eligible"]]
+    order = [(RULE_SUBUNIT, ""), (RULE_FAMILY, ""), (RULE_LOCALISATION, "")]
+    order += [(RULE_GO, term) for term in EXCLUSION_TERMS]
+    first = {}
+    for symbol, rows in eligible.groupby("symbol"):
+        for rule, term in order:
+            hit = (rows["rule"] == rule) & rows["term"].str.startswith(term)
+            if hit.any():
+                first[symbol] = (rule, term)
+                break
+    out = []
+    for rule, term in order:
+        genes = sorted(g for g, reason in first.items() if reason == (rule, term))
+        if not genes:
+            continue
+        reason = f"{term} {EXCLUSION_TERMS[term]}" if term else rule
+        out.append(
+            dict(
+                rule=rule,
+                term=term,
+                reason=reason,
+                n_genes=len(genes),
+                genes=" ".join(genes),
+            )
+        )
+    return pd.DataFrame(out)
+
+
 # ===== The choice =====
 
 
@@ -654,6 +692,29 @@ def psd_pc1_on(
     ]
     pc, _ = first_pc(psd, profiles, structures)
     return pd.Series(pc, index=structures), len(psd)
+
+
+def load_validation() -> dict:
+    """The choice as figure 03 D draws it, from the tables this step wrote.
+
+    The genes chosen; PSD95 punctum density and their mean rank over the declared
+    structures where both exist, those the rule chose on; comparison.csv by
+    composite, and the number of random halves behind it.
+    """
+    agreement = pd.read_csv(AGREEMENT)
+    chosen = chosen_genes(agreement)
+    profiles = gene_table.load_profiles()
+    set_table = load_structure_set()
+    declared = sorted(set_table.loc[set_table["in_set"], "structure"])
+    psd95 = synaptome.load_density()[synaptome.MEASURE]
+    measured = [s for s in declared if np.isfinite(psd95.get(s, np.nan))]
+    return dict(
+        chosen=chosen,
+        psd95=psd95.reindex(measured),
+        composite=composite_on(chosen, profiles, measured),
+        comparison=pd.read_csv(COMPARISON).set_index("composite"),
+        n_halves=int(pd.read_csv(HALVES)["half"].nunique()),
+    )
 
 
 def rho_with(values: pd.Series, psd95: pd.Series) -> tuple[int, float]:

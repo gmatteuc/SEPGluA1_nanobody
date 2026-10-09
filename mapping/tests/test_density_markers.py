@@ -176,6 +176,29 @@ def eligible_table(pool, excluded=()):
     return pd.DataFrame(rows)
 
 
+def test_each_excluded_gene_counts_once_under_its_first_reason():
+    """Subunit before family before GO; a GO-only gene under its first listed term."""
+    first, later = list(dm.EXCLUSION_TERMS)[:2]
+    rows = [
+        ("Gria2", True, dm.RULE_SUBUNIT, "Gria1 to Gria4"),
+        ("Gria2", True, dm.RULE_FAMILY, "Schwenk et al. 2012"),
+        ("Gria2", True, dm.RULE_GO, f"{first} {dm.EXCLUSION_TERMS[first]}"),
+        ("Fam1", True, dm.RULE_FAMILY, "Schwenk et al. 2012"),
+        ("Fam1", True, dm.RULE_GO, f"{later} {dm.EXCLUSION_TERMS[later]}"),
+        ("Go1", True, dm.RULE_GO, f"{later} {dm.EXCLUSION_TERMS[later]}"),
+        ("Go1", True, dm.RULE_GO, f"{first} {dm.EXCLUSION_TERMS[first]}"),
+        ("Go2", True, dm.RULE_GO, f"{later} {dm.EXCLUSION_TERMS[later]}"),
+        ("Rare", False, dm.RULE_GO, f"{first} {dm.EXCLUSION_TERMS[first]}"),
+    ]
+    excluded = pd.DataFrame(rows, columns=["symbol", "eligible", "rule", "term"])
+    reasons = dm.exclusion_reasons(excluded).set_index("reason")
+    assert reasons["n_genes"].sum() == 4
+    assert reasons.loc[dm.RULE_SUBUNIT, "genes"] == "Gria2"
+    assert reasons.loc[dm.RULE_FAMILY, "genes"] == "Fam1"
+    assert reasons.loc[f"{first} {dm.EXCLUSION_TERMS[first]}", "genes"] == "Go1"
+    assert reasons.loc[f"{later} {dm.EXCLUSION_TERMS[later]}", "genes"] == "Go2"
+
+
 def test_the_choice_takes_the_pool_genes_highest_with_psd95():
     """An excluded gene above them all is passed over; the next three are chosen."""
     noise = dict(A=0.1, B=3.0, C=6.0, D=9.0, E=40.0)
