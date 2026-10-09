@@ -12,6 +12,7 @@ function per_mouse_region_values(run_settings)
 %     Per_Mouse_Stats_<tag>.csv    one row per value: group means and SEMs, the
 %                                  exact permutation p, Welch t, Hedges g
 %     Per_Mouse_LOO_<tag>.csv      one row per leave-one-out fold
+%     Per_Mouse_LOO_<tag>.mat      the folds' clusters, voxel by voxel
 %     Per_Mouse_Values_<tag>       the figure, .fig and .png
 %     Per_Mouse_Maps_<tag>.mat     the cache of each mouse's maps (see below)
 %
@@ -25,19 +26,20 @@ function per_mouse_region_values(run_settings)
 %     ai_raw       the same on the collected stack, the mouse's off-tissue
 %                  level subtracted first and the same smoothing, so it
 %                  depends on neither the normalisation nor the alignment
-%     signed       mean (L - R) over mean (L + R), test maps: positive where the
-%                  left hemisphere is higher (signed_raw, the same on the raw)
 %     sum_rel      mean (L + R) in the region over its mean over the isocortex
 %                  (every isocortical area of the bars), test maps
 %     sum_rel_raw  the same on the raw stack
+%   No signed value: which hemisphere is left is not certain for every brain,
+%   so the stimulated side is not known mouse by mouse, and L - R would carry
+%   an arbitrary sign; the test takes |L - R| and L + R for the same reason.
 %   The off-tissue level is the median of the raw stack over the mouse's
 %   background voxels (run_normalise_groups' mask) outside the atlas brain that
 %   a section reached: the slide around the section, about 500. The alignment
 %   is a line, so a region's means on the aligned maps follow from its means
 %   before it: mean |L - R| times the slope, mean (L + R) times the slope plus
 %   twice the intercept, both over the common factor, which cancels in every
-%   ratio. Its intercept enters the experimental mice's L + R, and so their ai,
-%   signed and sum_rel: the raw values have no such term.
+%   ratio. Its intercept enters the experimental mice's L + R, and so their ai
+%   and sum_rel: the raw values have no such term.
 %
 %   Leave-one-out: each mouse in turn is left out, and the comparison is done
 %   again on the others as the test does it (the alignment refitted on their
@@ -55,9 +57,10 @@ function per_mouse_region_values(run_settings)
 %   Statistics, per value, over the mice with a value: the exact permutation p
 %   of the difference of the group means (experimental minus control), over
 %   every split of the pooled mice into groups of the observed sizes (252 for 5
-%   and 5), the observed one included; two-sided, and one-sided in the
-%   direction the experiment names (experimental higher), except for the signed
-%   values, whose side is not named; the Welch t for reference; Hedges' g.
+%   and 5), the observed one included; one-sided in the direction named before
+%   the experiment (experimental higher: RWS potentiates the stimulated
+%   barrels' synapses and brings AMPA receptors to their surface), and
+%   two-sided beside it; the Welch t for reference; Hedges' g.
 %
 %   The maps are cached: each mouse's region sums and the box around loo_region
 %   that the leave-one-out reads, so the statistics and the figure can be redone
@@ -187,6 +190,15 @@ T_mice.loo_ai_raw = loo.ai_raw;
 T_mice.loo_coverage = loo.coverage;
 T_mice.loo_cluster_n = loo.cluster_n;
 
+% the folds' clusters, voxel by voxel, with the box they index into, to draw
+% them or to see where they sit
+loo_clusters = loo.cluster_voxels;
+loo_box = struct('box_ap', masks.box_ap, 'box_dv', masks.box_dv, ...
+    'box_ml_left', masks.box_ml_left, 'box_size', masks.box_size, ...
+    'left_out', {T_loo.left_out});
+save(fullfile(comp_out_dir, ['Per_Mouse_LOO_' file_tag '.mat']), 'loo_clusters', ...
+    'loo_box', 'loo_region');
+
 %% Statistics and figure
 
 % the values tested and drawn, in the figure's order
@@ -254,13 +266,13 @@ clear region_vol
 [ap, dv, ml] = ind2sub(size(band), find(band));
 masks.box_ap = min(ap):max(ap);
 masks.box_dv = min(dv):max(dv);
-box_ml_left = min(ml):max(ml);
-masks.box_ml = [box_ml_left, flip(2 * size(band, 3) + 1 - box_ml_left)];
+masks.box_ml_left = min(ml):max(ml);
+masks.box_ml = [masks.box_ml_left, flip(2 * size(band, 3) + 1 - masks.box_ml_left)];
 clear ap dv ml
 
 % the band and the region in the box's folded grid
-band_box = band(masks.box_ap, masks.box_dv, box_ml_left);
-region_box = in_region(masks.box_ap, masks.box_dv, box_ml_left);
+band_box = band(masks.box_ap, masks.box_dv, masks.box_ml_left);
+region_box = in_region(masks.box_ap, masks.box_dv, masks.box_ml_left);
 masks.box_size = size(band_box);
 masks.band_lin = uint32(find(band_box));
 masks.band_in_region = region_box(masks.band_lin);
@@ -420,15 +432,14 @@ end
 
 function sums = region_sums(lr_diff, lr_sum, masks)
 % A mouse's folded maps summed in each region named in advance, over its voxels
-% with a value: their number, the sums of |L - R|, of L - R and of L + R, and
-% the region's voxels; and the number and the sum of L + R in the isocortex.
+% with a value: their number, the sums of |L - R| and of L + R, and the region's
+% voxels; and the number and the sum of L + R in the isocortex.
 
 n_regions = numel(masks.region_lin);
 sums = struct();
 sums.n = zeros(n_regions, 1);
 sums.n_region = zeros(n_regions, 1);
 sums.abs_diff = zeros(n_regions, 1);
-sums.diff = zeros(n_regions, 1);
 sums.sum = zeros(n_regions, 1);
 for r = 1:n_regions
 
@@ -439,7 +450,6 @@ for r = 1:n_regions
     sums.n(r) = nnz(has_value);
     sums.n_region(r) = numel(d);
     sums.abs_diff(r) = sum(abs(d(has_value)), 'double');
-    sums.diff(r) = sum(d(has_value), 'double');
     sums.sum(r) = sum(s(has_value), 'double');
 end
 
@@ -491,25 +501,21 @@ for g = 1:2
 
             % the means on the test's maps: the line, then the common factor
             abs_diff = line_slope * t.abs_diff(r) / t.n(r) / common_factor;
-            signed_diff = line_slope * t.diff(r) / t.n(r) / common_factor;
             lr_sum = (line_slope * t.sum(r) / t.n(r) + 2 * line_intercept) / ...
                 common_factor;
 
             % the means on the raw stack
             abs_diff_raw = w.abs_diff(r) / w.n(r);
-            diff_raw = w.diff(r) / w.n(r);
             lr_sum_raw = w.sum(r) / w.n(r);
 
             row.(['coverage_' tag]) = t.n(r) / t.n_region(r);
             row.(['abs_diff_' tag]) = abs_diff;
             row.(['sum_' tag]) = lr_sum;
             row.(['ai_' tag]) = abs_diff / lr_sum;
-            row.(['signed_' tag]) = signed_diff / lr_sum;
             row.(['sum_rel_' tag]) = lr_sum / iso_sum;
             row.(['abs_diff_raw_' tag]) = abs_diff_raw;
             row.(['sum_raw_' tag]) = lr_sum_raw;
             row.(['ai_raw_' tag]) = abs_diff_raw / lr_sum_raw;
-            row.(['signed_raw_' tag]) = diff_raw / lr_sum_raw;
             row.(['sum_rel_raw_' tag]) = lr_sum_raw / iso_sum_raw;
         end
         rows{end + 1, 1} = row; %#ok<AGROW>
@@ -527,8 +533,9 @@ end
 function [T_loo, loo] = leave_one_out(ctrl_mice, exp_mice, masks, perm_settings, ...
     step3_table, loo_region)
 % Fold 0, the comparison as it is, then each mouse left out in turn, control
-% mice first: the fold's alignment and heaviest positive cluster, and the
-% left-out mouse's ai on the fold's maps and ai_raw in that cluster.
+% mice first: the fold's alignment, its heaviest positive cluster and where it
+% sits, and the left-out mouse's ai on the fold's maps and ai_raw in that
+% cluster; the clusters' voxels, one cell per fold, fold 0 first.
 
 n_ctrl = numel(ctrl_mice.names);
 n_exp = numel(exp_mice.names);
@@ -538,6 +545,7 @@ loo.ai = nan(n_folds, 1);
 loo.ai_raw = nan(n_folds, 1);
 loo.coverage = nan(n_folds, 1);
 loo.cluster_n = zeros(n_folds, 1);
+loo.cluster_voxels = cell(n_folds + 1, 1);
 rows = cell(n_folds + 1, 1);
 full_cluster = [];
 for f = 0:n_folds
@@ -603,14 +611,41 @@ for f = 0:n_folds
     if f >= 1 && isempty(cluster_lin)
         fprintf('  no positive cluster in %s without %s.\n', loo_region, left_out);
     end
+    loo.cluster_voxels{f + 1} = cluster_lin;
+
+    % where the cluster sits, in the planes and voxels of the folded maps
+    place = cluster_place(cluster_lin, masks);
 
     rows{f + 1} = struct('fold', f, 'left_out', left_out, 'left_out_group', ...
         left_group, 'n_ctrl', nnz(keep_ctrl), 'n_exp', nnz(keep_exp), 'slope', slope, ...
         'intercept', intercept, 'cluster_n', cluster.n, 'cluster_mass', cluster.mass, ...
-        'cluster_peak', cluster.peak, 'overlap_with_all_mice', overlap, ...
-        'left_out_ai', ai, 'left_out_ai_raw', ai_raw, 'left_out_coverage', coverage);
+        'cluster_peak', cluster.peak, 'cluster_plane_first', place.plane_first, ...
+        'cluster_plane_last', place.plane_last, 'cluster_centre_plane', ...
+        place.centre(1), 'cluster_centre_dv', place.centre(2), 'cluster_centre_ml', ...
+        place.centre(3), 'overlap_with_all_mice', overlap, 'left_out_ai', ai, ...
+        'left_out_ai_raw', ai_raw, 'left_out_coverage', coverage);
 end
 T_loo = struct2table([rows{:}]', 'AsArray', true);
+end
+
+function place = cluster_place(cluster_lin, masks)
+% A cluster's first and last plane and its centre (plane, DV, ML), in voxels of
+% the folded maps (the planes of the volumes' crop, ML in the left hemisphere);
+% NaN for no cluster.
+
+place = struct('plane_first', NaN, 'plane_last', NaN, 'centre', nan(1, 3));
+if isempty(cluster_lin)
+    return
+end
+
+% from the box's grid back to the folded maps'
+[ap, dv, ml] = ind2sub(masks.box_size, double(cluster_lin));
+ap = ap + masks.box_ap(1) - 1;
+dv = dv + masks.box_dv(1) - 1;
+ml = ml + masks.box_ml_left(1) - 1;
+place.plane_first = min(ap);
+place.plane_last = max(ap);
+place.centre = [mean(ap), mean(dv), mean(ml)];
 end
 
 function [lr_diff, lr_sum] = aligned_lr(box, is_exp, slope, intercept, common_factor)
@@ -714,41 +749,34 @@ end
 
 function values = value_list(regions, loo_region)
 % The values tested and drawn, in the figure's order: per region, the ai and
-% the signed and relative L + R on the test's maps and the raw stack; then the
-% leave-one-out's. Each with its column, its title, its axis label and the
-% direction the experiment names ('greater', or 'none' for a side not named).
+% the relative L + R on the test's maps and the raw stack; then the
+% leave-one-out's. Each with its column, its title and its axis label.
 
-values = struct('name', {}, 'region', {}, 'title', {}, 'label', {}, 'direction', {});
+values = struct('name', {}, 'region', {}, 'title', {}, 'label', {});
 ai_label = 'mean |L - R| / mean (L + R)';
-signed_label = 'mean (L - R) / mean (L + R)';
 sum_label = 'L + R relative to isocortex';
 kinds = {
-    'ai_',          'AI, test maps',                ai_label,     'greater'
-    'ai_raw_',      'AI, raw stack',                ai_label,     'greater'
-    'signed_',      'signed, test maps',            signed_label, 'none'
-    'sum_rel_',     'L + R / isocortex, test maps', sum_label,    'greater'
-    'sum_rel_raw_', 'L + R / isocortex, raw stack', sum_label,    'greater'
+    'ai_',          'AI, test maps',                ai_label
+    'ai_raw_',      'AI, raw stack',                ai_label
+    'sum_rel_',     'L + R / isocortex, test maps', sum_label
+    'sum_rel_raw_', 'L + R / isocortex, raw stack', sum_label
     };
 for r = 1:numel(regions)
     for k = 1:size(kinds, 1)
         values(end + 1) = struct('name', [kinds{k, 1} region_tag(regions{r})], ...
-            'region', regions{r}, 'title', kinds{k, 2}, 'label', kinds{k, 3}, ...
-            'direction', kinds{k, 4}); %#ok<AGROW>
+            'region', regions{r}, 'title', kinds{k, 2}, 'label', kinds{k, 3}); %#ok<AGROW>
     end
 end
 values(end + 1) = struct('name', 'loo_ai', 'region', loo_region, 'title', ...
-    'AI in the leave-one-out cluster, test maps', 'label', ...
-    'mean |L - R| / mean (L + R)', 'direction', 'greater');
+    'AI in the leave-one-out cluster, test maps', 'label', ai_label);
 values(end + 1) = struct('name', 'loo_ai_raw', 'region', loo_region, 'title', ...
-    'AI in the leave-one-out cluster, raw stack', 'label', ...
-    'mean |L - R| / mean (L + R)', 'direction', 'greater');
+    'AI in the leave-one-out cluster, raw stack', 'label', ai_label);
 end
 
 function T_stats = value_statistics(T_mice, values, ctrl_type, exp_type)
 % Per value, over the mice with a value: each group's mean and SEM, the exact
-% permutation p (two-sided, and one-sided for the experimental group higher
-% where the experiment names that direction), the Welch t and Hedges' g, and the
-% mice above zero in each group (the side of a signed value).
+% permutation p (one-sided for the experimental group higher, the direction
+% named before the experiment, and two-sided), the Welch t and Hedges' g.
 
 is_ctrl = strcmp(T_mice.group, ctrl_type);
 rows = cell(numel(values), 1);
@@ -759,9 +787,6 @@ for v = 1:numel(values)
 
     % the permutation p, and the Welch t for reference
     [p_two, p_one, n_splits] = exact_permutation(x_ctrl, x_exp);
-    if strcmp(values(v).direction, 'none')
-        p_one = NaN;
-    end
     [~, p_welch, ~, welch] = ttest2(x_exp, x_ctrl, 'Vartype', 'unequal');
 
     rows{v} = struct('value', values(v).name, 'region', values(v).region, ...
@@ -769,11 +794,9 @@ for v = 1:numel(values)
         'n_ctrl', numel(x_ctrl), 'n_exp', numel(x_exp), 'mean_ctrl', mean(x_ctrl), ...
         'sem_ctrl', std(x_ctrl) / sqrt(numel(x_ctrl)), 'mean_exp', mean(x_exp), ...
         'sem_exp', std(x_exp) / sqrt(numel(x_exp)), ...
-        'difference', mean(x_exp) - mean(x_ctrl), 'p_perm_two_sided', p_two, ...
-        'p_perm_exp_higher', p_one, 'n_splits', n_splits, 'welch_t', welch.tstat, ...
-        'welch_df', welch.df, 'welch_p', p_welch, ...
-        'hedges_g', hedges_g(x_ctrl, x_exp), 'n_ctrl_above_zero', nnz(x_ctrl > 0), ...
-        'n_exp_above_zero', nnz(x_exp > 0));
+        'difference', mean(x_exp) - mean(x_ctrl), 'p_perm_exp_higher', p_one, ...
+        'p_perm_two_sided', p_two, 'n_splits', n_splits, 'welch_t', welch.tstat, ...
+        'welch_df', welch.df, 'welch_p', p_welch, 'hedges_g', hedges_g(x_ctrl, x_exp));
 end
 T_stats = struct2table([rows{:}]', 'AsArray', true);
 end
@@ -831,8 +854,7 @@ fprintf('Leave-one-out folds:\n');
 disp(T_loo);
 fprintf('Group tests:\n');
 disp(T_stats(:, {'value', 'n_ctrl', 'n_exp', 'mean_ctrl', 'mean_exp', ...
-    'p_perm_two_sided', 'p_perm_exp_higher', 'n_splits', 'welch_p', 'hedges_g', ...
-    'n_ctrl_above_zero', 'n_exp_above_zero'}));
+    'p_perm_exp_higher', 'p_perm_two_sided', 'n_splits', 'welch_p', 'hedges_g'}));
 end
 
 % ===== Local functions: figure =====
@@ -844,7 +866,7 @@ function plot_per_mouse_values(T_mice, T_stats, T_loo, values, regions, ctrl_typ
 % leave-one-out's values and the notes.
 
 % a row per region, a column per kind of value; the leave-one-out in the last row
-n_kinds = 5;
+n_kinds = 4;
 n_rows_grid = numel(regions) + 1;
 n_cols_grid = n_kinds;
 n_splits = max(T_stats.n_splits);
@@ -873,17 +895,14 @@ for v = 1:numel(values)
     title(panel_title, 'FontSize', 10, 'Interpreter', 'none');
     subtitle(stat_lines(stat, ctrl_type, exp_type), 'FontSize', 8, 'Interpreter', 'none');
     ylabel(values(v).label, 'FontSize', 9);
-    if strcmp(values(v).direction, 'none')
-        yline(0, ':', 'Color', sep_palette('paired_lines'));
-    end
 end
 
 % the notes, beside the leave-one-out's panels
 subplot(n_rows_grid, n_cols_grid, ...
     [(n_rows_grid - 1) * n_cols_grid + 3, n_rows_grid * n_cols_grid]);
 axis off;
-text(0, 1, notes_lines(T_mice, T_loo, regions), 'Units', 'normalized', ...
-    'VerticalAlignment', 'top', 'FontSize', 9, 'Interpreter', 'none');
+text(0, 1, notes_lines(T_mice, T_loo, regions, exp_type, slope), 'Units', ...
+    'normalized', 'VerticalAlignment', 'top', 'FontSize', 9, 'Interpreter', 'none');
 
 % the title: the comparison, its alignment and its test
 title_line = sprintf('Per-mouse values in the regions named in advance - %s', ...
@@ -968,24 +987,20 @@ label_y(order) = placed;
 end
 
 function lines = stat_lines(stat, ctrl_type, exp_type)
-% The p of a value under its panel's title.
+% The p of a value under its panel's title: the one-sided p of the direction
+% named before the experiment first, the two-sided p beside it.
 
-if isnan(stat.p_perm_exp_higher)
-    first = sprintf('perm p %.3f two-sided; %d of %d %s and %d of %d %s above 0', ...
-        stat.p_perm_two_sided, stat.n_ctrl_above_zero, stat.n_ctrl, ctrl_type, ...
-        stat.n_exp_above_zero, stat.n_exp, exp_type);
-else
-    first = sprintf('perm p %.3f two-sided, %.3f %s > %s', stat.p_perm_two_sided, ...
-        stat.p_perm_exp_higher, exp_type, ctrl_type);
-end
+first = sprintf('perm p %.3f %s > %s, %.3f two-sided', stat.p_perm_exp_higher, ...
+    exp_type, ctrl_type, stat.p_perm_two_sided);
 second = sprintf('Welch p %.3f, Hedges g %.2f, n %d and %d', stat.welch_p, ...
     stat.hedges_g, stat.n_ctrl, stat.n_exp);
 lines = {first, second};
 end
 
-function lines = notes_lines(T_mice, T_loo, regions)
-% The notes beside the leave-one-out's panels: what each value is, the folds
-% without a cluster, and the mice with little of a region.
+function lines = notes_lines(T_mice, T_loo, regions, exp_type, slope)
+% The notes beside the leave-one-out's panels: what each value is, why none is
+% signed, the folds without a cluster, the mice with little of a region, and the
+% comparison's caveat.
 
 lines = {
     'AI: mean |L - R| over mean (L + R) in the region, each mouse over its own voxels.'
@@ -993,8 +1008,9 @@ lines = {
     '  group through the alignment line (its intercept enters L + R).'
     'Raw stack: the collected stack less the mouse''s off-tissue level (median of its'
     '  background voxels outside the atlas brain), smoothed the same way.'
-    'Signed: mean (L - R) over mean (L + R); above 0, the left hemisphere higher.'
     'L + R / isocortex: the region''s mean L + R over the isocortex''s.'
+    'No signed value: left and right are not certain for every brain, so the'
+    '  stimulated side is unknown mouse by mouse (the test too takes |L - R|).'
     'Leave-one-out: each mouse read in the heaviest positive L - R cluster (p < 0.01,'
     '  rolling median, 18-connected) of the comparison redone without it.'
     };
@@ -1015,5 +1031,25 @@ for r = 1:numel(regions)
         lines{end + 1} = sprintf('Less than half of %s: %s', regions{r}, ...
             strjoin(T_mice.mouse(is_low), ', ')); %#ok<AGROW>
     end
+end
+
+% what the comparison itself leaves open
+lines = [lines; comparison_caveat(exp_type, slope)];
+end
+
+function lines = comparison_caveat(exp_type, slope)
+% The caveat of a comparison, for the notes: after behavior, the alignment line
+% is steep, and the broad L + R increase it shows may come from it.
+
+switch exp_type
+    case 'behavior'
+        lines = {
+            sprintf(['Caveat: the line aligning behavior onto naive has slope %.2f; ' ...
+                     'the broad'], slope)
+            '  L + R increase after behavior may come from the normalisation (open in'
+            '  docs/ROADMAP.md). The raw values carry neither the line nor step 2.'
+            };
+    otherwise
+        lines = {};
 end
 end

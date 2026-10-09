@@ -14,18 +14,21 @@
 % smoothed, folded onto the left hemisphere, the experimental group aligned
 % onto the control group), and in each region gets its asymmetry index, mean
 % |L - R| over mean (L + R), on those maps and on its collected stack less its
-% off-tissue level (no normalisation, no alignment); the signed index, for the
-% side of the asymmetry; and its L + R relative to its own isocortex. Then each
-% mouse is left out in turn, the comparison is done again without it as step
-% 3 does it, and the mouse's index is read in the heaviest positive cluster of
-% the barrel field's L - R map that the others give, so no mouse is read in a
+% off-tissue level (no normalisation, no alignment), and its L + R relative to
+% its own isocortex. No signed value: left and right are not certain for every
+% brain, so the stimulated side is not known mouse by mouse. Then each mouse
+% is left out in turn, the comparison is done again without it as step 3 does
+% it, and the mouse's index is read in the heaviest positive cluster of the
+% barrel field's L - R map that the others give, so no mouse is read in a
 % cluster its own data helped define. Every value is compared between the
-% groups by an exact permutation of the mice (252 splits for 5 against 5), with
-% the Welch t and Hedges' g beside it. Saves, in
-% data\comparisons\<ctrl>_vs_<exp>_<channel>\, Per_Mouse_Values_<tag> (.csv
+% groups by an exact permutation of the mice (252 splits for 5 against 5),
+% one-sided for the experimental group higher, the direction named before the
+% experiment, and two-sided, with the Welch t and Hedges' g beside it. Saves,
+% in data\comparisons\<ctrl>_vs_<exp>_<channel>\, Per_Mouse_Values_<tag> (.csv
 % and the figure, .fig and .png), Per_Mouse_Stats_<tag>.csv,
-% Per_Mouse_LOO_<tag>.csv and the cache of the mice's maps,
-% Per_Mouse_Maps_<tag>.mat, <tag> being the comparison and the smoothing.
+% Per_Mouse_LOO_<tag> (.csv, and .mat with the folds' clusters) and the cache
+% of the mice's maps, Per_Mouse_Maps_<tag>.mat, <tag> being the comparison and
+% the smoothing.
 %
 % Setup: naive against rws, nano channel, smoothed with sigma 5 as step 3,
 % the barrel field and the primary visual area, the cluster settings of step
