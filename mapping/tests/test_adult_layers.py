@@ -78,6 +78,20 @@ def test_hierarchy_table_holds_the_published_scores():
     }
 
 
+def test_load_hierarchy_refuses_a_repeated_area(tmp_path):
+    """A hierarchy table that lists an area twice stops the run."""
+    path = tmp_path / "hierarchy.csv"
+    pd.DataFrame(
+        dict(
+            acronym=["VISp", "AUDp", "VISp"],
+            module=["Visual", "Auditory", "Visual"],
+            hierarchy_score=[-0.4, -0.3, 0.1],
+        )
+    ).to_csv(path, index=False)
+    with pytest.raises(ValueError, match="listed twice"):
+        layers.load_hierarchy(path)
+
+
 def test_check_hierarchy_refuses_a_missing_area():
     """A hierarchy table that misses an area of the atlas stops the run."""
     hier = pd.DataFrame({"acronym": ["VISp", "AUDp"]})
@@ -87,11 +101,13 @@ def test_check_hierarchy_refuses_a_missing_area():
 
 
 def test_exclusion_names_the_reason():
-    """A cell without a value says whether it had no tissue, too little, or no signal."""
-    assert layers.exclusion(500, 0.3) == ""
-    assert layers.exclusion(0, None) == "no tissue in the sections"
-    assert layers.exclusion(100, None).startswith("100 tissue voxels")
-    assert layers.exclusion(5000, None) == "mean nano at or below background"
+    """A cell without a value says whether it had no tissue, too little, or no signal;
+    one with a value is left out only under the coverage it needs."""
+    assert layers.exclusion(500, 0.3, 0.9, 0.25) == ""
+    assert layers.exclusion(0, None, 0.0, 0.25) == "no tissue in the sections"
+    assert layers.exclusion(100, None, 0.1, 0.25).startswith("100 tissue voxels")
+    assert layers.exclusion(5000, None, 0.9, 0.25) == "mean nano at or below background"
+    assert layers.exclusion(500, 0.3, 0.04, 0.25).startswith("4.0% of the area's")
 
 
 def test_split_half_recovers_a_shared_profile_and_not_noise():
@@ -111,14 +127,21 @@ def test_split_half_recovers_a_shared_profile_and_not_noise():
     assert abs(r_noise) < 0.3
 
 
-def _cells(rows):
-    """A per-mouse table from (depth, area, mouse, zref or None) tuples."""
+def _cells(rows, kind="band"):
+    """A per-mouse table from (depth, area, mouse, zref or None) tuples; a zref given
+    as a string is a value left out for its coverage."""
     out = []
     for depth, area, mouse, z in rows:
+        low = isinstance(z, str)
+        reason = ""
+        if z is None:
+            reason = "no tissue in the sections"
+        elif low:
+            reason = "4.0% of the area's atlas voxels, under adult_layers.min_coverage"
         out.append(
             dict(
                 reading="zref",
-                depth_kind="band",
+                depth_kind=kind,
                 depth=depth,
                 area=area,
                 module="Visual",
@@ -126,24 +149,25 @@ def _cells(rows):
                 hierarchy_rank=1.0,
                 mouse=mouse,
                 group="naive",
-                n_vox20=1000 if z is not None else 0,
-                atlas_vox20=2000,
-                coverage=0.5 if z is not None else 0.0,
-                zref=np.nan if z is None else z,
-                excluded=z is None,
-                exclude_reason="" if z is not None else "no tissue in the sections",
+                n_vox20=0 if z is None else 1000,
+                atlas_vox20=25000 if low else 2000,
+                coverage=0.0 if z is None else (0.04 if low else 0.5),
+                zref=np.nan if z is None else float(z),
+                excluded=reason != "",
+                exclude_reason=reason,
             )
         )
     return pd.DataFrame(out, columns=layers.PER_MOUSE_COLUMNS)
 
 
 def test_summary_table_gives_mean_sem_t_and_needs_enough_mice():
-    """Mean, SD, SEM and t of the mice with a value; under min_mice, no statistics,
-    and the missing mice named."""
+    """Mean, SD, SEM and t of the mice that count, a low-coverage value left out;
+    under min_mice, no statistics, and the mice left out named."""
     table = _cells(
         [("granular", "X", f"m{i}", v) for i, v in enumerate([1.0, 2.0, 3.0, 4.0])]
+        + [("granular", "X", "m4", "9.0")]
         + [("granular", "Y", "m0", 1.0), ("granular", "Y", "m1", 2.0)]
-        + [("granular", "Y", "m2", None), ("granular", "Y", "m3", None)]
+        + [("granular", "Y", "m2", None), ("granular", "Y", "m3", "3.0")]
     )
     s = layers.summary_table(table, min_mice=3).set_index("area")
     sd = np.std([1, 2, 3, 4], ddof=1)
@@ -151,28 +175,83 @@ def test_summary_table_gives_mean_sem_t_and_needs_enough_mice():
     assert s.at["X", "mean"] == pytest.approx(2.5)
     assert s.at["X", "sem"] == pytest.approx(sd / 2)
     assert s.at["X", "t"] == pytest.approx(2.5 / (sd / 2))
+    assert s.at["X", "mice_left_out"] == "m4"
     assert s.at["Y", "n_mice"] == 2
     assert np.isnan(s.at["Y", "mean"])
-    assert s.at["Y", "mice_missing"] == "m2;m3"
+    assert s.at["Y", "mice_left_out"] == "m2;m3"
 
 
-def test_contrast_is_supra_minus_infra_and_missing_with_either():
-    """The contrast of a mouse is its supragranular minus infragranular value; a mouse
-    missing one band has none, with that band's reason."""
-    table = _cells(
+def test_contrasts_are_upper_minus_deeper_and_left_out_with_either():
+    """A mouse's contrast is its upper minus its deeper cell; one missing either band
+    has none, with that band's reason, and a low-coverage band keeps the difference
+    but leaves the contrast out. L2/3 - L5 is taken from the layers."""
+    bands = _cells(
         [
             ("supragranular", "X", "m0", 0.5),
             ("infragranular", "X", "m0", 0.2),
             ("supragranular", "X", "m1", 0.4),
             ("infragranular", "X", "m1", None),
+            ("supragranular", "X", "m2", None),
+            ("infragranular", "X", "m2", 0.1),
+            ("supragranular", "X", "m3", "0.6"),
+            ("infragranular", "X", "m3", 0.1),
         ]
     )
-    out = layers.with_contrast(table)
-    c = out[out["depth_kind"] == "contrast"].set_index("mouse")
+    layer_cells = _cells([("L2/3", "X", "m0", 0.3), ("L5", "X", "m0", 0.4)], kind="layer")
+    out = layers.with_contrasts(pd.concat([bands, layer_cells], ignore_index=True))
+    contrast = out[out["depth_kind"] == "contrast"]
+    c = contrast[contrast["depth"] == "supragranular - infragranular"].set_index("mouse")
     assert c.at["m0", "zref"] == pytest.approx(0.3)
     assert not c.at["m0", "excluded"]
-    assert c.at["m1", "excluded"]
-    assert c.at["m1", "exclude_reason"].startswith("infragranular")
+    assert c.at["m1", "excluded"] and np.isnan(c.at["m1", "zref"])
+    assert c.at["m1", "exclude_reason"].startswith("infragranular: no tissue")
+    assert c.at["m2", "excluded"] and np.isnan(c.at["m2", "zref"])
+    assert c.at["m2", "exclude_reason"].startswith("supragranular: no tissue")
+    assert c.at["m3", "excluded"]
+    assert c.at["m3", "zref"] == pytest.approx(0.5)
+    assert c.at["m3", "coverage"] == pytest.approx(0.04)
+    lay = contrast[contrast["depth"] == "L2/3 - L5"].set_index("mouse")
+    assert list(lay.index) == ["m0"]
+    assert lay.at["m0", "zref"] == pytest.approx(-0.1)
+
+
+def test_per_mouse_table_drops_undrawn_groups_and_marks_low_coverage():
+    """A group with no voxel in the atlas gets no row; a cell under min_coverage keeps
+    its zref but is left out, one under min_vox20 has none."""
+    adults = layers.ADULTS
+    key_ok = ("band", "infragranular", "A")
+    key_low = ("band", "supragranular", "A")
+    key_none = ("band", "granular", "A")
+    groups = {key_ok: {1}, key_low: {2}, key_none: {3}}
+    atlas_n = {key_ok: 1000, key_low: 10000, key_none: 0}
+
+    # a cell holds voxels, mean sig, mean ratio, mean sepratio; sig 2 over a cortex
+    # mean of 1, with median 0 and spread 1, is zref log2(2) = 1
+    cells = {
+        m: {key_ok: (800, 2.0, 1.0, 1.0), key_low: (800, 2.0, 1.0, 1.0)} for m in adults
+    }
+    cells[adults[0]][key_ok] = None
+    n_vox = {m: {key_ok: 800, key_low: 800, key_none: 0} for m in adults}
+    n_vox[adults[0]][key_ok] = 100
+    norm = {m: (0.0, 1.0) for m in adults}
+    refs = {m: {"cref": 1.0} for m in adults}
+    hier = pd.DataFrame(
+        dict(
+            acronym=["A"], module=["Visual"], hierarchy_score=[0.0], hierarchy_rank=[1.0]
+        )
+    )
+    t = layers.per_mouse_table(groups, cells, n_vox, norm, refs, hier, atlas_n, 0.25)
+    assert set(t["depth"]) == {"supragranular", "infragranular"}
+    assert len(t) == 2 * len(adults)
+    ok = t[t["depth"] == "infragranular"].set_index("mouse")
+    assert ok.loc[adults[1:], "zref"].tolist() == pytest.approx([1.0] * (len(adults) - 1))
+    assert not ok.loc[adults[1:], "excluded"].any()
+    assert ok.at[adults[0], "excluded"] and np.isnan(ok.at[adults[0], "zref"])
+    assert ok.at[adults[0], "exclude_reason"].startswith("100 tissue voxels")
+    low = t[t["depth"] == "supragranular"]
+    assert low["excluded"].all()
+    assert low["zref"].tolist() == pytest.approx([1.0] * len(adults))
+    assert low["coverage"].tolist() == pytest.approx([0.08] * len(adults))
 
 
 def test_check_against_region_table_refuses_a_difference(tmp_path):
@@ -198,6 +277,18 @@ def test_check_against_region_table_refuses_a_difference(tmp_path):
         layers.check_against_region_table(table, path)
     region.drop(index=1).to_csv(path, index=False)
     with pytest.raises(ValueError, match="no row"):
+        layers.check_against_region_table(table, path)
+
+    # a row of the region table with no cell here stops the run too when it is one of
+    # the table's mice, not when it is another brain's
+    region.loc[1, "log2_value"] = -0.5
+    extra = dict(reading="zref", division="Isocortex", acronym="Y", log2_value=0.2)
+    other = pd.DataFrame([dict(extra, mouse="young0")])
+    pd.concat([region, other]).to_csv(path, index=False)
+    assert layers.check_against_region_table(table, path) == 2
+    same = pd.DataFrame([dict(extra, mouse="m1")])
+    pd.concat([region, same]).to_csv(path, index=False)
+    with pytest.raises(ValueError, match="no whole-area cell"):
         layers.check_against_region_table(table, path)
 
 
@@ -234,10 +325,10 @@ def test_band_average_is_over_tissue_only():
     assert np.isnan(out[0, 1])
 
 
-def test_bars_grey_runs_from_light_grey_to_black():
-    """0 and NaN give the lightest grey, t_max and beyond give black."""
-    grey = layers_plotting.bars_grey(np.array([0.0, np.nan, 5.0, 10.0, 30.0]), 10.0)
-    assert grey[:, 0] == pytest.approx([0.78, 0.78, 0.39, 0.0, 0.0])
+def test_bars_grey_runs_from_black_to_light_grey_with_the_sem():
+    """An SEM of 0 gives black; sem_max and beyond, or NaN, the lightest grey."""
+    grey = layers_plotting.bars_grey(np.array([0.0, 0.05, 0.1, 0.3, np.nan]), 0.1)
+    assert grey[:, 0] == pytest.approx([0.0, 0.39, 0.78, 0.78, 0.78])
 
 
 def test_unscored_areas_sit_after_a_gap():
@@ -251,7 +342,8 @@ def test_unscored_areas_sit_after_a_gap():
 @pytest.mark.skipif(not TABLE.is_file(), reason="data not connected")
 def test_written_table_is_complete_and_consistent():
     """The written table: ten adults, 43 areas, no RSPd layer 4, a reason exactly where
-    a value is missing, and each contrast the difference of its two bands."""
+    a cell is left out, a cell left out with a value only under min_coverage, and each
+    contrast the difference of its two cells."""
     t = pd.read_csv(TABLE, keep_default_na=False, na_values=[""])
     assert t["mouse"].nunique() == 10
     assert t["area"].nunique() == 43
@@ -259,12 +351,17 @@ def test_written_table_is_complete_and_consistent():
     excluded = t["excluded"].astype(bool)
     assert (t.loc[excluded, "exclude_reason"] != "").all()
     assert t.loc[~excluded, "exclude_reason"].isna().all()
-    bands = t[t["depth_kind"] == "band"].pivot_table(
+    assert t.loc[~excluded, "zref"].notna().all()
+    low = excluded & t["zref"].notna() & (t["depth_kind"] != "contrast")
+    assert (t.loc[low, "coverage"] < layers.ADULT_LAYERS["min_coverage"]).all()
+    cells = t[t["depth_kind"].isin(["band", "layer"])].pivot_table(
         index=["area", "mouse"], columns="depth", values="zref"
     )
-    contrast = t[(t["depth_kind"] == "contrast") & ~excluded].set_index(["area", "mouse"])
-    expected = bands["supragranular"] - bands["infragranular"]
 
     # both read back at four decimals, so they agree to two units of the last
-    gap = (contrast["zref"] - expected.loc[contrast.index]).abs().max()
-    assert gap < 2e-4
+    for name, (_, upper), (_, deeper) in layers.CONTRASTS:
+        contrast = t[(t["depth"] == name) & t["zref"].notna()]
+        contrast = contrast.set_index(["area", "mouse"])
+        expected = cells[upper] - cells[deeper]
+        gap = (contrast["zref"] - expected.loc[contrast.index]).abs().max()
+        assert gap < 2e-4
