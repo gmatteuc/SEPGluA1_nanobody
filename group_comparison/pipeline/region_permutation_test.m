@@ -4,7 +4,8 @@ function perm = region_permutation_test(stacks, n_ctrl, geom, perm_settings)
 %   each region of the surprise bars with five measures, for every split of the
 %   pooled mice into two groups of the original sizes, and gives each score its
 %   permutation p, uncorrected and corrected over the regions. Called by
-%   group_differences (run_group_differences), and by
+%   group_differences (run_group_differences), by per_mouse_region_values
+%   (run_per_mouse_values) for the observed split alone, and by
 %   tests\test_region_permutation on synthetic stacks.
 %
 %   stacks         a cell, one array per map (L - R, L + R): n_cand x n_mice
@@ -16,7 +17,9 @@ function perm = region_permutation_test(stacks, n_ctrl, geom, perm_settings)
 %                  bars, 0 for none), n_regions, voxel_mm (the voxel's side)
 %   perm_settings  min_mice_per_group, slab_range and p_thresh (the bars'),
 %                  cluster_p, cluster_connectivity, topvol_mm3, region_quantile,
-%                  n_permutations ('all' or a number), n_workers, seed
+%                  n_permutations ('all' or a number), n_workers, seed, and
+%                  keep_cluster_voxels (optional, false when missing: true
+%                  keeps the voxels of the observed split's heaviest clusters)
 %
 %   For each split everything that feeds the bars is computed again, as
 %   group_differences computes it for the groups as they are: the Welch t of
@@ -47,13 +50,20 @@ function perm = region_permutation_test(stacks, n_ctrl, geom, perm_settings)
 %   measures' names and, per map, the observed scores with their p and
 %   corrected p, the null of every split, the observed heaviest clusters'
 %   voxels and peaks, and the observed rolling median of the unsigned surprise
-%   on the candidate voxels (to check it against the bars').
+%   on the candidate voxels (to check it against the bars'); with
+%   keep_cluster_voxels, also the heaviest clusters' voxels, as linear indices
+%   into the grid (detail.cluster_voxels, regions x positive and negative).
 
 % settings, under the names the code below uses
 min_mice_per_group = perm_settings.min_mice_per_group;
 n_permutations = perm_settings.n_permutations;
 n_workers = perm_settings.n_workers;
 seed = perm_settings.seed;
+
+% the voxels of the observed split's heaviest clusters, only when asked: the bars
+% do not need them, and their null file would carry every cluster's voxels
+keep_cluster_voxels = isfield(perm_settings, 'keep_cluster_voxels') && ...
+    perm_settings.keep_cluster_voxels;
 
 % the measures, the quantile's named after it
 quantile_name = sprintf('q%g', 100 * perm_settings.region_quantile);
@@ -95,7 +105,7 @@ fprintf(['  %d candidate voxels in %d AP columns, %d blocks; top volume %d voxel
 % median the bars use; timed, for the estimate of the rest
 t_observed = tic;
 observed = split_scores(stacks, splits.in_ctrl(splits.observed, :), geom, ...
-    perm_settings, topvol_k, true);
+    perm_settings, topvol_k, true, keep_cluster_voxels);
 observed_s = toc(t_observed);
 fprintf('  observed split: %.1f s.\n', observed_s);
 
@@ -129,7 +139,7 @@ progress_report({'start', n_other});
 null_other = cell(n_other, 1);
 parfor (k = 1:n_other, n_workers)
     null_other{k} = split_scores(stacks, in_ctrl_other(k, :), geom, perm_settings, ...
-        topvol_k, false);
+        topvol_k, false, false);
     send(queue, k);
 end
 
@@ -269,11 +279,12 @@ end
 % ===== Local functions: one split =====
 
 function scores = split_scores(stacks, in_ctrl, geom, perm_settings, topvol_k, ...
-    keep_detail)
+    keep_detail, keep_cluster_voxels)
 % The five measures of every region, for each map, positive and negative apart
 % (n_regions x 5 each, the share in both), for one split of the mice; with
 % keep_detail, also the heaviest clusters' voxels and peaks, the number of
-% voxels behind each top volume, and the rolling median of the unsigned surprise.
+% voxels behind each top volume, and the rolling median of the unsigned surprise;
+% with keep_cluster_voxels too, the heaviest clusters' voxels themselves.
 
 n_maps = numel(stacks);
 scores = struct();
@@ -290,8 +301,8 @@ for m = 1:n_maps
     [pos, neg, topvol_n] = region_measures(rolled, geom, perm_settings, topvol_k);
 
     % the heaviest cluster of each region, positive and negative
-    [mass_pos, mass_neg, cluster_n, cluster_peak] = region_clusters(rolled, n_with_t, ...
-        geom, perm_settings, keep_detail);
+    [mass_pos, mass_neg, cluster_n, cluster_peak, cluster_voxels] = region_clusters( ...
+        rolled, n_with_t, geom, perm_settings, keep_detail, keep_cluster_voxels);
 
     % the five measures in the order of measure_names; the share has no sign
     scores.pos{m} = [share, pos, mass_pos];
@@ -303,6 +314,9 @@ for m = 1:n_maps
         detail.cluster_n = cluster_n;
         detail.cluster_peak = cluster_peak;
         detail.rolled_unsigned = rolled_unsigned;
+        if keep_cluster_voxels
+            detail.cluster_voxels = cluster_voxels;
+        end
         scores.detail{m} = detail;
     end
 end
@@ -440,12 +454,15 @@ for r = 1:n_regions
 end
 end
 
-function [mass_pos, mass_neg, cluster_n, cluster_peak] = region_clusters(rolled, ...
-    n_with_t, geom, perm_settings, keep_detail)
+function [mass_pos, mass_neg, cluster_n, cluster_peak, cluster_voxels] = ...
+    region_clusters(rolled, n_with_t, geom, perm_settings, keep_detail, ...
+    keep_cluster_voxels)
 % Each region's heaviest cluster of voxels at p < cluster_p, connected within
 % the region, positive and negative apart: its mass (summed |surprise|), and
 % with keep_detail its voxels and its signed peak (n_regions x 2, positive then
-% negative); 0 for a region without one, NaN without a voxel with a t.
+% negative); 0 for a region without one, NaN without a voxel with a t. With
+% keep_cluster_voxels too, the clusters' voxels as linear indices into the grid
+% (a cell, n_regions x 2, empty for a region without one).
 
 n_regions = geom.n_regions;
 connectivity = perm_settings.cluster_connectivity;
@@ -479,6 +496,7 @@ mass_neg(n_with_t == 0) = NaN;
 % the voxels and the signed peak of the heaviest clusters, for the observed split
 cluster_n = [];
 cluster_peak = [];
+cluster_voxels = {};
 if keep_detail
     peak = accumarray(cluster, abs(sig_value), [n_clusters 1], @max);
     best = reshape(best_cluster, 2, n_regions)';
@@ -487,6 +505,18 @@ if keep_detail
     cluster_n(best > 0) = n_voxels(best(best > 0));
     cluster_peak(best > 0) = peak(best(best > 0));
     cluster_peak(:, 2) = -cluster_peak(:, 2);
+
+    % the voxels of each, when asked
+    if keep_cluster_voxels
+        cluster_voxels = cell(n_regions, 2);
+        for r = 1:n_regions
+            for s = 1:2
+                if best(r, s) > 0
+                    cluster_voxels{r, s} = sig_lin(cluster == best(r, s));
+                end
+            end
+        end
+    end
 end
 end
 
