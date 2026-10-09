@@ -78,10 +78,14 @@ section 2).
 `run_per_mouse_values`, after step 3, gives one value per mouse in regions
 named in advance, the barrel field (SSp-bfd) and, as a cortical control, the
 primary visual area (VISp), to show which mice carry an effect. Each mouse is
-taken as step 3 takes it, and in each region, over its own voxels:
+taken as step 3 takes it. Its first values are read in the barrel-field
+cluster of step 3's test, under the selection-matched test below, which is
+that test seen mouse by mouse; the others over a whole region, over the
+mouse's own voxels:
 
 | value | what it is |
 |---|---|
+| `sm_ai_raw`, `sm_ai`, `sm_ai_auto` | the AI (below) in the heaviest cluster of SSp-bfd where \|L - R\| is higher in the experimental group, as step 3 finds it with all the mice: on the raw stack, on the maps of step 3, and on the autofluorescence |
 | `ai` | asymmetry index, mean \|L - R\| over mean (L + R), on the maps of step 3 (folded, smoothed, the experimental group aligned) |
 | `ai_raw` | the same on the collected stack (`nano_4d.mat`) less the mouse's off-tissue level, smoothed the same way: no normalisation, no alignment |
 | `sum_rel`, `sum_rel_raw` | mean L + R in the region over the mouse's own mean over the isocortex |
@@ -92,6 +96,70 @@ the stimulated side is not known mouse by mouse, and a signed L - R would
 carry arbitrary signs; the test takes \|L - R\| and L + R for the same
 reason. The whisker stimulated was C2 (possibly B2), the same in every RWS
 mouse (Giulio, 9 October 2026).
+
+### The selection-matched test
+
+The main per-mouse test, fixed on 9 October 2026 before any of its numbers
+(Giulio: the voxelwise test seen from the mice, as permissive as it; the
+leave-one-out below is stricter). Its p is reported whatever it is; no other
+variant is tried.
+
+- The cluster. With the groups as they are, the heaviest cluster of SSp-bfd
+  where \|L - R\| is higher in the experimental group (a positive t), found
+  with all the mice as step 3 and `region_permutation_test` find it: the t
+  where each group has three mice with a value, its surprise, the median over
+  +/- 10 planes, p < 0.01, 18-connected, within the region's voxels of the
+  left hemisphere. It is the cluster whose mass is the barrel field's score
+  in the region test (p 0.040 after RWS, production run of 7 October). Each
+  mouse's asymmetry index is read in it, mean \|L - R\| over mean (L + R)
+  over the cluster's voxels where the mouse has a value: on the raw stack
+  less the mouse's off-tissue level (`sm_ai_raw`, the value to read: no
+  normalisation, no alignment), on the maps of step 3 (`sm_ai`) and on the
+  autofluorescence (`sm_ai_auto`). The statistic: the experimental group's
+  mean minus the control group's.
+- Its null. Under each of the 252 splits of the ten mice into five and five
+  (126 for five and four after behavior), the cluster search is redone with
+  the split's groups (its experimental group in the experimental group's
+  place, a positive t), every mouse is read in that split's cluster, and the
+  same statistic is taken. The mice keep the alignment of their true groups,
+  as the region test keeps it under its splits. The one-sided p is the share
+  of the splits whose statistic reaches the observed one, the observed split
+  included; after RWS it is the test, its direction named in advance (RWS
+  potentiates the stimulated barrels' synapses, Gambino et al. 2014). The
+  two-sided p is the search in either direction, as the region test's score
+  takes the larger of its two signs: per split, the larger of the statistic
+  in its positive cluster and, in its negative cluster (where its control
+  group's \|L - R\| is higher), the control group's mean minus the
+  experimental group's. After behavior the direction is carried over from
+  RWS and the two-sided p comes first. A split whose search finds no
+  cluster, or that leaves a group without a mouse with a value, gives a
+  statistic of 0, which does not reach a positive observed one; how many
+  there are is given, and the p with those splits left out beside it.
+- Why it is valid. Each value is read in a cluster chosen with the same mice
+  and the same labels, so the observed statistic is inflated by the
+  selection. The selection is redone the same way in every split, so the
+  null is inflated alike, and the p compares like with like. Shuffling the
+  observed values instead leaves the selection out of the null: that p is
+  anti-conservative and is kept in the statistics table only, so labelled.
+- Why it matches the voxelwise test. The same cluster search, the same
+  splits, the same relabelling of the mice's maps as the barrel field's
+  cluster mass in step 3's region test; only the number taken from each
+  split's cluster differs (the mice's asymmetry, not the cluster's summed
+  surprise). The run checks it: its first split must give step 3's cluster,
+  and the cluster mass over its splits must give step 3's p.
+- The leave-one-out is stricter: each mouse is read in a cluster found
+  without it, from four mice against five, so no value carries its own
+  mouse's selection. It is kept, with its full test, in a figure of its own.
+- The autofluorescence (review finding F12). A misregistration of the
+  surface between the hemispheres would show as \|L - R\| in every channel.
+  Each mouse's autofluorescence AI is read in the same clusters, the
+  observed one and every split's, and tested the same way. The channel is
+  stacked from the registered volumes as the nano channel is (step 1 with
+  `channels = {'auto'}`; production's `auto_4d.mat` of 19 November 2025
+  predates the registration and mixes two of them, and is refused), checked
+  voxel for voxel against the nano stack (the voxels a section reached must
+  agree), less its off-tissue level (the same voxels as the nano channel's)
+  and smoothed in the nano channel's tissue, as the raw stack is.
 
 - The off-tissue level is the median of the raw stack over the mouse's
   background voxels (step 2's mask) outside the atlas brain: the slide around

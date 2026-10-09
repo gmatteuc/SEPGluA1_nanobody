@@ -84,9 +84,40 @@ cluster_connectivity = 18;
 % carried over from RWS, not named on its own, and the two-sided p comes first
 direction_named = strcmp(exp_type, 'rws');
 
+% the selection-matched test, the main per-mouse test (fixed on 9 October 2026
+% before any of its numbers; the README says why it is valid): step 3's test of
+% the barrel field seen mouse by mouse, as permissive as it. With the true
+% groups, the heaviest cluster of the region where |L - R| is higher in the
+% experimental group (a positive t), found with all the mice as
+% region_permutation_test finds it; every mouse's AI read in it, on the raw
+% stack (the value to read), on the test's maps and on the autofluorescence;
+% the statistic, the experimental group's mean minus the control group's. Its
+% null: under every split of the mice (252 for 5 and 5, 126 for 5 and 4) the
+% cluster found again with the split's groups, the split's experimental group
+% in the experimental group's place, every mouse read in that split's cluster,
+% the same statistic. One-sided p: the share of the splits reaching the
+% observed statistic, the observed split included. Two-sided: the search in
+% either direction, as the region test's score takes the larger of its two
+% signs (per split, the larger of the statistic in its positive cluster and of
+% control minus experimental in its negative one). A split without a cluster,
+% or with a group without a mouse with a value, gives 0; the p with those
+% splits left out is given beside it. Its first split must give step 3's
+% cluster, and the cluster mass over its splits step 3's p
+selection_matched = true;
+
+% the autofluorescence read in the same clusters and tested the same way,
+% against a misregistration of the surface: each group's auto_4d.mat, stacked
+% from the registered volumes by run_collect_by_group with channels = {'auto'}
+% (one without the files it was read from, as production's older auto_4d.mat,
+% is refused), checked against the nano stack voxel for voxel (the voxels a
+% section reached), less its off-tissue level and smoothed in the nano
+% channel's tissue, as the raw stack
+auto_control = true;
+
 % redo the leave-one-out under every split of the mice (each fold's cluster
 % found again with the split's groups), for the full p of its two values; read
-% from its cache after the first run
+% from its cache after the first run. Stricter than the selection-matched test:
+% each mouse is read in a cluster found without it, four mice against five
 loo_relabel = true;
 
 % redo every mouse's maps rather than read them from the cache, after a change
@@ -124,6 +155,8 @@ run_settings.slab_range = slab_range;
 run_settings.cluster_p = cluster_p;
 run_settings.cluster_connectivity = cluster_connectivity;
 run_settings.direction_named = direction_named;
+run_settings.selection_matched = selection_matched;
+run_settings.auto_control = auto_control;
 run_settings.loo_relabel = loo_relabel;
 run_settings.force_recompute_mice = force_recompute_mice;
 run_settings.channel = channel;
