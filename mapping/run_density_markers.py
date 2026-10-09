@@ -36,7 +36,7 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                10s1, 10s2
     21. run_synaptome          the measured synapse density (network,
                                once): PSD95 puncta per structure,
-                               its coverage of the fit; figure 14s1
+                               its coverage of the fit; figure 03s4
     22. run_density_markers    the synapse-density genes, chosen by   <- this script
                                PSD95 without the map (network,
                                once); figure 03s3
@@ -47,15 +47,15 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                is known; the check rows, each
                                with its own floor
     26. run_beyond_regression  the regression, per structure
-    27. run_beyond_figures     figures 03, 03s1, 03s2, 04, 11s1, 14
+    27. run_beyond_figures     figures 03, 03s1, 03s2, 04, 11s1
     28. run_ish_top_genes      the genes that follow the map most,
                                characterised; Cacng8 and the AMPA
                                receptor complex family against the
                                leftover; figures 07, 08, 11, 11s2,
                                sheets
     29. run_sep_channel_check  analysis 5: what the green channel
-                               reports; figures 15, 15s
-    30. run_ish_overview       figures 00, 16 and 16s, the figure
+                               reports; figures 14, 14s
+    30. run_ish_overview       figures 00, 15 and 15s, the figure
                                index; the numbers for the text
 
 Downloads the mouse GO annotation (MGI's GAF) and go-basic.obo of one GO release from
@@ -200,12 +200,14 @@ def main(offline):
         divisions = part["division"].value_counts().to_dict()
         print(f"  {len(part):3d}  {reason}: {divisions}")
 
-    # the choice repeated on random halves, and the composites compared
+    # the choice repeated on random halves, and the composites compared, also on the
+    # structures they all have and inside divisions
+    division = dict(zip(set_table["structure"], set_table["division"]))
     fixed, members = density_markers.fixed_composites(genes, profiles, measured)
-    halves = density_markers.half_split(pool, profiles, psd95, measured, fixed)
+    halves = density_markers.half_split(pool, profiles, psd95, measured, fixed, division)
     selection = density_markers.selection_table(halves, pool)
     comparison = density_markers.comparison_table(
-        chosen, profiles, psd95, measured, halves, fixed, members
+        chosen, profiles, psd95, measured, halves, fixed, members, division
     )
     halves.to_csv(density_markers.HALVES, index=False)
     selection.to_csv(density_markers.SELECTION, index=False)
@@ -219,7 +221,11 @@ def main(offline):
         print(
             f"  {r.composite:15s} held out {r.rho_held_out_median:+.3f} "
             f"({r.rho_held_out_lo:+.3f} to {r.rho_held_out_hi:+.3f}), full set "
-            f"{r.rho_full_set:+.3f} on {r.n_structures}"
+            f"{r.rho_full_set:+.3f} on {r.n_structures}; on the {r.n_common} they all "
+            f"have {r.rho_common_held_out_median:+.3f} held out, "
+            f"{r.rho_common_full_set:+.3f} full set; inside divisions "
+            f"{r.rho_within_held_out_median:+.3f} held out, "
+            f"{r.rho_within_full_set:+.3f} full set"
         )
 
     # the numbers for the text
@@ -246,6 +252,11 @@ def main(offline):
         reasons,
         DENSITY_MARKERS["n_halves"],
         density_markers.GO_RELEASE,
+        dict(
+            min_coverage=DENSITY_MARKERS["min_coverage"],
+            n_reference=int(structures["gria1_measured"].sum()),
+            min_division=config.SETTINGS["ish_analysis"]["min_division_structures"],
+        ),
         save=figure_path("density_markers"),
     )
     plt.close(fig)

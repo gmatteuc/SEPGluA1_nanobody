@@ -8,7 +8,7 @@ import pytest
 
 from sepmap.adult import density_markers as dm
 from sepmap.adult import synaptome
-from sepmap.ish import gene_table
+from sepmap.ish import gene_sets, gene_table
 from sepmap.structures import STRUCTURE_SET, load_structure_set
 
 # a small ontology: the postsynaptic density below the specialization by is_a, its
@@ -243,15 +243,38 @@ def test_the_comparison_reads_a_gene_list_and_a_map_alike():
     structures, psd95, profiles = planted_profiles(30, noise)
     fixed = {"list": ("E",), "map": psd95.copy()}
     members = {"list": "E", "map": "PSD95 itself"}
-    halves = dm.half_split(sorted(noise), profiles, psd95, structures, fixed)
+    division = {s: "X" if k % 2 else "Y" for k, s in enumerate(structures)}
+    halves = dm.half_split(sorted(noise), profiles, psd95, structures, fixed, division)
     table = dm.comparison_table(
-        ["B", "C", "D"], profiles, psd95, structures, halves, fixed, members
+        ["B", "C", "D"], profiles, psd95, structures, halves, fixed, members, division
     ).set_index("composite")
     assert list(table.index) == [dm.CHOSEN, "list", "map"]
     assert table.loc["map", "rho_full_set"] == pytest.approx(1.0)
     assert table.loc["map", "rho_held_out_lo"] == pytest.approx(1.0)
     assert table.loc[dm.CHOSEN, "genes"] == "B C D"
     assert table.loc["list", "rho_full_set"] < table.loc[dm.CHOSEN, "rho_full_set"]
+
+
+def test_inside_divisions_the_contrast_between_them_does_not_count():
+    """A gene that follows only the divisions' levels agrees with PSD95 between them."""
+    rng = np.random.default_rng(0)
+    structures = [f"S{k:02d}" for k in range(40)]
+    division = {s: "X" if k < 20 else "Y" for k, s in enumerate(structures)}
+    level = np.array([0.0 if division[s] == "X" else 10.0 for s in structures])
+
+    # PSD95: the divisions' levels and a pattern inside each; the gene: the levels and
+    # noise unrelated to that pattern
+    psd95 = pd.Series(level + rng.normal(0, 1, 40), index=structures)
+    gene = pd.Series(level + rng.normal(0, 1, 40), index=structures)
+
+    # two halves set apart, their order inside random, rank together at about 0.75
+    assert dm.rho_with(gene, psd95)[1] > 0.6
+    assert abs(dm.within_rho(gene, psd95, division)) < 0.35
+    assert dm.within_rho(psd95, psd95, division) == pytest.approx(1.0)
+
+    # with fewer structures in every division than a division needs, there is no value
+    few = {s: f"D{k}" for k, s in enumerate(structures)}
+    assert np.isnan(dm.within_rho(gene, psd95, few))
 
 
 def test_a_rule_that_gives_other_genes_than_the_settings_stops_the_run():
@@ -347,3 +370,17 @@ def test_the_rule_reads_no_nano_value_and_gives_the_settings_genes(monkeypatch):
     assert table.loc[["Dlg4", "Camk2a"], "eligible"].all()
     assert table.loc[["Dlg4", "Camk2a"], "excluded"].all()
     assert table.loc["Homer1", "in_pool"]
+
+
+@pytest.mark.skipif(not dm.GAF.exists(), reason="data not connected")
+def test_the_pinned_release_gives_the_family_its_go_genes():
+    """GO:0032281 in release 2026-08-05's mouse GAF lists the family's GO genes."""
+    genes = set()
+    with gzip.open(dm.GAF, "rt", encoding="utf-8") as fh:
+        for line in fh:
+            if line.startswith("!"):
+                continue
+            field = line.rstrip("\n").split("\t")
+            if field[4] == "GO:0032281" and "NOT" not in field[3].split("|"):
+                genes.add(field[2])
+    assert genes == set(gene_sets.GO_AMPA_COMPLEX)

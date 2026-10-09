@@ -23,11 +23,16 @@ committed before the model they feed was run (git log shows the order):
                 ranks per structure
     validation  the choice repeated on density_markers.n_halves random halves of
                 those structures: how often each gene is chosen, and the Spearman of
-                the chosen genes' mean with PSD95 on the other half, the agreement
-                quoted. The full set's is optimistic, since the genes were chosen on
-                it. Beside it, the same held-out agreement of fixed composites: the
-                first proposal (FIRST_PROPOSAL), the marker panel (beyond.markers)
-                and psd_pc1
+                the genes chosen on one half with PSD95 on the other, the agreement
+                quoted. It belongs to the rule, which chooses afresh on each half,
+                not to the three genes the full set gave, whose full-set agreement
+                is optimistic, since they were chosen on it. Beside it, the same
+                held-out agreement of fixed composites: the first proposal
+                (FIRST_PROPOSAL), the marker panel (beyond.markers) and psd_pc1;
+                each also on the structures every composite has, so they meet on
+                the same ground, and inside divisions (within_rho), since random
+                halves keep the contrast between divisions on both sides and much
+                of a whole-brain agreement is that contrast
 
 Why genes when PSD95 density is measured: the measured map is one mouse and covers
 about half the declared structures, while the genes are measured in nearly all of
@@ -73,6 +78,7 @@ from sepmap.structures import ISH_OUT, load_structure_set
 DENSITY_MARKERS = SETTINGS["density_markers"]
 ISH = SETTINGS["ish"]
 BEYOND = SETTINGS["beyond"]
+ISH_ANALYSIS = SETTINGS["ish_analysis"]
 
 OUT = ISH_OUT / "density_markers"
 CANDIDATES = OUT / "candidates.csv"
@@ -679,8 +685,8 @@ def composite_on(
 
 def psd_pc1_on(
     genes: pd.DataFrame, profiles: dict[str, dict[str, float]], structures: list[str]
-) -> tuple[pd.Series, int]:
-    """psd_pc1 over `structures`, and the number of genes it is made of.
+) -> tuple[pd.Series, list[str]]:
+    """psd_pc1 over `structures`, and the genes it is made of.
 
     The first component of the ontology panel's postsynaptic-density genes (role
     control_psd) measured in every one of the structures, as analysis 4 builds it.
@@ -691,7 +697,7 @@ def psd_pc1_on(
         if all(s in profiles[g] for s in structures)
     ]
     pc, _ = first_pc(psd, profiles, structures)
-    return pd.Series(pc, index=structures), len(psd)
+    return pd.Series(pc, index=structures), psd
 
 
 def load_validation() -> dict:
@@ -699,7 +705,8 @@ def load_validation() -> dict:
 
     The genes chosen; PSD95 punctum density and their mean rank over the declared
     structures where both exist, those the rule chose on; comparison.csv by
-    composite, and the number of random halves behind it.
+    composite, the number of random halves behind it, and the structures a division
+    needs to enter the agreement inside divisions.
     """
     agreement = pd.read_csv(AGREEMENT)
     chosen = chosen_genes(agreement)
@@ -714,6 +721,7 @@ def load_validation() -> dict:
         composite=composite_on(chosen, profiles, measured),
         comparison=pd.read_csv(COMPARISON).set_index("composite"),
         n_halves=int(pd.read_csv(HALVES)["half"].nunique()),
+        min_division=ISH_ANALYSIS["min_division_structures"],
     )
 
 
@@ -723,6 +731,39 @@ def rho_with(values: pd.Series, psd95: pd.Series) -> tuple[int, float]:
     if len(pair) < 3:
         return len(pair), float("nan")
     return len(pair), float(spearmanr(pair["a"], pair["b"]).statistic)
+
+
+def within_rho(values: pd.Series, psd95: pd.Series, division: dict[str, str]) -> float:
+    """A composite's Spearman with PSD95 inside divisions, as analysis A6 takes it.
+
+    The mean of the Spearman inside each division with
+    ish_analysis.min_division_structures or more of the structures both have,
+    weighted by their structures, so no contrast between divisions enters it; NaN
+    when no division has enough.
+    """
+    pair = pd.DataFrame(dict(a=values, b=psd95.reindex(values.index))).dropna()
+    pair["division"] = [division.get(s, "") for s in pair.index]
+    total, weight = 0.0, 0
+    for _, part in pair.groupby("division"):
+        if len(part) < ISH_ANALYSIS["min_division_structures"]:
+            continue
+        total += len(part) * spearmanr(part["a"], part["b"]).statistic
+        weight += len(part)
+    return float(total / weight) if weight else float("nan")
+
+
+def common_structures(
+    composites: dict[str, tuple[str, ...] | pd.Series],
+    profiles: dict[str, dict[str, float]],
+    structures: list[str],
+) -> list[str]:
+    """The `structures` where every composite has a value."""
+    out = list(structures)
+    for composite_def in composites.values():
+        out = [
+            s for s in out if s in composite_values(composite_def, profiles, out).index
+        ]
+    return out
 
 
 def fixed_composites(
@@ -738,7 +779,7 @@ def fixed_composites(
     a half can take it as it is.
     """
     on = [s for s in structures if s in profiles[ISH["control_gene"]]]
-    pc1, n_psd = psd_pc1_on(genes, profiles, on)
+    pc1, psd = psd_pc1_on(genes, profiles, on)
     fixed = {
         "first_proposal": FIRST_PROPOSAL,
         "marker_panel": tuple(BEYOND["markers"]),
@@ -747,7 +788,7 @@ def fixed_composites(
     members = {
         "first_proposal": " ".join(FIRST_PROPOSAL),
         "marker_panel": " ".join(BEYOND["markers"]),
-        "psd_pc1": f"{n_psd} genes of role {PSD_ROLE}",
+        "psd_pc1": " ".join(psd),
     }
     return fixed, members
 
@@ -784,6 +825,7 @@ def half_split(
     psd95: pd.Series,
     structures: list[str],
     fixed: dict[str, tuple[str, ...] | pd.Series],
+    division: dict[str, str] | None = None,
     seed: int = 0,
 ) -> pd.DataFrame:
     """halves.csv: the choice on a random half, its agreement on the other half.
@@ -792,7 +834,9 @@ def half_split(
     halves; the rule chooses on the first, and on the second each composite's
     Spearman with PSD95 is taken: the chosen genes' mean rank and each of `fixed`
     (fixed_composites; a gene list ranked within the half). Columns: half, genes
-    (those chosen, joined), and n_ and rho_ of the chosen and of each of `fixed`.
+    (those chosen, joined), and n_ and rho_ of the chosen and of each of `fixed`;
+    rho_<name>_common, on the structures of the half every composite has (n_common),
+    and with `division` (each structure's) rho_<name>_within, inside divisions.
     """
     rng = np.random.default_rng(seed)
     n_first = len(structures) // 2
@@ -804,9 +848,15 @@ def half_split(
         chosen = choose_on(pool, profiles, psd95, first)
         row = dict(half=half, genes=" ".join(chosen))
         composites = {CHOSEN: tuple(chosen), **fixed}
+        common = common_structures(composites, profiles, second)
+        row["n_common"] = len(common)
         for name, composite_def in composites.items():
             values = composite_values(composite_def, profiles, second)
             row[f"n_{name}"], row[f"rho_{name}"] = rho_with(values, psd95)
+            on_common = composite_values(composite_def, profiles, common)
+            row[f"rho_{name}_common"] = rho_with(on_common, psd95)[1]
+            if division is not None:
+                row[f"rho_{name}_within"] = within_rho(values, psd95, division)
         rows.append(row)
     return pd.DataFrame(rows)
 
@@ -824,6 +874,13 @@ def selection_table(halves: pd.DataFrame, pool: list[str]) -> pd.DataFrame:
     return table.reset_index(drop=True)
 
 
+def held_out_summary(values: pd.Series) -> tuple[float, float, float]:
+    """The median of a composite's held-out values over the halves, and their 95%."""
+    held = values.dropna().to_numpy(float)
+    lo, hi = np.percentile(held, BAND)
+    return float(np.median(held)), float(lo), float(hi)
+
+
 def comparison_table(
     chosen: list[str],
     profiles: dict[str, dict[str, float]],
@@ -832,34 +889,47 @@ def comparison_table(
     halves: pd.DataFrame,
     fixed: dict[str, tuple[str, ...] | pd.Series],
     members: dict[str, str],
+    division: dict[str, str],
 ) -> pd.DataFrame:
     """comparison.csv: each composite's agreement with PSD95, held out and on the set.
 
     Per composite, the chosen genes first, then those of `fixed` with what each is
     made of (`members`, fixed_composites): the full set's n and Spearman (optimistic
     for the chosen genes, which were chosen on it), and over the halves the median
-    held-out Spearman with its 95% range.
+    held-out Spearman with its 95% range (n_held_out, the median structures of a
+    half). The same on the structures every composite has (_common, n_common) and
+    inside divisions (_within, by `division`), each held out and on the full set.
     """
     composites = {CHOSEN: tuple(chosen), **fixed}
     members = {CHOSEN: " ".join(chosen), **members}
+    common = common_structures(composites, profiles, structures)
     rows = []
     for name, composite_def in composites.items():
-        n, rho = rho_with(composite_values(composite_def, profiles, structures), psd95)
-        held = halves[f"rho_{name}"].dropna().to_numpy(float)
-        lo, hi = np.percentile(held, BAND)
-        rows.append(
-            dict(
-                composite=name,
-                what=COMPARED.get(name, name),
-                genes=members[name],
-                n_structures=n,
-                rho_full_set=rho,
-                rho_held_out_median=float(np.median(held)),
-                rho_held_out_lo=float(lo),
-                rho_held_out_hi=float(hi),
-                n_held_out=int(np.median(halves[f"n_{name}"])),
-            )
+        values = composite_values(composite_def, profiles, structures)
+        n, rho = rho_with(values, psd95)
+        row = dict(
+            composite=name,
+            what=COMPARED.get(name, name),
+            genes=members[name],
+            n_genes=len(members[name].split()),
+            n_structures=n,
+            rho_full_set=rho,
+            n_held_out=int(np.median(halves[f"n_{name}"])),
         )
+        for key, column in (
+            ("held_out", f"rho_{name}"),
+            ("common_held_out", f"rho_{name}_common"),
+            ("within_held_out", f"rho_{name}_within"),
+        ):
+            median, lo, hi = held_out_summary(halves[column])
+            row |= {f"rho_{key}_median": median, f"rho_{key}_lo": lo}
+            row[f"rho_{key}_hi"] = hi
+        on_common = composite_values(composite_def, profiles, common)
+        row["n_common"] = len(common)
+        row["n_common_held_out"] = int(np.median(halves["n_common"]))
+        row["rho_common_full_set"] = rho_with(on_common, psd95)[1]
+        row["rho_within_full_set"] = within_rho(values, psd95, division)
+        rows.append(row)
     return pd.DataFrame(rows)
 
 
@@ -923,22 +993,57 @@ def numbers_table(
     for r in comparison.itertuples():
         rows += [
             (f"{r.composite}_full_set", round(r.rho_full_set, 3), f"{r.what}, full set"),
+            (f"{r.composite}_n", int(r.n_structures), "its structures, full set"),
+            (f"{r.composite}_n_held_out", int(r.n_held_out), "per half, median"),
+        ]
+        for key, what in (
+            ("held_out", "held out"),
+            ("common_held_out", "held out, on the structures every composite has"),
+            ("within_held_out", "held out, inside divisions"),
+        ):
+            rows += [
+                (
+                    f"{r.composite}_{key}",
+                    round(getattr(r, f"rho_{key}_median"), 3),
+                    f"{what}, median",
+                ),
+                (
+                    f"{r.composite}_{key}_lo",
+                    round(getattr(r, f"rho_{key}_lo"), 3),
+                    "2.5th percentile",
+                ),
+                (
+                    f"{r.composite}_{key}_hi",
+                    round(getattr(r, f"rho_{key}_hi"), 3),
+                    "97.5th percentile",
+                ),
+            ]
+        rows += [
             (
-                f"{r.composite}_held_out",
-                round(r.rho_held_out_median, 3),
-                "held out, median",
+                f"{r.composite}_common_full_set",
+                round(r.rho_common_full_set, 3),
+                "full set, on the structures every composite has",
             ),
             (
-                f"{r.composite}_held_out_lo",
-                round(r.rho_held_out_lo, 3),
-                "2.5th percentile",
-            ),
-            (
-                f"{r.composite}_held_out_hi",
-                round(r.rho_held_out_hi, 3),
-                "97.5th percentile",
+                f"{r.composite}_within_full_set",
+                round(r.rho_within_full_set, 3),
+                "full set, inside divisions",
             ),
         ]
+    first = comparison.iloc[0]
+    rows += [
+        ("structures_common", int(first.n_common), "structures every composite has"),
+        (
+            "structures_common_held_out",
+            int(first.n_common_held_out),
+            "of them per half, median",
+        ),
+        (
+            "psd_pc1_genes",
+            int(comparison.set_index("composite").loc["psd_pc1", "n_genes"]),
+            "postsynaptic-density genes behind psd_pc1 here",
+        ),
+    ]
     for r in selection.head(DENSITY_MARKERS["n_markers"] + 3).itertuples():
         rows.append((f"chosen_share_{r.symbol}", round(r.share, 3), "share of halves"))
     return numbers_frame(rows)
