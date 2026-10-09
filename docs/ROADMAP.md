@@ -554,8 +554,8 @@ engine has its self-test. Still to write, where a mistake would be silent
   them out; `cohort.mouse_scalars`' cache is keyed on the per-mouse file's date
   only, not on `region_tables.min_vox20`; and the figures of the map by depth
   are in a plotting module of their own, `adult/layers_plotting.py`, until
-  `adult/plotting.py` (2,767 lines) becomes a package with them as one of its
-  parts ([STYLE.md](STYLE.md), Pipelines and run scripts).
+  `adult/plotting.py`, near three thousand lines, becomes a package with them
+  as one of its parts ([STYLE.md](STYLE.md), Pipelines and run scripts).
 - The `log2_zref` and `log2_zref_P20only` columns of `region_table.csv`
   (`run_compare`) hold a difference, young minus adult, not a log2 ratio:
   zref is already a position on a log scale. The names stay unless the table

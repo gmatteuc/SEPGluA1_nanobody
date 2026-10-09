@@ -128,11 +128,11 @@ Each is defined in one place; never copy a value into a script.
   range, never reaching white (`plotting.hot_cut()`).
 - Bars of a value per structure across mice: the height is the value, the
   colour its reliability (t, clamped) in grey, darker for more reliable, never
-  pure white (`sep_palette('bars')`); on zref, whose zero is a brain's median
-  structure, the grey is the SEM, black at 0 to grey 0.78 from
-  `adult_layers.sem_max` (`adult/layers_plotting.bars_grey`), since t would
-  measure the distance from that zero rather than how well the mice agree. Bars
-  that compare categories take palette colours.
+  pure white (`sep_palette('bars')`). On zref the grey is the SEM instead,
+  black at 0 to grey 0.78 from `adult_layers.sem_max`
+  (`adult/layers_plotting.sem_grey`): zref's zero is a brain's median
+  structure, so t would measure the distance from that zero rather than how
+  well the mice agree. Bars that compare categories take palette colours.
 - Palette (`sep_palette`; the groups also in `plotting.py`): nano
   `[0.95 0.55 0.10]`, autofluorescence `[0.95 0.85 0.20]`, their per-mouse dots
   `[0.65 0.30 0.00]` and `[0.70 0.60 0.00]`, lines joining paired mice
@@ -312,10 +312,10 @@ file follows it, `tools/` included (Y5).
   borders); `ish/plotting/` (`shared`, `inputs`, `ranking`, `sets`,
   `leftover`, `headline`) and `adult/plotting.py` hold the figures of those
   two sub-packages, but for the adult map by depth's, which are in
-  `adult/layers_plotting.py` until `adult/plotting.py` (2,767 lines) becomes a
-  package with them as one of its parts. The figure functions of `volumes/` and
-  `young_vs_adult/` are still in their modules, and new figure code goes into a
-  plotting module.
+  `adult/layers_plotting.py` until `adult/plotting.py`, near three thousand
+  lines, becomes a package with them as one of its parts. The figure functions
+  of `volumes/` and `young_vs_adult/` are still in their modules, and new
+  figure code goes into a plotting module.
 - Only run scripts have an `if __name__ == "__main__":` block. `__init__.py`
   is empty or a one-line docstring.
 - Notebooks are optional, numbered (`01_exploration.ipynb`), and only call the
