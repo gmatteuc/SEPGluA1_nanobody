@@ -277,7 +277,7 @@ question, not necessarily with the same output. Once A1 to A5 are in:
   `merged_naive_rws_auto\`, the `merged_naive_rws_vs_ish_*` folders,
   `nano_vs_auto\`). The `gene_panel_summary.csv` of
   `run_compare_with_allen_ish` stays an input of `run_ish_overview` (April's
-  headline, then and now: figure 14 of the ISH line).
+  headline, then and now: figure 18 of the ISH line).
 - Giulio checks the Python route against the old code, run from the tag
   `refactor-start` in its own check tree; then `archive/` is deleted (L2), the
   tag keeping the files.

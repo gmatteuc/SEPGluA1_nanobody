@@ -24,7 +24,7 @@ number, the earlier value is given beside it. Line of work 3, and the
 reproducibility of line 2, quote the ISH analysis built on 8 October 2026 on
 branch `post-ish` (`adult_v2\ish_analysis\`, [ISH_ANALYSIS.md](ISH_ANALYSIS.md)),
 run on a full copy of the production inputs: the production data root does not
-hold those outputs yet; it does once the branch is merged and steps 13 to 28
+hold those outputs yet; it does once the branch is merged and steps 13 to 29
 of the Python route run there.
 
 ## The question
@@ -298,8 +298,20 @@ gives 62%.
   0.0002 (its p against the four-subunit leftover, 0.0024, was seen before it
   was named). Over every gene none passes after BH (0 of 451); the glia set,
   which passed against the four-subunit leftover (q 0.04, not named in
-  advance), does not (q 0.19). The AMPA receptor complex family named with
-  Cacng8 is still to test.
+  advance), does not (q 0.19); it stays an unplanned lead, not pursued.
+  Added to the main model, Cacng8 takes 4.6% of the reproducible map from the
+  leftover: more than maps that relate to the model as it does (p 0.009), not
+  more than plain surrogates of it (p 0.059), the wider null.
+- The AMPA receptor complex family named with Cacng8 (the native complexes of
+  Schwenk et al. 2012 and GO:0032281, with Gria2 to Gria4, without Gria1; 31 of
+  37 genes with a usable map) follows the leftover beyond its surrogates (median
+  +0.064, p 0.047) but no more than 31 postsynaptic genes of the same expression
+  (+0.018, p 0.55); inside the family only Cacng8 passes BH. What the family
+  shares with the leftover is postsynaptic, not particular to the complex.
+- The 12 genes past the null are maps much like Gria1 and synapse density (rho
+  0.61 to 0.81 with the main model's prediction), so they describe the map
+  rather than add evidence; six of them follow the leftover before correction,
+  Cacng8 the one named in advance (ISH_ANALYSIS.md, section 5.7).
 - April's headline, P9's category violins with ANOVA p 0.032, rested on a
   split written after looking (p 0.20 without it) and on genes treated as
   independent draws: today's F across April's groups, against the F of the

@@ -7,20 +7,21 @@ October 2026 from the decisions of the ISH discussion (all five as recommended,
 [history/ISH_DISCUSSION.md](history/ISH_DISCUSSION.md), section 8), revised the
 same day after three reviews (statistics, figures, facts), and run again on 9
 October with part 1's main model, fixed on 8 October before its results
-(section 8).
+(section 8), and with the genes that follow the map described one by one and the
+tests named for the leftover run (sections 5.7 and 5.8).
 
 - Code: `mapping/sepmap/structures.py`, `mapping/sepmap/adult/` and
-  `mapping/sepmap/ish/`, run by steps 13 to 28 of the Python route
+  `mapping/sepmap/ish/`, run by steps 13 to 29 of the Python route
   ([mapping/README.md](../mapping/README.md)), on branch `post-ish`, not merged
   yet.
 - Outputs: `<data>\adult_v2\ish_analysis\`. The numbers below are those of the
   run of 9 October 2026 on a full copy of the production inputs (the data root
   set by `SEP_DATA_ROOT`); the production data root holds the same once steps
-  13 to 28 run there after the merge. Every number below is in
+  13 to 29 run there after the merge. Every number below is in
   `tables\numbers_for_the_text.csv` there (a `.txt` beside it reads more
   easily), written by `run_ish_overview.py` from the numbers each step writes;
   where a number comes from another table, the table is named.
-- Figures: `figures\00_overview.png` to `15_april_headline.png`, PNG and EPS.
+- Figures: `figures\00_overview.png` to `18_april_headline.png`, PNG and EPS.
   `figures\README.md` walks through them in order, each with its question,
   what to look at, what to take from it and what it means, with the numbers of
   the run. The figures are not versioned, so this document names each by its
@@ -65,14 +66,20 @@ Where it stands today:
 - **It does not hold against the stricter benchmark.** A map that is one Allen
   Gria1 experiment leaves as much (34%) as the nano map does (26% on the same
   structures). Which benchmark a claim uses is still to agree (section 8).
-- **Part 2 is not borne out by the gene tests of the map.** The map follows
-  Cacng8 and Gria1 beyond the null, inside divisions too, but Cacng8's lead
-  over Gria1 is inside the null of maps related to both alike, no gene set
-  passes, and the localisation genes do no better than matched controls.
-  Against the leftover of the main model, Cacng8, the one gene named in
-  advance, follows it beyond its null (section 5.6); the tests of the AMPA
-  receptor complex family named with it are still to run. The genes are
-  consistent with the surface-fraction reading; they do not single it out.
+- **Part 2 is not borne out by the gene tests of the map, and one test of the
+  leftover points its way.** The map follows Cacng8 and Gria1 beyond the null,
+  inside divisions too, but Cacng8's lead over Gria1 is inside the null of maps
+  related to both alike, no gene set passes, and the localisation genes do no
+  better than matched controls. The genes that follow the map most are maps
+  much like Gria1 and synapse density (section 5.7). Against the leftover of the
+  main model, Cacng8, the one gene named in advance, follows it beyond its null
+  (p 0.0002); added to the main model it takes 4.6% of the reproducible map,
+  more than maps that relate to the model as it does (p 0.009), not more than
+  plain surrogates of it (p 0.059). The AMPA receptor complex family named with
+  it follows the leftover beyond the surrogates (p 0.047) but no more than
+  postsynaptic genes of the same expression (p 0.55), and inside the family
+  only Cacng8 passes BH (section 5.8). The genes are consistent with the
+  surface-fraction reading; they do not single it out.
 
 What the comparison cannot do on its own: separate surface from total receptor
 (both follow the postsynaptic side of synapses), read protein from mRNA (mRNA
@@ -97,6 +104,8 @@ and where each part stands, one row per step with what stays open.
 | check row | a variant of the main model that changes one thing of it, fixed with it and reported beside it (`[beyond.variants]`) |
 | ceiling | the share of the map that two halves of the cohort reproduce (Spearman-Brown of their agreement) |
 | leftover | the part of the map a fitted model does not predict |
+| tier | a level of the tests against the leftover, named on 8 October: Cacng8 alone (1), the AMPA receptor complex family (2), every other gene (3, exploratory) |
+| maps alike to the model | maps that keep a gene's fit on the main model and replace the rest with a surrogate of it, as large: a null for what a gene takes of the leftover |
 | calibration floor | what the same model leaves of a map made only of Gria1 and synapse density: the leftover Allen-to-Allen mismatch produces alone |
 | jackknife | here, recomputing a number on subsamples that each leave out a fifth of the structures; the spread of those values, scaled for the subsample size, gives its interval |
 | spatial null | random maps with the nano map's smoothness, the surrogates; a spatial p is the share of surrogates that correlate with a gene at least as strongly as the map does |
@@ -378,8 +387,11 @@ genes. Three tests carry that question: the Cacng8 - Gria1 gap (section 5.3,
 `figures\07_gene_ranking.png` B), the localisation genes against matched
 controls once the subunit composite is removed (section 5.4,
 `09_localisation.png`), and every gene against the leftover of part 1 (section
-5.6, `11_leftover_genes.png`). The others describe the map: which genes look
-like it, which kinds, and at what scale.
+5.6, `11_leftover_genes.png`), where Cacng8 and the AMPA receptor complex family
+were named in advance (section 5.8, `14_ampa_family.png`). The others describe
+the map: which genes look like it, which kinds, at what scale, and, gene by
+gene for those that follow it most, what kind of map each is (section 5.7,
+`12_top_genes.png` and `13_cacng8_gria1.png`).
 
 ### 5.1 One comparison
 
@@ -543,12 +555,13 @@ holds for both a TARP and the receptor's own mRNA.
 **Method.** Every gene against the leftover of part 1's main model, each
 against the leftover's own surrogates, each surrogate put through the same fit
 first (the leftover carries nothing of the model's columns, and a surrogate that
-did would give a null far too wide). The gene sets are read the same way.
-Cacng8 was named for this leftover in advance, on 8 October, its uncorrected
-spatial p the test (`mapping/sepmap/ish/gene_sets.py`); its p against the
-leftover of the four-subunit model, 0.0024, was seen before it was named. The
-AMPA receptor complex family named with it is tested as a group and within
-itself in a step still to run; every other gene is exploratory.
+did would give a null far too wide). The gene sets are read the same way. Three
+tiers were named for this leftover on 8 October, before the main model ran
+(`mapping/sepmap/ish/gene_sets.py`): Cacng8 alone, its uncorrected spatial p the
+test (its p against the leftover of the four-subunit model, 0.0024, was seen
+before it was named); the AMPA receptor complex family, as a group and then
+gene by gene within it (section 5.8); every other gene exploratory, BH over all
+of them.
 
 **Result** (`beyond\leftover_genes.csv`, `leftover_sets.csv`). Cacng8 follows
 the leftover: +0.204, spatial p 0.0002 (28th of 451 genes). Over every gene, 0
@@ -558,10 +571,143 @@ glia set has median +0.164 (p 0.043, q 0.19), localisation +0.048 (p 0.116).
 
 **What it means.** The one gene named in advance, a TARP, follows what Gria1 and
 synapse density leave, beyond the leftover's own null; no gene does once every
-gene is corrected for. The glia set of the first run (q 0.04 against the
-four-subunit leftover) does not pass against this one, and it is not pursued.
+gene is corrected for. The glia set followed the leftover of the first,
+four-subunit model (q 0.04), a test not named in advance; against this one it
+does not pass, and it stays an unplanned lead, not pursued.
 
-### 5.7 What part 2 says
+### 5.7 The genes that follow the map
+
+`run_ish_top_genes.py`, `mapping/sepmap/ish/top_genes.py`;
+`figures\12_top_genes.png`, `13_cacng8_gria1.png` and one sheet per gene,
+`figures\top_genes\<gene>.png`.
+
+**Method.** The 12 genes past the map's null after BH over every gene (section
+5.3), with Gria1 and Cacng8 always and every member of the AMPA receptor complex
+family (section 5.8), are each described on every axis of the line:
+
+- with the map: rho, spatial p, q and rank; the mean rho inside divisions and
+  its null (section 5.5); the range of its rho over the robustness variants,
+  and of its rank over the variants that hold every gene (section 6.2);
+- its Allen map: how many experiments, and how well they agree;
+- whether it is just a Gria1-like or density-like map: its rho with Gria1, the
+  two density terms, autofluorescence and the main model's prediction on the
+  126 structures of the fit, and with the PSD95 density on those of them where
+  it is measured;
+- with the leftover: its rho and spatial p, each surrogate through the same fit
+  (section 5.6);
+- what it takes of the leftover: the main model with the gene's ranks added,
+  bent as every term is, scored on held-out structures as the main model is, as
+  a share of the reproducible map. A smooth map takes some by chance, so the
+  gene is set beside 1,000 maps of its smoothness put in its place, of two
+  kinds. Plain surrogates of the gene are unrelated to the model, so more of
+  each is new to it than of a gene that shares the model's pattern: a wide null,
+  the conservative bound, and the one this step was first given. Maps that
+  relate to the model as the gene does keep the gene's fit on the model and
+  replace its remainder with a surrogate of it, as large; they were added on 9
+  October after the plain null's numbers were seen, and both are reported;
+- what it is: its name, the GO terms that put it in the ontology panel and its
+  cellular-component terms at the synapse (which carry SynGO's curation where it
+  reached GO), its gene sets and P9's category, all from the gene table.
+
+Nothing about a gene's biology is written here from memory but one line:
+Cacng8 encodes TARP γ-8, an AMPA receptor auxiliary subunit expressed mainly in
+the hippocampus, where it sets AMPA receptor protein levels and their
+extrasynaptic surface expression (Rouach et al. 2005).
+
+**Result** (step `top_genes`; `tables\top_genes.csv`). The genes past the map's
+null, best first; "past" marks a within rho past its null after BH, "-" a gene
+measured once; the share taken is of the reproducible map, with its p against
+plain surrogates and against maps alike to the model:
+
+| gene | with the map, rank | inside divisions | rank over the variants | reliability | with Gria1, with the model's prediction | with the leftover (p) | takes of the leftover (p plain, alike) |
+|---|---|---|---|---|---|---|---|
+| Cacng8 | +0.807, 1 | +0.548 (past) | 1 to 2 | 0.91 | +0.74, +0.80 | +0.204 (0.0002) | 4.6% (0.059, 0.009) |
+| Arpc5 | +0.751, 2 | +0.356 (past) | 1 to 7 | - | +0.58, +0.76 | +0.208 (0.0005) | 3.8% (0.129, 0.010) |
+| Igsf11 | +0.743, 3 | +0.210 | 2 to 15 | 0.85 | +0.55, +0.72 | +0.122 (0.069) | 2.2% (0.261, 0.107) |
+| Htr3a | +0.737, 4 | +0.443 (past) | 3 to 31 | - | +0.57, +0.65 | +0.287 (0.007) | 5.9% (0.011, 0.002) |
+| Grm5 | +0.725, 6 | +0.382 | 2 to 14 | - | +0.77, +0.81 | +0.078 (0.175) | -1.2% (0.886, 0.771) |
+| Neurl1a (in psd_pc1) | +0.718, 8 | +0.467 (past) | 3 to 34 | 0.81 | +0.64, +0.69 | +0.134 (0.036) | 0.4% (0.526, 0.346) |
+| Mapk1 | +0.687, 17 | +0.213 | 8 to 38 | - | +0.58, +0.69 | +0.168 (0.030) | 1.1% (0.383, 0.031) |
+| Add3 | +0.681, 20 | +0.292 | 4 to 89 | - | +0.38, +0.61 | +0.260 (0.035) | 4.2% (0.088, 0.029) |
+| Gria1 (the abundance term) | +0.646, 32 | +0.417 (past) | 18 to 47 | 0.91 | +1.00, +0.80 | +0.041 (0.036) | 0.0% |
+| Cnih2 | +0.637, 36 | +0.336 | 5 to 43 | 0.08 | +0.56, +0.63 | +0.002 (0.978) | -1.1% (0.785, 0.724) |
+| Grip1 (in psd_pc1) | +0.615, 45 | +0.207 | 22 to 75 | 0.65 | +0.74, +0.69 | +0.095 (0.133) | -0.1% (0.588, 0.440) |
+| Eps8 | +0.605, 54 | +0.286 | 8 to 79 | 0.55 | +0.53, +0.61 | +0.136 (0.057) | 1.6% (0.220, 0.141) |
+
+- They are maps much like Gria1 and synapse density: rho 0.38 to 0.77 with
+  Gria1 and 0.61 to 0.81 with the main model's prediction. That is why the main
+  model predicts most of the map.
+- 6 of them follow the leftover before correction (Cacng8, Arpc5, Htr3a,
+  Neurl1a, Mapk1, Add3); only Cacng8's p is a test named in advance. Gria1 is a
+  term of the model, so its rho with the leftover is near zero by construction
+  and its p says nothing.
+- Added to the main model, Htr3a alone takes more than 95% of plain surrogates
+  of it (5.9%, p 0.011); against maps alike to the model, Cacng8, Arpc5, Htr3a,
+  Mapk1 and Add3 do (p 0.002 to 0.031).
+- Cacng8 against Gria1 (figure 13): the map follows Cacng8 at +0.807 and Gria1
+  at +0.646, inside divisions +0.548 and +0.417; the two genes agree at +0.74
+  over the structures of the fit. The lead, +0.167, is inside the null of maps
+  that follow both alike (p 0.105; section 5.3). Against what Gria1 and synapse
+  density leave, Cacng8 gives +0.204 (p 0.0002), and added to the main model it
+  takes 4.6% of the reproducible map (28.6% left, 24.0% with it).
+
+**What it means.** The genes that follow the map most describe it; they are
+not separate evidence, since most of what they share with the map is what Gria1
+and synapse density already predict. A few carry part of what the model leaves.
+Of these, Cacng8 is the one named in advance, and it holds against both kinds of
+null for its rho, and against the narrower one for what it takes; the wider one
+(p 0.059) is the bound a sceptic would quote. Htr3a, a serotonin receptor
+measured by one Allen experiment, takes more than any other, an exploratory
+finding.
+
+### 5.8 The AMPA receptor complex family
+
+`run_ish_top_genes.py`; `figures\14_ampa_family.png`; `tables\named_tests.csv`,
+`top_genes.csv`, `family_members.csv`.
+
+**Method.** Named on 8 October before the main model ran (section 8;
+`mapping/sepmap/ish/gene_sets.py`), from sources outside this analysis: the
+constituents of native AMPA receptor complexes found by proteomics (Schwenk et
+al. 2012, Figure 1D and Table S2), the mouse genes annotated to GO:0032281 AMPA
+glutamate receptor complex (GO release 2026-08-05), and the partner subunits
+Gria2 to Gria4, less Gria1, the abundance term: 37 genes, 31 with a usable map.
+Not tested, being in neither panel of the gene table: Gsg1l, Olfm3, Prrt1,
+Prrt2, Rap2b and Shisa8. Tier 2, after Cacng8 alone (tier 1):
+
+- the family's median rho with the leftover against the same genes' median
+  over the leftover's 10,000 surrogates, each through the same fit;
+- the family against 31 genes of the other postsynaptic set outside it, each
+  the one closest in median energy (the localisation test's matching), labels
+  permuted 20,000 times;
+- then gene by gene, BH within the family only.
+
+Every other gene is exploratory (section 5.6). The same is read on the map
+itself, to describe the family, not as a test of the leftover. Every gene's rho
+with the leftover was in `leftover_genes.csv` (step 22) before this step ran;
+the group tests are those committed on 8 October.
+
+**Result:**
+
+| test | on the leftover | on the map (a description) |
+|---|---|---|
+| Cacng8 alone | +0.204, p 0.0002 | +0.807, p ≤ 0.0001 |
+| the family's median against the surrogates | +0.064 (null 95% -0.063 to +0.063), p 0.047 | +0.414, p 0.044 |
+| the family against matched controls | +0.064 against +0.046: +0.018, p 0.55 (±0.062 would pass) | +0.414 against +0.365: +0.049, p 0.50 |
+| members past BH within the family | Cacng8 (q 0.006) | Cacng8 and Cnih2 (q 0.002) |
+
+The members closest to the leftover after Cacng8 are Lrrtm4 (+0.314, p 0.074),
+Vwc2l (+0.252), Shisa6 (+0.210) and Cpt1c (+0.193); Abhd12 (p 0.013) and Dlg3
+(p 0.036) have the next smallest p, q 0.21 and 0.33 within the family. The
+partner subunits sit near zero or below (Gria2 -0.064, Gria3 +0.062, Gria4
+-0.105).
+
+**What it means.** The family follows what Gria1 and synapse density leave
+more than maps of the leftover's smoothness do, just past the null; but other
+postsynaptic genes of the same expression follow it about as much, so what the
+family shares with the leftover is postsynaptic, not particular to the AMPA
+receptor complex. Inside the family it is Cacng8 that carries it.
+
+### 5.9 What part 2 says
 
 Consistent with the surface-fraction reading, and not singling it out. The map
 follows receptor expression and not the tissue (section 6.1), and Cacng8, Dlg2
@@ -569,16 +715,19 @@ and Gria1 lead the ranking inside divisions too. But Cacng8's lead over Gria1
 is inside the null of maps related to both alike, no gene set passes its null,
 the postsynaptic criterion named in advance is met by half, and the
 localisation genes predict the map no better than matched postsynaptic controls
-(no advantage larger than about +0.08). Against the leftover, the TARP named in
-advance follows it (p 0.0002), the one result here that points the way the
-reading does. The genes neither contradict nor confirm part 2; only a
-total-receptor measurement can.
+(no advantage larger than about +0.08). The genes that follow the map most are
+maps much like Gria1 and synapse density. Against the leftover, the TARP named
+in advance follows it (p 0.0002) and takes part of it, the one result here that
+points the way the reading does; the AMPA receptor complex family named with it
+follows the leftover no more than postsynaptic genes of the same expression.
+The genes neither contradict nor confirm part 2; only a total-receptor
+measurement can.
 
 ## 6. Controls and limits
 
 ### 6.1 The tissue: autofluorescence (A8)
 
-`figures\12_autofluorescence.png`. The autofluorescence map of the same
+`figures\15_autofluorescence.png`. The autofluorescence map of the same
 sections, read as nano is and tested with its own surrogates.
 
 - With Gria1 +0.176 (p 0.447), with Cacng8 +0.296 (p 0.292): neither passes.
@@ -597,7 +746,7 @@ autofluorescence ranking is a different one, though not an empty one.
 
 ### 6.2 The choices made: robustness (A3)
 
-`run_ish_robustness.py`; `figures\13_robustness.png`; `tables\robustness_summary.csv`.
+`run_ish_robustness.py`; `figures\16_robustness.png`; `tables\robustness_summary.csv`.
 Eleven variants of the primary ranking (Spearman, `zref` with the declared
 reference, merged profiles after QC, full means, the declared set): ten change
 one choice, the last is the route of 5 October as it ran.
@@ -616,11 +765,11 @@ one choice, the last is the route of 5 October as it ran.
 The nano erosion, the stored `zref` and no section QC change nothing (0.9996
 and above). Cacng8 is first of P9's genes in every variant. Gria1's rank is
 what moves (5th to 17th): quote it with its null, not as a place. The gap stays
-between +0.126 and +0.211, inside the band of its null (figure 13 C).
+between +0.126 and +0.211, inside the band of its null (figure 16 C).
 
 ### 6.3 The limit: the green channel (analysis 5)
 
-`run_sep_channel_check.py`; `figures\14_green_channel.png`;
+`run_sep_channel_check.py`; `figures\17_green_channel.png`;
 `green_channel\sep_channel_check.csv`.
 
 The tag's own green (SEP) fluorescence was meant to show all tagged receptor,
@@ -661,7 +810,7 @@ composition and nanobody access. The tests of the channel ratios against genes
 
 ## 7. What changed from April
 
-`run_ish_overview.py`; `figures\15_april_headline.png`; `tables\april_anova.csv`,
+`run_ish_overview.py`; `figures\18_april_headline.png`; `tables\april_anova.csv`,
 `april_groups.csv`.
 
 P9's headline (22 April) grouped 97 genes by the categories of
@@ -726,7 +875,15 @@ asks it again on sets fixed in advance.
   Run on 9 October: PSD95 covers 77 of the 126 structures, so the main model
   keeps the mRNA panel and PSD95 is a check row (section 4). The outputs of the
   first run of 8 October, with the four subunits, are kept on the development
-  copy in `adult_v2\ish_analysis_8oct_four_subunits\`.
+  copy in `adult_v2\ish_analysis_8oct_four_subunits\`. The tests named for the
+  leftover ran the same day (sections 5.7 and 5.8): Cacng8 follows it (p
+  0.0002); the family passes against the surrogates (p 0.047), not against
+  matched controls (p 0.55).
+- **What a gene takes of the leftover.** Two nulls (section 5.7): plain
+  surrogates of the gene, the null this step was first given and a wide one,
+  and maps that relate to the model as the gene does, added after the first's
+  numbers were seen. Cacng8 passes the second (p 0.009), not the first (p
+  0.059). Which one a claim quotes is to agree; the first is the bound.
 - **The exceptions list.** Glra1 section 61 is kept as true absence, status
   "proposed" in `mapping/ish_section_exceptions.csv`, and 16 sections are kept
   at a step in expression by the rule. To review on `figures\qc\00_flagged.png`
@@ -738,7 +895,8 @@ asks it again on sets fixed in advance.
   El-Boustani before the figure is shown.
 - **The glia lead.** The glia set followed the leftover of the four-subunit
   model (q 0.04), a test not named in advance; against the main model's
-  leftover it does not pass (q 0.19). Not pursued now.
+  leftover it does not pass (q 0.19). An unplanned lead, not pursued now
+  (figure 11 says so in one line).
 - **`adult/arms.py` and `run_adult_arms.py`.** No step of the ISH line reads
   their table now that `ish/arms.py` retires. Proposal: retire them with it.
   Until decided they stay, out of the run order.
@@ -750,7 +908,7 @@ asks it again on sets fixed in advance.
   and works with that of 5 October. Both are shown, with the power check;
   neither turns the localisation result positive.
 - **The production run.** The outputs quoted here were made on a full copy of
-  the production inputs; steps 13 to 28 run on the production data root after
+  the production inputs; steps 13 to 29 run on the production data root after
   the merge.
 
 ## 9. How to rerun
@@ -773,16 +931,18 @@ tools\venv_atlas\Scripts\python.exe mapping\run_ish_overview.py
 | 16 | `run_ish_spatial_null` | the surrogates are cached; `--recompute` draws them again | 14 minutes, the calibration |
 | 17 to 20 | `run_ish_gene_ranking`, `run_ish_robustness`, `run_ish_divisions --sheets`, `run_ish_gene_sets` | the surrogates | 2, 1, 3 and 1 minutes |
 | 21 | `run_synaptome` | the synaptome of Zhu et al. 2018, downloaded once into `<data>\reference\synaptome\`; `--offline` stops instead | 10 s |
-| 22 to 27 | `run_beyond_density` to `run_sep_channel_check` | | under 1 minute each; the calibration 2 minutes |
-| 28 | `run_ish_overview` | every step's numbers | 10 s |
+| 22 to 26 | `run_beyond_density` to `run_beyond_figures` | | under 1 minute each; the calibration 2 minutes |
+| 27 | `run_ish_top_genes` | the tables of steps 15 to 22; `--sheets` draws one sheet per gene | 8 minutes, the nulls of the share taken |
+| 28 | `run_sep_channel_check` | | under 1 minute |
+| 29 | `run_ish_overview` | every step's numbers | 10 s |
 
-A full run of steps 13 to 28 takes about half an hour, and a second run gives
+A full run of steps 13 to 29 takes about 40 minutes, and a second run gives
 the same tables.
 
 Every run prints the data root and the settings in force. `SEP_DATA_ROOT`
 moves the data root, for a copy. The settings are `[structures]`, `[ish_qc]`,
 `[ish_analysis]`, `[spatial_null]`, `[beyond]`, `[beyond_controls]`,
-`[beyond_calibration]`, `[beyond_figures]` and `[ish_figures]` of
+`[beyond_calibration]`, `[beyond_figures]`, `[top_genes]` and `[ish_figures]` of
 `mapping/settings.toml`. The tests: `cd mapping`,
 `..\tools\venv_dev\Scripts\python -m pytest tests`
 ([mapping/tests/README.md](../mapping/tests/README.md)).
@@ -811,22 +971,25 @@ Under `<data>\adult_v2\ish_analysis\`:
 | `tables\gene_sets.csv`, `set_tests.csv`, `contrasts.csv`, `localisation_test.csv`, `localisation_summary.csv`, `localisation_power.csv` | 20 | set members; set tests; contrasts; partial rho per gene and pool; every test of the localisation design; its power by effect size |
 | `synaptome\samples.csv`, `density.csv`, `coverage.csv`, `agreement.csv`, `feasibility.png` | 21 | per sample of the synaptome, its ids, densities and structure or why none; per structure of the adult table, measured or why not, its units, weights and densities; per division, how many declared and fitted structures are measured; each density's Spearman with the mRNA density terms, Gria1 and the maps |
 | `beyond\` | 22 to 26 | `structures_used.csv` (with whether PSD95 is measured), `variance_partition.csv`, `calibration.csv`, `calibration_jackknife.csv`, `jackknife.csv`, `controls.csv`, `gene_space.csv`, `gene_space_calibration.csv`, `gene_space_summary.csv`, `variants.csv` (the main model, its other folds, its check rows and its wider structures: structures, terms, budget, density alone, left), `regression_table.csv`, `residual_by_structure.csv`, `replication.csv`, `leftover_genes.csv`, `leftover_sets.csv`, `numbers_for_the_caption.txt`, working figures |
-| `green_channel\sep_channel_check.csv` | 27 | per adult, each channel's range and correlations |
-| `tables\april_headline.csv`, `april_anova.csv`, `april_groups.csv` | 28 | P9's genes then and now; the ANOVA under each choice; today's groups against the null |
-| `tables\numbers_<step>.csv`, `numbers_for_the_text.csv` and `.txt` | 13 to 28 | the numbers of each step, and all of them |
+| `tables\top_genes.csv` | 27 | per gene characterised (past the map's null, Gria1, Cacng8, the family): why it is there and its tier, its GO terms and gene sets, its rho, p, q and rank with the map, inside divisions, over the robustness variants, its reliability, its rho with each term of the main model, its prediction and PSD95, its rho and p with the leftover (q over all genes and within the family), its matched control, and what it takes of the leftover with both nulls |
+| `tables\named_tests.csv`, `family_members.csv` | 27 | the tests named for the leftover, tier 1 and the two group tests of tier 2, on the leftover and on the map; every member of the family with its sources, tested or why not |
+| `green_channel\sep_channel_check.csv` | 28 | per adult, each channel's range and correlations |
+| `tables\april_headline.csv`, `april_anova.csv`, `april_groups.csv` | 29 | P9's genes then and now; the ANOVA under each choice; today's groups against the null |
+| `tables\numbers_<step>.csv`, `numbers_for_the_text.csv` and `.txt` | 13 to 29 | the numbers of each step, and all of them |
 | `cache\` | 14, 15 | Allen experiment lists, mygene records, `go-basic.obo` |
 
 | figure | drawn by |
 |---|---|
-| `figures\00_overview.png`, `15_april_headline.png`, `README.md` | `run_ish_overview.py` |
+| `figures\00_overview.png`, `18_april_headline.png`, `README.md` | `run_ish_overview.py` |
 | `figures\01_structures.png` | `run_structure_set.py` |
 | `figures\02_genes.png` | `run_ish_gene_table.py` |
 | `figures\03_beyond_budget.png`, `04_beyond_where.png`, `11_leftover_genes.png` | `run_beyond_figures.py` |
-| `figures\05_one_comparison.png`, `06_spatial_null.png`, `07_gene_ranking.png`, `12_autofluorescence.png` | `run_ish_gene_ranking.py` |
+| `figures\05_one_comparison.png`, `06_spatial_null.png`, `07_gene_ranking.png`, `15_autofluorescence.png` | `run_ish_gene_ranking.py` |
 | `figures\08_gene_sets.png`, `09_localisation.png` | `run_ish_gene_sets.py` |
 | `figures\10_between_within.png`, `genes\<gene>.png` | `run_ish_divisions.py` (`--sheets`) |
-| `figures\13_robustness.png` | `run_ish_robustness.py` |
-| `figures\14_green_channel.png` | `run_sep_channel_check.py` |
+| `figures\12_top_genes.png`, `13_cacng8_gria1.png`, `14_ampa_family.png`, `top_genes\<gene>.png` | `run_ish_top_genes.py` (`--sheets`) |
+| `figures\16_robustness.png` | `run_ish_robustness.py` |
+| `figures\17_green_channel.png` | `run_sep_channel_check.py` |
 | `figures\qc\00_flagged.png`, `qc\<gene>_<experiment>.png` | `run_ish_section_qc.py` (`--sheets`) |
 
 Reference data, under `<data>\reference\`, each folder with a `fetch_log.txt`
@@ -844,7 +1007,10 @@ Generative modeling of brain maps with spatial autocorrelation. NeuroImage 220,
 significance levels. Journal of Business and Economic Statistics 1, 292-298.
 Hansen JY, Luppi AI, Qiu Z, Gini S, Fulcher BD, Gozzi A, et al. (2026). Synapse
 types are spatially associated with regional hemodynamics in the mouse brain.
-PLOS Biology 24, e3003637. Schwenk J, Harmel N, Brechet A, Zolles G, Berkefeld
+PLOS Biology 24, e3003637. Rouach N, Byrd K, Petralia RS, Elias GM, Adesnik H,
+Tomita S, et al. (2005). TARP γ-8 controls hippocampal AMPA receptor number,
+distribution and synaptic plasticity. Nature Neuroscience 8, 1525-1533. Schwenk
+J, Harmel N, Brechet A, Zolles G, Berkefeld
 H, Müller CS, et al. (2012). High-resolution proteomics unravel architecture
 and molecular diversity of native AMPA receptor complexes. Neuron 74, 621-633.
 Zhu F, Cizeron M, Qiu Z, Benavides-Piccione R, Kopanitsa MV, Skene NG, et al.
