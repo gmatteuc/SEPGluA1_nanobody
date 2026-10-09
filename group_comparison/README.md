@@ -84,9 +84,14 @@ taken as step 3 takes it, and in each region, over its own voxels:
 |---|---|
 | `ai` | asymmetry index, mean \|L - R\| over mean (L + R), on the maps of step 3 (folded, smoothed, the experimental group aligned) |
 | `ai_raw` | the same on the collected stack (`nano_4d.mat`) less the mouse's off-tissue level, smoothed the same way: no normalisation, no alignment |
-| `signed`, `signed_raw` | mean (L - R) over mean (L + R): above 0, the left hemisphere higher |
 | `sum_rel`, `sum_rel_raw` | mean L + R in the region over the mouse's own mean over the isocortex |
 | `loo_ai`, `loo_ai_raw` | the AI in the heaviest positive L - R cluster of SSp-bfd that the comparison finds without the mouse |
+
+There is no signed value. Left and right are not certain for every brain, so
+the stimulated side is not known mouse by mouse, and a signed L - R would
+carry arbitrary signs; the test takes \|L - R\| and L + R for the same
+reason. The whisker stimulated was C2 (possibly B2), the same in every RWS
+mouse (Giulio, 9 October 2026).
 
 - The off-tissue level is the median of the raw stack over the mouse's
   background voxels (step 2's mask) outside the atlas brain: the slide around
@@ -94,8 +99,7 @@ taken as step 3 takes it, and in each region, over its own voxels:
   normalised volume is checked to be its raw volume through its line of step
   2, to the bit.
 - The alignment's intercept enters the experimental mice's L + R on the maps
-  of step 3, and so their `ai`, `signed` and `sum_rel`; the raw values do not
-  have it.
+  of step 3, and so their `ai` and `sum_rel`; the raw values do not have it.
 - Leave-one-out: without each mouse in turn, the comparison is redone as step
   3 does it (the alignment refitted on the others, the t with three mice per
   group, the surprise, the rolling median, p < 0.01, 18-connected, within
@@ -106,15 +110,54 @@ taken as step 3 takes it, and in each region, over its own voxels:
   move a cluster. Fold 0 keeps every mouse and must give step 3's cluster; it
   is checked against step 3's table.
 - Each value is compared between the groups by the exact permutation of the
-  difference of the group means (252 splits for 5 and 5, 126 for 5 and 4),
-  two-sided and one-sided for the experimental group higher (not for the
-  signed values, whose side the experiment does not name), with the Welch t
-  and Hedges' g beside it.
+  difference of the group means (252 splits for 5 and 5, 126 for 5 and 4).
+  The test named before any number is one-sided, the experimental group
+  higher: RWS potentiates the stimulated barrels' synapses and brings AMPA
+  receptors to their surface (Gambino et al. 2014). The two-sided p, the
+  Welch t and Hedges' g stand beside it.
 - Outputs, in the comparison's folder, `<tag>` the comparison and the
   smoothing (`naive_vs_rws_nano_smooth5`): `Per_Mouse_Values_<tag>` (.csv,
   one row per mouse, and the figure), `Per_Mouse_Stats_<tag>.csv`,
-  `Per_Mouse_LOO_<tag>.csv` (one row per fold) and the cache of the mice's
-  maps, `Per_Mouse_Maps_<tag>.mat` (`force_recompute_mice` redoes it).
+  `Per_Mouse_LOO_<tag>.csv` (one row per fold, with where its cluster sits)
+  and `.mat` (the folds' clusters, voxel by voxel), and the cache of the
+  mice's maps, `Per_Mouse_Maps_<tag>.mat` (`force_recompute_mice` redoes
+  it). About 30 minutes for ten mice, two from the cache.
+- An index over a mean L + R at or below 0 is NaN. On the maps of step 3 the
+  zero is the normalisation's, not the absence of signal: a mouse's
+  off-tissue level lands between about -2,400 (CGF033) and +500 (CGF027) on
+  the control group's scale. So `ai` is the index as the test sees it, and
+  `ai_raw` the one to read as a ratio.
+
+Results, 9 October 2026, on copies of the stacks of the production run of
+7 October (fold 0 gives step 3's barrel-field cluster, its voxel count and
+mass, in both comparisons). One-sided p (experimental group higher), then Hedges' g; ten
+values per comparison, not corrected across them:
+
+| value | RWS, SSp-bfd | RWS, VISp | behavior, SSp-bfd | behavior, VISp |
+|---|---|---|---|---|
+| `ai` | 0.14, 0.69 | 0.31, 0.30 | 0.49, 0.02 | 0.27, 0.49 |
+| `ai_raw` | 0.25, 0.47 | 0.37, 0.24 | 0.056, 1.10 | 0.13, 0.98 |
+| `sum_rel` | 0.12, 0.74 | 0.044, 1.11 | 0.016, 2.02 | 0.054, 1.38 |
+| `sum_rel_raw` | 0.048, 1.09 | 0.044, 1.03 | 0.016, 1.65 | 0.036, 1.54 |
+| `loo_ai` | 0.012, 1.86 | | 0.33, 0.27 | |
+| `loo_ai_raw` | 0.020, 1.55 | | 0.25, 0.51 | |
+
+- After RWS the asymmetry of the whole barrel field does not separate the
+  groups; in the leave-one-out cluster it does, carried by four of the five
+  RWS mice: on the raw stack MG736, MG737, MG691 and MG692 are above every
+  naive mouse, MG693 among them. Every fold finds its cluster in the same
+  place: 0.001 to 0.006 mm^3, 87 to 100% of it in layer 2/3, in the
+  posterior barrel field (planes 553 to 570, three quarters of the region's
+  length from its front), in its dorsal part, midway across it.
+- L + R relative to the isocortex is higher after RWS in VISp as much as in
+  the barrel field: it does not single out the barrel field. VISp is
+  covered at less than half in CGF034, CGF035 and MG691.
+- After behavior (alignment slope 3.12) L + R relative to the isocortex is
+  higher in both regions, the asymmetry nowhere, and the leave-one-out
+  clusters move from fold to fold (layers 5 and 6a, one of 85 voxels in
+  layer 1; none of the voxels of the cluster of all mice in six of the nine
+  folds). VISp is missing in
+  MG709 and covered at less than half in the other three behavior mice.
 
 ## Where the code is
 
