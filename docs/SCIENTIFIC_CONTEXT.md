@@ -193,9 +193,11 @@ each main figure of two to four panels beside its detailed version (the same
 number with an s).
 
 **The map is not fully explained by Gria1 expression and synapse density**
-(part 1 of the argument; figures 03 and 04). This is the second version of part
-1, decided by Giulio on 9 October 2026 after seeing the first (ISH_ANALYSIS.md,
-section 8.1):
+(part 1 of the argument; figures 03 and 04, with the check rows in 03s1, the
+controls in 03s2 and the choice of the density genes in 03s3). This is the second
+version of part 1, decided by Giulio on 9 October 2026 after seeing the first
+(ISH_ANALYSIS.md, section 8.1; the first version's numbers are in its section
+4.6):
 
 ```
 nano map rank  ~  Gria1 rank + synapse-density rank
@@ -208,10 +210,14 @@ rank of three postsynaptic genes, Rock2, Cap2 and Slc8a2, chosen without the map
 by their agreement with the measured PSD95 punctum density of Zhu et al. (2018),
 after every gene that places or regulates AMPA receptors was left out as the
 surface side (held out on random halves of the structures, the three agree with
-PSD95 at 0.79). The two terms enter straight, so a map made of them, the
-calibration floor, holds no curvature the model could miss. Over the 163
-declared structures where Gria1 and the three genes are measured (40 lack
-Gria1, mostly hypothalamic and midbrain, one Rock2), the model is scored on
+PSD95 at 0.79, 95% 0.71 to 0.86, against 0.82 for Dlg4, Homer1 and Camk2a; figure
+03 D). The two terms enter straight, so a term is credited with the map's order
+and not with a bend of it, and a map made of them, the calibration floor, holds
+no curvature the model could miss; autofluorescence, a property of the tissue
+that alone predicts nothing of the map (-1%), is not a term. The curved model
+and autofluorescence are check rows. Over the 163 declared structures where
+Gria1 and the three genes are measured (40 lack Gria1, mostly hypothalamic and
+midbrain, one Rock2), the model is scored on
 held-out structures (20 shufflings of five folds) against the map's own
 reliability: two halves of the cohort agree at 0.972, so 98.6% of the map is
 reproducible (Spearman-Brown for ten adults).
@@ -239,7 +245,8 @@ reproducible (Spearman-Brown for ten adults).
   strain, grid, registration), so it errs low. The first version's second
   benchmark, a map of one Allen Gria1 experiment, is gone: its made-up animals
   share one Allen brain's quirks, which then count as reproducible, while the
-  nano map averages ten brains.
+  nano map averages ten brains. It was dropped after the first version had shown
+  nano not above it (ISH_ANALYSIS.md, section 4.6).
 - Check rows, each against its own floor (nano minus the floor, in points): the
   model curved leaves 38% (+20, 95% +8 to +32), with autofluorescence 43% (+23),
   with the first proposal for density (Dlg4, Homer1, Camk2a) 52% (+30), with the

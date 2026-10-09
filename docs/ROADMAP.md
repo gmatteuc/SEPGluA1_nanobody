@@ -769,12 +769,17 @@ For the reasons, see the plan and the documents named.
   map by their agreement with PSD95 puncta (Rock2, Cap2, Slc8a2); the test the
   calibration floor only, the one-experiment Gria1 benchmark removed; check rows
   each with its own floor (`mapping/settings.toml` `[density_markers]`,
-  `[beyond]`). The first version (8 October: Gria1 + the mRNA panel +
-  autofluorescence, curved) is kept on the development copy in
-  `adult_v2\ish_analysis_9oct_v1\`.
+  `[beyond]`). Figure 03: the map against the prediction, the four parts, nano
+  against the floor with their difference, the density genes against PSD95 (held
+  out 0.79); 03s1 the check rows, 03s2 the controls, 03s3 the choice of the
+  genes. The first version (8 October: Gria1 + the mRNA panel +
+  autofluorescence, curved; 29% left, +14 points over its floor, -2 to +30) is
+  kept on the development copy in `adult_v2\ish_analysis_9oct_v1\`, its numbers
+  in ISH_ANALYSIS.md, section 4.6.
 - **The tests of the leftover** (8 October, before the main model ran):
-  Cacng8 named, its uncorrected p the test (its p against the near-identical
-  leftover of the four-subunit model had been seen, so it is a re-test); the AMPA
+  Cacng8 named, its uncorrected p the test (its p against the leftover of the
+  four-subunit model had been seen, and against the first version's before the
+  second was decided, so it is a re-test); the AMPA
   receptor
   complex family (Schwenk et al. 2012 and GO:0032281, the partner subunits,
   without Gria1) as a group against the surrogates and against matched
