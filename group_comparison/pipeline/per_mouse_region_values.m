@@ -74,7 +74,10 @@ function per_mouse_region_values(run_settings)
 %   carries it as the observed statistic does; shuffling the observed values
 %   would not, and its p (in the table only) is anti-conservative. The first
 %   split must give run_group_differences' cluster and the cluster mass over
-%   the splits its p, both checked against its table when it is there.
+%   the splits its p, both checked against its table when it is there. It has
+%   that test's selection and splits; what it takes from each split's cluster
+%   differs: the mice's mean AI, which does not grow with the cluster's
+%   extent, where that test takes the cluster's mass, which does.
 %
 %   Autofluorescence (auto_control): the auto stack, collected from the same
 %   registered volumes as the nano stack (an auto_4d.mat without the files it
@@ -89,8 +92,9 @@ function per_mouse_region_values(run_settings)
 %   within cluster_region. The left-out mouse's ai (on that fold's maps,
 %   loo_ai) and ai_raw (loo_ai_raw) are read in the fold's heaviest cluster
 %   where |L - R| is higher in the experimental group, so no mouse is read in a
-%   cluster its own data helped define: stricter than the selection-matched
-%   test, each mouse read in a cluster of four mice against five. Fold 0 leaves
+%   cluster its own data helped define: out of sample, each mouse read in a
+%   cluster of four mice against five, stricter about circularity than the
+%   selection-matched test by design (its p need not be the higher). Fold 0 leaves
 %   no mouse out: its cluster must be that of run_group_differences, which is
 %   checked against its table when it is there. A fold with no cluster gives
 %   NaN. Not redone without the mouse: run_normalise_groups, which fits every
@@ -109,8 +113,9 @@ function per_mouse_region_values(run_settings)
 %   experimental group higher and two-sided; the Welch t for reference; Hedges'
 %   g. For a region's values the p is the exact permutation of the values over
 %   every split of the mice (252 for 5 and 5), the observed one included; for
-%   the cluster values, that of their test above, the permutation of the values
-%   being kept in the table as anti-conservative. With direction_named, the
+%   the cluster values, that of their test above, the permutation of the values,
+%   the Welch p and Hedges' g being kept in the table under names that say they
+%   ignore the selection (anti-conservative, inflated). With direction_named, the
 %   one-sided p is the test named before any number and comes first (RWS
 %   potentiates the stimulated barrels' synapses and brings AMPA receptors to
 %   their surface, Gambino et al. 2014); without it, the two-sided p comes
@@ -340,17 +345,20 @@ if selection_matched
     fprintf('Selection-matched test in %s:\n', cluster_region);
     check_against_step3(struct('n', sm.cluster_n(1, 1), 'mass', sm.cluster_mass(1, 1)), ...
         step3_table, cluster_region);
-    sm.mass_p = cluster_mass_p(sm, step3_table, cluster_region);
+    [sm.mass_p, sm.mass_p_one] = cluster_mass_p(sm, step3_table, cluster_region);
     check_mirror_splits(sm);
 
-    % every mouse's values in the cluster of all the mice, and where it sits
+    % every mouse's values in the cluster of all the mice, and where it sits; the
+    % size of the cluster where the control group is higher, for the notes
     for r = 1:numel(sm.readings)
         T_mice.(['sm_' sm.readings{r}]) = squeeze(sm.values(1, :, 1, r))';
     end
     sm_place = cluster_place(sm.cluster_voxels{1}, masks);
     sm_place.n = sm.cluster_n(1, 1);
+    sm_place.n_negative = sm.cluster_n(1, 2);
     sm_place.mass = sm.cluster_mass(1, 1);
     sm_place.mass_p = sm.mass_p;
+    sm_place.mass_p_one = sm.mass_p_one;
 end
 
 %% Leave-one-out clusters
@@ -427,7 +435,8 @@ comparison = struct('ctrl_type', ctrl_type, 'exp_type', exp_type, ...
     'sm_place', sm_place);
 plot_per_mouse_values(T_mice, T_stats, sm, values, regions, comparison, file_tag, ...
     comp_out_dir);
-plot_loo_values(T_mice, T_stats, T_loo, values, comparison, file_tag, comp_out_dir);
+plot_loo_values(T_mice, T_stats, T_loo, values, comparison, relabelled, file_tag, ...
+    comp_out_dir);
 fprintf('Per-mouse values saved to: %s\n', comp_out_dir);
 
 end
@@ -1001,15 +1010,20 @@ else
 end
 end
 
-function p_mass = cluster_mass_p(sm, step3_table, cluster_region)
+function [p_mass, p_mass_one] = cluster_mass_p(sm, step3_table, cluster_region)
 % The p of the region's cluster mass over the splits, as the region test of
 % run_group_differences takes it (the larger of the two signs, reached by the
 % splits' larger one, the observed split included), checked against its table
 % when it is there: the selection-matched test's splits are those of that test.
+% Beside it, for the like of the one-sided p of the mice's values, the p of the
+% positive cluster's mass alone (the experimental group higher); not a test of
+% run_group_differences, whose p is the first.
 
 larger = max(sm.cluster_mass, [], 2);
 p_mass = mean(larger >= larger(1));
-fprintf('  cluster mass over the %d splits: p %.4f\n', numel(larger), p_mass);
+p_mass_one = mean(sm.cluster_mass(:, 1) >= sm.cluster_mass(1, 1));
+fprintf(['  cluster mass over the %d splits: p %.4f (either sign), %.4f (the positive ' ...
+         'cluster alone)\n'], numel(larger), p_mass, p_mass_one);
 if ~exist(step3_table, 'file')
     return
 end
@@ -1401,8 +1415,8 @@ function T_stats = value_statistics(T_mice, values, ctrl_type, exp_type, sm, rel
 % the exact permutation of its values. A cluster value's test redoes the
 % cluster under every split (the selection-matched test, the leave-one-out
 % redone); the permutation of its values, which keeps the cluster the true
-% groups chose, and the Welch p ignore that choice, and are kept as
-% anti-conservative.
+% groups chose, the Welch p and Hedges' g ignore that choice, and are kept in
+% columns named anti-conservative and inflated, the plain columns left NaN.
 
 is_ctrl = strcmp(T_mice.group, ctrl_type);
 rows = cell(numel(values), 1);
@@ -1411,15 +1425,19 @@ for v = 1:numel(values)
     x_ctrl = x(is_ctrl & ~isnan(x));
     x_exp = x(~is_ctrl & ~isnan(x));
 
-    % the permutation of the values, and the Welch t for reference
+    % the permutation of the values, and the Welch t and Hedges' g for reference
     [p_two_shuffled, p_one_shuffled, n_splits] = exact_permutation(x_ctrl, x_exp);
     [~, p_welch, ~, welch] = ttest2(x_exp, x_ctrl, 'Vartype', 'unequal');
+    reference = struct('t', welch.tstat, 'df', welch.df, 'p', p_welch, 'g', ...
+        hedges_g(x_ctrl, x_exp));
 
     % the value's test
     test = struct('p_one', p_one_shuffled, 'p_two', p_two_shuffled, 'n_splits', ...
         n_splits, 'n_empty', 0, 'n_empty_two', 0, 'p_one_without', NaN, ...
-        'p_two_without', NaN, 'down', NaN, 'either', NaN);
+        'p_two_without', NaN, 'down', NaN, 'either', NaN, 'either_cluster', '', ...
+        'null_median', NaN);
     anticonservative = [NaN NaN];
+    inflated = [NaN NaN];
     switch values(v).kind
         case 'region'
             description = 'values permuted over the splits';
@@ -1427,17 +1445,22 @@ for v = 1:numel(values)
             description = ['selection-matched: the cluster search redone in every ' ...
                 'split, every mouse read in its cluster; a split without a cluster ' ...
                 'or a group without a value counts as 0; two-sided: the search in ' ...
-                'either direction. The shuffled and Welch p ignore the selection ' ...
-                '(anti-conservative)'];
+                'either direction. The shuffled and Welch p and Hedges g ignore the ' ...
+                'selection (anti-conservative, inflated)'];
             reading = strrep(values(v).name, 'sm_', '');
             test = selection_p(sm, reading);
-            anticonservative = [p_one_shuffled, p_two_shuffled];
         case 'loo'
             description = ['leave-one-out redone in every split; splits without a ' ...
-                'value in a group left out. The shuffled and Welch p ignore the ' ...
-                'selection (anti-conservative)'];
+                'value in a group left out; two-sided: |difference|, every fold''s ' ...
+                'cluster on the split''s experimental-higher side. The shuffled and ' ...
+                'Welch p and Hedges g ignore the selection (anti-conservative, ' ...
+                'inflated)'];
             test = relabelled_test(relabelled, strrep(values(v).name, 'loo_', ''));
-            anticonservative = [p_one_shuffled, p_two_shuffled];
+    end
+    if ~strcmp(values(v).kind, 'region')
+        anticonservative = [p_one_shuffled, p_two_shuffled];
+        inflated = [reference.p, reference.g];
+        reference = struct('t', NaN, 'df', NaN, 'p', NaN, 'g', NaN);
     end
 
     rows{v} = struct('value', values(v).name, 'region', values(v).region, ...
@@ -1448,6 +1471,8 @@ for v = 1:numel(values)
         'difference', mean(x_exp) - mean(x_ctrl), ...
         'difference_negative_cluster', test.down, ...
         'difference_either_direction', test.either, ...
+        'either_direction_cluster', test.either_cluster, ...
+        'null_median_difference', test.null_median, ...
         'p_exp_higher', test.p_one, 'p_two_sided', test.p_two, ...
         'n_splits', test.n_splits, 'n_splits_empty', test.n_empty, ...
         'n_splits_empty_two_sided', test.n_empty_two, ...
@@ -1455,8 +1480,9 @@ for v = 1:numel(values)
         'p_two_sided_without_empty', test.p_two_without, ...
         'p_shuffled_exp_higher_anticonservative', anticonservative(1), ...
         'p_shuffled_two_sided_anticonservative', anticonservative(2), ...
-        'welch_t', welch.tstat, 'welch_df', welch.df, 'welch_p', p_welch, ...
-        'hedges_g', hedges_g(x_ctrl, x_exp));
+        'welch_t', reference.t, 'welch_df', reference.df, 'welch_p', reference.p, ...
+        'hedges_g', reference.g, 'welch_p_anticonservative', inflated(1), ...
+        'hedges_g_inflated', inflated(2));
 end
 T_stats = struct2table([rows{:}]', 'AsArray', true);
 end
@@ -1500,7 +1526,9 @@ function test = selection_p(sm, reading)
 % observed one, and the two-sided, whose larger of up and down reaches the
 % observed one, the observed split included. A split without the cluster, or
 % with a group without a value, gives 0; the p with those splits left out
-% beside.
+% beside. Also which cluster gives the observed split's larger difference, and
+% the null's median difference over the splits with a value: every split's
+% cluster separates its own groups, so that median is not 0.
 
 r = strcmp(sm.readings, reading);
 n_splits = size(sm.in_ctrl, 1);
@@ -1525,6 +1553,12 @@ test = struct();
 test.up = up;
 test.down = down(1);
 test.either = either(1);
+if down_counted(1) > up_counted(1)
+    test.either_cluster = 'ctrl higher';
+else
+    test.either_cluster = 'exp higher';
+end
+test.null_median = median(up(~is_empty));
 test.null_up = up_counted;
 test.n_splits = n_splits;
 test.n_empty = nnz(is_empty);
@@ -1556,7 +1590,7 @@ function test = relabelled_test(relabelled, reading)
 
 test = struct('p_one', NaN, 'p_two', NaN, 'n_splits', 0, 'n_empty', 0, ...
     'n_empty_two', NaN, 'p_one_without', NaN, 'p_two_without', NaN, 'down', NaN, ...
-    'either', NaN);
+    'either', NaN, 'either_cluster', '', 'null_median', NaN);
 if isempty(relabelled)
     return
 end
@@ -1590,6 +1624,44 @@ p_one = mean(differences(has_difference) >= observed);
 p_two = mean(abs(differences(has_difference)) >= abs(observed));
 end
 
+function d = swapped_difference(relabelled, reading)
+% The difference of the group means (the labelled experimental group minus the
+% labelled control group) of a leave-one-out value under the split that swaps
+% the groups, which only groups of equal size have; NaN without it.
+
+d = NaN;
+if isempty(relabelled)
+    return
+end
+in_ctrl = relabelled.in_ctrl;
+mirror = find(all(in_ctrl == ~in_ctrl(1, :), 2), 1);
+if isempty(mirror)
+    return
+end
+d = group_difference(relabelled.(reading)(mirror, :), ~in_ctrl(mirror, :), ...
+    in_ctrl(mirror, :));
+end
+
+function [r_pooled, r_within] = channel_correlation(x, y, is_ctrl)
+% The Pearson r of two values over the mice with both, pooled and within the
+% groups (each group's mean taken out of both first, so a difference between
+% the groups does not make it).
+
+has_both = ~isnan(x) & ~isnan(y);
+x = x(has_both);
+y = y(has_both);
+is_ctrl = is_ctrl(has_both);
+r = corrcoef(x, y);
+r_pooled = r(1, 2);
+for g = [true false]
+    in_group = is_ctrl == g;
+    x(in_group) = x(in_group) - mean(x(in_group));
+    y(in_group) = y(in_group) - mean(y(in_group));
+end
+r = corrcoef(x, y);
+r_within = r(1, 2);
+end
+
 function g = hedges_g(x_ctrl, x_exp)
 % Hedges' g of experimental minus control: the difference of the means over the
 % pooled SD, with the small-sample correction.
@@ -1611,17 +1683,18 @@ columns = [{'mouse', 'group'}, {values.name}];
 disp(T_mice(:, columns));
 if ~isempty(sm_place)
     fprintf(['Cluster of all the mice: %d voxels, mass %.2f (its region test''s p ' ...
-             '%.4f), planes %d to %d, centre at plane %.1f, DV %.1f, ML %.1f.\n'], ...
-            sm_place.n, sm_place.mass, sm_place.mass_p, sm_place.plane_first, ...
-            sm_place.plane_last, sm_place.centre);
+             '%.4f, the positive cluster alone %.4f), planes %d to %d, centre at plane ' ...
+             '%.1f, DV %.1f, ML %.1f.\n'], sm_place.n, sm_place.mass, sm_place.mass_p, ...
+            sm_place.mass_p_one, sm_place.plane_first, sm_place.plane_last, ...
+            sm_place.centre);
 end
 fprintf('Leave-one-out folds:\n');
 disp(T_loo);
 fprintf('Group tests:\n');
 disp(T_stats(:, {'value', 'n_ctrl', 'n_exp', 'mean_ctrl', 'mean_exp', 'difference', ...
-    'p_exp_higher', 'p_two_sided', 'n_splits', 'n_splits_empty', ...
-    'p_exp_higher_without_empty', 'p_two_sided_without_empty', ...
-    'difference_either_direction', 'welch_p', 'hedges_g'}));
+    'null_median_difference', 'p_exp_higher', 'p_two_sided', 'n_splits', ...
+    'n_splits_empty', 'p_exp_higher_without_empty', 'p_two_sided_without_empty', ...
+    'difference_either_direction', 'either_direction_cluster', 'welch_p', 'hedges_g'}));
 end
 
 % ===== Local functions: figures =====
@@ -1629,9 +1702,9 @@ end
 function plot_per_mouse_values(T_mice, T_stats, sm, values, regions, comparison, ...
     file_tag, comp_out_dir)
 % The selection-matched values in the first row (one dot per mouse with its
-% name, each group's mean and SEM, the p of the test) with the null of the raw
-% one, then a row per region named in advance, then the notes: which p tests
-% what.
+% name, each group's mean and SEM, the p of the test), with the splits of the
+% test under both its statistic and step 3's, then a row per region named in
+% advance, then the notes: which p tests what.
 
 % four columns, not the three of docs/STYLE.md, so a row is one region; the
 % notes in the last row
@@ -1640,27 +1713,29 @@ n_rows_grid = numel(regions) + 2;
 fig = figure('Visible', 'off', 'Color', 'w', 'Units', 'Normalized', ...
     'Position', [0 0 1 1]);
 
-% the selection-matched values, then the null of the raw one
+% the selection-matched values, then the splits under both statistics
 is_selection = strcmp({values.kind}, 'selection');
 panel = 0;
 for v = find(is_selection)
     panel = panel + 1;
     subplot(n_rows_grid, n_cols_grid, panel);
     draw_value(T_mice, T_stats, values(v), comparison, ...
-        sprintf('%s cluster of all mice: %s', values(v).region, values(v).title));
+        sprintf('%s cluster of all %d mice (step 3''s): %s', values(v).region, ...
+        height(T_mice), values(v).title));
 end
 if ~isempty(sm)
     subplot(n_rows_grid, n_cols_grid, n_cols_grid);
-    draw_selection_null(sm, comparison);
+    draw_selection_splits(sm, comparison);
 end
 
-% a row per region, after the first
+% a row per region, after the first: the whole region, nothing chosen
 is_region = strcmp({values.kind}, 'region');
 region_values = values(is_region);
 for v = 1:numel(region_values)
     subplot(n_rows_grid, n_cols_grid, n_cols_grid + v);
     draw_value(T_mice, T_stats, region_values(v), comparison, ...
-        sprintf('%s: %s', region_values(v).region, region_values(v).title));
+        sprintf('Whole %s (no selection): %s', region_values(v).region, ...
+        region_values(v).title));
 end
 
 % the notes, in two columns of the last row
@@ -1692,11 +1767,11 @@ exportgraphics(fig, fullfile(comp_out_dir, ['Per_Mouse_Values_' file_tag '.png']
     'Resolution', 300);
 end
 
-function plot_loo_values(T_mice, T_stats, T_loo, values, comparison, file_tag, ...
-    comp_out_dir)
+function plot_loo_values(T_mice, T_stats, T_loo, values, comparison, relabelled, ...
+    file_tag, comp_out_dir)
 % The leave-one-out's values, one panel each, with the p of the leave-one-out
-% redone under every split, and its notes: a supplementary figure, stricter
-% than the selection-matched test.
+% redone under every split, and its notes: a supplementary figure, each mouse
+% read out of sample.
 
 is_loo = find(strcmp({values.kind}, 'loo'));
 fig = figure('Visible', 'off', 'Color', 'w', 'Units', 'Normalized', ...
@@ -1710,10 +1785,11 @@ end
 % the notes
 subplot(1, 4, [3 4]);
 axis off;
-text(0, 1, loo_notes_lines(T_stats, T_loo, comparison, file_tag), 'Units', ...
-    'normalized', 'VerticalAlignment', 'top', 'FontSize', 8, 'Interpreter', 'none');
+text(0, 1, loo_notes_lines(T_stats, T_loo, comparison, relabelled, file_tag), ...
+    'Units', 'normalized', 'VerticalAlignment', 'top', 'FontSize', 8, ...
+    'Interpreter', 'none');
 
-title_line = sprintf('Per-mouse values, leave-one-out (stricter) - %s', ...
+title_line = sprintf('Per-mouse values, leave-one-out (each mouse out of sample) - %s', ...
     strrep(file_tag, '_', ' '));
 sgtitle(title_line, 'FontSize', 14, 'FontWeight', 'bold');
 saveas(fig, fullfile(comp_out_dir, ['Per_Mouse_LOO_' file_tag '.fig']));
@@ -1816,36 +1892,71 @@ label_y = zeros(numel(y), 1);
 label_y(order) = placed;
 end
 
-function draw_selection_null(sm, comparison)
-% The null of the selection-matched test of the raw AI: per split, the
-% difference of the group means in the cluster its own groups give (empty
-% splits at 0), with the observed difference.
+function draw_selection_splits(sm, comparison)
+% The splits of the selection-matched test under both statistics taken from
+% their clusters: step 3's, the mass of the split's cluster where its
+% experimental group is higher (x, log), and this test's, the difference of
+% the group means of the raw AI in it (y); the splits without that cluster in
+% a strip at the left, at the 0 they count as; the observed split marked, with
+% dashed lines at its two values; how many splits reach each, and both.
 
 test = selection_p(sm, 'ai_raw');
+mass = sm.cluster_mass(:, 1);
+difference = test.null_up;
+has_cluster = mass > 0;
+reach_mass = mass >= mass(1);
+reach_difference = difference >= difference(1);
+
+% the log axis over the clusters' masses, the strip half a decade below them
+first_decade = floor(log10(min(mass(has_cluster))));
+last_decade = ceil(log10(max(mass)));
+strip_x = 10 ^ (first_decade - 0.5);
+
 hold on;
 box on;
 grid on;
-histogram(test.null_up, 30, 'FaceColor', sep_palette('paired_lines'), ...
-    'EdgeColor', 'none');
-observed = test.null_up(1);
-xline(observed, '-', 'observed', 'Color', sep_palette('experimental_mean'), ...
-    'LineWidth', 1.5, 'FontSize', 8, 'LabelVerticalAlignment', 'top');
-xlabel(sprintf('mean AI %s - mean AI %s, split''s cluster', comparison.exp_type, ...
+set(gca, 'XScale', 'log');
+scatter(mass(has_cluster), difference(has_cluster), 14, sep_palette('paired_lines'), ...
+    'filled', 'MarkerFaceAlpha', 0.6, 'MarkerEdgeColor', 'none');
+scatter(strip_x, 0, 30, sep_palette('paired_lines'), 's', 'filled');
+text(strip_x * 1.4, 0, sprintf('%d', nnz(~has_cluster)), 'FontSize', 7, ...
+    'VerticalAlignment', 'middle', 'Color', [0.3 0.3 0.3]);
+xline(10 ^ (first_decade - 0.25), ':', 'Color', [0.5 0.5 0.5]);
+xline(mass(1), '--', 'Color', sep_palette('experimental_mean'), 'LineWidth', 0.8);
+yline(difference(1), '--', 'Color', sep_palette('experimental_mean'), 'LineWidth', 0.8);
+scatter(mass(1), difference(1), 50, sep_palette('experimental_mean'), 'filled');
+
+% the strip's tick, then a tick per decade
+xlim(10 .^ [first_decade - 0.75, last_decade]);
+decades = 10 .^ (first_decade:last_decade);
+xticks([strip_x, decades]);
+xticklabels([{'none'}, arrayfun(@(d) sprintf('%g', d), decades, 'UniformOutput', false)]);
+xlabel('mass of the split''s cluster (step 3''s score)', 'FontSize', 9);
+ylabel(sprintf('mean raw AI, ''%s'' - ''%s''', comparison.exp_type, ...
     comparison.ctrl_type), 'FontSize', 9);
-ylabel('splits', 'FontSize', 9);
-title('Null of the selection-matched test, raw stack', 'FontSize', 10);
-subtitle({sprintf('each of %d splits: its cluster found with its groups,', ...
-    test.n_splits), sprintf('every mouse read in it; %d without one, at 0', ...
-    test.n_empty)}, 'FontSize', 8);
+
+% the counts, the p of each statistic beside them
+n_splits = numel(mass);
+title(sprintf('The same %d splits: cluster mass and AI difference', n_splits), ...
+    'FontSize', 10);
+subtitle({
+    sprintf('mass >= observed: %d (p %.3f; either sign p %.3f, step 3''s)', ...
+        nnz(reach_mass), comparison.sm_place.mass_p_one, comparison.sm_place.mass_p)
+    sprintf('AI difference >= observed: %d (p %.3f); both: %d; observed in red', ...
+        nnz(reach_difference), test.p_one, nnz(reach_mass & reach_difference))
+    }, 'FontSize', 8);
 set(gca, 'FontSize', 9);
 end
 
 function lines = stat_lines(stat, kind, comparison)
 % The p of a value under its panel's title, the one named before any number
 % first: for a region, the permutation of its values, the Welch p and Hedges'
-% g beside it; for the selection-matched values, their test, the splits
-% without a cluster and the p without them; for the leave-one-out's, the
-% leave-one-out redone under every split.
+% g beside it; for the selection-matched values, their test with the p
+% without the splits that have no cluster in brackets, the null's median
+% difference against the observed one, and, when the larger difference of the
+% search in either direction is in the cluster where the control group is
+% higher, that difference; for the leave-one-out's, the leave-one-out redone
+% under every split.
 
 switch kind
     case 'region'
@@ -1853,15 +1964,22 @@ switch kind
             comparison, 'two-sided')), sprintf('Welch p %.3f, Hedges g %.2f, n %d and %d', ...
             stat.welch_p, stat.hedges_g, stat.n_ctrl, stat.n_exp)};
     case 'selection'
+        without = [stat.p_exp_higher_without_empty, stat.p_two_sided_without_empty];
+        if ~comparison.direction_named
+            without = flip(without);
+        end
         lines = {
-            sprintf('p %s', p_pair(stat.p_exp_higher, stat.p_two_sided, comparison, ...
-                'either direction'))
-            sprintf('selection redone in each of %d splits, %d without a cluster', ...
-                stat.n_splits, stat.n_splits_empty)
-            sprintf('without them p %s; n %d and %d', p_pair( ...
-                stat.p_exp_higher_without_empty, stat.p_two_sided_without_empty, ...
-                comparison, 'either'), stat.n_ctrl, stat.n_exp)
+            sprintf('p %s [%.3f, %.3f without empty splits]', p_pair(stat.p_exp_higher, ...
+                stat.p_two_sided, comparison, 'either direction'), without)
+            sprintf('null median %+.3f (splits with a cluster), observed %+.3f; n %d and %d', ...
+                stat.null_median_difference, stat.difference, stat.n_ctrl, stat.n_exp)
             };
+        if strcmp(stat.either_direction_cluster, 'ctrl higher')
+            lines{end + 1} = sprintf(['either direction: %s - %s %+.3f, in the ' ...
+                '%s-higher cluster (%d voxels)'], comparison.ctrl_type, ...
+                comparison.exp_type, stat.difference_either_direction, ...
+                comparison.ctrl_type, comparison.sm_place.n_negative);
+        end
     case 'loo'
         lines = {
             sprintf('p %s', p_pair(stat.p_exp_higher, stat.p_two_sided, comparison, ...
@@ -1898,10 +2016,11 @@ exp_type = comparison.exp_type;
 perm_settings = comparison.perm_settings;
 place = comparison.sm_place;
 short_name = @(names) cellfun(@(n) strtok(n, '_'), names, 'UniformOutput', false);
-n_splits = max(T_stats.n_splits);
+stat_of = @(name) T_stats(strcmp(T_stats.value, name), :);
 
 left = {'Which p tests what'};
 if ~isempty(place)
+    sm_stats = stat_of('sm_ai_raw');
     left = [left; {
         sprintf(['First row: the heaviest cluster of %s where |L - R| is higher in %s ' ...
                  '(a positive t'], comparison.cluster_region, exp_type)
@@ -1912,25 +2031,23 @@ if ~isempty(place)
         sprintf(['  found with all the mice as step 3: %d voxels, planes %d to %d. ' ...
                  'Each mouse''s AI read in it.'], place.n, place.plane_first, ...
                  place.plane_last)
-        sprintf(['  p: the search redone under each of the %d splits of the mice, ' ...
-                 'every mouse read in'], n_splits)
-        '  that split''s cluster; the share of the splits whose difference of the'
-        '  group means reaches the observed one. The selection is in the null as'
-        '  in the observed value: step 3''s test of this cluster seen mouse by mouse'
-        sprintf('  (its cluster mass over the same splits: p %.3f).', place.mass_p)
-        sprintf(['  Either direction: per split the larger of that difference and of ' ...
-                 '%s minus %s'], ctrl_type, exp_type)
-        sprintf(['  in its cluster where %s is higher, as step 3''s score; a split ' ...
-                 'without a cluster'], ctrl_type)
-        '  counts as 0, and the p without those splits is under it.'
+        sprintf(['  p: the same search under each of the %d splits of the mice, every ' ...
+                 'mouse read in that'], sm_stats.n_splits)
+        '  split''s cluster; the share of the splits whose difference of the group means'
+        sprintf(['  reaches the observed one (the %d without a cluster count as 0; in ' ...
+                 'brackets, the p'], sm_stats.n_splits_empty)
+        sprintf(['  without them). Either direction: per split the larger of that ' ...
+                 'difference and of %s'], ctrl_type)
+        sprintf('  minus %s in its cluster where %s is higher.', exp_type, ctrl_type)
+        ['Same search, same splits as step 3''s region test; only the number taken ' ...
+         'from each']
+        '  split''s cluster differs. Step 3 takes its mass, which grows with its extent'
+        sprintf('  (here p %s; step 3''s p: either sign);', ...
+            p_pair(place.mass_p_one, place.mass_p, comparison, 'either sign'))
+        '  this takes the mice''s mean AI, which does not. Every split''s cluster separates'
+        '  its own groups by construction: hence the null median under each p.'
+        '  Top right: both statistics over the same splits.'
         }];
-    if any(strcmp(T_stats.value, 'sm_ai_auto'))
-        left = [left; {
-            'Autofluorescence: the channel registered with the nano stack, less its'
-            '  off-tissue level, smoothed in the nano channel''s tissue; read in the same'
-            '  clusters, tested the same way (a misregistration would show in both).'
-            }];
-    end
 end
 left = [left; {
     sprintf(['Other rows, %s: whole regions, no selection; p: the values permuted ' ...
@@ -1945,11 +2062,15 @@ else
         'is carried over from RWS,'], exp_type, ctrl_type);
     left{end + 1} = '  not named for this comparison before any number.';
 end
+loo_stats = stat_of('loo_ai_raw');
 left = [left; {
-    'The leave-one-out, each mouse read in a cluster found without it (one group a'
-    sprintf(['  mouse short), is stricter: Per_Mouse_LOO_%s. %d values here, their ' ...
-             'p not'], file_tag, n_values)
-    '  corrected across them.'
+    sprintf(['Leave-one-out (Per_Mouse_LOO_%s): each mouse read out of sample, in a ' ...
+             'cluster'], file_tag)
+    sprintf(['  found without it; stricter about circularity by design. Its p, raw ' ...
+             'stack: %s'], p_pair(loo_stats.p_exp_higher, loo_stats.p_two_sided, ...
+             comparison, 'two-sided'))
+    sprintf(['  (README: how it compares). %d values here, their p not corrected ' ...
+             'across them.'], n_values)
     }];
 
 right = {
@@ -1964,6 +2085,27 @@ right = {
     'No signed value: left and right are not certain for every brain, so the'
     '  stimulated side is unknown mouse by mouse (the test too takes |L - R|).'
     };
+
+% the autofluorescence in the cluster, against the nano channel's raw AI: a
+% misregistration of the surface would raise |L - R| in both, in the same mice
+if any(strcmp(T_stats.value, 'sm_ai_auto'))
+    auto_stats = stat_of('sm_ai_auto');
+    nano_stats = stat_of('sm_ai_raw');
+    [r_pooled, r_within] = channel_correlation(T_mice.sm_ai_raw, T_mice.sm_ai_auto, ...
+        strcmp(T_mice.group, ctrl_type));
+    right = [right; {
+        'Autofluorescence (third panel): the channel registered with the nano stack, less'
+        '  its off-tissue level, smoothed in the nano channel''s tissue, read in the same'
+        '  clusters and tested the same way. A misregistration of the surface would'
+        '  raise |L - R| in both channels, in the same mice. Here:'
+        sprintf(['  %s - %s %+.3f (nano, raw stack, %+.3f), p %s; its AI against the ' ...
+                 'nano'], exp_type, ctrl_type, auto_stats.difference, ...
+                 nano_stats.difference, p_pair(auto_stats.p_exp_higher, ...
+                 auto_stats.p_two_sided, comparison, 'either'))
+        sprintf('  raw AI over the mice r %.2f, within the groups r %.2f.', r_pooled, ...
+            r_within)
+        }];
+end
 
 % the mice without a test-map AI in the cluster, and with little of a region
 if any(strcmp(T_mice.Properties.VariableNames, 'sm_ai'))
@@ -1986,16 +2128,19 @@ end
 right = [right(:); comparison_caveat(exp_type, comparison.slope)];
 end
 
-function lines = loo_notes_lines(T_stats, T_loo, comparison, file_tag)
-% The notes of the leave-one-out's figure: what it is, why it is stricter than
-% the selection-matched test, how its p is made, and the folds without a
-% cluster or an AI; the settings from the run, not typed.
+function lines = loo_notes_lines(T_stats, T_loo, comparison, relabelled, file_tag)
+% The notes of the leave-one-out's figure: what it is, how it differs from the
+% selection-matched test, how its p is made, what the same procedure gives
+% with the groups swapped, and the folds without a cluster or an AI; the
+% settings and the numbers from the run, not typed.
 
 ctrl_type = comparison.ctrl_type;
 exp_type = comparison.exp_type;
 perm_settings = comparison.perm_settings;
 short_name = @(names) cellfun(@(n) strtok(n, '_'), names, 'UniformOutput', false);
 loo_stats = T_stats(strcmp(T_stats.value, 'loo_ai_raw'), :);
+loo_stats_test = T_stats(strcmp(T_stats.value, 'loo_ai'), :);
+sm_stats = T_stats(strcmp(T_stats.value, 'sm_ai_raw'), :);
 
 lines = {
     sprintf(['Leave-one-out: each mouse read in the heaviest cluster of %s where ' ...
@@ -2005,11 +2150,18 @@ lines = {
              perm_settings.cluster_connectivity)
     sprintf(['  group has %d mice) of the comparison redone without it, the ' ...
              'alignment refitted.'], perm_settings.min_mice_per_group)
-    sprintf(['Stricter than the selection-matched test (Per_Mouse_Values_%s): no ' ...
-             'mouse is'], file_tag)
-    '  read in a cluster its own data helped choose, and each cluster comes from one'
-    '  mouse fewer.'
+    'Out of sample: no mouse is read in a cluster its own data helped choose, and each'
+    '  cluster comes from one mouse fewer.'
     };
+if ~isempty(sm_stats)
+    lines = [lines; {
+        '  Stricter about circularity by design than the selection-matched test, whose p,'
+        sprintf('  raw stack, is %s', p_pair(sm_stats.p_exp_higher, ...
+            sm_stats.p_two_sided, comparison, 'either direction'))
+        sprintf(['  (Per_Mouse_Values_%s); why the leave-one-out''s p can be the ' ...
+                 'lower: README.'], file_tag)
+        }];
+end
 if loo_stats.n_splits > 0
     lines = [lines; {
         sprintf(['p: every fold redone under each of the %d splits of the mice, its ' ...
@@ -2017,7 +2169,24 @@ if loo_stats.n_splits > 0
         sprintf(['  again with the split''s groups; the share of the %d splits with a ' ...
                  'value in both'], loo_stats.n_splits)
         '  groups whose difference of the group means reaches the observed one.'
+        sprintf(['  Two-sided: whose |difference| reaches it, every fold''s cluster on ' ...
+                 'the split''s %s-higher'], exp_type)
+        '  side (not the selection-matched test''s either direction, which searches both).'
         }];
+
+    % the same procedure with the groups swapped, when the splits include it
+    swapped = [swapped_difference(relabelled, 'ai_raw'), ...
+        swapped_difference(relabelled, 'ai')];
+    if ~any(isnan(swapped))
+        lines = [lines; {
+            sprintf(['With the groups swapped (its mirror split) the same procedure ' ...
+                     'reads %s-higher'], ctrl_type)
+            sprintf(['  clusters: %s - %s %+.3f on the raw stack (%+.3f, test maps), ' ...
+                     'against'], ctrl_type, exp_type, swapped)
+            sprintf('  %s - %s %+.3f (%+.3f) with the groups as they are.', exp_type, ...
+                ctrl_type, loo_stats.difference, loo_stats_test.difference)
+            }];
+    end
 else
     lines{end + 1} = 'Not redone under the splits (loo_relabel = false): no test.';
 end

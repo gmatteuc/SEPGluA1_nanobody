@@ -15,14 +15,15 @@
 % barrel-field cluster of step 3's test, the heaviest where |L - R| is higher
 % in the experimental group (a positive t), found with all the mice: on its
 % collected stack less its off-tissue level (no normalisation, no alignment),
-% on step 3's maps and on its autofluorescence. That is step 3's test seen
-% mouse by mouse, and its p redoes the cluster search under every split of the
-% mice (the selection-matched test). Then over whole regions named before
+% on step 3's maps and on its autofluorescence. Its p redoes the cluster search
+% under every split of the mice (the selection-matched test): the same
+% selection and splits as step 3's region test, with the mice's mean asymmetry
+% in place of the cluster's mass. Then over whole regions named before
 % looking (the barrel field, and the primary visual area as a control): the
 % index and the L + R relative to the mouse's own isocortex, their p the
 % exact permutation of the values. No signed value: left and right are not
 % certain for every brain, so the stimulated side is not known mouse by mouse.
-% Last, stricter, each mouse is left out in turn, the comparison is done again
+% Last, out of sample, each mouse is left out in turn, the comparison is done again
 % without it, and its index is read in the cluster the others give, so no
 % mouse is read in a cluster its own data helped define; its p redoes the
 % leave-one-out under every split. Every p is one-sided for the experimental
@@ -91,8 +92,10 @@ cluster_connectivity = 18;
 direction_named = strcmp(exp_type, 'rws');
 
 % the selection-matched test, the main per-mouse test (fixed on 9 October 2026
-% before any of its numbers; the README says why it is valid): step 3's test of
-% the barrel field seen mouse by mouse, as permissive as it. With the true
+% before any of its numbers; the README says why it is valid), asked for as
+% step 3's test of the barrel field seen from the mice, as permissive as it: the
+% same selection and splits as that test, with the mice's mean asymmetry in
+% place of the cluster's mass (the README: what that changes). With the true
 % groups, the heaviest cluster of the region where |L - R| is higher in the
 % experimental group (a positive t), found with all the mice as
 % region_permutation_test finds it; every mouse's AI read in it, on the raw
@@ -122,8 +125,9 @@ auto_control = true;
 
 % redo the leave-one-out under every split of the mice (each fold's cluster
 % found again with the split's groups), for the full p of its two values; read
-% from its cache after the first run. Stricter than the selection-matched test:
-% each mouse is read in a cluster found without it, four mice against five
+% from its cache after the first run. Out of sample: each mouse is read in a
+% cluster found without it, four mice against five, stricter about circularity
+% than the selection-matched test by design (its p came out the lower, README)
 loo_relabel = true;
 
 % redo every mouse's maps rather than read them from the cache, after a change
