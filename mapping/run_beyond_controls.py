@@ -1,4 +1,4 @@
-"""Seven attempts to break the result of run_beyond_density.
+"""Seven attempts to break the result of run_beyond_density, and its other folds.
 
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
@@ -12,59 +12,85 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      8. run_video_compare      young beside adult, plane by plane
      9. run_closeup            close-ups and flatmaps (venv_flat)
     10. run_diagnostics        sheets that audit each step
-    11. run_ish_regions        ISH per structure, 100-gene panel
-    12. run_ish_compare        the adult map against each gene
-    13. run_ish_words          annotation words of the ranking
-    14. run_ish_roles          subunit against localisation genes
-    15. run_adult_arms         the channel arms per adult
-    16. run_ish_arms           the arms against the genes
-    17. run_sep_channel_check  what the green channel reports
-    18. run_panel_build        the 390-gene ontology panel
-    19. run_panel_fetch        its ISH grids (network, once)
-    20. run_ish_regions        ISH per structure, ontology panel
-    21. run_ish_reliability    how reliable one ISH map is
-    22. run_ish_panel_test     localisation against controls
-    23. run_beyond_density     what abundance and density leave
-    24. run_beyond_controls    seven attempts to break it             <- this script
-    25. run_beyond_figures     the figures of that result
-    26. run_beyond_regression  the regression, shown
+    11. run_panel_build        390-gene ontology panel (network, cached)
+    12. run_panel_fetch        its ISH grids (network, once)
+    13. run_structure_set      A1: the declared structures, the
+                               adult profiles; figure 01
+    14. run_ish_section_qc     A2: the experiments of both panels
+                               and the repair (network, once);
+                               section QC; QC sheets
+    15. run_ish_gene_table     A9: region means, the gene table,
+                               merged profiles, gene sets,
+                               documentation; figures 02, 02s
+    16. run_ish_spatial_null   A7: surrogate maps and their checks
+    17. run_ish_gene_ranking   analysis 1: each gene against the
+                               map, the null, autofluorescence (A8),
+                               the Cacng8 - Gria1 gap; figures 05,
+                               06, 07s and 12, with their s
+    18. run_ish_robustness     A3: the ranking under other choices;
+                               figures 13, 13s
+    19. run_ish_divisions      analysis 2 (A6): between or within
+                               divisions; figures 09, 09s, gene sheets
+    20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
+                               against matched controls; figures 10,
+                               10s1, 10s2
+    21. run_synaptome          the measured synapse density (network,
+                               once): PSD95 puncta per structure,
+                               its coverage of the fit; figure 03s4
+    22. run_density_markers    the synapse-density genes, chosen by
+                               PSD95 without the map (network,
+                               once); figure 03s3
+    23. run_beyond_density     analysis 4: what Gria1 and synapse
+                               density leave; the leftover
+    24. run_beyond_controls    seven attempts to break it           <- this script
+    25. run_beyond_calibration the same model on maps whose answer
+                               is known; the check rows, each
+                               with its own floor
+    26. run_beyond_regression  the regression, per structure
+    27. run_beyond_figures     figures 03, 03s1, 03s2, 04, 11s1
+    28. run_ish_top_genes      the genes that follow the map most,
+                               characterised; Cacng8 and the AMPA
+                               receptor complex family against the
+                               leftover; figures 07, 08, 11, 11s2,
+                               sheets
+    29. run_sep_channel_check  analysis 5: what the green channel
+                               reports; figures 14, 14s
+    30. run_ish_overview       figures 00, 15 and 15s, the figure
+                               index; the numbers for the text
 
 Spatial gradient, structure size, single animals, the whisker manipulation,
-curvature, the whole gene space and the reading; the controls are described in
-sepmap/adult/beyond_controls.py. Writes, in adult_v2/beyond/ under the data root:
+curvature, the whole gene space and the reading; and the main model under other
+folds; described in sepmap/adult/beyond_controls.py (the check rows, which change
+the model, run with the calibration at step 25). Writes, in
+adult_v2/ish_analysis/beyond/ under the data root:
 
-    controls.csv            one row per control, with its verdict
-    fig4_controls.png       A to D, the four artefact checks
-    fig5_model_space.png    E and F, how much any model of this data can explain
-    fig6_readings.png       G, the same test on all five readings
+    controls.csv            one row per control, with its number and verdict
+    gene_space.csv          control F, per number of components
+    gene_space_calibration.csv  control F's own floor
+    gene_space_summary.csv  control F's numbers
+    readings.csv            control G, per reading
+    folds.csv               the main model under its folds and others: the
+                            shares of Gria1, density and both, the share left
 
     python run_beyond_controls.py
 """
 
 import argparse
 
-import matplotlib
-
 from sepmap import config
 from sepmap.adult import beyond_controls
 
 
 def main():
-    """Print the settings in force, then run the seven controls."""
-    # settings in force
+    """Print the settings in force, then run the seven controls and the other folds."""
     config.print_settings({})
-
-    # the seven controls
     beyond_controls.main()
 
 
 if __name__ == "__main__":
-    # figures go to files, never to a window
-    matplotlib.use("Agg")
-
     # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(
-        description="seven controls of the beyond-abundance result"
+        description="seven controls of analysis 4, and its other folds"
     )
     parser.parse_args()
     main()

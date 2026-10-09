@@ -76,7 +76,7 @@ subfolder of its own (`registration/annotation_gui/`,
 | `adult_matlab/` | three earlier MATLAB analyses of lines 2 and 3, kept until `mapping/` answers their questions, A1 to A5 of the [roadmap](docs/ROADMAP.md) ([README](adult_matlab/README.md)) |
 | `common/`, `atlas/` | the cohort table, volume reading, colours; `get_atlas`, the DeMBA builder, atlas checks ([README](common/README.md), [README](atlas/README.md)) |
 | `tests/`, `tools/` | two MATLAB tests; the detached runner and the checks that a change does not change the results ([README](tests/README.md), [README](tools/README.md)) |
-| `docs/` | [scientific context](docs/SCIENTIFIC_CONTEXT.md), [adding data](docs/ADDING_DATA.md), [figures](docs/FIGURES.md), [code style](docs/STYLE.md), [roadmap](docs/ROADMAP.md); the specification of A1 to A10 in [REFACTOR_COVERAGE.md](docs/REFACTOR_COVERAGE.md) and [adult_ish_design.md](docs/adult_ish_design.md); the old and new script names in [refactor_name_map.csv](docs/refactor_name_map.csv); the refactor's plan and reports in [history/](docs/history/README.md) |
+| `docs/` | [scientific context](docs/SCIENTIFIC_CONTEXT.md), [the ISH analysis](docs/ISH_ANALYSIS.md), [adding data](docs/ADDING_DATA.md), [figures](docs/FIGURES.md), [code style](docs/STYLE.md), [roadmap](docs/ROADMAP.md); the specification of A1 to A10 in [REFACTOR_COVERAGE.md](docs/REFACTOR_COVERAGE.md) and [adult_ish_design.md](docs/adult_ish_design.md); the old and new script names in [refactor_name_map.csv](docs/refactor_name_map.csv); the refactor's plan and reports in [history/](docs/history/README.md) |
 | `assets/` | the image at the top of this README |
 | `third_party/`, `archive/` | LightSuite (local changes listed in its `PATCHES.md`), matlab_elastix, yamlmatlab, BioformatsImage; retired code, kept until checked ([README](third_party/README.md), [README](archive/README.md)) |
 
@@ -106,7 +106,7 @@ flowchart TD
         comp["comparisons\<br/>naive against RWS or behaviour"]
         vols["comparisons_v2\<br/>per brain, on the CCF, cohort means"]
         yva["comparisons_v2\young_vs_adult\<br/>maps, region tables, videos"]
-        adult["adult_v2\<br/>ISH, channel arms, beyond abundance"]
+        adult["adult_v2\ish_analysis\<br/>ISH analysis, beyond abundance, green channel"]
         old["comparisons\merged_*, nano_vs_auto\<br/>adult_matlab, kept until replaced"]
     end
     raw -->|"1 copy, 2 extract and centre"| centred

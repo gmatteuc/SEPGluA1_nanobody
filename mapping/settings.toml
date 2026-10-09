@@ -1,9 +1,11 @@
 # Settings of the Python route, read once by sepmap/config.py into SETTINGS: the
 # analysis parameters, a table per stage, in run order. A module names each table it
 # reads after its imports (YOUNG_VS_ADULT = SETTINGS["young_vs_adult"]). Figure sizes
-# and colours stay in the code (sepmap/plotting.py), and so do the lists that define
-# an analysis beside the comments that justify them (the areas of a figure, the
-# curated gene roles, the GO terms of the panel).
+# and colours stay in the code (sepmap/plotting.py), and so do the lists fixed by the
+# method beside the comments that justify them (the areas of a figure, the curated
+# gene roles, the GO terms of the panel, the gene sets of ish.gene_sets); the
+# predictor lists of [beyond] and the divisions of [structures] are here because a
+# reader may change them.
 
 # the tissue mask of each brain (volumes.per_mouse)
 [tissue]
@@ -24,7 +26,7 @@ ratio_clip = 20.0          # ratio and sepratio clipped to +-this, so a near-emp
 ref_sigma = 1.0            # Gaussian sigma of a reference channel before it divides, in 20 um voxels
 
 # the per-structure tables of each brain (young_vs_adult.region_plot and region_groups,
-# volumes.cohort's range match, adult.arms, sep_channel_check and beyond_density)
+# volumes.cohort's range match, sep_channel_check and beyond_density)
 [region_tables]
 min_vox20 = 250            # smallest structure (or group of structures) kept, in 20 um voxels: 2 nl, the volume of the earlier tables
 
@@ -66,18 +68,37 @@ smooth = [3.0, 1.0, 1.0]
 vmax = { zref = 0.9, cref = 2.0, subref = 2.0, ratio = 2.0, sepratio = 0.6 }
 dlim = { zref = 0.5, cref = 1.0, subref = 1.0, ratio = 1.0, sepratio = 1.0 }
 
+# the declared structure set (structures, A1): every analysis of the ISH line, and
+# adult.beyond_density, reads it
+[structures]
+min_adults = 10            # adults a structure must be measured in: all ten (S1); structures seen in 1 to 4 adults, mostly pons and medulla, do not replicate across mice (leave-one-out rho about 0.14, against 0.93 in the forebrain)
+# divisions that are grey matter; everything else (the fibre tracts lfbs, mfbs, eps,
+# scwm, cbf and cm, the ventricles VL, V3 and AQ, the brain-wide catch-all) is dropped,
+# because receptor and synapse maps mean nothing in white matter or in CSF
+grey = ["Isocortex", "OLF", "HPF", "CTXsp", "STR", "PAL", "TH", "HY", "MB", "P", "MY", "CB"]
+# the nine divisions of P9, a row of the sensitivity table (ish.robustness)
+p9_divisions = ["Isocortex", "OLF", "HPF", "CTXsp", "STR", "PAL", "TH", "HY", "MB"]
+
 # the ISH chain (ish.*, and adult.sep_channel_check for the gene it compares with)
 [ish]
 min_voxels = 10            # 200 um voxels a structure's gene value needs to be used
 adult_groups = ["naive", "rws"]  # the adult groups, pooled
 reading = "zref"           # the reading the tests and the figures use
-control_gene = "Gria1"     # the gene that stands in for total receptor
-min_structures = 50        # structures a gene must share with the map (or the arms) to be correlated
+control_gene = "Gria1"     # the gene that encodes the stained protein, GluA1, whose mRNA the green channel is compared with (adult.sep_channel_check)
+min_structures = 50        # structures a gene must share with the map to be correlated
 min_genes_ranking = 20     # genes the old and the new ranking must share to be compared
 min_structures_pair = 50   # structures two experiments of one gene must share to be compared
 
 [ish_regions]
 min_voxels = 3             # valid 200 um voxels a structure needs to get a value at all
+
+# section quality of every ISH experiment (ish.section_qc, A2): a failed section is
+# set missing, never interpolated
+[ish_qc]
+neighbours = 3             # sections on each side among which a section's reference is the brightest: 600 um each way, so a run of up to three failed sections still has a good section on each side, and the brain's large gradients do not reach that far
+local_fraction = 0.2       # a section is flagged when its median energy is below this share of the reference on both sides: five-fold dimmer than the sections before and after it is a failed section; dim against one side only is a step in expression (anatomy); P9's 0.3 of the brain-wide median flagged true absences (Slc17a6)
+min_reference = 0.1        # energy below which a section's reference is noise and the section is not judged: a tenth of the experiments have their median section below it, and among those a five-fold drop is a change in noise, not a failed section (Syt3 had sections flagged whose neighbours read 0.0002); an experiment whose median section is below it is labelled near zero
+min_plane_voxels = 50      # in-brain 200 um voxels a section needs to be judged: the first and last sections hold a sliver of brain whose median is noise
 
 [ish_words]
 min_genes = 5              # genes a feature needs to be tested
@@ -93,52 +114,159 @@ evidence_p = 0.05          # the within-family permutation p below which the fig
 max_hits = 1000            # genes asked of mygene.info per GO term; a term with more stops the run
 allen_rows = 50            # experiments asked of the Allen API per gene
 
+# spatial null (ish.spatial_null, A7): surrogate maps with the map's own smoothness
+[spatial_null]
+n_surrogates = 10000       # surrogates per map; the smallest p is 1e-4, just under the 1.1e-4 (0.05 / 451) that BH needs for the first of 451 genes at q 0.05
+deltas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]  # shares of the nearest structures over which a shuffled map is smoothed; each surrogate takes the one whose variogram fits best (Burt 2020)
+pv = 25                    # percentile of the distances between structures up to which the variogram is matched: the short range, where the autocorrelation is; figure 06 B shows the fit beyond it
+nh = 25                    # distances at which the smoothed variogram is evaluated (Burt 2020)
+resample = true            # a surrogate takes the map's own values in a new order, so it differs from the map only in where the values sit
+n_calibration = 2000       # independent random smooth maps per design of the false-positive check: the rate's SE is then 0.5%, so 3% can be told from 5% (500 left it at 1%)
+n_calibration_surrogates = 1000  # surrogates per calibration map, enough to place each p against 0.05
+
+# the gene-by-gene analyses (ish.gene_ranking, ish.robustness, ish.divisions,
+# ish.gene_sets)
+[ish_analysis]
+q = 0.05                   # Benjamini-Hochberg level at which a gene, a set or a contrast is marked in the figures and counted in the text
+n_boot_mice = 2000         # resamples of the ten adults: each gene's rho spread (the grey of its bar) and the interval of the Cacng8 - Gria1 gap
+min_division_structures = 8  # structures a division needs, for one gene, to enter the mean within divisions (A6); with fewer, one rho is too noisy to average
+n_perm_within = 10000      # shuffles of structures within divisions: the cheap first null of analysis 2 in the ISH discussion (docs/history/ISH_DISCUSSION.md, section 8), reported beside the spatial one, which the figures use
+n_calibration_within = 1000  # random smooth maps (the spatial null's calibration fields) tested inside divisions, to show which within null keeps 5% false positives
+n_perm_within_calibration = 1000  # shuffles inside divisions per random map of that check: enough to place each map's p against 0.05
+min_set_genes = 5          # genes with a profile a set needs to be tested, as the word test asked
+power_maps = 500           # maps per effect size in the power check of the localisation test, each the real map's composite part plus a surrogate of its remainder: enough to place a power of 80% within about 2 points
+power_perm = 2000          # label permutations per map in the power check; a p near 0.05 is placed within about 0.005
+power_effects = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0]  # how much of the pattern that sets the localisation genes apart from their controls is added to the remainder, in units of its SD; 0 gives the label test's false-positive rate
+log2_floor = 0.01          # energy added before the log2 of the Pearson row of the robustness table: between the 1st and 5th percentiles of all structure means, so a structure with almost no signal does not sit at -30
+
 [ish_panel_test]
 min_structures = 80        # structures a gene must share with the map and the subunit composite
-min_reliability = 0.3      # reliability a gene needs in the sensitivity run (a gene without one is left out)
+min_reliability = 0.3      # reliability a gene needs in the sensitivity run and the localisation test (a gene without one is left out); below it the figures and the text call a gene's Allen map unreliable
 n_perm = 20000             # label permutations per test
 min_sensitivity_genes = 10 # genes on each side that the sensitivity run needs
 min_control_genes = 30     # control genes with a reliability that the positive control needs
 
+# the synapse-density term of analysis 4 (adult.density_markers): postsynaptic genes
+# chosen by their agreement with the measured PSD95 punctum density, by a rule that reads
+# no nano value; the GO terms of the rule are in the module, beside their reasons
+[density_markers]
+min_experiments = 2        # usable Allen experiments a gene needs to enter the pool: its map then has a reliability, and each half of the calibration's experiments holds one of its own
+min_coverage = 0.9         # share of the declared structures where Gria1 is measured that a gene must be measured in (ish.min_voxels), so the density term costs the fit few structures
+n_markers = 3              # genes averaged into the term: more than one, so no single Allen map's quirks carry it
+n_halves = 500             # random halves of the structures on which the choice is repeated: a gene's share of the choices is then placed within about 2 points
+chosen = ["Rock2", "Cap2", "Slc8a2"]  # the genes the rule chose, highest agreement with PSD95 first; run_density_markers stops if the rule gives others
+
+# analysis 4 (adult.beyond_density): what Gria1 expression and synapse density leave of
+# the adult map, the map being the zref of the adult profile (adult.profiles). The main
+# model (docs/ISH_ANALYSIS.md, the opening of section 4 and section 8.1, say when it was
+# fixed and what was known):
+#     nano zref rank ~ Gria1 rank + synapse-density rank
+# two straight terms, ranks across the structures, scored on held-out structures as
+# below; synapse density is the mean rank of the genes [density_markers] chose. The
+# check rows beside it ([beyond.checks]) each change one thing
 [beyond]
-reading = "zref"           # the reading analysed
 half = 5                   # animals per half when the cohort is split
-# divisions that are grey matter; everything else (the fibre tracts lfbs, mfbs, eps,
-# scwm, cbf and cm, the ventricles VL and V3, the brain-wide catch-all) is dropped,
-# because a synaptic-density covariate means nothing in white matter or in CSF
-grey = ["Isocortex", "OLF", "HPF", "CTXsp", "STR", "PAL", "TH", "HY", "MB", "P", "MY", "CB"]
-# the gene sets standing in for the two explanations: receptor abundance, and
-# synaptic density (Syp to Syt1 presynaptic, Dlg4 to Camk2a postsynaptic)
+abundance = ["Gria1"]      # the stained protein is SEP-GluA1, and Gria1 alone encodes it; Gria2-4 encode partner subunits the nanobody does not see, whose availability sets GluA1's assembly and trafficking: surface regulation, not abundance
+# the four subunits, each its own term: the check row four_subunits
 subunits = ["Gria1", "Gria2", "Gria3", "Gria4"]
+# the density genes proposed before the rule of [density_markers]: the check row
+# first_proposal (the rule excludes Dlg4 and Camk2a as AMPA-receptor-linked)
+first_proposal = ["Dlg4", "Homer1", "Camk2a"]
+# the 11 synaptic marker genes of the marker panel, a density term of presynaptic and
+# postsynaptic markers (Syp to Syt1 presynaptic, Dlg4 to Camk2a postsynaptic): the
+# check row marker_panel
 markers = ["Syp", "Syn1", "Vamp2", "Bsn", "Syt1", "Dlg4", "Homer1", "Shank2", "Shank3", "Nlgn1", "Camk2a"]
+# synapse density, measured: PSD95 punctum density (Zhu et al. 2018, Neuron 99:781; one
+# adult male, about P80; puncta per unit area of 37 subtypes in 775 regions of the Allen
+# Reference Atlas), as shared by Hansen et al. 2026 (PLOS Biology 24:e3003637;
+# repository netneurolab/hansen_synaptome, data/synaptome/mouse_liu2018/; Zenodo
+# 10.5281/zenodo.18201390): the yardstick of [density_markers] and the check row psd95.
+# Puncta count excitatory synapses where they are, while mRNA sits in somata. Punctum
+# intensity and size are never used: PSD95 per synapse is scaffolding, the surface side.
+# A structure is covered when one of the 775 regions is it or lies inside it (by Allen
+# id); its density is the mean over those regions, both hemispheres, weighted by their
+# voxels in the 20 um CCF annotation
+psd95_subtypes = [[1, 11], [19, 37]]  # Zhu 2018's subtypes whose puncta carry PSD95, as inclusive ranges: 1-11 PSD95 alone, 19-37 PSD95 with SAP102. The shared table divides each subtype's density by its largest value over the 775 regions, so counts cannot be summed: the density is the mean of these subtypes' scaled densities, each subtype's map weighing alike
+sap102_subtypes = [[12, 37]]  # the subtypes whose puncta carry SAP102: 12-18 SAP102 alone, 19-37 with PSD95 (the densities sap102 and all_puncta of the synaptome's tables), taken the same way
+cv_repeats = 20            # shufflings of the structures into five folds, the held-out R2 averaged over them: one shuffling alone moves the leftover by several points (the single shufflings of folds.csv), so it is not quoted; the mean of 20 is steady to about half a point
+cv_blocks = 20             # spatial blocks: k-means clusters of the structures' centroids, about eight structures each, dealt into the five folds of the folds of spatial blocks, and left out one at a time by the jackknife over blocks
+replication = 0.5          # the agreement above which a half-cohort map or leftover is said to replicate in the steps' printouts (any reproducible map's leftover passes it, so no verdict rests on it)
+large_voxels = 50          # 200 um voxels of the CCF annotation (0.4 mm3) a structure needs for the check row large: five times what a gene value needs (ish.min_voxels), so registration and the coarse Allen grid blur it less
+grid_min_tissue = 0.5      # share of a 200 um voxel's 20 um voxels that must be tissue for nano on the Allen grid to have a value there (the check row allen_grid): a voxel mostly off the section is its edge, not its structure
+
+# the check rows reported beside the main value, so a reader sees how much each choice
+# matters. Each changes one thing of the main model, on its own structures (the
+# declared ones where its predictors are measured), with its own ceiling and, from the
+# calibration, its own floor (adult.beyond_checks)
+[beyond.checks]
+curved = "curved: x, x^2 and x^3 of each term"
+autofluorescence = "+ autofluorescence"
+first_proposal = "density: Dlg4, Homer1, Camk2a (the first proposal)"
+marker_panel = "density: the 11 synaptic marker genes (the first version's panel)"
+psd_pc1 = "+ psd_pc1, the first component of the postsynaptic-density genes"
+four_subunits = "abundance: Gria1 to Gria4, each its own term"
+psd95 = "density: measured PSD95 punctum density, on the structures it covers"
+psd95_main = "the main model on the structures PSD95 covers"
+large = "only structures of at least 0.4 mm3 (50 Allen voxels)"
+allen_grid = "nano on the Allen 200 um grid, structures assigned as the ISH values"
 
 [beyond_controls]
-max_pcs = 25               # the largest gene-space model of control F, in components
-min_centroids = 50         # A: structures with a centroid that the control needs
+max_pcs = 40               # the largest gene-space model of control F, in components: twice the 20 its nested cross-validation picks most often, and past where its held-out R2 flattens (plateau_r2)
+plateau_r2 = 0.01          # F: the fewest components whose held-out R2 is within this of the curve's highest, which the text quotes as where the curve flattens
+nested_repeats = 5         # shufflings of the outer and of the inner folds of control F's nested cross-validation, which picks the number of components inside each training fold
+f_draws = 5                # draws of made-up animals per direction in control F's own calibration
+n_single = 200             # single shufflings of the folds whose leftovers give the spread one shuffling alone would have (folds.csv)
 gradient_r2 = 0.5          # A: a smooth quadratic in position explaining more than this, a gradient could explain it
 size_rho = 0.4             # B: |rho| of the residual with structure volume above this, size drives it
 pair_rho = 0.1             # C: two mice whose leftovers agree below this, one animal may carry it
 groups_rho = 0.5           # D: naive and RWS leftovers agreeing below this, the pooling hides something
-curvature_gain = 0.05      # E: cross-validated R2 gained by fifth powers above this, the model is not bent enough
-replication = 0.5          # F: the whole-panel model's leftover replicating below this, the panel accounts for the map; the same bound decides whether the quoted model's leftover (and the map) replicates where beyond_density and beyond_figures say so
+curvature_gain = 0.05      # E: cross-validated R2 gained by squares and cubes of the straight terms above this, the straight model misses curvature (the check row curved then shows how much, a check, not a bound)
 readings_replication = 0.8 # G: every reading's leftover must replicate above this
 
+# analysis 4's calibration (adult.beyond_calibration): the main model, and each check row
+# with its own model, on maps whose answer is known. Every gene of the main model has
+# two or more usable Allen experiments, so its floor holds the disagreement of two halves
+# of them; a measured density (the check row psd95) is one measurement, the same in both
+# halves, so its own mismatch is not in that row's floor. Every interval is computed over
+# random fifths of the structures left out, and again over spatial blocks ([beyond]
+# cv_blocks) left out one at a time
+[beyond_calibration]
+n_noise = 20               # draws of animal noise per known map and direction, which give the floor a range rather than one value
+n_jackknife = 400          # subsamples of the calibration structures on which the nano map and the floor are recomputed together: the interval of their difference
+jackknife_share = 0.2      # share of the structures each subsample leaves out (delete-d jackknife); a fifth leaves enough structures for the columns of every check row
+jackknife_draws = 4        # draws of animals per direction on each subsample, so 8 per subsample; their mean is steady to about a point
+jackknife_splits = 20      # half-cohort splits behind the ceiling on each subsample
+
+# the guided figures of part 1 (adult.beyond_figures): figures 03, 03s1, 03s2, 04 and
+# 11s1; their intervals come from the jackknife of [beyond_calibration]
 [beyond_figures]
-n_boot = 2000              # bootstrap replicates over structures, panel A
-n_perm = 10000             # permutations of the "could it be noise" null
-boot_splits = 20           # half-cohort splits used inside each bootstrap replicate
-n_boot_halves = 300        # bootstrap replicates of the ceiling and of the leftover's replication
+n_perm = 10000             # shuffles of one half's leftover, what two unrelated leftovers agree at (for scale)
+t_max_structures = 10.0    # figure 04: a structure's bar is black at this t of the adults' own leftovers, near the 90th percentile of |t| over the structures
+leftover_span_pct = 90.0   # figure 04: the leftover's colour scale on the planes runs to this percentile of |leftover|, rounded up to ten ranks, so about a tenth of the structures saturate
 
 [beyond_regression]
-# coronal planes to draw, in 20 um planes of the cropped CCF grid (450 of them): cortex
-# with hippocampus beneath it and thalamus at the midline, where the residual is
-# largest in both directions
+# coronal planes figure 04 draws, in 20 um planes of the cropped CCF grid (450 of them;
+# 10 um CCF planes 610, 710 and 810): cortex with hippocampus beneath it and thalamus at
+# the midline, where the residual is largest in both directions
 planes = [215, 265, 315]
-# the brain sits on black, because hot ends in white and the brightest structures
-# would vanish into a white page; hot also begins in black, so the floor is set below
-# the data and rank 1 lands about a tenth of the way up the colormap
-floor = 0.12
-diagnostic_p = 0.05        # panel E: a tilt or a fan of the residuals against the prediction (Spearman) below this p reads as a mis-specified model
+diagnostic_p = 0.05        # a tilt or a fan of the residuals against the prediction (Spearman) below this p reads as a mis-specified model, in the step's printout
+
+# the genes that follow the map most, characterised, and the tests named for the
+# leftover (ish.top_genes)
+[top_genes]
+n_added_surrogates = 1000  # maps with a gene's own smoothness added to the main model in its place, the null of the share of the leftover the gene takes; the smallest p is then 0.001, and the run about 4 minutes for 40 genes
+# the leftover's tests again against smoother nulls than its own surrogates, which
+# the projection of the model leaves rough at short range: Gaussian fields of
+# exponential covariance, projected the same way (top_genes.smooth_null_check)
+null_check_ranges_mm = [2.0, 6.0, 10.0, 20.0, 40.0]  # ranges of the fields: around the 4 mm the spatial null's calibration fitted to the map (ish.spatial_null), and longer, the smoothest the fields give once the model is projected out
+null_check_maps = 5000     # fields per range; a p near 0.05 is then placed within about 0.006
+neighbours = 5             # nearest structures whose mean a map is set against to say how smooth it is at short range
+
+# the guided figures of the ISH analysis, read by the run scripts that draw them and
+# by adult.beyond_figures
+[ish_figures]
+plane = 700                # CCF plane at 10 um of every coronal panel (ISH section 35): cortex, hippocampus and thalamus in one section, the plane of Figure 1 of docs/history/ISH_DISCUSSION.md
+t_max = 40.0               # the grey of a gene's bar saturates at this rho over its SD across resampled adults: near the 90th percentile over P9's genes, so the steadiest tenth is black
 
 # The ISH chain runs twice: on the hand-written 100-gene panel, then on the
 # 390-gene ontology panel that run_panel_build writes. run_ish_regions.py and

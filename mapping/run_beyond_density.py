@@ -1,4 +1,4 @@
-"""What receptor abundance and synaptic density leave unexplained in the adult map.
+"""Analysis 4 of the ISH line: what Gria1 and synapse density leave of the map.
 
 Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
@@ -12,60 +12,94 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
      8. run_video_compare      young beside adult, plane by plane
      9. run_closeup            close-ups and flatmaps (venv_flat)
     10. run_diagnostics        sheets that audit each step
-    11. run_ish_regions        ISH per structure, 100-gene panel
-    12. run_ish_compare        the adult map against each gene
-    13. run_ish_words          annotation words of the ranking
-    14. run_ish_roles          subunit against localisation genes
-    15. run_adult_arms         the channel arms per adult
-    16. run_ish_arms           the arms against the genes
-    17. run_sep_channel_check  what the green channel reports
-    18. run_panel_build        the 390-gene ontology panel
-    19. run_panel_fetch        its ISH grids (network, once)
-    20. run_ish_regions        ISH per structure, ontology panel
-    21. run_ish_reliability    how reliable one ISH map is
-    22. run_ish_panel_test     localisation against controls
-    23. run_beyond_density     what abundance and density leave       <- this script
+    11. run_panel_build        390-gene ontology panel (network, cached)
+    12. run_panel_fetch        its ISH grids (network, once)
+    13. run_structure_set      A1: the declared structures, the
+                               adult profiles; figure 01
+    14. run_ish_section_qc     A2: the experiments of both panels
+                               and the repair (network, once);
+                               section QC; QC sheets
+    15. run_ish_gene_table     A9: region means, the gene table,
+                               merged profiles, gene sets,
+                               documentation; figures 02, 02s
+    16. run_ish_spatial_null   A7: surrogate maps and their checks
+    17. run_ish_gene_ranking   analysis 1: each gene against the
+                               map, the null, autofluorescence (A8),
+                               the Cacng8 - Gria1 gap; figures 05,
+                               06, 07s and 12, with their s
+    18. run_ish_robustness     A3: the ranking under other choices;
+                               figures 13, 13s
+    19. run_ish_divisions      analysis 2 (A6): between or within
+                               divisions; figures 09, 09s, gene sheets
+    20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
+                               against matched controls; figures 10,
+                               10s1, 10s2
+    21. run_synaptome          the measured synapse density (network,
+                               once): PSD95 puncta per structure,
+                               its coverage of the fit; figure 03s4
+    22. run_density_markers    the synapse-density genes, chosen by
+                               PSD95 without the map (network,
+                               once); figure 03s3
+    23. run_beyond_density     analysis 4: what Gria1 and synapse   <- this script
+                               density leave; the leftover
     24. run_beyond_controls    seven attempts to break it
-    25. run_beyond_figures     the figures of that result
-    26. run_beyond_regression  the regression, shown
+    25. run_beyond_calibration the same model on maps whose answer
+                               is known; the check rows, each
+                               with its own floor
+    26. run_beyond_regression  the regression, per structure
+    27. run_beyond_figures     figures 03, 03s1, 03s2, 04, 11s1
+    28. run_ish_top_genes      the genes that follow the map most,
+                               characterised; Cacng8 and the AMPA
+                               receptor complex family against the
+                               leftover; figures 07, 08, 11, 11s2,
+                               sheets
+    29. run_sep_channel_check  analysis 5: what the green channel
+                               reports; figures 14, 14s
+    30. run_ish_overview       figures 00, 15 and 15s, the figure
+                               index; the numbers for the text
 
-The ceiling (how reproducible the map is), what the covariates explain, and
-whether the residual replicates across independent halves of the cohort; the
-argument is in sepmap/adult/beyond_density.py. Writes, in adult_v2/beyond/ under
-the data root:
+The main model of [beyond], nano rank ~ Gria1 rank + synapse-density rank, two
+straight terms: the ceiling (how reproducible the map is), what Gria1 alone, synapse
+density alone and both predict on structures the fit has not seen, split into what
+only Gria1 predicts, what the two share, what only density predicts and what is
+left, and the weight of each term; whether the leftover replicates across mice,
+where it lives, and every gene of the gene table against it with the leftover's
+spatial null. Synapse density is the mean rank of the genes run_density_markers
+chose ([density_markers] chosen); the method is in sepmap/adult/beyond_density.py.
+Writes, in adult_v2/ish_analysis/beyond/ under the data root:
 
-    structures_used.csv        every structure, kept or dropped, with the reason
-    variance_partition.csv     what each covariate set explains, against the ceiling
-    residual_by_structure.csv  where the map exceeds and falls short of prediction
-    fig0_structures.png, fig1_ceiling.png, fig2_covariates.png, fig3_residual.png
+    structures_used.csv        every structure of the adult table, in the fit or not,
+                               why, and whether PSD95 is measured there
+    variance_partition.csv     what each model predicts, against the ceiling
+    partition.csv              the four parts of the reproducible map
+    weights.csv                the two weights, map and terms z-scored
+    replication.csv            per split of the adults, the two agreements
+    residual_by_structure.csv  per structure: map, prediction, leftover, steadiness
+    residual_by_division.csv   per division: the mean leftover, its 95% over
+                               resampled adults
+    leftover_genes.csv         every gene against the leftover, with its spatial p
+    leftover_sets.csv          the gene sets of analysis 3 against the leftover
+    leftover_null.npz          the leftover's surrogates, every gene's null rho
 
     python run_beyond_density.py
 """
 
 import argparse
 
-import matplotlib
-
 from sepmap import config
 from sepmap.adult import beyond_density
 
 
 def main():
-    """Print the settings in force, then run the steps of the analysis."""
-    # settings in force
+    """Print the settings in force, then run the steps of analysis 4."""
     config.print_settings({})
-
-    # ceiling, covariates, residual
     beyond_density.main()
 
 
 if __name__ == "__main__":
-    # figures go to files, never to a window
-    matplotlib.use("Agg")
-
     # no options; parsing still gives the script its --help
     parser = argparse.ArgumentParser(
-        description="what abundance and density leave unexplained"
+        description="analysis 4: what Gria1 and synapse density leave"
     )
     parser.parse_args()
     main()

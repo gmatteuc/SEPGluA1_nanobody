@@ -15,8 +15,7 @@ the simplest one that answers it:
 Every reading is correlated, since the table holds them all: ratio and sepratio
 (nano per unit autofluorescence and per unit SEP), cref, subref and zref. sepratio
 was meant as the surface fraction, but the green channel is mostly
-autofluorescence (adult.sep_channel_check), so it is not one; ish.arms compares
-the channels.
+autofluorescence (adult.sep_channel_check), so it is not one.
 
 These are correlations, not tests: two brain maps agree partly because everything
 is high in cortex and hippocampus, and the usual null is inflated about 875-fold in

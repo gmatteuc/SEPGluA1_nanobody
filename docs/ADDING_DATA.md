@@ -237,10 +237,9 @@ lists: `run_cohort`, `run_compare`, `run_region_plot`, `run_region_groups`,
 `run_video`, `run_video_compare`, `run_closeup` (in `tools\venv_flat`), and
 `run_diagnostics` with no mouse named. Of the steps after them, those that
 read the region table of `run_region_plot` (`region_means_per_mouse.csv`:
-`run_ish_compare`, `run_ish_roles`, `run_ish_panel_test`, `run_adult_arms`
-and the four `run_beyond_*`) are rerun when it changes, and so are
-`run_ish_words` and `run_ish_arms`, which read their outputs (see the zref
-trap below).
+`run_structure_set`, `run_ish_robustness` and `run_beyond_controls`) are
+rerun when it changes, and with them the ISH line from step 13 on, which reads
+their outputs (see the zref trap below).
 
 A brain enters only the cohorts the code defines: `young` (P16, P20 and P22
 pooled), `young_P20`, `young_P16`, `young_P22`, `naive`, `rws` and `adult`

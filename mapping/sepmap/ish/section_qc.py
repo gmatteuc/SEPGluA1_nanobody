@@ -1,0 +1,441 @@
+"""Section quality of every Allen ISH experiment: failed sections flagged, never filled.
+
+An Allen expression grid is built from one series of sections of one P56 mouse,
+and a section can fail: torn, out of focus, or stained far more weakly than its
+neighbours. Its voxels then read as no expression where there is some, and a
+structure mean that pools them is too low. P9 found such sections by comparing
+each section's median with the brain-wide median section (below 0.3 of it) and
+filled them by interpolating from the good sections on either side. Both halves
+were wrong in places: a brain-wide threshold flags true absence (Slc17a6 is not
+expressed in the anterior forebrain, and its sections 15 to 18 were "repaired"),
+and interpolation invents values. So here (A2):
+
+    per section    along the experiment's own section axis (AP for a coronal
+                   series, ML for a sagittal one), inside the CCF brain sampled
+                   on the 200 um grid: the in-brain voxels, the voxels with data,
+                   and the median energy of those
+    judged         a section with at least ish_qc.min_plane_voxels in-brain voxels
+                   and some data; the first and last sections hold a sliver of
+                   brain whose median is noise
+    local ref      the median of the medians of the judged sections within
+                   ish_qc.neighbours on each side (600 um each way): wider than one
+                   failed section, narrower than the brain's large gradients
+    flagged        a judged section whose median is below ish_qc.local_fraction of
+                   its local reference, five-fold dimmer than its neighbours, and
+                   also below that share of the brightest judged section within
+                   ish_qc.neighbours on each side (on the one side there is, at the
+                   end of a series). A failed section, or a run of up to three, is
+                   outshone on both sides; a section outshone on one side only sits
+                   at a step in expression (Cnih3 going from the forebrain into the
+                   midbrain, Nrgn into the cerebellum), which is anatomy
+    faint          a section whose local reference is below ish_qc.min_reference is
+                   not judged: its neighbours are themselves at the noise of the grids,
+                   and a five-fold drop there is a change in noise, not a failure.
+                   An experiment whose median section is below that level is
+                   labelled near zero (no detectable expression)
+
+A flagged section is set missing (NaN), as the grid's own -1 voxels are, and every
+other voxel is left as it was: nothing is interpolated. The structure means then
+come from the sections that remain.
+
+Whether a flagged section is a failure or a true absence of expression is a human
+call. mapping/ish_section_exceptions.csv lists the sections reviewed as true
+absence (symbol, experiment_id, sections, reason, status): with status proposed or
+accepted they are kept, with rejected they are set missing like any other flag.
+Candidates are listed with status "proposed" and stay so until reviewed on the
+QC sheets (figures/qc/).
+
+Run by run_ish_section_qc.py.
+"""
+
+import csv
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+from sepmap.config import SETTINGS, code_root
+from sepmap.ish.numbers import numbers_frame, numbers_path
+from sepmap.ish.regions import NotReferenceGrid, read_energy
+from sepmap.structures import TABLES
+
+# the neighbours of the local reference, the share below which a section is flagged,
+# the in-brain voxels a section needs to be judged
+ISH_QC = SETTINGS["ish_qc"]
+
+SECTION_QC = TABLES / "section_qc.csv"
+EXPERIMENT_QC = TABLES / "experiment_qc.csv"
+NUMBERS = numbers_path("section_qc")
+EXCEPTIONS = Path(code_root()) / "mapping" / "ish_section_exceptions.csv"
+
+# the axis of the (AP, DV, ML) grid along which each plane of section was cut
+SECTION_AXIS = {"coronal": 0, "sagittal": 2}
+AXIS_NAME = {0: "AP", 2: "ML"}
+
+# exception statuses that keep a flagged section as a true absence
+KEEP_STATUSES = ("proposed", "accepted")
+
+# what a section's status says, as the tables and the sheets write it
+OK = "ok"
+FLAGGED = "flagged"
+ABSENCE = "absence kept"
+NO_DATA = "no data"
+TOO_LITTLE_BRAIN = "too little brain"
+FAINT = "faint neighbours"
+
+# how the reason of a section kept at a step in expression begins
+STEP_REASON = "dim against one side only"
+
+
+def section_profile(vol: np.ndarray, brain: np.ndarray, axis: int) -> pd.DataFrame:
+    """One row per section along `axis`: in-brain voxels, voxels with data, median.
+
+    `vol` is the grid as (AP, DV, ML) with missing voxels NaN, cut to the shape of
+    `brain`, the CCF brain mask on the same grid. The median is over the in-brain
+    voxels with data, NaN when there are none.
+    """
+    rows = []
+    for k in range(vol.shape[axis]):
+        plane = np.take(vol, k, axis=axis)
+        inside = np.take(brain, k, axis=axis)
+        values = plane[inside & np.isfinite(plane)]
+        n_brain = int(inside.sum())
+        rows.append(
+            dict(
+                section=k,
+                n_brain=n_brain,
+                n_valid=int(values.size),
+                valid_fraction=values.size / n_brain if n_brain else np.nan,
+                median_energy=float(np.median(values)) if values.size else np.nan,
+            )
+        )
+    return pd.DataFrame(rows)
+
+
+def local_reference(medians: np.ndarray, judged: np.ndarray) -> np.ndarray:
+    """Each section's local reference: the median of its judged neighbours' medians.
+
+    The neighbours are the sections within ish_qc.neighbours on each side, the
+    section itself left out; NaN when none of them is judged.
+    """
+    k_max = ISH_QC["neighbours"]
+    n = len(medians)
+    out = np.full(n, np.nan)
+    for k in range(n):
+        lo, hi = max(0, k - k_max), min(n, k + k_max + 1)
+        near = [medians[j] for j in range(lo, hi) if j != k and judged[j]]
+        if near:
+            out[k] = float(np.median(near))
+    return out
+
+
+def side_references(medians: np.ndarray, judged: np.ndarray) -> np.ndarray:
+    """Per section, the brightest judged section before it and after it, sections x 2.
+
+    Within ish_qc.neighbours on each side, the section itself left out; NaN on a
+    side with no judged section.
+    """
+    k_max = ISH_QC["neighbours"]
+    n = len(medians)
+    out = np.full((n, 2), np.nan)
+    for k in range(n):
+        before = [medians[j] for j in range(max(0, k - k_max), k) if judged[j]]
+        after = [medians[j] for j in range(k + 1, min(n, k + k_max + 1)) if judged[j]]
+        if before:
+            out[k, 0] = float(np.max(before))
+        if after:
+            out[k, 1] = float(np.max(after))
+    return out
+
+
+def flag_sections(profile: pd.DataFrame, kept_absent: set[int]) -> pd.DataFrame:
+    """The profile with its references and each section's status and reason.
+
+    `kept_absent` holds the sections an exception keeps as true absence. A status
+    is ok, flagged, absence kept, no data (no voxel with data in the brain), too
+    little brain (fewer than ish_qc.min_plane_voxels in-brain voxels) or faint
+    neighbours (a local reference below ish_qc.min_reference). Columns added:
+    local_reference, and the brightest neighbour before and after
+    (brightest_before, brightest_after).
+    """
+    out = profile.copy()
+    big = out["n_brain"].to_numpy() >= ISH_QC["min_plane_voxels"]
+    has_data = out["n_valid"].to_numpy() > 0
+    candidate = big & has_data
+    medians = out["median_energy"].to_numpy()
+    ref = local_reference(medians, candidate)
+    sides = side_references(medians, candidate)
+    out["local_reference"] = ref
+    out["brightest_before"] = sides[:, 0]
+    out["brightest_after"] = sides[:, 1]
+    with np.errstate(invalid="ignore"):
+        faint = candidate & np.isfinite(ref) & (ref < ISH_QC["min_reference"])
+    judged = candidate & ~faint
+
+    # five-fold dimmer than its neighbours, and outshone on both sides (the side
+    # there is at the end of a series), unless reviewed as absence
+    fraction = ISH_QC["local_fraction"]
+    lowest_side = np.nanmin(np.where(np.isfinite(sides), sides, np.inf), axis=1)
+    with np.errstate(invalid="ignore"):
+        dim = judged & np.isfinite(ref) & (medians < fraction * ref)
+        step = dim & ~(medians < fraction * lowest_side)
+    dim = dim & ~step
+    status, reason = [], []
+    for k in range(len(out)):
+        found = dict(
+            big=big[k],
+            has_data=has_data[k],
+            faint=faint[k],
+            dim=dim[k],
+            step=step[k],
+            kept_absent=k in kept_absent,
+        )
+        status_k, reason_k = section_status(
+            found, out["n_brain"].iloc[k], medians[k], ref[k]
+        )
+        status.append(status_k)
+        reason.append(reason_k)
+    out["status"] = status
+    out["reason"] = reason
+    return out
+
+
+def section_status(
+    found: dict[str, bool], n_brain: int, median: float, reference: float
+) -> tuple[str, str]:
+    """One section's status and its reason: the first rule that applies.
+
+    `found` holds what flag_sections found of the section: enough brain (big), data
+    in it (has_data), a reference at the noise level (faint), dim against both
+    sides (dim) or against one side only (step), listed as a true absence
+    (kept_absent).
+    """
+    if not found["big"]:
+        return TOO_LITTLE_BRAIN, f"{n_brain} in-brain voxels"
+    if not found["has_data"]:
+        return NO_DATA, "no voxel with data in the brain"
+    if found["faint"]:
+        reason = f"reference {reference:.3g} below {ISH_QC['min_reference']}: noise level"
+        return FAINT, reason
+    if found["dim"] and found["kept_absent"]:
+        return ABSENCE, "dim, but listed as a true absence"
+    if found["dim"]:
+        fraction = ISH_QC["local_fraction"]
+        return FLAGGED, f"median {median:.3g} below {fraction} x {reference:.3g}"
+    if found["step"]:
+        return OK, f"{STEP_REASON}: a step in expression"
+    return OK, ""
+
+
+def apply_flags(vol: np.ndarray, sections: list[int], axis: int) -> np.ndarray:
+    """A copy of `vol` with the given sections missing (NaN); nothing else changes."""
+    out = vol.copy()
+    for k in sections:
+        index = [slice(None)] * vol.ndim
+        index[axis] = k
+        out[tuple(index)] = np.nan
+    return out
+
+
+def load_exceptions(path: Path | None = None) -> dict[tuple[str, str], dict]:
+    """The reviewed true absences, {(symbol, experiment id): {sections, status, reason}}.
+
+    Only exceptions whose status keeps a section (proposed, accepted) give
+    sections; a rejected one is listed with no sections, so its flags stand.
+    """
+    if path is None:
+        path = EXCEPTIONS
+    out = {}
+    with open(path, newline="", encoding="utf-8") as fh:
+        for r in csv.DictReader(fh):
+            if r["status"] not in KEEP_STATUSES + ("rejected",):
+                raise ValueError(
+                    f"{path}: status {r['status']!r} for {r['symbol']} "
+                    f"{r['experiment_id']}; it must be proposed, accepted or rejected"
+                )
+            sections = {int(s) for s in r["sections"].split()}
+            if r["status"] == "rejected":
+                sections = set()
+            out[(r["symbol"], str(r["experiment_id"]))] = dict(
+                sections=sections, status=r["status"], reason=r["reason"]
+            )
+    return out
+
+
+def read_grid(experiment_id: str, shape: tuple[int, int, int]) -> np.ndarray:
+    """One experiment's grid as (AP, DV, ML), missing voxels NaN, cut to `shape`.
+
+    The Allen box is one voxel larger than the CCF sampled at 200 um in each axis
+    (ish.regions.annotation_200), and the offset that aligns them is zero.
+    """
+    vol = read_energy(experiment_id)
+    return vol[: shape[0], : shape[1], : shape[2]]
+
+
+def experiment_qc(
+    row: dict, brain: np.ndarray, exceptions: dict
+) -> tuple[pd.DataFrame | None, dict]:
+    """The section table of one experiment and its one-line summary.
+
+    `row` holds symbol, experiment_id and plane. When the grid is missing or in a
+    box of its own the section table is None and the summary says why.
+    """
+    symbol, eid, plane = row["symbol"], str(row["experiment_id"]), row["plane"]
+    summary = dict(
+        symbol=symbol,
+        experiment_id=eid,
+        plane=plane,
+        grid="ok",
+        axis="",
+        n_judged=0,
+        n_flagged=0,
+        flagged_sections="",
+        n_absence_kept=0,
+        absence_sections="",
+        exception_status="",
+        median_energy=np.nan,
+        near_zero=False,
+    )
+    try:
+        vol = read_grid(eid, brain.shape)
+    except FileNotFoundError:
+        summary.update(grid="missing")
+        return None, summary
+    except NotReferenceGrid as why:
+        summary.update(grid=str(why))
+        return None, summary
+    axis = SECTION_AXIS[plane]
+    exception = exceptions.get((symbol, eid), {})
+    table = flag_sections(
+        section_profile(vol, brain, axis), exception.get("sections", set())
+    )
+    table.insert(0, "axis", AXIS_NAME[axis])
+    table.insert(0, "plane", plane)
+    table.insert(0, "experiment_id", eid)
+    table.insert(0, "symbol", symbol)
+    summary.update(
+        axis=AXIS_NAME[axis],
+        n_judged=int(table["status"].isin([OK, FLAGGED, ABSENCE]).sum()),
+        n_flagged=int((table["status"] == FLAGGED).sum()),
+        flagged_sections=" ".join(
+            str(k) for k in table.loc[table["status"] == FLAGGED, "section"]
+        ),
+        n_absence_kept=int((table["status"] == ABSENCE).sum()),
+        absence_sections=" ".join(
+            str(k) for k in table.loc[table["status"] == ABSENCE, "section"]
+        ),
+        exception_status=exception.get("status", ""),
+    )
+    ok = table["status"].isin([OK, FLAGGED, ABSENCE, FAINT])
+    level = float(table.loc[ok, "median_energy"].median()) if ok.any() else np.nan
+    summary.update(
+        median_energy=level,
+        near_zero=bool(np.isfinite(level) and level < ISH_QC["min_reference"]),
+    )
+    return table, summary
+
+
+def qc_tables(
+    experiments: pd.DataFrame, brain: np.ndarray, exceptions: dict
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """The section table of every experiment, and one summary row per experiment."""
+    tables, summaries = [], []
+    for i, row in enumerate(experiments.to_dict("records"), 1):
+        table, summary = experiment_qc(row, brain, exceptions)
+        summaries.append(summary)
+        if table is not None:
+            tables.append(table)
+        if i % 100 == 0:
+            print(f"  {i}/{len(experiments)} experiments", flush=True)
+    return pd.concat(tables, ignore_index=True), pd.DataFrame(summaries)
+
+
+def flagged_sections(summary: pd.DataFrame) -> dict[str, list[int]]:
+    """{experiment id: sections to set missing}, from the experiment summary.
+
+    `summary` is experiment_qc.csv as load_experiment_qc reads it, flagged_sections
+    a text, empty when nothing was flagged.
+    """
+    out = {}
+    for eid, text in zip(summary["experiment_id"], summary["flagged_sections"]):
+        if text:
+            out[str(eid)] = [int(k) for k in text.split()]
+    return out
+
+
+def numbers_table(
+    experiments: pd.DataFrame, summary: pd.DataFrame, sections: pd.DataFrame
+) -> pd.DataFrame:
+    """numbers_section_qc.csv: the numbers of this step that the text quotes."""
+    ok = summary[summary["grid"] == "ok"]
+    steps = sections[
+        (sections["status"] == OK) & sections["reason"].str.startswith(STEP_REASON)
+    ]
+    rows = [
+        ("experiments_listed", len(experiments), "experiments of both panels and repair"),
+        ("genes_listed", experiments["symbol"].nunique(), "genes of both panels"),
+        (
+            "experiments_repair",
+            int(experiments["repair_experiment"].sum()),
+            "experiments added by the repair",
+        ),
+        ("experiments_with_grid", len(ok), "experiments with a usable grid"),
+        (
+            "experiments_flagged",
+            int((ok["n_flagged"] > 0).sum()),
+            "experiments with at least one section set missing",
+        ),
+        ("sections_flagged", int(ok["n_flagged"].sum()), "sections set missing"),
+        (
+            "sections_absence_kept",
+            int(ok["n_absence_kept"].sum()),
+            "dim sections kept as true absence (exceptions list)",
+        ),
+        ("sections_judged", int(ok["n_judged"].sum()), "sections judged"),
+        (
+            "sections_faint",
+            int((sections["status"] == FAINT).sum()),
+            "sections not judged: neighbours at the noise level",
+        ),
+        ("sections_step", len(steps), f"{STEP_REASON}: kept, a step in expression"),
+        (
+            "experiments_step",
+            steps["experiment_id"].nunique(),
+            "experiments with a section kept at a step",
+        ),
+        (
+            "experiments_near_zero",
+            int(ok["near_zero"].sum()),
+            "experiments whose median section is at the noise level",
+        ),
+    ]
+    p9 = experiments.loc[experiments["p9_experiment"], "experiment_id"]
+    p9_ok = ok[ok["experiment_id"].isin(set(p9))]
+    rows.append(
+        (
+            "p9_experiments_flagged",
+            int((p9_ok["n_flagged"] > 0).sum()),
+            "P9's own experiments with a section set missing",
+        )
+    )
+    return numbers_frame(rows)
+
+
+def load_experiment_qc() -> pd.DataFrame:
+    """The experiment summary run_ish_section_qc wrote."""
+    if not EXPERIMENT_QC.exists():
+        raise FileNotFoundError(
+            f"{EXPERIMENT_QC} not found: run run_ish_section_qc.py first"
+        )
+    return pd.read_csv(EXPERIMENT_QC, dtype={"experiment_id": str}, keep_default_na=False)
+
+
+def load_section_qc() -> pd.DataFrame:
+    """The section table run_ish_section_qc wrote."""
+    if not SECTION_QC.exists():
+        raise FileNotFoundError(
+            f"{SECTION_QC} not found: run run_ish_section_qc.py first"
+        )
+    return pd.read_csv(
+        SECTION_QC, dtype={"experiment_id": str}, keep_default_na=False, na_values=[""]
+    )

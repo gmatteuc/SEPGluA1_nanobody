@@ -36,9 +36,10 @@ Other checks live with their code:
   checked against their earlier outputs with the tools of
   [`../tools/README.md`](../tools/README.md), on copies of the data, never by
   a test on the production data;
-- the Python route has no tests yet. They go in `mapping/tests/`, pytest
-  run from `mapping\` as `python -m pytest tests` in `tools\venv_dev`
-  (`docs/STYLE.md`).
+- the Python route's tests are in `mapping/tests/` (pytest, run from
+  `mapping\` as `python -m pytest tests` in `tools\venv_dev`;
+  [`../mapping/tests/README.md`](../mapping/tests/README.md)). They cover the
+  ISH analysis; the per-brain steps have none yet.
 
 ## Adding a test
 

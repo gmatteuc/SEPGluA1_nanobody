@@ -139,7 +139,28 @@ Each is defined in one place; never copy a value into a script.
   receptor subunits dark blue `#1f3b73` (`plotting.DARK_BLUE`). New colours
   extend this orange, yellow, blue, red and grey family: no green, pink or
   purple outside the colormaps above.
+- In Python the channels are `plotting.NANO`, `AUTO`, `NANO_DOT`, `AUTO_DOT`
+  and `PAIR_LINE`. The ISH figures add the groups of divisions of a scatter of
+  structures (`DIVISION_GROUP`, `DIVISION_GROUP_COLOURS`: cortex `#e07b00`,
+  hippocampal formation `#c0392b`, thalamus `#3a6db5`, other grey matter
+  `#555555`), the gene sets (`SET_COLOURS`: subunits dark blue, localisation
+  red, other postsynaptic `#555555`, presynaptic `#9a9a9a`, GABAergic markers
+  `#7f9cc9`, glia `#c8c8c8`; a gene in no set `NO_SET_GREY`, `#ececec`), the
+  95% band of a null distribution behind the data (`NULL_BAND`, `#c9d6ea`),
+  the density step of a variance budget (`DENSITY_BLUE`, `#7f9cc9`), and the
+  green (SEP) channel in blue so the three channels stay apart (`SEP`
+  `#3a6db5`, its per-mouse dots `SEP_DOT` `#24427f`, what is left of it once
+  autofluorescence is regressed out `SEP_REMAINDER` `#8fb3e0`). The greys and
+  blues these reuse have names of their own (`LIGHT_GREY` `#c8c8c8`,
+  `PALE_GREY` `#e6e6e6`, `NOTE_GREY` 0.4 for a note on a figure, `MID_BLUE`
+  `#3a6db5`, `PALE_BLUE` `#7f9cc9`), so a figure function names a colour and
+  never types one. `plotting.bars_grey(t, t_max)` is
+  `sep_palette('bars')`: grey 0.78 at t = 0 to black at t_max.
 - Scatter plots of many structures: 35-point dots, no edge, alpha 0.85.
+- Names beside dots never sit on each other: `ish/plotting/shared.spread_labels`
+  (a scatter) and `spread_positions` (a column of names) move them apart and join
+  a moved name to its dot. A spatial p is written `p = 0.012` (three decimals),
+  or `p ≤ 0.0001` when no surrogate reached it.
 - Counts in titles are computed, never typed. Coronal planes are drawn dorsal
   up, (DV, ML), never transposed. White background, except image panels.
 - A file name carries every setting that changes what the file holds
@@ -276,11 +297,19 @@ file follows it, `tools/` included (Y5).
   analysis, laid out the same way (`sepmap/volumes/`, `young_vs_adult/`).
 - `config.py` loads the settings and holds the paths. `plotting.py` holds the
   palette, the style, the save function and every figure function (one per
-  sub-package with figures); the modules that compute draw nothing. In the
-  Python route, `mapping/sepmap/plotting.py` holds the palette, the
-  colormaps, `save_figure` and the drawing several modules share (the coronal
-  frame); the figure functions of each analysis are still in its module, and
-  new figure code goes into a plotting module.
+  sub-package with figures); the modules that compute draw nothing. A plotting
+  module too long to read as one (a few thousand lines) becomes a package,
+  `plotting/`, with one module per part of the analysis, named for the part,
+  and `shared.py` for what more than one of them uses; nothing else is shared
+  between them, and a run script imports the module it draws with as
+  `<part>_figures` (`from sepmap.ish.plotting import ranking as
+  ranking_figures`). In the Python route, `mapping/sepmap/plotting.py` holds
+  the palette, the colormaps, `save_figure` and the drawing several modules
+  share (the coronal frame, a structure map painted on a plane and its
+  borders); `ish/plotting/` (`shared`, `inputs`, `ranking`, `sets`,
+  `leftover`, `headline`) and `adult/plotting.py` hold the figures of those
+  two sub-packages. The figure functions of `volumes/` and `young_vs_adult/`
+  are still in their modules, and new figure code goes into a plotting module.
 - Only run scripts have an `if __name__ == "__main__":` block. `__init__.py`
   is empty or a one-line docstring.
 - Notebooks are optional, numbered (`01_exploration.ipynb`), and only call the
@@ -434,9 +463,17 @@ def fit_all(matrix, return_flags=False):
   function and the figure functions: `plot_<what>(data, ..., save=None)`
   returns the figure, or with `ax=None` draws one panel and returns the axes.
   `mapping/sepmap/plotting.py` has the constants (`RED`, `DARK_GREY`,
-  `MID_GREY`, `DARK_BLUE`, `NO_DATA_GREY`, `GROUP_COLOURS`), the colormaps
-  (`hot_cut`, `transparent_bad`), the save function and `tidy` for the axes;
-  it has no `set_style()` yet.
+  `MID_GREY`, `DARK_BLUE`, `NO_DATA_GREY`, `GROUP_COLOURS` and the ISH
+  additions above), the colormaps (`hot_cut`, `transparent_bad`),
+  `set_style()` (white ground, fonts of 7 to 10 points, no top or right
+  spine, Type 42 fonts in an EPS), `bars_grey`, `draw_plane` (one coronal
+  plane in a panel: the atlas dark grey under the data, borders on top), the
+  save function and `tidy` for the axes. The figure functions of the ISH
+  analysis are in `mapping/sepmap/ish/plotting/`, a module per part (the
+  inputs, each gene against the map with its checks, divisions and gene sets,
+  the genes against the leftover, the overview), those of the adult map (part
+  1 of the ISH line, the green channel and its working figure) in
+  `mapping/sepmap/adult/plotting.py`.
 - The save function closes the figure after `fig.savefig(save, dpi=150,
   bbox_inches="tight")`; new figures use its dpi, existing ones keep theirs.
   The route's `plotting.save_figure(fig, path, dpi)` writes the PNG and, by
@@ -447,7 +484,11 @@ def fit_all(matrix, return_flags=False):
 - Titles and labels lowercase, names and symbols as written, the unit in
   parentheses (`"peak amplitude (uV)"`), counts computed
   (`f"recorded electrodes (n = {len(mapping)})"`). New figure files are
-  numbered in run order (`01_raw_plates.png`).
+  numbered in run order (`01_raw_plates.png`); a guided walk such as the ISH
+  line's is numbered in the order of its argument, a main figure of two to four
+  panels with one line saying what to take from it, its detailed version the
+  same number with an s (`03_beyond.png`, then `03s1_beyond_budget.png` to
+  `03s4_synaptome_detail.png` where it has several).
 - Tests use pytest, in `tests/` next to the package, run from the pipeline
   folder as `python -m pytest tests`; one `test_<topic>.py` per sub-package or
   topic, and a `tests/README.md` listing them (file, what it checks, data).

@@ -13,7 +13,17 @@ shows where there is no value.
 
 The coronal frames of the videos and of the close-up still share one drawing
 function: the atlas in dark grey under the data, the area borders on top, and
-the acronym of every structure large enough to name.
+the acronym of every structure large enough to name. draw_plane is the same
+drawing for one panel of a figure, and paint fills a plane with one value per
+structure.
+
+The ISH figures add the light greys of context and of the reading notes, the two
+channels and their per-mouse dots (orange for nano, yellow for autofluorescence, as
+sep_palette in MATLAB), four colours for the groups of divisions in a scatter of
+structures (cortex, hippocampal formation, thalamus, the rest), the colours of the
+gene sets, a pale blue for the band of a null distribution, the blues of the green
+(SEP) channel, and bars_grey, the grey of a bar whose darkness says how reliable
+its value is.
 
 Only numpy, scipy, matplotlib and config are imported, so the flatmap
 environment (young_vs_adult.closeup) can import this module too. Imported by
@@ -25,6 +35,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import Colormap, LinearSegmentedColormap
+from matplotlib.image import AxesImage
 from scipy.ndimage import center_of_mass
 
 from sepmap.config import SETTINGS
@@ -43,8 +54,116 @@ DARK_BLUE = "#1f3b73"
 # no data, drawn flat under the data
 NO_DATA_GREY = "#bfbfbf"
 
+# the light greys of context: what a figure is not about, and a fill behind the data;
+# and the grey of the reading notes at the foot of a figure
+LIGHT_GREY = "#c8c8c8"
+PALE_GREY = "#e6e6e6"
+NOTE_GREY = "0.4"
+
+# two blues beside the dark blue of the subunits: the thalamus and the green (SEP)
+# channel, and the paler density and GABAergic markers
+MID_BLUE = "#3a6db5"
+PALE_BLUE = "#7f9cc9"
+
 # the groups of the young against adult figures
 GROUP_COLOURS = {"young": RED, "naive": DARK_GREY, "rws": MID_GREY}
+
+# the two channels, their per-mouse dots, and the line joining the values of one mouse
+NANO = (0.95, 0.55, 0.10)
+AUTO = (0.95, 0.85, 0.20)
+NANO_DOT = (0.65, 0.30, 0.00)
+AUTO_DOT = (0.70, 0.60, 0.00)
+PAIR_LINE = (0.6, 0.6, 0.6)
+
+# the groups of divisions in a scatter of structures: few enough to tell apart, and
+# the three that carry most of a whole-brain correlation (cortex and hippocampus high,
+# thalamus low) each with a colour of its own
+DIVISION_GROUP = {
+    "Isocortex": "cortex",
+    "OLF": "cortex",
+    "CTXsp": "cortex",
+    "HPF": "hippocampal formation",
+    "TH": "thalamus",
+    "STR": "other grey matter",
+    "PAL": "other grey matter",
+    "HY": "other grey matter",
+    "MB": "other grey matter",
+    "P": "other grey matter",
+    "MY": "other grey matter",
+    "CB": "other grey matter",
+}
+DIVISION_GROUP_COLOURS = {
+    "cortex": "#e07b00",
+    "hippocampal formation": RED,
+    "thalamus": MID_BLUE,
+    "other grey matter": DARK_GREY,
+}
+
+# the gene sets of the ISH analysis; the subunits keep the dark blue they have everywhere
+SET_COLOURS = {
+    "subunits": DARK_BLUE,
+    "localisation": RED,
+    "other postsynaptic": DARK_GREY,
+    "presynaptic": MID_GREY,
+    "GABAergic markers": PALE_BLUE,
+    "glia": LIGHT_GREY,
+}
+
+# a gene in no set, paler than any set
+NO_SET_GREY = "#ececec"
+
+# the 95% band of a null distribution, drawn behind the data
+NULL_BAND = "#c9d6ea"
+
+# the density step of the variance budget, beside the orange of abundance
+DENSITY_BLUE = PALE_BLUE
+
+# the third channel, the tag's own green (SEP) fluorescence, in blue so the three
+# channels stay apart: its bars and boxes, its per-mouse dots, and what is left of it
+# once autofluorescence is regressed out
+SEP = MID_BLUE
+SEP_DOT = "#24427f"
+SEP_REMAINDER = "#8fb3e0"
+
+
+def set_style() -> None:
+    """The figures' style: white ground, fonts of 7 to 10 points, no top or right spine.
+
+    Called once by every run script that draws, and by a notebook before it draws.
+    Type 42 fonts keep the text of an EPS editable as text.
+    """
+    plt.rcParams.update(
+        {
+            "figure.facecolor": "white",
+            "axes.facecolor": "white",
+            "savefig.facecolor": "white",
+            "font.size": 8,
+            "axes.titlesize": 9,
+            "axes.labelsize": 8,
+            "xtick.labelsize": 7,
+            "ytick.labelsize": 7,
+            "legend.fontsize": 7,
+            "figure.titlesize": 10,
+            "axes.spines.top": False,
+            "axes.spines.right": False,
+            "legend.frameon": False,
+            "ps.fonttype": 42,
+            "pdf.fonttype": 42,
+        }
+    )
+
+
+def bars_grey(t: float | np.ndarray, t_max: float) -> np.ndarray:
+    """The grey of a bar whose value has reliability `t`: 0.78 at 0, black at `t_max`.
+
+    Darker is more reliable, and never white, so a bar of low reliability still
+    shows on a white page (sep_palette('bars') in MATLAB). Returns one RGB row per
+    value, shape (n, 3); t is clamped to 0..t_max, and NaN reads as 0.
+    """
+    t = np.atleast_1d(np.asarray(t, dtype=float))
+    share = np.clip(np.nan_to_num(t, nan=0.0) / t_max, 0.0, 1.0)
+    level = 0.78 * (1.0 - share)
+    return np.repeat(level[:, None], 3, axis=1)
 
 
 def hot_cut() -> LinearSegmentedColormap:
@@ -91,10 +210,7 @@ def save_figure(
     except OSError:
         alt = path.with_name(path.name.replace(".png", "_new.png"))
         fig.savefig(alt, dpi=dpi, facecolor=facecolor)
-        print(
-            f"  NOTE: {path.name} is open elsewhere; wrote {alt.name} instead",
-            flush=True,
-        )
+        print(f"  {path.name} is open elsewhere; wrote {alt.name} instead", flush=True)
     if not eps:
         return
 
@@ -107,8 +223,7 @@ def save_figure(
         fig.savefig(eps_path, dpi=dpi, facecolor=fig.get_facecolor(), format="eps")
     except OSError:
         print(
-            f"  NOTE: {eps_path.name} is open elsewhere; the PNG was still written",
-            flush=True,
+            f"  {eps_path.name} is open elsewhere; the PNG was still written", flush=True
         )
 
 
@@ -128,6 +243,68 @@ def boundaries(lab: np.ndarray) -> np.ndarray:
     b[1:, :] |= lab[1:, :] != lab[:-1, :]
     b[:, 1:] |= lab[:, 1:] != lab[:, :-1]
     return b & (lab > 0)
+
+
+def paint(lab: np.ndarray, value: dict[str, float], names: dict[int, str]) -> np.ndarray:
+    """A plane of structure values: each pixel its structure's value, NaN if none.
+
+    `lab` holds parcellation indices, `names` the structure of each index and `value`
+    a value per structure name.
+    """
+    out = np.full(lab.shape, np.nan, dtype=np.float32)
+    for idx in np.unique(lab):
+        if idx == 0:
+            continue
+        v = value.get(names.get(int(idx), ""))
+        if v is not None:
+            out[lab == idx] = v
+    return out
+
+
+def draw_borders(ax: plt.Axes, lab: np.ndarray) -> None:
+    """The area borders of a plane on top of what is drawn, light and half transparent."""
+    ov = np.zeros(lab.shape + (4,))
+    ov[boundaries(lab)] = (0.8, 0.8, 0.8, 0.55)
+    ax.imshow(ov, origin="upper", interpolation="nearest", aspect="equal")
+
+
+def draw_plane(
+    ax: plt.Axes,
+    img: np.ndarray,
+    lab: np.ndarray,
+    cmap: Colormap,
+    vmin: float,
+    vmax: float,
+) -> AxesImage:
+    """One coronal plane in a panel: the atlas dark grey under `img`, borders on top.
+
+    `img` and `lab` are (DV, ML), dorsal up; `img` is NaN where there is no value,
+    so the dark grey atlas shows there. The panel is black, without ticks or frame.
+    Returns the image of the data, for a colour bar.
+    """
+    inside = lab > 0
+
+    # the atlas in dark grey under the data, black outside it
+    bg = np.zeros(lab.shape + (4,))
+    bg[inside] = (0.23, 0.23, 0.23, 1.0)
+    ax.imshow(bg, origin="upper", interpolation="nearest", aspect="equal")
+    h = ax.imshow(
+        np.ma.masked_invalid(np.where(inside, img, np.nan)),
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
+        origin="upper",
+        interpolation="nearest",
+        aspect="equal",
+    )
+
+    draw_borders(ax, lab)
+    ax.set_facecolor("k")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    for s in ax.spines.values():
+        s.set_visible(False)
+    return h
 
 
 def coronal_figure() -> tuple[plt.Figure, list[plt.Axes], list[plt.Axes]]:

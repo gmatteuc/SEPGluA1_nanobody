@@ -91,10 +91,16 @@ OVERRIDE = {"Grid1": "delta_receptor", "Grid2": "delta_receptor"}
 ROLE_ORDER = ("subunit", "delta_receptor", "localisation", "control_psd")
 
 
-def cached(name: str, fetch: Callable[[], list]) -> list:
-    """The answer of `fetch()`, cached as <name>.json, so a re-run asks nothing twice."""
-    CACHE.mkdir(parents=True, exist_ok=True)
-    path = CACHE / (name + ".json")
+def cached(name: str, fetch: Callable[[], list], cache: Path | None = None) -> list:
+    """The answer of `fetch()`, cached as <name>.json, so a re-run asks nothing twice.
+
+    The cache folder is the panel's own unless `cache` names another (the panel
+    repair of ish.gene_table caches under adult_v2/ish_analysis/).
+    """
+    if cache is None:
+        cache = CACHE
+    cache.mkdir(parents=True, exist_ok=True)
+    path = cache / (name + ".json")
     if path.exists():
         with open(path, encoding="utf-8") as fh:
             return json.load(fh)
@@ -130,10 +136,11 @@ def genes_with_term(term: str) -> list[str]:
     return cached("term_" + term.replace(":", "_"), fetch)
 
 
-def allen_experiments(symbol: str) -> list[dict]:
+def allen_experiments(symbol: str, cache: Path | None = None) -> list[dict]:
     """Every usable Allen ISH experiment of one gene: [{"id": ..., "plane": ...}].
 
     Usable means not failed, from the mouse product, with a plane of section.
+    Cached in the panel's folder, or in `cache` when given.
     """
 
     def fetch():
@@ -155,7 +162,7 @@ def allen_experiments(symbol: str) -> list[dict]:
             if r.get("plane_of_section")
         ]
 
-    return cached("allen_" + symbol, fetch)
+    return cached("allen_" + symbol, fetch, cache)
 
 
 def assign_roles() -> tuple[dict[str, str], dict[str, list[str]]]:

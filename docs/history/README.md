@@ -15,6 +15,7 @@ refactor and may have been cleared since.
 | [MORNING_REPORT.md](MORNING_REPORT.md) | the held fixes and Giulio's answers to them (3 October) |
 | [STEP8_REPORT.md](STEP8_REPORT.md) | the fixes of step 8 as applied, what each changed and how it was checked (4 October) |
 | [DECISIONS_REPORT.md](DECISIONS_REPORT.md) | the four decisions of 4 October on the plasticity comparison and the Python route, and their measurements |
+| [ISH_DISCUSSION.md](ISH_DISCUSSION.md) | the ISH line from the beginning, written for the discussion of 8 October; its section 8 (the principle, step 0, analyses 1 to 5, keep/merge/drop, the five decisions) is what Giulio agreed to and what [ISH_ANALYSIS.md](../ISH_ANALYSIS.md) builds on |
 
 The old and new names of every script are in
 [refactor_name_map.csv](../refactor_name_map.csv), which stays in `docs/`:

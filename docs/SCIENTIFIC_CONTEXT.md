@@ -20,7 +20,12 @@ section 2). Some results will move when the scientific additions A1 to A5
 run on one declared set of structures (S1 to S5 and A1 to A5 in
 [history/REFACTOR_PLAN.md](history/REFACTOR_PLAN.md)); those are marked
 provisional. Where a fix of step 8 or a decision of 4 October moved a quoted
-number, the earlier value is given beside it.
+number, the earlier value is given beside it. Line of work 3, and the
+reproducibility of line 2, quote the ISH analysis built on 8 October 2026 on
+branch `post-ish` (`adult_v2\ish_analysis\`, [ISH_ANALYSIS.md](ISH_ANALYSIS.md)),
+run on a full copy of the production inputs: the production data root does not
+hold those outputs yet; it does once the branch is merged and steps 13 to 30
+of the Python route run there.
 
 ## The question
 
@@ -43,7 +48,7 @@ questions of the map:
 1. Where does an experience change it?
 2. How is it distributed in the adult brain, and how reproducible is that
    across mice?
-3. What does it measure: more than receptor abundance or synaptic density?
+3. What does it measure: more than Gria1 expression or synapse density?
 4. How does it differ between young and adult mice, and could the
    differences mark critical periods?
 
@@ -147,17 +152,21 @@ questions of the map:
 - **Question.** How surface GluA1 is distributed across the whole adult
   brain, and how reproducible that is across mice.
 - **Cohort.** The five naive and five RWS mice, pooled. Pooling was checked:
-  the part of the map that abundance and density do not explain (line 3)
-  agrees between the naive and the RWS mice at rho +0.888
-  (`adult_v2\beyond\controls.csv`, control D). The behaviour mice enter only
-  the plasticity comparison.
+  the part of the map that Gria1 expression and synapse density do not
+  predict (line 3) agrees between the naive and the RWS mice at rho +0.895
+  (`adult_v2\ish_analysis\beyond\controls.csv`, control D). The behaviour mice
+  enter only the plasticity comparison.
 - **Reproducibility.** Over the 126 ways of splitting the ten adults into two
-  halves of five, the two half-cohort maps agree at rho 0.974 over 126
-  grey-matter structures (`adult_v2\beyond\for_sami\numbers_for_the_caption.txt`;
-  the structures in `adult_v2\beyond\structures_used.csv`). Spearman-Brown
-  takes this to 0.987 for the full cohort. The autofluorescence of the same
-  brains explains none of the map (cross-validated R² -0.06,
-  `adult_v2\beyond\variance_partition.csv`).
+  halves of five, the two half-cohort maps agree at rho 0.972 over 163
+  grey-matter structures
+  (`adult_v2\ish_analysis\beyond\numbers_for_the_caption.txt`; the structures
+  in `beyond\structures_used.csv` there). Spearman-Brown takes this to 0.986
+  for the full cohort. The autofluorescence of the same brains predicts none
+  of the map (-1% of its reproducible part, `beyond\variance_partition.csv`).
+- **The structures** every adult analysis of the ISH line reads: the 204
+  grey-matter structures measured in all ten adults (A1, S1;
+  `adult_v2\ish_analysis\tables\structure_set.csv`), with `zref` taken over
+  them ([ISH_ANALYSIS.md](ISH_ANALYSIS.md), section 3).
 - **Being rebuilt.** Which structures stand out, and with what confidence, is
   being redone. The MATLAB route (`run_characterize_distribution`) called a
   structure enriched above a threshold on its own scale, and Sami El-Boustani
@@ -173,140 +182,219 @@ questions of the map:
 A reader will ask whether the map simply follows how much receptor a region
 makes, or how many synapses it has. The project tests this against the Allen
 in situ hybridisation (ISH) maps of the adult mouse brain (Lein et al. 2007).
+The analysis, its figures and every number are in
+[ISH_ANALYSIS.md](ISH_ANALYSIS.md) (built on 8 October 2026: A1 to A3 and A6
+to A9 for the ISH line; part 1 run again on 9 October with its main model, and
+the same day in its second version). The
+outputs are in `adult_v2\ish_analysis\`, the numbers in its
+`tables\numbers_for_the_text.csv`. Its figures follow the argument,
+`figures\00_overview.png` (the line on one page) to `15_april_headline.png`,
+each main figure of two to four panels beside its detailed version (the same
+number with an s).
 
-**The map is more than abundance and density.** Over 126 grey-matter
-structures, the adult map was predicted from receptor abundance (Gria1 to
-Gria4 mRNA), synaptic markers, the first principal component of 188
-postsynaptic-density genes, and the cohort's own autofluorescence. Each model
-was scored by cross-validation on held-out structures, against the map's own
-reliability (the ceiling, 97.4% of the variance). From
-`adult_v2\beyond\variance_partition.csv`:
+**The map is not fully explained by Gria1 expression and synapse density**
+(part 1 of the argument; figures 03 and 04, with the check rows in 03s1, the
+controls in 03s2 and the choice of the density genes in 03s3). This is the second
+version of part 1, decided by Giulio on 9 October 2026 after seeing the first
+(ISH_ANALYSIS.md, section 8.1; the first version's numbers are in its section
+4.6), and reported as three reviews of it asked the same evening:
 
-| predictors | cross-validated R² | share of the explainable variance |
-|---|---|---|
-| receptor abundance (Gria1 to Gria4) | 0.2666 | 27% |
-| synaptic markers | 0.1622 | 17% |
-| postsynaptic density, first component | 0.2681 | 28% |
-| autofluorescence | -0.0643 | 0% |
-| all four, straight lines | 0.4086 | 42% |
-| all four, allowed to bend | 0.6236 | 64% |
+```
+nano map rank  ~  Gria1 rank + synapse-density rank
+```
 
-- 36% of the explainable variance is left over. The leftover replicates
-  across independent halves of the cohort at rho 0.936 (95% CI 0.887 to
-  0.951; Spearman-Brown 0.967), almost as well as the map itself
-  (`numbers_for_the_caption.txt`). Before decision 4 of 4 October, which
-  leaves unimaged voxels out of each brain's backgrounds, the analysis kept
-  125 structures and found 39% left over, replicating at 0.934.
-- Seven controls tried to break this (`adult_v2\beyond\controls.csv`): a
-  spatial gradient, structure size, single animals, naive against RWS,
-  curvature, the whole gene space and the choice of reading. All seven pass.
-  For single animals, the leftovers of every pair of mice agree, at a median
-  rho of 0.782 (worst 0.596).
-- The curvature control is why the model bends. With straight lines the four
-  predictors leave 58% of the explainable variance; allowed to bend, 36%. A
-  straight model would have credited 22 points of curvature to the leftover
-  (a fifth power adds little: R² 0.644 against 0.624).
-- The richest model tried, 17 principal components of the panel genes
-  measured in every structure, reaches a cross-validated R² of 0.821 (84% of
-  the ceiling). Its leftover still replicates at 0.875.
-- The leftover is high, relative to what the predictors give, in the medial
-  geniculate (+48 ranks), subthalamic nucleus (+43), lateral habenula (+38)
-  and ventral lateral geniculate (+38). It is low in VPM (-50), VPL (-48),
-  dorsal retrosplenial cortex (-45) and the posterior thalamic complex (-44)
-  (`adult_v2\beyond\residual_by_structure.csv`). `run_beyond_density`
-  prints the genes closest to the leftover but writes them to no table, so
-  they are not quoted here.
-- This result uses all ten adults and the grey-matter rule, so the
-  structure-set changes of A1 do not affect it.
-- **What it means.** The labelling makes the map one of surface GluA1 in
-  principle, untested by a control on these brains (the method, above). This
-  result adds that its regional pattern is not simply receptor abundance or
-  synaptic density. It does not say why: a residual is only what the
-  predictors did not explain, and regional differences in translation,
-  turnover, subunit composition or nanobody access to the tissue would also
-  land there.
+Gria1 mRNA is abundance (the stained protein is GluA1, which Gria1 alone
+encodes; Gria2 to Gria4 make partners the nanobody does not see, whose
+availability sets GluA1's assembly and trafficking). Synapse density is the mean
+rank of three postsynaptic genes, Rock2, Cap2 and Slc8a2, chosen without the map
+by their agreement with the measured PSD95 punctum density of Zhu et al. (2018),
+after every gene that places or regulates AMPA receptors was left out as the
+surface side. The rule that chose them, re-run on random halves of the
+structures, agrees with PSD95 on the other half at 0.79 (95% 0.71 to 0.86),
+against 0.82 for Dlg4, Homer1 and Camk2a, but mostly between divisions: inside
+them 0.08 (Dlg4, Homer1, Camk2a 0.40; figure 03 D). The two terms enter straight, so a term is credited with the map's order
+and not with a bend of it, and a map made of them, the calibration floor, holds
+no curvature the model could miss; autofluorescence, a property of the tissue
+that alone predicts nothing of the map (-1%), is not a term. The curved model
+and autofluorescence are check rows. Over the 163 declared structures where
+Gria1 and the three genes are measured (40 lack Gria1, mostly hypothalamic and
+midbrain, one Rock2), the model is scored on
+held-out structures (20 shufflings of five folds) against the map's own
+reliability: two halves of the cohort agree at 0.972, so 98.6% of the map is
+reproducible (Spearman-Brown for ten adults).
 
-**The ISH gene ranking is descriptive.**
+| held out | share of the reproducible map (95% over structures; over spatial blocks) |
+|---|---|
+| Gria1 alone | 41% (27% to 55%; 12% to 70%) |
+| synapse density alone | 46% (35% to 56%; 17% to 75%) |
+| both: Gria1 only 10%, shared 31%, density only 15% | 56% (46% to 65%; 38% to 74%) |
+| left | 44% (35% to 54%; 26% to 62%) |
 
-- The first comparison (`run_compare_with_allen_ish`, April 2026) correlated
-  the map with 100 hand-picked genes (`data\gene_targets.csv`) and found
-  AMPA receptor trafficking and anchoring genes, Cacng8 first, above Gria1
-  itself
-  (`data\comparisons\merged_naive_rws_vs_ish_summary_nosmooth\gene_panel_summary.csv`).
-- The Python route reproduces that ranking: rho 0.906 against the old
-  ordering under `zref` (`adult_v2\ish\ish_old_vs_new.png`). Cacng8 (TARP γ-8)
-  is first under `zref`, `cref`, `subref` and `ratio`; under `sepratio` it is
-  second, 0.004 behind Cnih2 (`adult_v2\ish\gene_correlations.csv`, 95 genes
-  with an ISH map). Under `zref` it stays first in every structure set tried,
-  at rho 0.77 to 0.82 (history/REFACTOR_PLAN.md, S5; computed read-only, in
-  [REFACTOR_COVERAGE.md](REFACTOR_COVERAGE.md)).
-- Gria1's own rank moves with the structure set. It is not quoted until A1 to
-  A3 have run (S5 in the plan).
-- A single Allen ISH experiment is more reliable than assumed. For the 218
-  genes measured more than once, the median agreement between experiments is
-  rho 0.69, and Gria1's map scores 0.91 (`adult_v2\ish\gene_reliability.csv`).
-  Gria1 ranking below Cacng8 is not a bad Gria1 experiment.
-- Cacng8 above Gria1 is a single-gene result. On the 100-gene panel, the
-  subunit genes as a group correlate better with the map than the
-  localisation genes. Splitting the same 19 genes by function does no better
-  than splitting them at random (an exact permutation over every split).
-- **The powered test is negative.** A 390-gene panel was built from Gene
-  Ontology terms, not by hand (`adult_v2\panel\panel_genes.csv`). Once the
+The second interval leaves out one of 20 spatial blocks of neighbouring
+structures at a time, since neighbours are not independent; it is wider, and the
+split between Gria1 and density is loosely fixed under it.
+
+- The weights, map and terms z-scored: Gria1 +0.39 (+0.23 to +0.54), synapse
+  density +0.47 (+0.32 to +0.61).
+- The leftover replicates across halves of the cohort at 0.933; the map's
+  reliability and the fit alone imply 0.938, so the replication is expected once
+  the map replicates.
+- The calibration, on the 131 structures where both halves of each gene's Allen
+  experiments measure Gria1 and the three genes: a map made only of Gria1 and
+  synapse density, predicted from the other half, leaves 15% (the floor that
+  Allen-to-Allen mismatch produces); the nano map, read the same way on the same
+  structures, leaves 42%, 27 points more (95% +15 to +40, the difference
+  resampled with the structures; +10 to +45 over spatial blocks). The floor errs
+  both ways: it lacks the mismatch of Allen's P56 mice with these brains (age,
+  strain, grid, registration), which makes it low, and it holds the
+  disagreement of two Allen halves (about 14 of its 15 points; read with its own
+  half the known map leaves 1%) where nano, read with one half, meets one, which
+  makes it high by about half of that. The first version's second
+  benchmark, a map of one Allen Gria1 experiment, is gone: its made-up animals
+  share one Allen brain's quirks, which then count as reproducible, while the
+  nano map averages ten brains. It was dropped after the first version had shown
+  nano not above it (ISH_ANALYSIS.md, section 4.6).
+- Check rows, each against its own floor (nano minus the floor, in points): the
+  model curved leaves 38% (+20, 95% +8 to +32), with autofluorescence 43% (+23),
+  with the first proposal for density (Dlg4, Homer1, Camk2a) 52% (+30), with the
+  11 marker genes of the first version 49% (+25), with `psd_pc1` 43% (+30), with
+  Gria1 to Gria4 28% (+13, +4 to +22); with the measured PSD95 density as the
+  density term 50% on its 89 structures (+31), against 50% for the density genes
+  there (+27); on the 118 structures of 0.4 mm³ or more 49% (+24); with nano
+  measured on the Allen 200 um grid 42% (+29). Every row stays above its own
+  floor at its point value, and 9 of 10 over spatial blocks (the main model on
+  the 89 PSD95 structures reaches -0.2); curvature and the partner subunits take
+  the most.
+- Under other folds: spatial blocks leave 53% (on the calibration's structures
+  nano 48%, the floor 15%); one shuffling of the folds 43%, ten folds and leave
+  one out 44%.
+- Seven controls try to break it (a spatial gradient, structure size, single
+  animals, naive against RWS, curvature, the choice of predictors, the reading);
+  six pass (figure 03s2; `adult_v2\ish_analysis\beyond\controls.csv`). Control E
+  does not: curving the two terms raises the held-out R² from 0.551 to 0.615, so
+  part of the straight leftover is curvature; the curved check row shows how much
+  (not a bound: fifth powers leave 36%). The components of the 209 genes measured in every structure predict
+  81%, and the nano map stands above that model's own floor (22% to 24% left
+  against 3% to 5%). So the claim is "not predicted by Gria1 expression or
+  synapse density", never "beyond gene expression".
+- The leftover is in good part a contrast between divisions (40% of its
+  variance): the hippocampal formation, the striatum and olfactory areas sit
+  above prediction as a whole, the isocortex and the hypothalamus below
+  (`beyond\residual_by_division.csv`, figure 04 C). Of single structures it is
+  highest in the triangular nucleus of the septum (+91 ranks), the septofimbrial
+  nucleus, the medial geniculate, the indusium griseum and the lateral
+  geniculate, and lowest in the preoptic part of the periventricular
+  hypothalamic nucleus, the paraventricular hypothalamic nucleus, the rhomboid
+  nucleus, the nucleus of reuniens and the arcuate nucleus
+  (`beyond\regression_table.csv`). A claim about one structure needs its own
+  null.
+- **What it means.** About 44% of the map's reproducible pattern is not
+  predicted by Gria1 expression or synapse density, reproducibly across mice,
+  and on the same structures it is well above what Allen-to-Allen mismatch would
+  leave, under both resamplings. The share depends on the model (curved 38%, with
+  the partner subunits 28%), it is loosely fixed once neighbours are allowed for
+  (26% to 62%), and the floor errs both ways, by less than the margin. The
+  reading the data
+  support is the surface fraction of the receptor, shaped by trafficking
+  regulation and scaffolding. It is an interpretation, not a measurement:
+  translation, turnover, subunit composition or nanobody access would land in the
+  same leftover, and only a total-receptor measure on the same brains separates
+  them.
+
+**The gene analyses are consistent with that reading, and do not single it
+out** (part 2; figures 05 to 11). Each gene's rho with the map is tested
+against 10,000 surrogate maps with the map's smoothness (Burt et al. 2020;
+A7), which give a spatial p below 0.05 for 4.0% of random maps where the
+ordinary Spearman p gives 62%.
+
+- 12 of 451 genes pass after BH. Cacng8 (TARP γ-8) is first, +0.807, and first
+  of P9's genes in every robustness variant (statistic, borders, reading,
+  inputs, structure set; A3; under Pearson on log2 it is 2nd of all genes).
+  Gria1 passes too, +0.646, 32nd of all genes (11th of P9's 100): S5 is met,
+  its rank is quoted with its null, and it moves with the choices (5th to 17th
+  of P9's genes, 18th to 47th of all).
+- The Cacng8 - Gria1 gap is +0.167 on the structures both have, above zero in
+  every adult. The test fixed in advance is two-sided, against maps related to
+  both genes alike, and the gap is inside it (p 0.105; against unrelated maps, a
+  conservative bound, p 0.348); the null is skewed, and 2.3% of those maps give
+  a Cacng8 lead as large, 8.2% a Gria1 lead. These maps do not settle which of
+  the two the nano map follows more closely.
+- The tissue's autofluorescence, read and tested the same way, passes for
+  neither Gria1 (+0.176, p 0.447) nor Cacng8; adult by adult, nano's rho with
+  Gria1 is 0.482 to 0.754 and autofluorescence's -0.266 to +0.297 (A8). Gria1
+  and Cacng8 follow the label, not the tissue; the tissue has a gene pattern
+  of its own (the two gene orders agree at 0.363).
+- Inside divisions, where no cortex-against-thalamus contrast can enter, 11
+  genes pass, Cacng8 (+0.548), Dlg2 (+0.513) and Gria1 (+0.417) among them
+  (A6).
+- Gene sets fixed in advance from GO and cited marker lists: no set passes its
+  null after BH. Of the two contrasts named in advance, postsynaptic above the
+  presynaptic set passes (+0.274, spatial p 0.016) and above glia does not
+  (+0.336, p 0.170), so the postsynaptic criterion (both) is not met; the
+  presynaptic set here is mostly cell-type and peptide markers. Once the
   subunit composite is removed, the 84 AMPA receptor localisation genes
-  explain no more of the map than expression-matched postsynaptic genes
-  (`adult_v2\ish\panel_test.csv`). As a positive control, the same test
-  detects the difference between control genes of high and low map
-  reliability, so the negative is informative. Genes with nothing to do with
-  AMPA receptor traffic, Arpc5 and Cdk5r1, come second and third by partial
-  correlation, after Cacng8 (`panel_test.csv`). The map is predicted about
-  equally well by any well-measured forebrain postsynaptic gene.
-- **Provisional.** These ISH results were computed on the unrestricted
-  structure set; A1 to A3 rerun them. Under S5 the numbers of the powered
-  test and of the permutation are held back until then; the values computed
-  so far are in [adult_ish_design.md](adult_ish_design.md). Fix 5 of step 8
-  gives each permutation test its own random generator, which moves the
-  powered test's p there from 0.7432 to 0.7481 and the positive control's
-  from 0.0007 to 0.0006, within Monte Carlo error. In the rerun of 5 October,
-  with decision 4's backgrounds, the matched difference is -0.000 (p 0.98)
-  and the positive control's p is 0.0004
-  (`adult_v2\ish\ish_panel_test.png`): still negative, with a working
-  positive control. These p values are anticonservative, because genes
-  within a set are co-expressed (Fulcher et al. 2021); a spatial null is
-  planned (A7).
+  predict the map no better than expression-matched postsynaptic genes
+  (+0.0041, p 0.916); the test finds a planted localisation advantage of
+  +0.077 in 80% of maps, so there is none larger than that. Its positive
+  control comes out only with the control pool of 5 October (p 0.0117), where
+  localisation is no better either (+0.0073, p 0.839).
+- Against the leftover of the main model (surrogates put through the same
+  fit), Cacng8, the gene named for it, follows it: +0.200, spatial p 0.0066, and
+  so under smoother nulls (p 0.0018 to 0.0030, though none reaches the
+  leftover's own smoothness). It is a re-test: its p against
+  the four-subunit leftover (0.0024) and against the first version's (0.0002)
+  were seen before. Added to the main model as one more term, Cacng8 takes 9.8
+  points of the reproducible map from the leftover: more than its plain
+  surrogates take (p 0.001), the null fixed first, and more than maps that
+  relate to the model as it does (p 0.003), the secondary line.
+- The AMPA receptor complex family named with Cacng8 (the native complexes of
+  Schwenk et al. 2012 and GO:0032281, with Gria2 to Gria4, without Gria1; 31 of
+  37 genes with a usable map) does not follow the leftover (median -0.004, p
+  0.92 against its surrogates; +0.063 above 31 postsynaptic genes of the same
+  expression, p 0.29); the three members past BH within it run against it
+  (Gria4 -0.52, Olfm2 -0.45, Olfm1 -0.21), and Cacng8 misses that BH by a hair
+  (q 0.051).
+- Over every gene, an exploratory reading: 53 of 451 pass BH against the
+  leftover (45 to 59 under smoother nulls), 50 of them with a negative rho, most
+  of them expressed in every neuron (vesicle genes such as Syp, Syt1, Snap25;
+  ribosomal proteins; Mapt): the map sits below what Gria1 and the three
+  postsynaptic genes predict where neuronal mRNA in general is high. The same
+  genes are the ones the tissue's autofluorescence follows (all 53 positively;
+  over every gene the two rhos agree at -0.36), so the tissue is a second
+  reading; which holds is not settled. The glia set, which passed against the
+  four-subunit leftover (q 0.04, not named in advance), does not (q 0.45); it
+  stays an unplanned lead, not pursued.
+- The 12 genes past the null are maps much like Gria1 and synapse density (rho
+  0.58 to 0.90 with the main model's prediction), so they describe the map
+  rather than add evidence; five of them follow the leftover before correction,
+  Cacng8 the one named for it (ISH_ANALYSIS.md, section 5.3; figure 07).
+- April's headline, P9's category violins with ANOVA p 0.032, rested on a
+  split written after looking (p 0.20 without it) and on genes treated as
+  independent draws: today's F across April's groups, against the F of the
+  surrogates, gives p 0.289. The gene order reproduces (0.959; figure 15).
 
-**The green channel is not total receptor.**
+**The green channel is not total receptor** (figure 14).
 
 - **The plan.** The SEP tag fluoresces green, so the green channel was meant
   to report all SEP-GluA1, surface and internal, and nano divided by it a
-  surface fraction. Three predictions were set in advance: SEP should track
-  Gria1, nano both, and nano/SEP the trafficking genes.
-- **Measured.** In these fixed sections the green channel is mostly
-  autofluorescence (`adult_v2\arms\sep_channel_check.csv`; mean ± SD over the
-  ten adults). In every adult it tracks the autofluorescence channel across
-  structures, at rho 0.79 ± 0.04. It varies less across the brain than
-  either autofluorescence or nano: p90 - p10 of log2, 0.95 ± 0.16 against
-  1.08 ± 0.16 and 1.93 ± 0.26. Against Gria1 ISH, nano correlates at +0.61
-  and the green channel at +0.30.
-- **Consequences.** `sepratio` (nano per unit SEP) is not a surface fraction,
-  and the three-way test cannot be run on these data.
-- **What remains.** With Gria1 mRNA partialled out of the nano map (`ratio`
-  reading), one of the three groups of auxiliary, scaffold and trafficking
-  genes still predicts the remainder: the 13 genes the table files as
-  auxiliary (the TARPs, cornichons and Shisa9, and Grm1 to Grm5), median
-  +0.23, 12 of them positive, with Cacng8 at +0.54 and Cnih2 at +0.50. The trafficking genes
-  (median -0.08, 4 of 11 positive) and the scaffold genes (-0.01, 4 of 9) do
-  not; over all 33, the median is +0.12, 20 positive
-  (`adult_v2\arms\arm_gene_correlations.csv`, the `ratio` arm,
-  `rho_partial`). This is weak, and not decisive: the powered test above
-  shows that other well-measured postsynaptic genes predict the map about as
-  well, so it is not specific to AMPA receptor localisation. And mRNA is not
-  protein: a regional gradient of translation or turnover would look the
-  same.
-- **What would settle it.** A measure of total receptor in the same brains:
-  a total-GluA1 antibody stain or autoradiography on a subset of them. A
-  knockout or no-primary control would test specificity instead. There is no
-  knockout or competition control, no independent regional measure and no
-  DAPI control yet.
+  surface fraction.
+- **Measured** on the 204 declared structures
+  (`adult_v2\ish_analysis\green_channel\sep_channel_check.csv`). In every adult
+  the green channel follows autofluorescence (rho 0.723 to 0.827), while nano
+  follows it at only 0.047 to 0.529, and the green channel varies across
+  structures about as little (p90 - p10 of log2: 0.915 against 0.999; nano
+  1.967). Against Gria1: nano +0.619, the green channel +0.333.
+- **Consequences.** `sepratio` is not a surface fraction, and the three-way
+  test of September cannot be run on these data; the tests of the channel
+  ratios against genes (`ish/arms.py`) and the ratio table behind them
+  (`adult/arms.py`) are retired to `archive/`. What their partial
+  correlation hinted at, localisation genes predicting the map once Gria1 is
+  removed, is the localisation test above, which is negative.
+- **What would settle it.** A measure of total receptor in the same brains: a
+  total-GluA1 antibody stain after permeabilisation, or autoradiography, on a
+  subset of them. A knockout or no-primary control would test specificity
+  instead. There is no knockout or competition control, no independent
+  regional measure and no DAPI control yet.
 
 ### 4. Young against adult (grant, September 2026)
 
@@ -332,10 +420,11 @@ reliability (the ceiling, 97.4% of the variance). From
 - **The young brain is flatter.** The spread of its structures (p90 - p10 of
   log2 nano relative to cortex) is about half the adult one: 0.99 ± 0.27 log2
   in the seven young brains against 1.93 ± 0.26 in the ten adults (mean ± SD
-  over brains of the spread the maps divide by: for the adults `range_nano`
-  in `adult_v2\arms\sep_channel_check.csv`, for the young brains `z_spread`
-  in the per-brain caches `comparisons_v2\per_mouse\<mouse>_scalars.npz`,
-  which `run_cohort` rewrites with the same value). The region tables take
+  over brains of the spread the maps divide by: `z_spread` in the per-brain
+  caches `comparisons_v2\per_mouse\<mouse>_scalars.npz`, which `run_cohort`
+  rewrites, over each brain's structures; the ISH analysis's
+  `green_channel\sep_channel_check.csv` takes the adults' spread over the 204
+  declared structures instead, 1.97). The region tables take
   the spread over the structures every brain shares, so their values differ
   slightly. `zref`
   removes this per brain, so a zref difference is a difference of positions
@@ -579,9 +668,9 @@ expression in the adult mouse brain. *Nature* 445:168-176. `Lein_2007.pdf`
 - Here: the source of the gene maps, used as expression energy on the 200 µm
   grid, downloaded per experiment. Each experiment is one mouse, and it
   measures mRNA, not protein. Hence the reliability of each map was measured
-  (median 0.69 over 218 genes with repeats), and a residual cannot be read as
-  the surface fraction. The ISH mice are younger than our adults (P56,
-  against well above P60).
+  (median 0.69 over 222 genes with repeats), and a leftover cannot be read as
+  a measurement of the surface fraction. The ISH mice are younger than our
+  adults (P56, against well above P60).
 
 **Fulcher BD, Arnatkeviciute A, Fornito A (2021).** Overcoming false-positive
 gene-category enrichment in the analysis of spatially resolved transcriptomic
@@ -594,8 +683,26 @@ brain atlas data. *Nat Commun* 12:2669. `Fulcher_2021.pdf`
   false-positive rate rose 875-fold. The fix is to compare against ensembles
   of surrogate maps, including spatially autocorrelated ones (for the mouse
   brain, rho = 0.8 and d0 = 1.46 mm).
-- Here: why the ISH ranking is descriptive, why its p and q values are
-  anticonservative, and the design of the planned spatial null (A7).
+- Here: why the ISH line tests every correlation, gene set and contrast
+  against surrogate maps that keep the map's smoothness (A7), and why April's
+  category ANOVA, which treated co-expressed genes as independent, does not
+  stand (today's F across April's groups, against the F of the surrogates,
+  gives p 0.289, where an ANOVA treating the genes as independent gives 0.011).
+
+**Burt JB, Helmer M, Shinn M, Anticevic A, Murray JD (2020).** Generative
+modeling of brain maps with spatial autocorrelation. *NeuroImage* 220:117038.
+
+- Surrogate maps that keep a brain map's spatial autocorrelation: the map's
+  values are shuffled, smoothed over each region's nearest neighbours, and the
+  amount of smoothing chosen so that the surrogate's variogram matches the
+  map's; their values are then replaced by the map's own, in the new order. A
+  correlation is tested against the same correlation with the surrogates. The
+  method of the brainsmash package.
+- Here: the spatial null of the ISH line (A7), written in numpy and scipy from
+  the paper (brainsmash needs packages the analysis environment does not
+  have): 10,000 surrogates of the nano map on the centroids of its 204
+  structures, in one hemisphere. Checked on random maps of another kind: 4.0%
+  false positives at p < 0.05, against 62% for the ordinary Spearman p.
 
 **Koopmans F, van Nierop P, Andres-Alonso M, et al. (2019).** SynGO: an
 evidence-based, expert-curated knowledge base for the synapse. *Neuron*
@@ -604,9 +711,10 @@ evidence-based, expert-curated knowledge base for the synapse. *Neuron*
 - 1,112 genes and 2,922 annotations to 87 synaptic locations and 179 synaptic
   processes, each based on published experimental evidence. Synaptic genes
   are compared against brain-expressed control sets.
-- Here: not used yet. The 390-gene panel comes from Gene Ontology terms, each
-  gene with the terms that placed it. SynGO is the curated alternative for
-  fixing synaptic gene sets before looking.
+- Here: not read directly (its release ships as spreadsheets, and the
+  analysis environment has no reader for them). Its curated annotations enter
+  Gene Ontology, so the GO gene sets of the ISH line, fixed before looking,
+  carry those that reached the GO records.
 
 ### Atlases for young brains
 
@@ -654,9 +762,10 @@ anatomical labeling for a common mouse brain atlas. *Nat Commun* 10:5067.
 | where an experience changes the map (line 1) | `group_comparison/run_collect_by_group.m`, `run_normalise_groups.m`, `run_group_differences.m` | `comparisons\<ctrl>_vs_<exp>_<channel>\` |
 | per-brain volumes and the readings (lines 2 to 4) | `mapping/run_per_mouse.py`, `run_to_ccf.py`, `run_cohort.py` (`sepmap/volumes/`) | `comparisons_v2\per_mouse\`, `per_mouse_ccf\`, `ccf\<cohort>\` |
 | the adult distribution (line 2) | `mapping/run_region_plot.py` (the per-mouse region table); `adult_matlab/run_characterize_distribution.m` and `run_compare_nano_with_autofluorescence.m` until A4 and A5 replace them | `comparisons_v2\young_vs_adult\region_means_per_mouse.csv` |
-| more than abundance or density (line 3) | `mapping/run_beyond_density.py`, `run_beyond_controls.py`, `run_beyond_figures.py`, `run_beyond_regression.py` (`sepmap/adult/`) | `adult_v2\beyond\` |
-| what the green channel reports (line 3) | `mapping/run_sep_channel_check.py`, `run_adult_arms.py`, `run_ish_arms.py` | `adult_v2\arms\` |
-| the ISH gene comparison (line 3) | 100-gene panel: `mapping/run_ish_regions.py --panel targets`, `run_ish_compare.py`, `run_ish_words.py`, `run_ish_roles.py`; 390-gene panel: `run_panel_build.py`, `run_panel_fetch.py`, `run_ish_regions.py --panel ontology`, `run_ish_reliability.py`, `run_ish_panel_test.py` (`sepmap/ish/`); `adult_matlab/run_compare_with_allen_ish.m` until A1 to A3 replace it | `adult_v2\ish\`, `adult_v2\panel\` |
+| the inputs of the ISH line (line 3) | `mapping/run_panel_build.py`, `run_panel_fetch.py` (the ontology panel), `run_structure_set.py`, `run_ish_section_qc.py`, `run_ish_gene_table.py`, `run_ish_spatial_null.py` (`sepmap/structures.py`, `sepmap/adult/profiles.py`, `sepmap/ish/`) | `adult_v2\panel\`, `adult_v2\ish_analysis\tables\` |
+| more than Gria1 expression or synapse density (line 3) | `mapping/run_beyond_density.py`, `run_beyond_controls.py`, `run_beyond_calibration.py`, `run_beyond_regression.py`, `run_beyond_figures.py` (`sepmap/adult/`) | `adult_v2\ish_analysis\beyond\` |
+| the genes against the map (line 3) | `mapping/run_ish_gene_ranking.py`, `run_ish_robustness.py`, `run_ish_divisions.py`, `run_ish_gene_sets.py`, `run_ish_overview.py` (`sepmap/ish/`); [ISH_ANALYSIS.md](ISH_ANALYSIS.md) | `adult_v2\ish_analysis\` |
+| what the green channel reports (line 3) | `mapping/run_sep_channel_check.py` | `adult_v2\ish_analysis\green_channel\` |
 | young against adult (line 4) | `mapping/run_compare.py`, `run_region_plot.py`, `run_region_groups.py`, `run_video.py`, `run_video_compare.py`, `run_closeup.py` (flatmaps, in `tools\venv_flat`), `run_replot.py` (`sepmap/young_vs_adult/`) | `comparisons_v2\young_vs_adult\` |
 | checking each step by eye | `mapping/run_diagnostics.py` | `comparisons_v2\processing_diagnostics\` |
 
@@ -707,8 +816,8 @@ its parameters in `mapping/settings.toml`.
     which leaves the thalamus, hypothalamus, pallidum, midbrain, pons and
     medulla.
   - `zref`: below.
-  - `sepauto` (SEP per unit autofluorescence) appears only in the channel
-    arms of line 3.
+  - `sepauto` (SEP per unit autofluorescence) appeared only in the channel
+    arms of line 3, now in `archive/`.
 - **zref.** zref = [log2(nano / cortex mean) - m] / s, with m the median and
   s the p90 - p10 spread of log2(structure mean / cortex mean) across that
   brain's structures. Zero is the brain's median structure, mostly
@@ -716,9 +825,10 @@ its parameters in `mapping/settings.toml`.
   zref difference is already a difference of logs and cannot be converted to
   a fold change: with the spreads of line 4, +1 is about 2x in a young brain
   and about 3.8x in an adult. Quote numbers from the region tables and use the
-  maps for the pattern: the maps are smoothed voxel means, and until A1 gives
-  them one set, the maps and the tables take m and s over different
-  structures.
+  maps for the pattern: the maps are smoothed voxel means, and the maps and
+  the young-against-adult tables still take m and s over different
+  structures. The ISH line takes them over its declared set (A1), the 204
+  grey-matter structures measured in all ten adults.
 - **LR-sum and LR-diff** (MATLAB route, `common/compute_lr_stats.m`): left
   hemisphere plus, or minus, the mirrored right hemisphere. The plasticity
   comparison uses L + R and |L - R| per mouse.
@@ -744,12 +854,24 @@ its parameters in `mapping/settings.toml`.
   (`brainglobe-ccf-translator`) carries a young brain to the CCF.
 - **RWS.** Rhythmic whisker stimulation, as in Gambino et al. 2014: one
   session, then perfusion.
-- **Structure sets.** The beyond-abundance analysis keeps grey-matter
-  structures seen in all ten adults, with no "..., unassigned" labels, that
-  the ISH maps of the subunit and marker genes cover and that have
-  autofluorescence values in every adult (126 structures,
-  `adult_v2\beyond\structures_used.csv`). The plan's declared set (S1) keeps
-  grey-matter structures seen in all ten adults, 234 of 280.
+- **Structure sets.** The declared set of the ISH line (S1, A1): grey-matter
+  structures measured in all ten adults, with no "..., unassigned" labels, 204
+  of the 280 of the adult table
+  (`adult_v2\ish_analysis\tables\structure_set.csv`, each dropped structure
+  with its reason). The beyond-abundance analysis uses those of them that the
+  ISH maps of the subunit and marker genes cover (126,
+  `beyond\structures_used.csv` there).
+- **Spatial null, surrogate.** A surrogate is a random map with the nano
+  map's smoothness (its variogram); a spatial p counts how many of 10,000
+  surrogates correlate with a gene at least as strongly as the map does. For a
+  residual (the leftover, a partial correlation), each surrogate goes through
+  the same fit first (Freedman-Lane).
+- **Calibration.** In the beyond-abundance analysis, the same model run on
+  maps whose answer is known; its floor is what Allen-to-Allen mismatch alone
+  leaves, compared with the nano map on the same structures.
+- **Jackknife.** Recomputing a number on subsamples that each leave out a
+  fifth of the structures; the spread gives the number's interval over
+  structures.
 - **Reliability and Spearman-Brown.** Agreement between two independent
   halves of a cohort; Spearman-Brown extends it to the full cohort.
 - **Cross-validated R².** Variance explained on structures held out of the
