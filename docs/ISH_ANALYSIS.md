@@ -79,18 +79,18 @@ Where it stands today (the second version of part 1, 9 October; section 8.1):
 - **Part 2: the genes are consistent with the surface-fraction reading and do
   not single it out.** Cacng8 follows the map most of 451 genes (+0.807), inside
   divisions too, and Gria1 follows it (+0.646); the genes that follow the map
-  most are maps much like Gria1 and synapse density. Cacng8's lead over Gria1
-  sits at the edge of the null of maps related to both alike (just past its 95%
-  band, p 0.105 counting a lead either way, as fixed), no gene set passes, and
-  the localisation genes do no better than matched controls. Against the
-  leftover, Cacng8 follows it (p 0.0066), a re-test of what was seen on 8
-  October; added to the model it takes 9.8 points of the reproducible map, more
-  than its plain surrogates take (p 0.001, the null fixed first). The AMPA
-  receptor complex family as a group does not follow the leftover (p 0.92), and
-  the three members past BH within it run against it (Gria4, Olfm2, Olfm1). 53
-  genes pass once every gene is corrected for, 50 of them with a negative rho:
-  nano sits below prediction where pan-neuronal, vesicle and ribosomal mRNA is
-  high, an exploratory finding.
+  most are maps much like Gria1 and synapse density. The Cacng8 - Gria1 gap
+  (+0.167) is inside the two-sided test fixed in advance (maps related to both
+  alike, p 0.105), no gene set passes, and the localisation genes do no better
+  than matched controls. Against the leftover, Cacng8 follows it (p 0.0066), a
+  re-test of what was seen on 8 October; added to the model it takes 9.8 points
+  of the reproducible map, more than its plain surrogates take (p 0.001, the
+  null fixed first; maps alike to the model, the secondary line, p 0.003). The
+  AMPA receptor complex family as a group does not follow the leftover (p 0.92),
+  and the three members past BH within it run against it (Gria4, Olfm2, Olfm1).
+  53 genes pass once every gene is corrected for, 50 of them with a negative
+  rho: nano sits below prediction where pan-neuronal, vesicle and ribosomal mRNA
+  is high, an exploratory finding.
 
 What the comparison cannot do on its own: separate surface from total receptor
 (both follow the postsynaptic side of synapses), read protein from mRNA (mRNA
@@ -638,22 +638,22 @@ Numbers: steps `gene_ranking` and `top_genes`; `tables\gap.csv`.
 The map follows Cacng8 at +0.807 and Gria1 at +0.646, inside divisions +0.548
 and +0.417; the two genes agree at +0.75 over the structures of the fit. The
 Cacng8 - Gria1 gap, on the 164 structures both have, is +0.167, steady across
-adults (+0.156 to +0.179 over resampled adults; Cacng8 leads in 10 of 10
-adults). Against maps related to both genes alike it sits at the upper edge of
-the null, just past its 95% band (-0.224 to +0.166): 2.3% of those maps give a
-Cacng8 lead this large and 8.2% a Gria1 lead this large, so the test fixed in
-advance, which counts a lead as large either way, gives p 0.105. Against maps
-unrelated to both, a wider null and a conservative bound, p 0.348. It moves
-with the Allen experiment that stands for each gene, from +0.08 to +0.211 over
-the four pairings (p 0.064 to 0.385).
+adults (+0.156 to +0.179 over resampled adults; above zero in 10 of 10 adults).
+The test fixed in advance is two-sided, against maps related to both genes
+alike: a gap as large either way, p 0.105, so the gap is inside it. That null is
+skewed, which the shares each way describe: 2.3% of those maps give a Cacng8
+lead this large and 8.2% a Gria1 lead this large, and its 95% runs from -0.224
+to +0.166, so the gap sits at its upper edge. Against maps unrelated to both, a
+wider null and a conservative bound, p 0.348. It moves with the Allen experiment
+that stands for each gene, from +0.08 to +0.211 over the four pairings (p 0.064
+to 0.385).
 
 **What it means.** The map follows a TARP's pattern and Gria1's beyond a map
-with the brain's smoothness. Cacng8 leads Gria1 in each of the 10 adults and in
-every variant, by a margin at the edge of what maps following both genes alike
-give: past the band one-sided, inside the test fixed in advance. These maps do
-not settle which of the two the nano map follows more closely; the test stays
-two-sided, as fixed (Giulio, 9 October). Cacng8's own test is against the
-leftover (section 5.7).
+with the brain's smoothness. Whether it follows Cacng8 more closely than Gria1
+these maps do not settle: the gap is above zero in each of the 10 adults and in
+every variant, and inside the test fixed in advance, which stays two-sided
+(Giulio, 9 October). Figure 08's line under its title says no more than that
+test. Cacng8's own test is against the leftover (section 5.7).
 
 ### 5.5 Inside divisions
 
@@ -860,10 +860,10 @@ can.
 Consistent with the surface-fraction reading, and not singling it out. The map
 follows receptor expression and not the tissue (section 6.1), and Cacng8, Dlg2
 and Gria1 lead the ranking inside divisions too. But the genes that follow the
-map most are maps much like Gria1 and synapse density, Cacng8's lead over Gria1
-sits at the edge of the null of maps related to both alike, no gene set passes
-its null, the postsynaptic criterion named in advance is met by half, and the
-localisation genes predict the map no better than matched postsynaptic controls
+map most are maps much like Gria1 and synapse density, the Cacng8 - Gria1 gap
+is inside the two-sided test fixed in advance, no gene set passes its null, the
+postsynaptic criterion named in advance is met by half, and the localisation
+genes predict the map no better than matched postsynaptic controls
 (no advantage larger than about +0.08). Against the leftover, the TARP named for
 it follows it (p 0.0066) and takes part of it beyond its plain surrogates, the one
 result here that points the way the reading does, though a re-test of what was
@@ -1119,9 +1119,11 @@ asks it again on sets fixed in advance.
      markers, + `psd_pc1`, the four subunits, PSD95 as the density term on its
      structures, only structures of 0.4 mm³ or more, and nano on the Allen grid;
   6. the gene tests in the three tiers already committed, against the new
-     leftover; the Cacng8 - Gria1 gap stays two-sided, as fixed; Cacng8's share
-     is quoted against its plain surrogates, the null fixed first, with maps
-     alike to the model as the secondary line.
+     leftover, Dlg4 and Camk2a no longer terms of the model; the Cacng8 - Gria1
+     gap stays two-sided, as fixed, and figure 08's line under its title does not
+     say the map follows Cacng8 more closely than Gria1; Cacng8's share is quoted
+     against its plain surrogates, the null fixed first, with maps alike to the
+     model as the secondary line.
 
   What was known: every number of the first version, among them its
   `variance_partition.csv`, where the first model with straight terms left 40%

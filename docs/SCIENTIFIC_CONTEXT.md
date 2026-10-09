@@ -291,12 +291,12 @@ ordinary Spearman p gives 62%.
   Gria1 passes too, +0.646, 32nd of all genes (11th of P9's 100): S5 is met,
   its rank is quoted with its null, and it moves with the choices (5th to 17th
   of P9's genes, 18th to 47th of all).
-- Cacng8 leads Gria1 by +0.167 on the structures both have, in every adult;
-  against maps related to both genes alike the lead sits at the upper edge of
-  the null, just past its 95% band (2.3% of those maps give a Cacng8 lead as
-  large), and the test fixed in advance, which counts a lead either way, gives
-  p 0.105 (against unrelated maps, a conservative bound, p 0.348): these maps
-  do not settle which of the two the nano map follows more closely.
+- The Cacng8 - Gria1 gap is +0.167 on the structures both have, above zero in
+  every adult. The test fixed in advance is two-sided, against maps related to
+  both genes alike, and the gap is inside it (p 0.105; against unrelated maps, a
+  conservative bound, p 0.348); the null is skewed, and 2.3% of those maps give
+  a Cacng8 lead as large, 8.2% a Gria1 lead. These maps do not settle which of
+  the two the nano map follows more closely.
 - The tissue's autofluorescence, read and tested the same way, passes for
   neither Gria1 (+0.176, p 0.447) nor Cacng8; adult by adult, nano's rho with
   Gria1 is 0.482 to 0.754 and autofluorescence's -0.266 to +0.297 (A8). Gria1
@@ -323,7 +323,7 @@ ordinary Spearman p gives 62%.
   were seen before. Added to the main model as one more term, Cacng8 takes 9.8
   points of the reproducible map from the leftover: more than its plain
   surrogates take (p 0.001), the null fixed first, and more than maps that
-  relate to the model as it does (p 0.003).
+  relate to the model as it does (p 0.003), the secondary line.
 - The AMPA receptor complex family named with Cacng8 (the native complexes of
   Schwenk et al. 2012 and GO:0032281, with Gria2 to Gria4, without Gria1; 31 of
   37 genes with a usable map) does not follow the leftover (median -0.004, p
