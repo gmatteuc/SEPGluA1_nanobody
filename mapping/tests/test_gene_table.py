@@ -123,7 +123,7 @@ def test_gene_sets_follow_their_rules():
         "Bsn": {pre, post},
         "Gad1": {pre},
     }
-    sets = gene_sets.gene_sets(genes, role, components)
+    sets = gene_sets.set_members(genes, role, components)
     assert sets["subunits"] == ["Gria1"]
     assert sets["localisation"] == ["Cacng8"]
     assert sets["other postsynaptic"] == ["Dlg4"]
@@ -133,10 +133,10 @@ def test_gene_sets_follow_their_rules():
     assert list(sets) == list(gene_sets.SET_ORDER)
 
 
-@pytest.mark.skipif(not HAVE_TABLES, reason="run_ish_gene_table has not run here")
-def test_todays_gene_table():
+@pytest.mark.skipif(not HAVE_TABLES, reason="data not connected")
+def test_written_gene_table():
     """451 genes, a row per experiment, all of P9's genes, every exclusion explained."""
-    table = pd.read_csv(gene_table.GENE_TABLE, dtype={"experiment_id": str})
+    table = gene_table.load_gene_table()
     doc = pd.read_csv(
         gene_table.DOCUMENTATION, encoding="utf-8-sig", keep_default_na=False
     )
@@ -145,15 +145,14 @@ def test_todays_gene_table():
     assert not table.duplicated(["symbol", "experiment_id"]).any()
     assert not table["experiment_id"].duplicated().any()
     assert set(p9["symbol"]) <= set(table["symbol"])
-    excluded = table["excluded"].astype(str) == "True"
-    assert table.loc[excluded, "exclude_reason"].notna().all()
+    assert table.loc[table["excluded"], "exclude_reason"].notna().all()
     with_category = set(doc.loc[doc["p9_category"] != "", "symbol"])
     assert with_category == set(p9["symbol"])
 
 
 @pytest.mark.skipif(
     not (DATA / "adult_v2" / "ish" / "gene_reliability.csv").exists(),
-    reason="the tables of 5 October are not on this data root",
+    reason="data not connected",
 )
 def test_reliability_without_qc_equals_that_of_5_october():
     """With no section set missing, 15 genes' reliabilities equal gene_reliability.csv."""
@@ -162,10 +161,7 @@ def test_reliability_without_qc_equals_that_of_5_october():
     ontology = gene_table.read_panel("ontology")
     mine = ontology[ontology["symbol"].isin(genes)].copy()
     mine["p9_experiment"] = False
-    ann = regions.annotation_200()
-    names = {int(k): v for k, v in regions.structure_terms()[0].items()}
-    eroded = regions.eroded_annotation(ann)
-    region = pd.DataFrame(gene_table.region_rows(mine, {}, ann, names, eroded))
+    region = gene_table.region_table(mine, {})
     rel = gene_table.gene_reliability(gene_table.experiment_profiles(region))
     got = rel.set_index("symbol")["reliability"]
     want = old.set_index("symbol")["reliability"]

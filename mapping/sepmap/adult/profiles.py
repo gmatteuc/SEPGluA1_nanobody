@@ -37,22 +37,27 @@ Run by run_structure_set.py.
 """
 
 import math
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from scipy.stats import spearmanr
 
 from sepmap.config import SETTINGS
+from sepmap.ish.numbers import numbers_frame, numbers_path
 from sepmap.structures import TABLES, zref
 from sepmap.volumes.cohort import NAIVE, RWS
 from sepmap.volumes.per_mouse import OUT as PER_MOUSE
 from sepmap.young_vs_adult.region_plot import REGION_MEANS
 
-# the smallest structure a brain's table keeps
+# the smallest structure a brain's table keeps; the adults a declared structure needs
 REGION_TABLES = SETTINGS["region_tables"]
+STRUCTURES = SETTINGS["structures"]
 
 PER_MOUSE_TABLE = TABLES / "adult_per_mouse.csv"
 PROFILE = TABLES / "adult_profile.csv"
 REFERENCE = TABLES / "zref_reference.csv"
+NUMBERS = numbers_path("structure_set")
 
 # the ten adults, naive then rws, with their group
 ADULTS = NAIVE + RWS
@@ -60,6 +65,11 @@ GROUP = {**{m: "naive" for m in NAIVE}, **{m: "rws" for m in RWS}}
 
 # the channels of the per-mouse files, by the name the tables give them
 CHANNELS = {"nano": "sig", "auto": "auto", "sep": "sep"}
+
+# the structures left out are counted in two groups: those seen in fewer than this
+# many adults, the few-mice structures of the hindbrain, and those seen in more but
+# not in all
+FEW_ADULTS = 5
 
 # the columns of the cache, in order
 MEAN_COLUMNS = [
@@ -74,9 +84,11 @@ MEAN_COLUMNS = [
 ] + [f"{c}_mean{e}" for e in ("", "_eroded") for c in CHANNELS]
 
 
-def structure_meta(names: dict[int, str], acro: dict[int, str], divi: dict[int, str]):
+def structure_meta(
+    names: dict[int, str], acronyms: dict[int, str], divisions: dict[int, str]
+) -> dict[str, tuple[str, str]]:
     """{structure name: (acronym, division)}, as region_plot builds it."""
-    return {name: (acro[idx], divi.get(idx, "")) for idx, name in names.items()}
+    return {name: (acronyms[idx], divisions.get(idx, "")) for idx, name in names.items()}
 
 
 def mouse_rows(
@@ -150,20 +162,13 @@ def channel_table(
     return pd.DataFrame(rows, columns=MEAN_COLUMNS)
 
 
-def read_table(path) -> pd.DataFrame:
+def read_table(path: Path) -> pd.DataFrame:
     """A per-adult table as written, eroded_is_plain back to a boolean."""
     table = pd.read_csv(
         path, keep_default_na=False, na_values=[""], float_precision="round_trip"
     )
     table["eroded_is_plain"] = table["eroded_is_plain"].astype(str) == "True"
     return table
-
-
-def load_channel_table() -> pd.DataFrame:
-    """The channel means cached in adult_per_mouse.csv, checked against the adults."""
-    table = read_table(PER_MOUSE_TABLE)
-    check_channel_table(table)
-    return table[MEAN_COLUMNS]
 
 
 def check_channel_table(table: pd.DataFrame) -> None:
@@ -174,6 +179,11 @@ def check_channel_table(table: pd.DataFrame) -> None:
             f"{PER_MOUSE_TABLE} holds the adults {mice}, but the cohort table has "
             f"{ADULTS}. Run run_structure_set.py --recompute."
         )
+
+
+def load_channel_table() -> pd.DataFrame:
+    """The channel means cached in adult_per_mouse.csv, checked against the adults."""
+    return load_per_mouse()[MEAN_COLUMNS]
 
 
 def isocortex_mean(rows: pd.DataFrame, channel: str) -> float:
@@ -309,3 +319,79 @@ def load_per_mouse() -> pd.DataFrame:
     table = read_table(PER_MOUSE_TABLE)
     check_channel_table(table)
     return table
+
+
+def stored_agreement(profile: pd.DataFrame) -> float:
+    """Spearman of the adults' mean stored zref with the new one, over the set.
+
+    The stored zref is region_plot's, with the 17 brains' shared structures as
+    reference; `profile` is the adult profile, indexed by structure.
+    """
+    table = pd.read_csv(REGION_MEANS)
+    stored = table[(table["reading"] == "zref") & table["mouse"].isin(ADULTS)]
+    stored = stored.groupby("structure")["log2_value"].mean()
+    in_set = profile[profile["in_set"]]
+    return float(spearmanr(stored.reindex(in_set.index), in_set["zref_nano"]).statistic)
+
+
+def numbers_table(
+    set_table: pd.DataFrame,
+    reference: pd.DataFrame,
+    centroids: pd.DataFrame,
+    agreement: float,
+) -> pd.DataFrame:
+    """numbers_structure_set.csv: the numbers of step 13 that the text quotes.
+
+    `set_table` is structure_set.csv, `reference` each adult's zref reference
+    (reference_table), `agreement` the cohort map's order before and after the
+    declared reference (stored_agreement).
+    """
+    nano = reference[reference["channel"] == "nano"]
+    shift = (nano["median"] - nano["median_stored"]).abs()
+    n_adults = set_table["n_adults"]
+    min_adults = STRUCTURES["min_adults"]
+    rows = [
+        ("structures_in_table", len(set_table), "structures in the adult table"),
+        (
+            "structures_all_adults",
+            int((n_adults >= min_adults).sum()),
+            "measured in all the adults the rule asks for",
+        ),
+        (
+            f"structures_below_{FEW_ADULTS}_adults",
+            int((n_adults < FEW_ADULTS).sum()),
+            "left out: measured in fewer than five adults",
+        ),
+        (
+            f"structures_{FEW_ADULTS}_to_9_adults",
+            int(((n_adults >= FEW_ADULTS) & (n_adults < min_adults)).sum()),
+            "left out: measured in five or more adults, but not in all",
+        ),
+        ("structures_declared", int(set_table["in_set"].sum()), "the declared set"),
+        (
+            "zref_zero_shift_min",
+            round(shift.min(), 4),
+            "smallest shift of an adult's zero",
+        ),
+        (
+            "zref_zero_shift_max",
+            round(shift.max(), 4),
+            "largest shift of an adult's zero",
+        ),
+        (
+            "cohort_map_agreement",
+            round(agreement, 5),
+            "Spearman of the cohort map before and after A1, declared set",
+        ),
+        (
+            "centroids_ml_max_mm",
+            round(float(centroids["ml_mm"].max()), 3),
+            "largest ML centroid, mm (one hemisphere: below 5.7)",
+        ),
+    ]
+    in_set = set_table[set_table["in_set"]]
+    for division, n in in_set["division"].value_counts().items():
+        rows.append(
+            (f"declared_{division}", int(n), f"declared structures in {division}")
+        )
+    return numbers_frame(rows)

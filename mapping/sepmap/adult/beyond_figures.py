@@ -1,8 +1,9 @@
-"""The guided figures of analysis 4, with their intervals: 03, 03s1, 03s2, 04, 11s1, 14.
+"""The numbers and the guided figures of part 1: 03, 03s1, 03s2, 04, 11s1 and 14.
 
 adult.beyond_density, adult.beyond_controls, adult.beyond_calibration and
-adult.beyond_regression write the tables. This module adds the intervals, gathers
-the numbers the text quotes, and has ish.plotting draw the figures of part 1:
+adult.beyond_regression write the tables. This module adds the intervals over
+structures (the jackknives of adult.beyond_calibration), gathers the numbers the
+text quotes, and has adult.plotting draw the figures of part 1:
 
     03   what Gria1 and synapse density predict of the map: the map against the
          main model's prediction, the budget with the leftover's range, the
@@ -19,32 +20,13 @@ the numbers the text quotes, and has ish.plotting draw the figures of part 1:
          mRNA it would replace, and what each density measure leaves (step 21
          draws its detailed version)
 
-Intervals come from resampling structures, not animals: the claim is about where in
-the brain the map departs from prediction, so what would differ in a repeat of the
-analysis is which structures were measurable. A delete-d jackknife: each of
-beyond_calibration.n_jackknife subsamples leaves out a share
-beyond_calibration.jackknife_share of the structures, rebuilds every predictor on the
-structures kept as the production run builds them (ranks, the marker composite and
-the postsynaptic-density component over the subsample), takes the ceiling from
-beyond_calibration.jackknife_splits splits of the adults, and scores each step of
-the main model by the same cross-validation; the variance of the full-sample value
-is (n - d) / (d N) times the spread of the subsamples' values about their mean, and
-the interval is the value plus or minus 1.96 of its SD. A subsample draws no
-structure twice, so no structure sits in a training and a test fold at once (a
-bootstrap would let it, and flatter the fit). The uncertainty over animals is
-carried by the ceiling and the half-cohort splits.
-
 The leftover and the floor are compared on the same structures, the calibration's,
-and their difference is resampled with them (beyond_calibration.paired_jackknife).
-So are the check rows that change only the density measure, on the structures PSD95
-covers: PSD95 puncta, the mRNA panel and both meet the same subsamples, and the
-differences between them carry their own interval (jackknife_density_rows), since
-the interval of each row alone is far wider than the differences between rows.
-
-The noise null of the replication shuffles which structure is which in one half's
-leftover: what two unrelated leftovers would give. It is quoted for scale only,
-since the leftover of a reproducible map was always going to replicate
-(beyond_density.implied_replication).
+and their difference is resampled with them (beyond_calibration.paired_jackknife);
+so are the check rows that change only the density measure, on the structures PSD95
+covers (beyond_calibration.jackknife_density_rows). The noise null of the
+replication shuffles which structure is which in one half's leftover: what two
+unrelated leftovers would give. It is quoted for scale only, since the leftover of a
+reproducible map was always going to replicate (beyond_density.implied_replication).
 
 Writes, under adult_v2/ish_analysis/ in the data root:
 
@@ -68,11 +50,11 @@ Run by run_beyond_figures.py.
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy.stats import rankdata, spearmanr
+from scipy.stats import spearmanr
 
-from sepmap.adult import beyond_calibration as bc
-from sepmap.adult import beyond_density as bd
-from sepmap.adult import synaptome
+from sepmap import structures
+from sepmap.adult import beyond_calibration, beyond_density, beyond_regression, synaptome
+from sepmap.adult import plotting as adult_plotting
 from sepmap.adult.beyond_controls import (
     CONTROLS,
     GENE_SPACE,
@@ -80,180 +62,52 @@ from sepmap.adult.beyond_controls import (
     GENE_SPACE_SUMMARY,
     READINGS,
     VARIANTS,
+    adult_pair_agreements,
     curvature_scores,
+    group_leftovers,
     mean_sizes,
-    on_measured,
 )
-from sepmap.adult.beyond_regression import PLANES, load_regression
-from sepmap.config import DATA, SETTINGS
-from sepmap.ish import plotting as ish_plotting
-from sepmap.structures import TABLES, load_centroids, load_structure_set
-from sepmap.volumes.per_mouse import annotation_20, structure_terms
-from sepmap.volumes.to_ccf import CCF_CROP
+from sepmap.adult.profiles import ADULTS
+from sepmap.config import SETTINGS
+from sepmap.ish.figure_index import figure_file, figure_path
+from sepmap.ish.gene_sets import LEFTOVER_GENE
+from sepmap.ish.numbers import numbers_frame, numbers_path
+from sepmap.ish.plotting import group_of
+from sepmap.ish.spatial_null import ALPHA
+from sepmap.plotting import paint
 
-# the permutations of the noise null and the grey of the bars; the jackknife's size
+# the permutations of the noise null and the grey of the bars; the BH level; the grey
+# of the genes' bars; the thresholds of the controls' verdicts, which 03s2 draws
 BEYOND_FIGURES = SETTINGS["beyond_figures"]
-BEYOND_CALIBRATION = SETTINGS["beyond_calibration"]
 ISH_ANALYSIS = SETTINGS["ish_analysis"]
 ISH_FIGURES = SETTINGS["ish_figures"]
+BEYOND_CONTROLS = SETTINGS["beyond_controls"]
 
-JACKKNIFE = bd.OUT / "jackknife.csv"
-DENSITY_JACKKNIFE = bd.OUT / "jackknife_density_rows.csv"
-CAPTION = bd.OUT / "numbers_for_the_caption.txt"
-NUMBERS = TABLES / "numbers_beyond.csv"
-FIGURES = DATA / "adult_v2" / "ish_analysis" / "figures"
+JACKKNIFE = beyond_density.OUT / "jackknife.csv"
+DENSITY_JACKKNIFE = beyond_density.OUT / "jackknife_density_rows.csv"
+CAPTION = beyond_density.OUT / "numbers_for_the_caption.txt"
+NUMBERS = numbers_path("beyond")
 
 # the percentiles of a 95% interval
 INTERVAL = (2.5, 97.5)
 
-# the check rows whose density measures meet on the structures PSD95 covers, by their
-# key in variants.csv, with their density terms
-DENSITY_ROWS = {
-    "psd95": bd.MEASURED,
-    "panel": bd.PANEL,
-    "psd95_and_panel": bd.MEASURED + bd.PANEL,
-}
 
-# the differences between those rows that the text quotes: (name, first, second,
-# column), column "left" or "alone" (density alone)
-DENSITY_CONTRASTS = (
-    ("psd95_minus_panel_left", "psd95", "panel", "left"),
-    ("both_minus_panel_left", "psd95_and_panel", "panel", "left"),
-    ("psd95_minus_panel_alone", "psd95", "panel", "alone"),
-)
-
-
-def interval(values) -> tuple[float, float]:
+def interval(values: np.ndarray | list[float]) -> tuple[float, float]:
     """The 95% interval of `values`."""
     lo, hi = np.percentile(np.asarray(values, dtype=float), INTERVAL)
     return float(lo), float(hi)
 
 
-def around(point: float, sd: float) -> tuple[float, float]:
-    """The 95% interval of a value from its jackknife SD."""
-    return float(point - 1.96 * sd), float(point + 1.96 * sd)
-
-
-# ===== Intervals =====
-
-
-def jackknife_interval(table: pd.DataFrame, column: str, point: float) -> tuple:
-    """The 95% interval of a value from the jackknife table's column."""
-    n, d = int(table["n_structures"].iloc[0]), int(table["n_left_out"].iloc[0])
-    return around(point, bc.jackknife_sd(table[column], n, d))
-
-
-def jackknife_budget(
-    inputs: bd.Inputs,
-    splits: list[tuple[list[int], list[int]]],
-    rng: np.random.Generator,
-) -> pd.DataFrame:
-    """The budget on beyond_calibration.n_jackknife subsamples of the structures.
-
-    Per subsample: the ceiling on it and the cumulative share of each step of the
-    main model (abundance, + density, + autofluorescence), each over that
-    subsample's ceiling, with every predictor rebuilt on the structures kept.
-    """
-    n = len(inputs.structures)
-    d = int(round(BEYOND_CALIBRATION["jackknife_share"] * n))
-    rows = []
-    for _ in range(BEYOND_CALIBRATION["n_jackknife"]):
-        keep = np.sort(rng.choice(n, n - d, replace=False))
-        sub = bd.restrict(inputs, [inputs.structures[i] for i in keep])
-        few = [
-            splits[i]
-            for i in rng.choice(
-                len(splits), BEYOND_CALIBRATION["jackknife_splits"], replace=False
-            )
-        ]
-        _, explainable = bd.ceiling(sub.nano, few)
-        y = bd.full_map(sub.nano)
-        cov, _, _ = bd.covariates_for(sub)
-        steps = bd.budget(y, cov, inputs.terms, explainable)
-        rows.append(
-            dict(
-                ceiling=explainable,
-                abundance=steps[0],
-                abundance_density=steps[1],
-                model=steps[2],
-                left=1 - steps[2],
-            )
-        )
-    out = pd.DataFrame(rows)
-    out.insert(0, "n_left_out", d)
-    out.insert(0, "n_structures", n)
-    return out
-
-
-def jackknife_density_rows(
-    inputs: bd.Inputs,
-    splits: list[tuple[list[int], list[int]]],
-    rng: np.random.Generator,
-) -> pd.DataFrame:
-    """The check rows of DENSITY_ROWS on the same subsamples of their structures.
-
-    On the structures where PSD95 is measured, each row refitted on
-    beyond_calibration.n_jackknife subsamples that leave out a share
-    beyond_calibration.jackknife_share of them, every predictor rebuilt on the
-    structures kept: the share left (left_<key>) and the density's share alone
-    (alone_<key>), over that subsample's ceiling. The rows differ only in their
-    density and meet the same subsamples, so their differences are paired.
-    """
-    measured = on_measured(inputs, bd.MEASURED)
-    n = len(measured.structures)
-    d = int(round(BEYOND_CALIBRATION["jackknife_share"] * n))
-    rows = []
-    for _ in range(BEYOND_CALIBRATION["n_jackknife"]):
-        keep = np.sort(rng.choice(n, n - d, replace=False))
-        sub = bd.restrict(measured, [measured.structures[i] for i in keep])
-        few = [
-            splits[i]
-            for i in rng.choice(
-                len(splits), BEYOND_CALIBRATION["jackknife_splits"], replace=False
-            )
-        ]
-        _, explainable = bd.ceiling(sub.nano, few)
-        y = bd.full_map(sub.nano)
-        cov, _, _ = bd.covariates_for(sub)
-        row = {}
-        for key, density in DENSITY_ROWS.items():
-            terms = bd.model_terms(density)
-            row[f"left_{key}"] = 1 - bd.budget(y, cov, terms, explainable)[-1]
-            alone = bd.cv_r2(y, bd.model(cov, terms, ("density",)))
-            row[f"alone_{key}"] = alone / explainable
-        rows.append(row)
-    out = pd.DataFrame(rows)
-    out.insert(0, "n_left_out", d)
-    out.insert(0, "n_structures", n)
-    return out
-
-
-def density_contrasts(variants: pd.DataFrame, jack: pd.DataFrame) -> dict:
-    """DENSITY_CONTRASTS: each difference between check rows, with its 95% interval.
-
-    The point is the difference of the rows of variants.csv; the interval comes from
-    the same difference on each subsample of jackknife_density_rows.
-    """
-    rows = variants.set_index("key")
-    column = {"left": "left", "alone": "density_alone"}
-    out = {}
-    for name, first, second, kind in DENSITY_CONTRASTS:
-        point = rows.loc[first, column[kind]] - rows.loc[second, column[kind]]
-        jack[name] = jack[f"{kind}_{first}"] - jack[f"{kind}_{second}"]
-        out[name] = (float(point), jackknife_interval(jack, name, float(point)))
-    return out
-
-
 def noise_band(
     nano: np.ndarray,
-    xs: list[np.ndarray],
+    columns: list[np.ndarray],
     splits: list[tuple[list[int], list[int]]],
     rng: np.random.Generator,
 ) -> tuple[float, float]:
     """95% of the agreement of two unrelated leftovers (first split, one shuffled)."""
     a, b = splits[0]
-    ra = bd.residual(bd.half_map(nano, a), xs)
-    rb = bd.residual(bd.half_map(nano, b), xs)
+    ra = beyond_density.residual(beyond_density.half_map(nano, a), columns)
+    rb = beyond_density.residual(beyond_density.half_map(nano, b), columns)
     null = [
         spearmanr(ra, rng.permutation(rb)).statistic
         for _ in range(BEYOND_FIGURES["n_perm"])
@@ -264,7 +118,7 @@ def noise_band(
 # ===== The numbers table and the caption =====
 
 
-def model_rows(n: dict) -> list[tuple]:
+def model_number_rows(n: dict) -> list[tuple]:
     """The main model's numbers: structures, ceiling, budget and replication."""
     rows = [
         ("structures", n["n_structures"], "structures of the main model's fit"),
@@ -277,7 +131,11 @@ def model_rows(n: dict) -> list[tuple]:
             "structures of the fit with a measured PSD95 density",
         ),
         ("psd95_needed", n["psd95_needed"], "structures the rule asks PSD95 to cover"),
-        ("half_agreement", round(n["half"], 4), "half-cohort maps agree (126 splits)"),
+        (
+            "half_agreement",
+            round(n["half"], 4),
+            f"half-cohort maps agree ({n['n_splits']} splits)",
+        ),
         ("ceiling", round(n["ceiling"], 4), "Spearman-Brown: reproducible share"),
         ("ceiling_lo", round(n["ceiling_ci"][0], 6), "2.5%, jackknife over structures"),
         ("ceiling_hi", round(n["ceiling_ci"][1], 6), "97.5%, jackknife over structures"),
@@ -311,7 +169,7 @@ def model_rows(n: dict) -> list[tuple]:
     return rows
 
 
-def calibration_rows(n: dict) -> list[tuple]:
+def calibration_number_rows(n: dict) -> list[tuple]:
     """The calibration's numbers: the floor, the benchmark and nano beside them."""
     rows = [
         ("calibration_structures", n["cal_n"], "structures of the calibration"),
@@ -385,9 +243,8 @@ def calibration_rows(n: dict) -> list[tuple]:
     return rows
 
 
-def variant_rows(n: dict) -> list[tuple]:
-    """The check rows and other folds, and the paired differences of the density
-    rows."""
+def variant_number_rows(n: dict) -> list[tuple]:
+    """The check rows and other folds, and the density rows' paired differences."""
     rows = []
     for r in n["variants"].itertuples():
         if r.kind == "main":
@@ -413,7 +270,7 @@ def variant_rows(n: dict) -> list[tuple]:
     return rows
 
 
-def control_and_gene_rows(n: dict) -> list[tuple]:
+def control_and_gene_number_rows(n: dict) -> list[tuple]:
     """The controls' numbers, and every gene and gene set against the leftover."""
     rows = [
         ("controls_passed", n["controls_passed"], "of the seven controls"),
@@ -462,9 +319,9 @@ def numbers_table(n: dict) -> pd.DataFrame:
     percentages, and a value such as 0.154996 kept as 0.155 would round to 16%,
     not 15%.
     """
-    rows = model_rows(n) + calibration_rows(n) + variant_rows(n)
-    rows += control_and_gene_rows(n)
-    return pd.DataFrame(rows, columns=["name", "value", "what"], dtype=object)
+    rows = model_number_rows(n) + calibration_number_rows(n) + variant_number_rows(n)
+    rows += control_and_gene_number_rows(n)
+    return numbers_frame(rows)
 
 
 def contrast_text(n: dict, name: str) -> str:
@@ -494,7 +351,8 @@ def caption_lines(n: dict) -> list[str]:
         f"{n['psd95_measured']} of the {n['n_fit']} structures of the fit "
         f"({n['psd95_needed']} needed), {rule}.",
         "",
-        f"Ceiling. Two halves of the cohort agree at {n['half']:.3f} (126 splits), so "
+        f"Ceiling. Two halves of the cohort agree at {n['half']:.3f} "
+        f"({n['n_splits']} splits), so "
         f"{n['ceiling']:.1%} of the map is reproducible (Spearman-Brown; 95% over "
         f"structures, jackknife, {n['ceiling_ci'][0]:.1%} to {n['ceiling_ci'][1]:.1%}).",
         "",
@@ -541,7 +399,8 @@ def caption_lines(n: dict) -> list[str]:
         f"reliability and the fit alone imply {n['implied']:.3f}; two unrelated "
         f"leftovers fall between {n['noise'][0]:+.2f} and {n['noise'][1]:+.2f}.",
         "",
-        f"Controls. {n['controls_passed']} of 7 pass. Control F: the components of "
+        f"Controls. {n['controls_passed']} of {n['n_controls']} pass. Control F: the "
+        "components of "
         f"the {n['f_genes']} genes measured in every structure (most often "
         f"{n['f_k']}, picked inside each fold) predict {n['f_share']:.0%} of the "
         "reproducible map; on its own calibration the nano map leaves "
@@ -566,7 +425,7 @@ def density_label(terms: dict[str, tuple[str, ...]], n_psd: int) -> str:
     """The main model's density terms in words, for figures 03 and 03s1."""
     parts = []
     if "markers" in terms["density"]:
-        parts.append(f"{len(bd.MARKERS)} marker genes")
+        parts.append(f"{len(beyond_density.MARKERS)} marker genes")
     if "psd_pc1" in terms["density"]:
         parts.append(f"the first component of {n_psd} postsynaptic-density genes")
     parts += [f"{m} puncta" for m in terms["density"] if m in synaptome.MEASURES]
@@ -576,7 +435,7 @@ def density_label(terms: dict[str, tuple[str, ...]], n_psd: int) -> str:
 def gene_space_row(summary: pd.DataFrame, calibration: pd.DataFrame) -> dict:
     """Control F: its genes, components, nested share, replication and own floor."""
     row = summary.iloc[0]
-    nano = calibration.loc[calibration["map"] == bc.NANO, "left"]
+    nano = calibration.loc[calibration["map"] == beyond_calibration.NANO, "left"]
     known = calibration.loc[calibration["map"] == "gene space", "left"]
     return dict(
         f_genes=int(row["genes"]),
@@ -594,134 +453,164 @@ def gene_space_row(summary: pd.DataFrame, calibration: pd.DataFrame) -> dict:
 
 def load_tables() -> dict:
     """The tables of steps 22 to 25 that the numbers and the figures read."""
-    genes = pd.read_csv(bd.LEFTOVER_GENES, keep_default_na=False, na_values=[""])
-    for column in ("in_model", "gene_sets"):
-        genes[column] = genes[column].fillna("")
-    sets = pd.read_csv(bd.LEFTOVER_SETS, keep_default_na=False, na_values=[""])
+    sets = pd.read_csv(
+        beyond_density.LEFTOVER_SETS, keep_default_na=False, na_values=[""]
+    )
     sets["tested"] = sets["tested"].astype(str) == "True"
+    residuals = pd.read_csv(
+        beyond_density.RESIDUALS, keep_default_na=False, na_values=[""]
+    )
     return dict(
-        partition=pd.read_csv(bd.PARTITION).set_index("key"),
-        replication=pd.read_csv(bd.REPLICATION),
-        residuals=pd.read_csv(bd.RESIDUALS, keep_default_na=False, na_values=[""]),
-        genes=genes,
+        partition=pd.read_csv(beyond_density.PARTITION).set_index("key"),
+        replication=pd.read_csv(beyond_density.REPLICATION),
+        residuals=residuals,
+        genes=beyond_density.load_leftover_genes(),
         sets=sets,
         controls=pd.read_csv(CONTROLS),
         f_calibration=pd.read_csv(GENE_SPACE_CALIBRATION, keep_default_na=False),
         f_summary=pd.read_csv(GENE_SPACE_SUMMARY),
         variants=pd.read_csv(VARIANTS),
-        calibration=bc.load_calibration(),
-        paired=bc.load_jackknife(),
-        regression=load_regression(),
+        calibration=beyond_calibration.load_calibration(),
+        paired=beyond_calibration.load_jackknife(),
+        regression=beyond_regression.load_regression(),
     )
 
 
 def model_numbers(
-    inputs: bd.Inputs,
+    inputs: beyond_density.Inputs,
     covariates: dict[str, np.ndarray],
     psd: list[str],
     tables: dict,
     rng: np.random.Generator,
 ) -> dict:
-    """The main model's numbers: the ceiling, the budget, the replication and the
-    check rows, with their intervals over structures.
+    """The main model's numbers, with their intervals over structures.
 
-    Writes the two jackknife tables. One generator feeds the jackknife of the
-    budget, the noise null of the replication and the jackknife of the check rows,
-    in that order.
+    The ceiling, the budget, the replication and the check rows. Writes the two
+    jackknife tables. One generator feeds the jackknife of the budget, the noise
+    null of the replication and the jackknife of the check rows, in that order.
     """
-    splits = bd.half_splits()
-    y = bd.full_map(inputs.nano)
-    xs = bd.model(covariates, inputs.terms)
-    map_agreement, explainable = bd.ceiling(inputs.nano, splits)
+    splits = beyond_density.half_splits()
+    y = beyond_density.full_map(inputs.nano)
+    columns = beyond_density.model_columns(covariates, inputs.terms)
+    map_agreement, explainable = beyond_density.ceiling(inputs.nano, splits)
     partition = tables["partition"]
     replication = tables["replication"]
-    jack = jackknife_budget(inputs, splits, rng)
+    jack = beyond_calibration.jackknife_budget(inputs, splits, rng)
     jack.to_csv(JACKKNIFE, index=False)
-    noise = noise_band(inputs.nano, xs, splits, rng)
-    density_jack = jackknife_density_rows(inputs, splits, rng)
-    contrasts = density_contrasts(tables["variants"], density_jack)
+    noise = noise_band(inputs.nano, columns, splits, rng)
+    density_jack = beyond_calibration.jackknife_density_rows(inputs, splits, rng)
     density_jack.to_csv(DENSITY_JACKKNIFE, index=False)
-    steps = bd.budget(y, covariates, inputs.terms, explainable)
-    n_fit = int(inputs.rows["used"].sum())
+    contrasts = beyond_calibration.density_contrasts(tables["variants"], density_jack)
+    steps = beyond_density.budget(y, covariates, inputs.terms, explainable)
+    used = inputs.structures_used
+    n_fit = int(used["used"].sum())
     return dict(
         n_structures=len(inputs.structures),
-        n_adults=len(bd.ADULTS),
+        n_adults=len(ADULTS),
+        n_splits=len(splits),
         abundance=", ".join(inputs.terms["abundance"]),
         density=", ".join(inputs.terms["density"]),
         density_label=density_label(inputs.terms, len(psd)),
-        psd95_measured=int(inputs.rows["psd95_measured"].sum()),
+        psd95_measured=int(used["psd95_measured"].sum()),
         n_fit=n_fit,
-        psd95_needed=int(np.ceil(bd.BEYOND["min_psd95_coverage"] * n_fit)),
+        psd95_needed=synaptome.n_needed(n_fit),
         half=float(np.mean(map_agreement)),
         ceiling=explainable,
-        ceiling_ci=jackknife_interval(jack, "ceiling", explainable),
+        ceiling_ci=beyond_calibration.jackknife_interval(
+            jack, jack["ceiling"], explainable
+        ),
         psd_genes=len(psd),
         partition=partition["share_of_ceiling"].to_dict(),
         partition_table=partition,
         steps=steps,
-        left_ci=jackknife_interval(jack, "left", 1 - steps[2]),
+        left_ci=beyond_calibration.jackknife_interval(jack, jack["left"], 1 - steps[2]),
         cv_r2=float(partition.loc["model", "cv_r2"]),
         r2=float(partition.loc["model", "in_sample_r2"]),
         n_terms=int(partition.loc["model", "terms"]),
         rep_map=float(np.mean(map_agreement)),
         rep_left=float(replication["leftover_agreement"].mean()),
         rep_left_min=float(replication["leftover_agreement"].min()),
-        implied=bd.implied_replication(
-            float(np.mean(map_agreement)), bd.r_squared(y, xs), len(xs) + 1, len(y)
+        implied=beyond_density.implied_replication(
+            float(np.mean(map_agreement)),
+            beyond_density.r_squared(y, columns),
+            len(columns) + 1,
+            len(y),
         ),
         noise=noise,
         variants=tables["variants"],
         density_contrasts=contrasts,
         controls_passed=int((tables["controls"]["verdict"] == "pass").sum()),
+        n_controls=len(tables["controls"]),
         **gene_space_row(tables["f_summary"], tables["f_calibration"]),
     )
 
 
-def calibration_numbers(inputs: bd.Inputs, psd: list[str], tables: dict) -> dict:
-    """The calibration's numbers: the floor, the benchmark, nano beside them on the
-    same structures with the intervals of the differences, and what makes the floor
-    err low.
+def calibration_numbers(
+    inputs: beyond_density.Inputs, psd: list[str], tables: dict
+) -> dict:
+    """The calibration's numbers: the floor, the benchmark and nano beside them.
 
-    psd_halves counts the genes behind psd_pc1 on the calibration's structures as
-    each half of the experiments builds it, and as the merged profiles do.
+    Nano is read on the same structures, with the intervals of the differences, and
+    beside it what makes the floor err low. psd_halves counts the genes behind
+    psd_pc1 on the calibration's structures as each half of the experiments builds
+    it, and as the merged profiles do.
     """
     calibration = tables["calibration"]
     paired = tables["paired"]
-    random_folds = calibration[calibration["folds"] == bc.RANDOM]
-    nano_cal = random_folds[random_folds["map"] == bc.NANO].set_index("predictors_from")
-    floor = bc.floor(calibration, bc.ABUNDANCE_DENSITY)
-    gria1 = bc.floor(calibration, bc.GRIA1)
-    nano_cal_left = float(nano_cal.loc[list(bc.HALVES), "left"].mean())
+    random_folds = calibration[calibration["folds"] == beyond_calibration.RANDOM]
+    nano_rows = random_folds[random_folds["map"] == beyond_calibration.NANO]
+    nano_cal = nano_rows.set_index("predictors_from")
+    floor = beyond_calibration.left_summary(calibration, beyond_calibration.FLOOR_MAP)
+    gria1 = beyond_calibration.left_summary(calibration, beyond_calibration.GRIA1_MAP)
+    nano_cal_left = float(nano_cal.loc[list(beyond_calibration.HALVES), "left"].mean())
     minus_floor = nano_cal_left - floor["left_median"]
     minus_gria1 = nano_cal_left - gria1["left_median"]
-    gria1_rows = random_folds[random_folds["map"] == bc.GRIA1]
-    a, b, split = bc.experiment_halves(bc.per_experiment_profiles())
-    halves = {"A": a, "B": b}
-    cal = bd.restrict(inputs, bc.calibration_structures(inputs.structures, halves))
+    gria1_rows = random_folds[random_folds["map"] == beyond_calibration.GRIA1_MAP]
+    halves, split = beyond_calibration.half_profiles()
+    cal = beyond_density.restrict(
+        inputs, beyond_calibration.calibration_structures(inputs.structures, halves)
+    )
     psd_halves = {
-        h: len(bd.build_covariates(halves[h], cal.role, cal.auto, cal.structures)[1])
-        for h in bc.HALVES
+        h: len(
+            beyond_density.build_covariates(
+                halves[h], cal.role, cal.auto, cal.structures
+            )[1]
+        )
+        for h in beyond_calibration.HALVES
     }
-    psd_halves[bc.MERGED] = len(bd.covariates_for(cal)[1])
+    psd_halves[beyond_calibration.MERGED] = len(beyond_density.covariates_for(cal)[1])
+    blocks = beyond_calibration.BLOCKS
     return dict(
         cal_n=int(calibration["n_structures"].iloc[0]),
-        n_draws=int((random_folds["map"] == bc.ABUNDANCE_DENSITY).sum()),
+        n_draws=int((random_folds["map"] == beyond_calibration.FLOOR_MAP).sum()),
         floor=floor,
         gria1=gria1,
         nano_cal=nano_cal["left"].to_dict(),
         nano_cal_left=nano_cal_left,
-        nano_cal_ci=jackknife_interval(paired, "nano", nano_cal_left),
+        nano_cal_ci=beyond_calibration.jackknife_interval(
+            paired, paired["nano"], nano_cal_left
+        ),
         minus_floor=minus_floor,
-        minus_floor_ci=jackknife_interval(paired, "nano_minus_floor", minus_floor),
+        minus_floor_ci=beyond_calibration.jackknife_interval(
+            paired, paired["nano_minus_floor"], minus_floor
+        ),
         minus_gria1=minus_gria1,
-        minus_gria1_ci=jackknife_interval(paired, "nano_minus_gria1", minus_gria1),
+        minus_gria1_ci=beyond_calibration.jackknife_interval(
+            paired, paired["nano_minus_gria1"], minus_gria1
+        ),
         gria1_halves=gria1_rows.groupby("truth_from")["left"].median().to_dict(),
         blocks=dict(
-            nano=bc.floor(calibration, bc.NANO, bc.BLOCKS)["left_median"],
-            floor=bc.floor(calibration, bc.ABUNDANCE_DENSITY, bc.BLOCKS)["left_median"],
-            gria1=bc.floor(calibration, bc.GRIA1, bc.BLOCKS)["left_median"],
+            nano=beyond_calibration.left_summary(
+                calibration, beyond_calibration.NANO, blocks
+            )["left_median"],
+            floor=beyond_calibration.left_summary(
+                calibration, beyond_calibration.FLOOR_MAP, blocks
+            )["left_median"],
+            gria1=beyond_calibration.left_summary(
+                calibration, beyond_calibration.GRIA1_MAP, blocks
+            )["left_median"],
         ),
-        markers_once=bc.measured_once(split, inputs.terms),
+        markers_once=beyond_calibration.measured_once(split, inputs.terms),
         psd_once=[g for g in psd if g not in split],
         psd_halves=psd_halves,
     )
@@ -738,8 +627,8 @@ def leftover_numbers(genes: pd.DataFrame, sets: pd.DataFrame) -> dict:
         top_rho=float(genes.iloc[0]["rho"]),
         top_p=float(genes.iloc[0]["p_spatial"]),
         top_q=float(genes.iloc[0]["q_all"]),
-        n_p05=int((genes["p_spatial"] < 0.05).sum()),
-        cacng8=genes.set_index("symbol").loc["Cacng8"],
+        n_p05=int((genes["p_spatial"] < ALPHA).sum()),
+        cacng8=genes.set_index("symbol").loc[LEFTOVER_GENE],
         sets=sets,
     )
 
@@ -749,8 +638,6 @@ def leftover_numbers(genes: pd.DataFrame, sets: pd.DataFrame) -> dict:
 
 def plane_images(regression: pd.DataFrame) -> list[dict]:
     """The planes of figure 04: labels, and map, prediction and leftover painted."""
-    names, _, _ = structure_terms()
-    atlas = annotation_20("ccf")
     n = len(regression)
     values = {
         "map": dict(
@@ -762,20 +649,20 @@ def plane_images(regression: pd.DataFrame) -> list[dict]:
         "leftover": dict(zip(regression["structure"], regression["residual"])),
     }
     out = []
-    for p in PLANES:
-        lab = np.asarray(atlas[p])
+    for plane in beyond_regression.coronal_planes():
+        lab = plane["lab"]
         out.append(
             dict(
-                ccf_plane=2 * (p + CCF_CROP[0]),
+                ccf_plane=plane["ccf_plane"],
                 lab=lab,
-                **{k: ish_plotting.paint(lab, v, names) for k, v in values.items()},
+                **{k: paint(lab, v, plane["names"]) for k, v in values.items()},
             )
         )
     return out
 
 
 def control_data(
-    inputs: bd.Inputs, covariates: dict[str, np.ndarray], tables: dict
+    inputs: beyond_density.Inputs, covariates: dict[str, np.ndarray], tables: dict
 ) -> dict:
     """What figure 03s2 draws of the seven controls of adult.beyond_controls.
 
@@ -786,79 +673,73 @@ def control_data(
     control G's readings and every verdict.
     """
     s = inputs.structures
-    y = bd.full_map(inputs.nano)
-    xs = bd.model(covariates, inputs.terms)
-    per_adult = bd.per_adult_leftovers(inputs.nano, xs)
-    pairs = [
-        float(spearmanr(per_adult[i], per_adult[j]).statistic)
-        for i in range(len(bd.ADULTS))
-        for j in range(i + 1, len(bd.ADULTS))
-    ]
-    groups = {
-        name: bd.residual(rankdata(inputs.nano[rows].mean(axis=0)), xs)
-        for name, rows in (("naive", bd.NAIVE_ROWS), ("rws", bd.RWS_ROWS))
-    }
+    y = beyond_density.full_map(inputs.nano)
+    columns = beyond_density.model_columns(covariates, inputs.terms)
+    per_adult = beyond_density.per_adult_leftovers(inputs.nano, columns)
+    naive, rws = group_leftovers(inputs.nano, columns)
     return dict(
-        residual=bd.residual(y, xs),
-        ap=load_centroids().reindex(s)["ap_mm"].to_numpy(float),
+        residual=beyond_density.residual(y, columns),
+        ap=structures.centroid_xyz(s)[:, 0],
         sizes=mean_sizes(s),
-        pairs=pairs,
-        groups=groups,
+        pairs=adult_pair_agreements(per_adult),
+        groups=dict(naive=naive, rws=rws),
         curvature=curvature_scores(y, covariates, inputs.terms),
         curve=pd.read_csv(GENE_SPACE),
         f_calibration=tables["f_calibration"],
         readings=pd.read_csv(READINGS),
         controls=tables["controls"],
-        thresholds=SETTINGS["beyond_controls"],
+        thresholds=BEYOND_CONTROLS,
     )
 
 
 def draw_beyond(
-    inputs: bd.Inputs,
+    inputs: beyond_density.Inputs,
     covariates: dict[str, np.ndarray],
     numbers: dict,
     tables: dict,
 ) -> None:
-    """Draw figure 03 and its detailed versions: the map against its predictors, the
-    budget, the floor and the benchmark, the replication, and the seven controls."""
+    """Draw figure 03 and its detailed versions 03s1 and 03s2.
+
+    The map against its predictors, the budget, the floor and the benchmark, the
+    replication, and the seven controls.
+    """
     s = inputs.structures
-    y = bd.full_map(inputs.nano)
-    xs = bd.model(covariates, inputs.terms)
-    groups = ish_plotting.group_of(load_structure_set())
+    y = beyond_density.full_map(inputs.nano)
+    columns = beyond_density.model_columns(covariates, inputs.terms)
+    density_columns = beyond_density.model_columns(covariates, inputs.terms, ("density",))
+    groups = group_of(structures.load_structure_set())
     held_out = dict(
-        density=bd.cv_predict(y, bd.model(covariates, inputs.terms, ("density",))),
-        model=bd.cv_predict(y, xs),
+        density=beyond_density.cv_predict(y, density_columns),
+        model=beyond_density.cv_predict(y, columns),
     )
     shared = dict(
         y=y,
         held_out=held_out,
-        residual=bd.residual(y, xs),
+        residual=beyond_density.residual(y, columns),
         groups=[groups[x] for x in s],
         acronyms=[inputs.acronym.get(x, "") for x in s],
         numbers=numbers,
         calibration=tables["calibration"],
         replication=tables["replication"],
     )
-    fig = ish_plotting.plot_beyond(
-        **shared, save=FIGURES / ish_plotting.figure_file("beyond")
-    )
+    fig = adult_plotting.plot_beyond(**shared, save=figure_path("beyond"))
     plt.close(fig)
-    fig = ish_plotting.plot_beyond_budget(
-        gria1=covariates["Gria1"],
+    fig = adult_plotting.plot_beyond_budget(
+        gria1=covariates[beyond_density.ABUNDANCE[0]],
         **shared,
-        save=FIGURES / ish_plotting.figure_file("beyond_budget"),
+        save=figure_path("beyond_budget"),
     )
     plt.close(fig)
-    fig = ish_plotting.plot_beyond_controls(
+    fig = adult_plotting.plot_beyond_controls(
         control_data(inputs, covariates, tables),
         numbers,
-        save=FIGURES / ish_plotting.figure_file("beyond_controls"),
+        save=figure_path("beyond_controls"),
     )
     plt.close(fig)
 
 
 def draw_figures(
-    inputs: bd.Inputs,
+    inputs: beyond_density.Inputs,
     covariates: dict[str, np.ndarray],
     numbers: dict,
     tables: dict,
@@ -867,35 +748,35 @@ def draw_figures(
     draw_beyond(inputs, covariates, numbers, tables)
 
     # figure 04: where the leftover lives; figure 11s1: every gene against it
-    fig = ish_plotting.plot_beyond_where(
+    fig = adult_plotting.plot_beyond_where(
         planes=plane_images(tables["regression"]),
         residuals=tables["residuals"],
         numbers=numbers,
         t_max=BEYOND_FIGURES["t_max_structures"],
-        save=FIGURES / ish_plotting.figure_file("beyond_where"),
+        save=figure_path("beyond_where"),
     )
     plt.close(fig)
-    with np.load(bd.LEFTOVER_NULL) as null:
+    with np.load(beyond_density.LEFTOVER_NULL) as null:
         n_surrogates = int(null["surrogates"].shape[0])
-    fig = ish_plotting.plot_leftover_genes(
+    fig = adult_plotting.plot_leftover_genes(
         genes=tables["genes"],
         sets=tables["sets"],
         numbers=numbers,
         n_surrogates=n_surrogates,
         t_max=ISH_FIGURES["t_max"],
-        save=FIGURES / ish_plotting.figure_file("leftover_genes"),
+        save=figure_path("leftover_genes"),
     )
     plt.close(fig)
 
     # figure 14: the measured synapse density against the mRNA it would replace, with
     # the check rows that put it in the model
-    fig = ish_plotting.plot_synaptome(
+    fig = adult_plotting.plot_synaptome(
         density=synaptome.load_density().reset_index(),
         coverage=pd.read_csv(synaptome.COVERAGE),
         markers=pd.Series(covariates["markers"], index=inputs.structures),
         numbers=numbers,
-        min_coverage=bd.BEYOND["min_psd95_coverage"],
-        save=FIGURES / ish_plotting.figure_file("synaptome"),
+        min_coverage=beyond_density.BEYOND["min_psd95_coverage"],
+        save=figure_path("synaptome"),
     )
     plt.close(fig)
     keys = (
@@ -906,8 +787,8 @@ def draw_figures(
         "leftover_genes",
         "synaptome",
     )
-    drawn = [ish_plotting.figure_file(k) for k in keys]
-    print(f"figures: {', '.join(drawn)} in {FIGURES}")
+    drawn = [figure_file(k) for k in keys]
+    print(f"figures: {', '.join(drawn)} in {structures.FIGURES}")
 
 
 def main() -> None:
@@ -916,10 +797,10 @@ def main() -> None:
     One seeded generator feeds every resampling, in the order of model_numbers.
     """
     rng = np.random.default_rng(0)
-    inputs = bd.load_inputs()
-    covariates, psd, _ = bd.covariates_for(inputs)
+    inputs = beyond_density.load_inputs()
+    covariates, psd, _ = beyond_density.covariates_for(inputs)
     tables = load_tables()
-    print(f"{len(inputs.structures)} structures, {len(bd.ADULTS)} adults")
+    print(f"{len(inputs.structures)} structures, {len(ADULTS)} adults")
 
     # the numbers, with their intervals over structures, and the caption
     numbers = (
@@ -929,8 +810,7 @@ def main() -> None:
     )
     numbers_table(numbers).to_csv(NUMBERS, index=False)
     lines = caption_lines(numbers)
-    with open(CAPTION, "w", encoding="utf-8") as fh:
-        fh.write("\n".join(lines) + "\n")
+    CAPTION.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines))
 
     # the figures of part 1

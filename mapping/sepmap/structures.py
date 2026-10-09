@@ -1,19 +1,17 @@
 """The declared structure set of the ISH line, the zref reference it gives, and centroids.
 
 Every comparison of the adult map with the Allen maps runs across structures, so
-which structures enter decides part of the answer. Until now each analysis took
-what its inputs held: every structure of the per-mouse table, with hindbrain
-structures seen in one to four adults, fibre tracts and the atlas's "...,
-unassigned" leftovers. The few-mice structures do not replicate across mice
-(leave-one-out rho about 0.14, against 0.93 in the forebrain), and most of the
-difference between Gria1 17th and 9th in the gene ranking comes from them. So the
-set is declared once, by rule, before any correlation (S1, agreed on 30 September):
+which structures enter decides part of the answer. Taking every structure an input
+holds would bring in hindbrain structures seen in one to four adults, fibre tracts
+and the atlas's "..., unassigned" leftovers; the few-mice structures do not
+replicate across mice (leave-one-out rho about 0.14, against 0.93 in the
+forebrain). So the set is declared once, by rule, before any correlation:
 
     a structure enters when it is grey matter (keep_structure) and every adult
     measures it: at least region_tables.min_vox20 tissue voxels and a nano mean
     above background, in structures.min_adults of the ten adults
 
-The same list is the reference of zref (A1). Per brain,
+The same list is the reference of zref. Per brain,
 
     v(s)     = log2(mean nano of s / mean nano of the brain's isocortex)
     zref(s)  = (v(s) - median of v over the set) / (p90 - p10 of v over the set)
@@ -30,24 +28,30 @@ the midline and the medio-lateral distance between structures vanishes. The CCF
 annotation is symmetric, so either half gives the same distances; the half with ML
 index below the midline is used.
 
+The folders of the ISH line's outputs are named here too, since every step reads
+the set: tables/, figures/ and the folders of analyses 4 and 5 under ISH_OUT.
+
 Run by run_structure_set.py.
 """
 
 from collections.abc import Iterable
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 from sepmap.config import DATA, SETTINGS
-from sepmap.volumes.per_mouse import annotation_20, structure_terms
 
 # the adults a structure must be measured in, the grey-matter divisions and P9's
 # divisions; the smallest structure a brain's table keeps
 STRUCTURES = SETTINGS["structures"]
 REGION_TABLES = SETTINGS["region_tables"]
 
-TABLES = DATA / "adult_v2" / "ish_analysis" / "tables"
+# every output of the ISH line, steps 13 to 29: tables, figures, and a folder per
+# analysis that writes more than its tables
+ISH_OUT = DATA / "adult_v2" / "ish_analysis"
+TABLES = ISH_OUT / "tables"
+FIGURES = ISH_OUT / "figures"
+
 STRUCTURE_SET = TABLES / "structure_set.csv"
 CENTROIDS = TABLES / "centroids.csv"
 
@@ -57,9 +61,14 @@ GREY = set(STRUCTURES["grey"])
 VOXEL_MM = 0.02
 
 # the reasons a structure is left out, in the order the rule applies them
-REASON_FEW_ADULTS = "measured in fewer than {} adults"
+# (few_adults_reason gives the first)
 REASON_NOT_GREY = "not grey matter"
 REASON_CATCH_ALL = "catch-all label, not a structure"
+
+
+def few_adults_reason(min_adults: int) -> str:
+    """Why a structure measured in too few adults is left out."""
+    return f"measured in fewer than {min_adults} adults"
 
 
 def keep_structure(name: str, division: str) -> tuple[bool, str]:
@@ -97,7 +106,7 @@ def structure_set(per_mouse: pd.DataFrame, adults: list[str]) -> pd.DataFrame:
 
         # the rule in the order of the funnel: every adult first, then grey matter
         if n < min_adults:
-            reason = REASON_FEW_ADULTS.format(min_adults)
+            reason = few_adults_reason(min_adults)
         elif not grey:
             reason = why_not
         else:
@@ -116,23 +125,22 @@ def structure_set(per_mouse: pd.DataFrame, adults: list[str]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def load_structure_set(path: Path | None = None) -> pd.DataFrame:
+def load_structure_set() -> pd.DataFrame:
     """The table run_structure_set wrote, with in_set and grey as booleans."""
-    if path is None:
-        path = STRUCTURE_SET
-    if not path.exists():
+    if not STRUCTURE_SET.exists():
         raise FileNotFoundError(
-            f"{path} not found: run run_structure_set.py first, it declares the set"
+            f"{STRUCTURE_SET} not found: run run_structure_set.py first, it declares "
+            "the set"
         )
-    table = pd.read_csv(path, keep_default_na=False)
+    table = pd.read_csv(STRUCTURE_SET, keep_default_na=False)
     table["in_set"] = table["in_set"].astype(str) == "True"
     table["grey"] = table["grey"].astype(str) == "True"
     return table
 
 
-def declared_structures(path: Path | None = None) -> list[str]:
+def declared_structures() -> list[str]:
     """The structures of the declared set, sorted by name."""
-    table = load_structure_set(path)
+    table = load_structure_set()
     return sorted(table.loc[table["in_set"], "structure"])
 
 
@@ -233,28 +241,24 @@ def centroids(
     return pd.DataFrame(rows)
 
 
-def ccf_labels() -> tuple[np.ndarray, list[str]]:
-    """The adult CCF annotation on the 20 um grid as structure codes, and their names."""
-    names, _, _ = structure_terms()
-    return name_volume(annotation_20("ccf"), names)
-
-
-def ccf_centroids(
-    structures: Iterable[str], one_hemisphere: bool = True
-) -> dict[str, np.ndarray]:
-    """{structure: (AP, DV, ML) in mm} on the adult CCF, one hemisphere by default."""
-    labels, label_names = ccf_labels()
-    table = centroids(labels, label_names, structures, one_hemisphere)
-    return {
-        r["structure"]: np.array([r["ap_mm"], r["dv_mm"], r["ml_mm"]])
-        for _, r in table.iterrows()
-    }
-
-
-def load_centroids(path: Path | None = None) -> pd.DataFrame:
+def load_centroids() -> pd.DataFrame:
     """The centroids run_structure_set wrote, indexed by structure."""
-    if path is None:
-        path = CENTROIDS
-    if not path.exists():
-        raise FileNotFoundError(f"{path} not found: run run_structure_set.py first")
-    return pd.read_csv(path).set_index("structure")
+    if not CENTROIDS.exists():
+        raise FileNotFoundError(f"{CENTROIDS} not found: run run_structure_set.py first")
+    return pd.read_csv(CENTROIDS).set_index("structure")
+
+
+def centroid_xyz(subset: list[str]) -> np.ndarray:
+    """The (AP, DV, ML) centroids of `subset` in mm, structures x 3, from centroids.csv.
+
+    Every declared structure has one; the run stops if one of `subset` has none.
+    """
+    table = load_centroids().reindex(subset)
+    xyz = table[["ap_mm", "dv_mm", "ml_mm"]].to_numpy(float)
+    missing = [name for name, row in zip(subset, xyz) if not np.isfinite(row).all()]
+    if missing:
+        raise ValueError(
+            f"{CENTROIDS} has no centroid for {', '.join(missing)}: run "
+            "run_structure_set.py again"
+        )
+    return xyz

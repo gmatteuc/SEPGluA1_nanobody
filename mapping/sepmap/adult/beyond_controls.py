@@ -46,8 +46,8 @@ own structures:
 
     folds        the main model under other folds: one shuffling, single
                  shufflings, ten folds, leave one out, spatial blocks
-    model        the check rows of [beyond.variants], fixed with the main model on
-                 8 October, each changing one thing of it: the density measure
+    model        the check rows of [beyond.variants], fixed with the main model,
+                 each changing one thing of it: the density measure
                  (PSD95 puncta, SAP102 puncta or every punctum, on the structures
                  where it is measured; the mRNA panel on those same structures, so
                  the two measures meet on equal ground; PSD95 and the panel
@@ -71,32 +71,26 @@ Writes, in adult_v2/ish_analysis/beyond/ under the data root:
     readings.csv            control G: per reading, R2 and the two replications
     variants.csv            the main model and every variant: structures, budget,
                             density alone, share left
-    fig4_controls.png       A to D, the four artefact checks
-    fig5_model_space.png    E and F, how much any model of this data can explain
-    fig6_readings.png       G, the same test on every reading
 
-Run by run_beyond_controls.py.
+Run by run_beyond_controls.py, which draws the working figures fig4 (A to D),
+fig5 (E and F) and fig6 (G).
 """
 
 from collections.abc import Sequence
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.stats import rankdata, spearmanr
 
-from sepmap.adult import beyond_calibration as bc
-from sepmap.adult import profiles
+from sepmap import structures
+from sepmap.adult import beyond_calibration, profiles
 from sepmap.adult.beyond_density import (
-    ADULTS,
     BEYOND,
     MARKERS,
     MEASURED,
-    NAIVE_ROWS,
     OUT,
     PANEL,
     PRESYNAPTIC,
-    RWS_ROWS,
     SUBUNITS,
     Inputs,
     block_labels,
@@ -107,23 +101,23 @@ from sepmap.adult.beyond_density import (
     flexible,
     fold_labels,
     full_map,
+    gene_matrix,
     half_splits,
     leftover_agreement,
     load_inputs,
-    model,
+    model_columns,
     model_terms,
+    on_measured,
     per_adult_leftovers,
     predictors,
     r_squared,
     replicates,
     residual,
-    restrict,
-    save,
 )
+from sepmap.adult.profiles import ADULTS
 from sepmap.config import SETTINGS
 from sepmap.ish import gene_table
-from sepmap.plotting import RED, tidy
-from sepmap.structures import load_centroids
+from sepmap.volumes.cohort import NAIVE, RWS
 from sepmap.young_vs_adult.region_plot import REGION_MEANS
 
 # the largest gene-space model of control F, and the threshold of each verdict
@@ -136,16 +130,9 @@ GENE_SPACE_SUMMARY = OUT / "gene_space_summary.csv"
 READINGS = OUT / "readings.csv"
 VARIANTS = OUT / "variants.csv"
 
-# the readings of control G as the figure names them: the map's own zref, the same
-# with the young-against-adult tables' 17-brain reference, and the stored readings
-READING_LABELS = {
-    "zref": "zref\n(declared reference)",
-    "zref_stored": "zref\n(17-brain reference)",
-    "cref": "cref",
-    "subref": "subref",
-    "ratio": "nano / auto",
-    "sepratio": "nano / SEP",
-}
+# the rows of each group in the adult matrices, naive then rws
+NAIVE_ROWS = [ADULTS.index(m) for m in NAIVE]
+RWS_ROWS = [ADULTS.index(m) for m in RWS]
 
 
 # ===== Utilities =====
@@ -160,59 +147,62 @@ def replication(
     return float(np.mean(leftover_agreement(matrix, columns, splits)))
 
 
-def gene_matrix(
-    expr: dict[str, dict[str, float]], structures: list[str], genes: list[str]
-) -> np.ndarray:
-    """Rank profiles of many genes as one array, genes by structures."""
-    # ranks, since each Allen experiment has its own arbitrary intensity scale
-    return np.array([rankdata([expr[g][s] for s in structures]) for g in genes])
+def adult_pair_agreements(per_adult: np.ndarray) -> list[float]:
+    """Spearman of every pair of adults' own leftovers (adults x structures)."""
+    n = len(per_adult)
+    return [
+        float(spearmanr(per_adult[i], per_adult[j]).statistic)
+        for i in range(n)
+        for j in range(i + 1, n)
+    ]
+
+
+def group_leftovers(
+    nano: np.ndarray, columns: list[np.ndarray]
+) -> tuple[np.ndarray, np.ndarray]:
+    """The leftovers of the naive and of the RWS group's ranked mean maps."""
+    naive = residual(rankdata(nano[NAIVE_ROWS].mean(axis=0)), columns)
+    rws = residual(rankdata(nano[RWS_ROWS].mean(axis=0)), columns)
+    return naive, rws
+
+
+def mean_sizes(subset: list[str]) -> np.ndarray:
+    """Each structure's mean volume over the adults, in 20 um voxels."""
+    table = profiles.load_per_mouse()
+    sizes = table[table["mouse"].isin(ADULTS)].groupby("structure")["n_vox20"].mean()
+    return sizes.reindex(subset).to_numpy(float)
 
 
 # ===== Controls =====
 
 
 def control_a_space(
-    res: np.ndarray,
-    structures: list[str],
+    leftover: np.ndarray,
     nano: np.ndarray,
-    xs: list[np.ndarray],
-    coords: dict[str, np.ndarray],
+    columns: list[np.ndarray],
+    xyz: np.ndarray,
     splits: list[tuple[list[int], list[int]]],
-) -> dict[str, str] | None:
+) -> dict[str, str]:
     """Control A: whether the leftover is just a smooth gradient across the block.
 
-    `coords` holds each structure's centroid (AP, DV, ML) in mm. Returns the verdict
-    row, or None when fewer than beyond_controls.min_centroids structures have one.
+    `xyz` holds each structure's centroid (AP, DV, ML) in mm. Returns the verdict
+    row.
     """
     print("\nA  is it a smooth spatial gradient? (an illumination artefact)")
 
-    # the structures with a centroid; on too few, a fit of six position terms would
-    # explain much of the leftover by chance
-    xyz = np.array([coords.get(s, np.full(3, np.nan)) for s in structures])
-    ok = np.all(np.isfinite(xyz), axis=1)
-    if ok.sum() < BEYOND_CONTROLS["min_centroids"]:
-        print("   not enough centroids; skipped")
-        return None
-
     # the residual against a quadratic in the three ranked positions, enough to
     # follow a ramp or a bowl across the block, as uneven illumination would give
-    pos = [rankdata(xyz[ok, i]) for i in range(3)]
+    pos = [rankdata(xyz[:, i]) for i in range(3)]
     quad = pos + [p**2 for p in pos]
-    smooth = r_squared(res[ok], quad)
+    smooth = r_squared(leftover, quad)
     for axis, p in zip("AP DV ML".split(), pos):
-        print(f"   residual against {axis}: rho {spearmanr(res[ok], p).statistic:+.3f}")
+        print(f"   residual against {axis}: rho {spearmanr(leftover, p).statistic:+.3f}")
     print(f"   a smooth quadratic in all three axes explains R2 = {smooth:.3f} of it")
 
     # the replication with position added to the model, the ranked axes straight
-    if ok.all():
-        with_pos = replication(nano, xs + [rankdata(xyz[:, i]) for i in range(3)], splits)
-        still = "still replicates" if replicates(with_pos) else "replicates only"
-        print(
-            f"   with position added to the model the leftover {still} at {with_pos:.3f}"
-        )
-        number = f"smooth R2 {smooth:.3f}, replication with position {with_pos:.3f}"
-    else:
-        number = f"smooth R2 {smooth:.3f}"
+    with_pos = replication(nano, columns + pos, splits)
+    still = "still replicates" if replicates(with_pos) else "replicates only"
+    print(f"   with position added to the model the leftover {still} at {with_pos:.3f}")
 
     # a gradient could explain the leftover if position explains more than
     # beyond_controls.gradient_r2 of it
@@ -224,12 +214,12 @@ def control_a_space(
     print("   verdict: " + verdict)
     return dict(
         control="A spatial gradient",
-        number=number,
+        number=f"smooth R2 {smooth:.3f}, replication with position {with_pos:.3f}",
         verdict="pass" if passed else "look closer",
     )
 
 
-def control_b_size(res: np.ndarray, sizes: np.ndarray) -> dict[str, str]:
+def control_b_size(leftover: np.ndarray, sizes: np.ndarray) -> dict[str, str]:
     """Control B: whether the leftover comes from small or poorly covered structures.
 
     `sizes` holds each structure's mean volume over the adults in 20 um voxels.
@@ -237,15 +227,15 @@ def control_b_size(res: np.ndarray, sizes: np.ndarray) -> dict[str, str]:
     """
     print("\nB  is it small structures, where a mean is noisy?")
     ok = np.isfinite(sizes)
-    rho = spearmanr(res[ok], np.log10(sizes[ok])).statistic
+    rho = spearmanr(leftover[ok], np.log10(sizes[ok])).statistic
 
     # noise would make the leftover larger in the smaller structures, so compare
     # the median |residual| of the two halves by volume
     big = sizes[ok] >= np.median(sizes[ok])
     print(f"   residual against log structure volume: rho {rho:+.3f}")
     print(
-        f"   |residual| in the larger half {np.median(np.abs(res[ok][big])):.1f} ranks, "
-        f"smaller half {np.median(np.abs(res[ok][~big])):.1f}"
+        f"   |residual| in the larger half {np.median(np.abs(leftover[ok][big])):.1f} "
+        f"ranks, smaller half {np.median(np.abs(leftover[ok][~big])):.1f}"
     )
     passed = abs(rho) <= BEYOND_CONTROLS["size_rho"]
     if passed:
@@ -261,19 +251,15 @@ def control_b_size(res: np.ndarray, sizes: np.ndarray) -> dict[str, str]:
 
 
 def control_c_mice(
-    nano: np.ndarray, xs: list[np.ndarray]
+    nano: np.ndarray, columns: list[np.ndarray]
 ) -> tuple[dict[str, str], list[float]]:
     """Control C: whether the leftover is carried by one or two animals.
 
     Returns the verdict row and the agreement of every pair of adults.
     """
     print("\nC  is it one or two animals?")
-    per = per_adult_leftovers(nano, xs)
-    pairs = [
-        float(spearmanr(per[i], per[j]).statistic)
-        for i in range(len(ADULTS))
-        for j in range(i + 1, len(ADULTS))
-    ]
+    per = per_adult_leftovers(nano, columns)
+    pairs = adult_pair_agreements(per)
 
     # the adult whose leftover agrees least, on average, with the others
     mean_agreement = [
@@ -311,15 +297,14 @@ def control_c_mice(
 
 
 def control_d_groups(
-    nano: np.ndarray, xs: list[np.ndarray]
+    nano: np.ndarray, columns: list[np.ndarray]
 ) -> tuple[dict[str, str], np.ndarray, np.ndarray]:
     """Control D: whether the leftover is the whisker manipulation, not the anatomy.
 
     Returns the verdict row and the leftovers of the naive and the RWS group.
     """
     print("\nD  is it the whisker manipulation? (naive and RWS are pooled)")
-    naive = residual(rankdata(nano[NAIVE_ROWS].mean(axis=0)), xs)
-    rws = residual(rankdata(nano[RWS_ROWS].mean(axis=0)), xs)
+    naive, rws = group_leftovers(nano, columns)
     rho = spearmanr(naive, rws).statistic
     print(f"   leftover of the five naive against the five RWS: rho {rho:+.3f}")
     passed = rho >= BEYOND_CONTROLS["groups_rho"]
@@ -343,10 +328,11 @@ def curvature_scores(
     y: np.ndarray, covariates: dict[str, np.ndarray], terms: dict[str, tuple[str, ...]]
 ) -> tuple[float, float, float]:
     """The CV R2 of the model's predictors straight, to cubes and to fifth powers."""
-    xs = predictors(covariates, terms)
-    linear = cv_r2(y, xs)
-    cubic = cv_r2(y, flexible(xs))
-    quintic = cv_r2(y, flexible(xs) + [x**4 for x in xs] + [x**5 for x in xs])
+    straight = predictors(covariates, terms)
+    linear = cv_r2(y, straight)
+    cubic = cv_r2(y, flexible(straight))
+    fifth = flexible(straight) + [x**4 for x in straight] + [x**5 for x in straight]
+    quintic = cv_r2(y, fifth)
     return linear, cubic, quintic
 
 
@@ -444,27 +430,29 @@ def gene_space_calibration(inputs: Inputs, seed: int = 0) -> pd.DataFrame:
     map, truth_from, predictors_from, draw, n_structures, n_genes, ceiling, cv_r2,
     left.
     """
-    halves_a, halves_b, _ = bc.experiment_halves(bc.per_experiment_profiles())
-    halves = {"A": halves_a, "B": halves_b}
-    structures = bc.calibration_structures(inputs.structures, halves)
-    columns = [inputs.structures.index(x) for x in structures]
-    nano = inputs.nano[:, columns]
+    halves, _ = beyond_calibration.half_profiles()
+    subset = beyond_calibration.calibration_structures(inputs.structures, halves)
+    positions = [inputs.structures.index(x) for x in subset]
+    nano = inputs.nano[:, positions]
     genes = sorted(
         g
-        for g in halves_a
-        if all(x in halves[h][g] for h in bc.HALVES for x in structures)
+        for g in halves["A"]
+        if all(x in halves[h][g] for h in beyond_calibration.HALVES for x in subset)
     )
-    pcs = {h: components(gene_matrix(halves[h], structures, genes)) for h in bc.HALVES}
+    pcs = {
+        h: components(gene_matrix(halves[h], subset, genes))
+        for h in beyond_calibration.HALVES
+    }
     splits = half_splits()
     y = full_map(nano)
     agreement, explainable = ceiling(nano, splits)
     h_nano = float(np.mean(agreement))
     rows = []
-    for h in bc.HALVES:
+    for h in beyond_calibration.HALVES:
         cv, _ = nested_cv_r2(y, pcs[h], seed=seed)
         rows.append(
             dict(
-                map=bc.NANO,
+                map=beyond_calibration.NANO,
                 truth_from="",
                 predictors_from=h,
                 draw=-1,
@@ -473,14 +461,15 @@ def gene_space_calibration(inputs: Inputs, seed: int = 0) -> pd.DataFrame:
                 left=1 - cv / explainable,
             )
         )
-    children = np.random.SeedSequence(seed).spawn(len(bc.HALVES))
-    for h, child in zip(bc.HALVES, children):
-        other = bc.HALVES[1 - bc.HALVES.index(h)]
+    halves_named = beyond_calibration.HALVES
+    children = np.random.SeedSequence(seed).spawn(len(halves_named))
+    for h, child in zip(halves_named, children):
+        other = beyond_calibration.other_half(h)
         k = best_k(y, pcs[h], fold_labels(len(y)))
         truth = y - residual(y, list(pcs[h][:k]))
         rng = np.random.default_rng(child)
         for draw in range(BEYOND_CONTROLS["f_draws"]):
-            cohort = bc.fake_cohort(truth, h_nano, rng)
+            cohort = beyond_calibration.fake_cohort(truth, h_nano, rng)
             _, made_up = ceiling(cohort, splits)
             cv, _ = nested_cv_r2(full_map(cohort), pcs[other], seed=seed)
             rows.append(
@@ -495,39 +484,20 @@ def gene_space_calibration(inputs: Inputs, seed: int = 0) -> pd.DataFrame:
                 )
             )
     out = pd.DataFrame(rows)
-    out.insert(1, "n_structures", len(structures))
+    out.insert(1, "n_structures", len(subset))
     out.insert(2, "n_genes", len(genes))
     return out
 
 
-def control_f_gene_space(
-    inputs: Inputs,
-    y: np.ndarray,
-    explainable: float,
-    splits: list[tuple[list[int], list[int]]],
-) -> tuple[dict[str, str], pd.DataFrame, int, pd.DataFrame, dict]:
-    """Control F, the strongest: any combination of the gene table's genes may try.
+def gene_space_curve(
+    y: np.ndarray, vt: np.ndarray, explainable: float, labels: list[np.ndarray]
+) -> pd.DataFrame:
+    """gene_space.csv: per number of leading components, R2 fitted and held out.
 
-    The genes measured in every structure are reduced to principal components. The
-    curve of held-out R2 against the number of components (1 to
-    beyond_controls.max_pcs) is drawn; the share quoted picks the number inside
-    each training fold (nested_cv_r2). The verdict reads the model's own
-    calibration (gene_space_calibration): the leftover passes when nano's share
-    left, with either half's components, stands above every draw of a map made of
-    the genes' expression. Returns the verdict row, the curve (n_components, r2
-    fitted, cv_r2 held out, share_of_ceiling), the number of components picked
-    most often, the calibration and a summary (gene_space_summary.csv).
+    `vt` holds the components (components x structures), 1 to
+    beyond_controls.max_pcs of them in turn; share_of_ceiling is the held-out R2
+    over the ceiling.
     """
-    s = inputs.structures
-    genes = sorted(g for g in inputs.expr if all(x in inputs.expr[g] for x in s))
-    print(
-        "\nF  is it the choice of predictors? (give the model all "
-        f"{len(genes)} genes measured in every structure)"
-    )
-
-    # the panel's shared patterns across structures, strongest first
-    vt = components(gene_matrix(inputs.expr, s, genes))
-    labels = fold_labels(len(y))
     rows = []
     for k in range(1, BEYOND_CONTROLS["max_pcs"] + 1):
         pcs = [vt[i] for i in range(k)]
@@ -540,7 +510,36 @@ def control_f_gene_space(
                 share_of_ceiling=cv / explainable,
             )
         )
-    curve = pd.DataFrame(rows)
+    return pd.DataFrame(rows)
+
+
+def control_f_gene_space(
+    inputs: Inputs,
+    y: np.ndarray,
+    explainable: float,
+    splits: list[tuple[list[int], list[int]]],
+) -> tuple[dict[str, str], pd.DataFrame, pd.DataFrame, dict]:
+    """Control F, the strongest: any combination of the gene table's genes may try.
+
+    The genes measured in every structure are reduced to principal components. The
+    curve of held-out R2 against the number of components (gene_space_curve) is
+    drawn; the share quoted picks the number inside each training fold
+    (nested_cv_r2). The verdict reads the model's own calibration
+    (gene_space_calibration): the leftover passes when nano's share left, with
+    either half's components, stands above every draw of a map made of the genes'
+    expression. Returns the verdict row, the curve, the calibration and a summary
+    (gene_space_summary.csv), k_most among it, the number picked most often.
+    """
+    s = inputs.structures
+    genes = sorted(g for g in inputs.expr if all(x in inputs.expr[g] for x in s))
+    print(
+        "\nF  is it the choice of predictors? (give the model all "
+        f"{len(genes)} genes measured in every structure)"
+    )
+
+    # the panel's shared patterns across structures, strongest first
+    vt = components(gene_matrix(inputs.expr, s, genes))
+    curve = gene_space_curve(y, vt, explainable, fold_labels(len(y)))
 
     # the share with the number of components picked inside each training fold, and
     # the leftover's replication with the number picked most often
@@ -558,7 +557,7 @@ def control_f_gene_space(
 
     # its own floor: the same model on maps made of the genes' expression
     calibration = gene_space_calibration(inputs)
-    nano_left = calibration.loc[calibration["map"] == bc.NANO, "left"]
+    nano_left = calibration.loc[calibration["map"] == beyond_calibration.NANO, "left"]
     known = calibration.loc[calibration["map"] == "gene space", "left"]
     print(
         f"   on {int(calibration['n_structures'].iloc[0])} structures and "
@@ -576,29 +575,25 @@ def control_f_gene_space(
     else:
         verdict = "the gene table accounts for the map as far as Allen mismatch allows"
     print("   verdict: " + verdict)
-    return (
-        dict(
-            control="F whole gene space",
-            number=f"{len(genes)} genes, {k_most} components most often, nested CV R2 "
-            f"{nested:.3f} ({nested / explainable:.0%} of ceiling); nano leaves "
-            f"{nano_left.min():.0%} to {nano_left.max():.0%} against "
-            f"{known.min():.0%} to {known.max():.0%}; replication {rep:.3f}",
-            verdict="pass" if passed else "look closer",
-        ),
-        curve,
-        k_most,
-        calibration,
-        dict(
-            genes=len(genes),
-            k_most=k_most,
-            k_min=min(picked),
-            k_max=max(picked),
-            curve_peak=int(curve.loc[curve["cv_r2"].idxmax(), "n_components"]),
-            nested_cv_r2=nested,
-            share=nested / explainable,
-            replication=rep,
-        ),
+    row = dict(
+        control="F whole gene space",
+        number=f"{len(genes)} genes, {k_most} components most often, nested CV R2 "
+        f"{nested:.3f} ({nested / explainable:.0%} of ceiling); nano leaves "
+        f"{nano_left.min():.0%} to {nano_left.max():.0%} against "
+        f"{known.min():.0%} to {known.max():.0%}; replication {rep:.3f}",
+        verdict="pass" if passed else "look closer",
     )
+    summary = dict(
+        genes=len(genes),
+        k_most=k_most,
+        k_min=min(picked),
+        k_max=max(picked),
+        curve_peak=peak,
+        nested_cv_r2=nested,
+        share=nested / explainable,
+        replication=rep,
+    )
+    return row, curve, calibration, summary
 
 
 def once_measured_markers() -> list[str]:
@@ -623,7 +618,8 @@ def budget_row(
     `explainable` ceiling), with folds `labels` (the main model's by default).
     """
     steps = budget(y, covariates, terms, explainable, labels)
-    density = cv_r2(y, model(covariates, terms, ("density",)), labels) / explainable
+    density_columns = model_columns(covariates, terms, ("density",))
+    density = cv_r2(y, density_columns, labels) / explainable
     return dict(
         kind=kind,
         key=key,
@@ -641,46 +637,18 @@ def budget_row(
     )
 
 
-def fold_rows(
-    inputs: Inputs,
-    covariates: dict[str, np.ndarray],
+def single_shufflings_row(
     y: np.ndarray,
+    covariates: dict[str, np.ndarray],
+    terms: dict[str, tuple[str, ...]],
     explainable: float,
-    coords: dict[str, np.ndarray],
-) -> list[dict]:
-    """The main model under its own folds and under others.
+) -> dict:
+    """The spread a single shuffling of the folds would have, as one variants row.
 
-    Its folds (beyond.cv_repeats shufflings of five), the single shuffling of 26
-    September, single shufflings (beyond_controls.n_single of them: the median row
-    with the 95% range of the share left), ten folds, leave one out, and folds of
-    spatial blocks.
+    beyond_controls.n_single single shufflings, each seeded from one generator:
+    their median row, with the 95% range of the share left (lo, hi).
     """
     n = len(y)
-    terms = inputs.terms
-    xyz = np.array([coords[x] for x in inputs.structures])
-    folds = [
-        (
-            "main",
-            f"the main model ({BEYOND['cv_repeats']} shufflings of five folds)",
-            None,
-        ),
-        (
-            "one_shuffling",
-            "one shuffling (the folds of 26 September)",
-            fold_labels(n, repeats=1),
-        ),
-        ("ten_folds", "ten folds", fold_labels(n, folds=10)),
-        ("leave_one_out", "leave one out", [np.arange(n)]),
-        ("spatial_blocks", "folds of spatial blocks", block_labels(xyz)),
-    ]
-    rows = []
-    for key, label, labels in folds:
-        kind = "main" if key == "main" else "folds"
-        rows.append(
-            budget_row(kind, key, label, y, covariates, terms, explainable, labels)
-        )
-
-    # the spread a single shuffling would have
     rng = np.random.default_rng(0)
     single = []
     for _ in range(BEYOND_CONTROLS["n_single"]):
@@ -700,14 +668,56 @@ def fold_rows(
         lo=float(np.percentile(table["left"], 2.5)),
         hi=float(np.percentile(table["left"], 97.5)),
     )
-    rows.insert(2, row)
+    return row
+
+
+def fold_rows(
+    inputs: Inputs,
+    covariates: dict[str, np.ndarray],
+    y: np.ndarray,
+    explainable: float,
+    xyz: np.ndarray,
+) -> list[dict]:
+    """The main model under its own folds and under others.
+
+    Its folds (beyond.cv_repeats shufflings of five), one shuffling alone (the first
+    of them), single shufflings (single_shufflings_row), ten folds, leave one out,
+    and folds of spatial blocks of the centroids `xyz`.
+    """
+    n = len(y)
+    terms = inputs.terms
+    rows = [
+        budget_row(
+            "main",
+            "main",
+            f"the main model ({BEYOND['cv_repeats']} shufflings of five folds)",
+            y,
+            covariates,
+            terms,
+            explainable,
+        ),
+        budget_row(
+            "folds",
+            "one_shuffling",
+            "one shuffling (the first of the main model's)",
+            y,
+            covariates,
+            terms,
+            explainable,
+            fold_labels(n, repeats=1),
+        ),
+    ]
+    rows.append(single_shufflings_row(y, covariates, terms, explainable))
+    folds = [
+        ("ten_folds", "ten folds", fold_labels(n, folds=10)),
+        ("leave_one_out", "leave one out", [np.arange(n)]),
+        ("spatial_blocks", "folds of spatial blocks", block_labels(xyz)),
+    ]
+    for key, label, labels in folds:
+        rows.append(
+            budget_row("folds", key, label, y, covariates, terms, explainable, labels)
+        )
     return rows
-
-
-def on_measured(inputs: Inputs, measures: Sequence[str]) -> Inputs:
-    """The inputs on the structures where every one of `measures` is measured."""
-    values = inputs.synapses[list(measures)]
-    return restrict(inputs, list(values.index[values.notna().all(axis=1)]))
 
 
 def variant_models(inputs: Inputs) -> list[tuple[str, Inputs, dict, tuple[str, ...]]]:
@@ -741,15 +751,12 @@ def variant_models(inputs: Inputs) -> list[tuple[str, Inputs, dict, tuple[str, .
             MARKERS,
         ),
     ]
-    return [
-        r
-        for r in rows
-        if not (
-            r[1].structures == inputs.structures
-            and r[2] == inputs.terms
-            and r[3] == MARKERS
-        )
-    ]
+    out = []
+    for key, mine, terms, markers in rows:
+        main = mine.structures == inputs.structures and terms == inputs.terms
+        if not (main and markers == MARKERS):
+            out.append((key, mine, terms, markers))
+    return out
 
 
 def variants(
@@ -757,7 +764,7 @@ def variants(
     covariates: dict[str, np.ndarray],
     y: np.ndarray,
     explainable: float,
-    coords: dict[str, np.ndarray],
+    xyz: np.ndarray,
 ) -> pd.DataFrame:
     """variants.csv: the main model, its other folds, its check rows, its structures.
 
@@ -768,7 +775,7 @@ def variants(
     main model on the structures the rule keeps once the markers measured by one
     Allen experiment are left out (only while the panel is the main density).
     """
-    rows = fold_rows(inputs, covariates, y, explainable, coords)
+    rows = fold_rows(inputs, covariates, y, explainable, xyz)
     splits = half_splits()
     for key, mine, terms, markers in variant_models(inputs):
         cov, _, _ = covariates_for(mine, markers)
@@ -827,7 +834,7 @@ def reading_matrices(inputs: Inputs) -> dict[str, np.ndarray]:
 
 
 def control_g_readings(
-    inputs: Inputs, xs: list[np.ndarray], splits: list[tuple[list[int], list[int]]]
+    inputs: Inputs, columns: list[np.ndarray], splits: list[tuple[list[int], list[int]]]
 ) -> tuple[dict[str, str], pd.DataFrame]:
     """Control G: whether any of this is specific to zref and its reference.
 
@@ -843,9 +850,9 @@ def control_g_readings(
         rows.append(
             dict(
                 reading=reading,
-                r2=r_squared(y, xs),
+                r2=r_squared(y, columns),
                 map_replication=float(np.mean(agreement)),
-                leftover_replication=replication(matrix, xs, splits),
+                leftover_replication=replication(matrix, columns, splits),
             )
         )
         r = rows[-1]
@@ -874,257 +881,62 @@ def control_g_readings(
     )
 
 
-# ===== Figures =====
-
-
-def figure_artefacts(
-    res: np.ndarray,
-    structures: list[str],
-    sizes: np.ndarray,
-    pairs: list[float],
-    naive: np.ndarray,
-    rws: np.ndarray,
-    coords: dict[str, np.ndarray],
-    passed: dict[str, bool],
-) -> None:
-    """Draw controls A to D: position, size, pairs of adults, naive against RWS.
-
-    `passed` holds each control's verdict by letter (A is missing when skipped);
-    each title says what its verdict says.
-    """
-    fig, axes = plt.subplots(1, 4, figsize=(15.5, 3.9))
-
-    # A: the leftover against anterior-posterior position
-    xyz = np.array([coords.get(s, np.full(3, np.nan)) for s in structures])
-    ok = np.all(np.isfinite(xyz), axis=1)
-    axes[0].scatter(
-        xyz[ok, 0], res[ok], s=12, facecolor="0.6", edgecolor="0.25", linewidth=0.3
-    )
-    axes[0].axhline(0, color="0.85", lw=0.7)
-    axes[0].set_xlabel("structure centroid, anterior-posterior (mm)", fontsize=8)
-    axes[0].set_ylabel("residual (ranks)", fontsize=8)
-    if "A" not in passed:
-        title = "A. not tested: too few centroids"
-    elif passed["A"]:
-        title = "A. not a front-to-back gradient"
-    else:
-        title = "A. a gradient could explain it"
-    axes[0].set_title(title, fontsize=9)
-    tidy(axes[0])
-
-    # B: the leftover against structure volume
-    good = np.isfinite(sizes)
-    axes[1].scatter(
-        np.log10(sizes[good]),
-        res[good],
-        s=12,
-        facecolor="0.6",
-        edgecolor="0.25",
-        linewidth=0.3,
-    )
-    axes[1].axhline(0, color="0.85", lw=0.7)
-    axes[1].set_xlabel("log10 structure volume (20 um voxels)", fontsize=8)
-    axes[1].set_ylabel("residual (ranks)", fontsize=8)
-    title = "B. not small-structure noise" if passed["B"] else "B. size may drive it"
-    axes[1].set_title(title, fontsize=9)
-    tidy(axes[1])
-
-    # C: the agreement of every pair of adults, the median in red
-    axes[2].hist(pairs, bins=20, color="0.7", edgecolor="0.35", linewidth=0.4)
-    axes[2].axvline(float(np.median(pairs)), color=RED, lw=1.8)
-    axes[2].set_xlabel("leftover of one adult against another (Spearman)", fontsize=8)
-    axes[2].set_ylabel("pairs of adults", fontsize=8)
-    title = "C. every animal shows it" if passed["C"] else "C. one animal may carry it"
-    axes[2].set_title(title, fontsize=9)
-    tidy(axes[2])
-
-    # D: the naive leftover against the RWS one, with the identity line
-    axes[3].scatter(naive, rws, s=12, facecolor="0.6", edgecolor="0.25", linewidth=0.3)
-    lim = [min(naive.min(), rws.min()) - 3, max(naive.max(), rws.max()) + 3]
-    axes[3].plot(lim, lim, color="0.75", ls="--", lw=0.8)
-    axes[3].set_xlabel("leftover, five naive adults", fontsize=8)
-    axes[3].set_ylabel("leftover, five RWS adults", fontsize=8)
-    title = (
-        "D. not the whisker manipulation" if passed["D"] else "D. naive and RWS disagree"
-    )
-    axes[3].set_title(f"{title}\nrho {spearmanr(naive, rws).statistic:+.2f}", fontsize=9)
-    tidy(axes[3])
-
-    not_ruled_out = [k for k in "ABCD" if not passed.get(k, False)]
-    if not_ruled_out:
-        title = (
-            "Four ways the leftover could be an artefact; not ruled out: "
-            + ", ".join(not_ruled_out)
-        )
-    else:
-        title = "Four ways the leftover could be an artefact, and is not"
-    fig.suptitle(title, fontsize=9)
-    fig.tight_layout(rect=(0, 0, 1, 0.92))
-    save(fig, "fig4_controls.png")
-
-
-def figure_model_space(
-    curve: pd.DataFrame,
-    best_k: int,
-    explainable: float,
-    cubic: float,
-    quintic: float,
-    passed: dict[str, bool],
-) -> None:
-    """Draw controls F and E: the gene-space curve, and bending further."""
-    fig, axes = plt.subplots(1, 2, figsize=(11.0, 4.2))
-    ks = curve["n_components"]
-    axes[0].plot(ks, curve["r2"], color="0.6", lw=1.5, label="fitted")
-    axes[0].plot(ks, curve["cv_r2"], color=RED, lw=1.8, label="cross-validated")
-    axes[0].axhline(explainable, color="0.3", ls="--", lw=1.2)
-    axes[0].annotate(
-        "ceiling", (ks.iloc[-1], explainable), fontsize=7.5, ha="right", va="bottom"
-    )
-    axes[0].axvline(best_k, color="0.4", ls=":", lw=1.0)
-    axes[0].set_xlabel(
-        "components of the expression of the genes measured in every structure",
-        fontsize=8,
-    )
-    axes[0].set_ylabel("variance of the map explained", fontsize=8)
-    axes[0].legend(fontsize=7.5, frameon=False)
-    if passed["F"]:
-        title = "F. even the whole gene table falls short"
-    else:
-        title = "F. the whole gene table accounts for the map"
-    axes[0].set_title(
-        f"{title}\nthe gap between the two lines is overfitting", fontsize=9
-    )
-    tidy(axes[0])
-
-    axes[1].bar(
-        [0, 1], [cubic, quintic], color=[RED, "0.65"], edgecolor="0.25", linewidth=0.5
-    )
-    axes[1].set_xticks([0, 1])
-    axes[1].set_xticklabels(
-        ["the model\n(squares, cubes)", "bent further\n(to fifth powers)"], fontsize=8
-    )
-    axes[1].set_ylabel("cross-validated R2", fontsize=8)
-    if passed["E"]:
-        title = "E. and bending it further buys nothing"
-    else:
-        title = "E. and bending it further still pays"
-    axes[1].set_title(title, fontsize=9)
-    tidy(axes[1])
-    fig.tight_layout()
-    save(fig, "fig5_model_space.png")
-
-
-def figure_readings(table: pd.DataFrame, passed: bool) -> None:
-    """Draw control G: per reading, the map's and the leftover's replication, and R2."""
-    fig, ax = plt.subplots(figsize=(8.0, 4.0))
-    x = np.arange(len(table))
-    ax.bar(
-        x - 0.22,
-        table["map_replication"],
-        width=0.2,
-        color="0.55",
-        edgecolor="0.25",
-        linewidth=0.4,
-        label="the map replicates",
-    )
-    ax.bar(
-        x,
-        table["leftover_replication"],
-        width=0.2,
-        color=RED,
-        edgecolor="0.25",
-        linewidth=0.4,
-        label="the leftover replicates",
-    )
-    ax.bar(
-        x + 0.22,
-        table["r2"],
-        width=0.2,
-        color="0.8",
-        edgecolor="0.25",
-        linewidth=0.4,
-        label="the model explains (R2)",
-    )
-    ax.set_xticks(x)
-    ax.set_xticklabels([READING_LABELS[r] for r in table["reading"]], fontsize=7.5)
-    ax.set_ylim(0, 1.05)
-    ax.legend(fontsize=7.5, frameon=False, loc="lower right")
-    if passed:
-        title = "G. the same picture under every reading, not just zref"
-    else:
-        title = "G. not the same picture under every reading"
-    ax.set_title(title, fontsize=9)
-    tidy(ax)
-    fig.tight_layout()
-    save(fig, "fig6_readings.png")
-
-
-def mean_sizes(structures: list[str]) -> np.ndarray:
-    """Each structure's mean volume over the adults, in 20 um voxels."""
-    table = profiles.load_per_mouse()
-    sizes = table[table["mouse"].isin(ADULTS)].groupby("structure")["n_vox20"].mean()
-    return sizes.reindex(structures).to_numpy(float)
-
-
-def write_verdicts(verdicts: list[dict[str, str] | None]) -> None:
-    """Write controls.csv, a skipped control (None) left out, and print the verdict."""
-    pd.DataFrame([v for v in verdicts if v]).to_csv(CONTROLS, index=False)
+def write_verdicts(verdicts: list[dict[str, str]]) -> None:
+    """Write controls.csv and print the verdict."""
+    pd.DataFrame(verdicts).to_csv(CONTROLS, index=False)
     print(f"\n-> {CONTROLS}")
-    failed = [v["control"] for v in verdicts if v and v["verdict"] != "pass"]
+    failed = [v["control"] for v in verdicts if v["verdict"] != "pass"]
     verdict = "every control passes" if not failed else f"look closer at {failed}"
     print("verdict: " + verdict)
 
 
-def main() -> None:
-    """Run the seven controls, write their verdicts and draw them."""
+def main() -> dict:
+    """Run the seven controls and the variants, and write their tables.
+
+    Returns what the working figures draw: the leftover, the centroids and sizes of
+    the structures, every pair of adults' agreement, the two groups' leftovers,
+    each control's verdict, control F's curve and pick, the ceiling, the bent
+    models' R2 and control G's readings.
+    """
     OUT.mkdir(parents=True, exist_ok=True)
     inputs = load_inputs()
     s = inputs.structures
     covariates, _, _ = covariates_for(inputs)
-    xs = model(covariates, inputs.terms)
+    columns = model_columns(covariates, inputs.terms)
     splits = half_splits()
     y = full_map(inputs.nano)
-    res = residual(y, xs)
+    leftover = residual(y, columns)
     _, explainable = ceiling(inputs.nano, splits)
     print(
         f"{len(s)} structures, ceiling {explainable:.3f}, the model's leftover "
-        f"replicates at {replication(inputs.nano, xs, splits):.3f}"
+        f"replicates at {replication(inputs.nano, columns, splits):.3f}"
     )
 
     # the centroids in one hemisphere, and each structure's mean volume
-    centroids = load_centroids()
-    coords = {
-        name: centroids.loc[name, ["ap_mm", "dv_mm", "ml_mm"]].to_numpy(float)
-        for name in s
-        if name in centroids.index
-    }
+    xyz = structures.centroid_xyz(s)
     sizes = mean_sizes(s)
 
+    # the seven controls
     verdicts = [
-        control_a_space(res, s, inputs.nano, xs, coords, splits),
-        control_b_size(res, sizes),
+        control_a_space(leftover, inputs.nano, columns, xyz, splits),
+        control_b_size(leftover, sizes),
     ]
-    vc, pairs = control_c_mice(inputs.nano, xs)
-    vd, naive, rws = control_d_groups(inputs.nano, xs)
+    vc, pairs = control_c_mice(inputs.nano, columns)
+    vd, naive, rws = control_d_groups(inputs.nano, columns)
     ve, _, cubic, quintic = control_e_curvature(y, covariates, inputs.terms)
-    vf, curve, best_k, f_calibration, f_summary = control_f_gene_space(
+    vf, curve, f_calibration, f_summary = control_f_gene_space(
         inputs, y, explainable, splits
     )
     f_calibration.to_csv(GENE_SPACE_CALIBRATION, index=False)
     pd.DataFrame([f_summary]).to_csv(GENE_SPACE_SUMMARY, index=False)
-    vg, readings = control_g_readings(inputs, xs, splits)
+    vg, readings = control_g_readings(inputs, columns, splits)
     verdicts += [vc, vd, ve, vf, vg]
     write_verdicts(verdicts)
     curve.to_csv(GENE_SPACE, index=False)
     readings.to_csv(READINGS, index=False)
 
-    passed = {v["control"][0]: v["verdict"] == "pass" for v in verdicts if v}
-    figure_artefacts(res, s, sizes, pairs, naive, rws, coords, passed)
-    figure_model_space(curve, best_k, explainable, cubic, quintic, passed)
-    figure_readings(readings, passed["G"])
-
     # the main model under other folds, its check rows, and on other structures
-    table = variants(inputs, covariates, y, explainable, coords)
+    table = variants(inputs, covariates, y, explainable, xyz)
     table.to_csv(VARIANTS, index=False)
     print("\nThe main model and its variants (share of the reproducible map):")
     for r in table.itertuples():
@@ -1135,3 +947,18 @@ def main() -> None:
             f"{r.density_alone:6.1%}), + auto {r.plus_autofluorescence:+5.1%}, "
             f"left {r.left:6.1%}{spread}"
         )
+    return dict(
+        leftover=leftover,
+        xyz=xyz,
+        sizes=sizes,
+        pairs=pairs,
+        naive=naive,
+        rws=rws,
+        passed={v["control"][0]: v["verdict"] == "pass" for v in verdicts},
+        curve=curve,
+        k_most=f_summary["k_most"],
+        explainable=explainable,
+        cubic=cubic,
+        quintic=quintic,
+        readings=readings,
+    )

@@ -57,7 +57,8 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
 Measures what is left of April's headline (the category violins and their ANOVA)
 on today's inputs and against the map's surrogates, gathers the numbers every step
 of the ISH line wrote into one table, and draws the overview and the index of the
-figures (the method is in sepmap/ish/overview.py). Reads only tables; run it last.
+figures (the methods are in sepmap/ish/april_headline.py, sepmap/ish/numbers.py and
+sepmap/ish/overview.py). Reads only tables; run it last.
 Writes, in adult_v2/ish_analysis/ under the data root:
 
     tables/april_headline.csv          P9's genes: group, April's rho, today's rho
@@ -82,26 +83,26 @@ import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from sepmap import config, plotting
-from sepmap.ish import gene_ranking, overview
+from sepmap import config, plotting, structures
+from sepmap.ish import april_headline, gene_ranking, numbers, overview, robustness
 from sepmap.ish import plotting as ish_plotting
-from sepmap.structures import TABLES
+from sepmap.ish.figure_index import FIGURE_NUMBERS, figure_file, figure_path
 
-OUT = config.DATA / "adult_v2" / "ish_analysis"
+ISH_ANALYSIS = config.SETTINGS["ish_analysis"]
 
 
 def main():
     """Print the settings, measure April's headline, gather the numbers, draw."""
     config.print_settings({})
-    figures = OUT / "figures"
+    q = ISH_ANALYSIS["q"]
 
     # April's headline: P9's genes then and now, the ANOVA under each choice
     ranking = gene_ranking.load_ranking()
-    headline = overview.headline_table(overview.load_p9_headline(), ranking)
-    robustness_rows = pd.read_csv(TABLES / "ranking_robustness.csv")
-    anova = overview.anova_table(headline, robustness_rows)
-    headline.to_csv(overview.HEADLINE, index=False)
-    anova.to_csv(overview.HEADLINE_ANOVA, index=False)
+    robustness_rows = robustness.load_robustness()
+    headline = april_headline.headline_table(april_headline.load_p9_headline(), ranking)
+    anova = april_headline.anova_table(headline, robustness_rows)
+    headline.to_csv(april_headline.HEADLINE, index=False)
+    anova.to_csv(april_headline.HEADLINE_ANOVA, index=False)
     first = anova.iloc[0]
     print(
         f"April: {first['n_genes']} genes, group ANOVA p {first['p']:.4f}; "
@@ -110,8 +111,8 @@ def main():
 
     # the same groups today, against the surrogates of the map
     null, null_genes = gene_ranking.load_null_rho("nano")
-    groups, f_info = overview.headline_null(headline, null, null_genes)
-    groups.to_csv(overview.HEADLINE_GROUPS, index=False)
+    groups, f_info = april_headline.headline_null(headline, null, null_genes)
+    groups.to_csv(april_headline.HEADLINE_GROUPS, index=False)
     print(
         f"against the surrogates: F {f_info['f']:.2f} over {f_info['n_genes']} genes, "
         f"spatial p {f_info['p_spatial']:.4f}; {null.shape[1]} surrogates"
@@ -119,27 +120,27 @@ def main():
 
     # the numbers of this step, then every step's in one table
     per_adult = pd.read_csv(gene_ranking.PER_ADULT)
-    summary = pd.read_csv(TABLES / "robustness_summary.csv")
+    summary = robustness.load_summary()
     mine = pd.concat(
         [
-            overview.headline_numbers(headline, anova, groups, f_info),
+            april_headline.headline_numbers(headline, anova, groups, f_info),
             overview.leftover_extremes(),
             overview.ranking_extras(ranking, per_adult, summary, robustness_rows),
             overview.gene_extras(),
         ],
         ignore_index=True,
     )
-    mine.to_csv(TABLES / "numbers_overview.csv", index=False)
-    numbers = overview.gather_numbers()
-    numbers.to_csv(overview.NUMBERS, index=False)
-    with open(overview.NUMBERS_TXT, "w", encoding="utf-8") as fh:
-        fh.write("\n".join(overview.text_lines(numbers)) + "\n")
-    n = overview.lookup(numbers)
-    print(f"numbers: {len(numbers)} from {numbers['step'].nunique()} steps")
+    mine.to_csv(numbers.numbers_path("overview"), index=False)
+    gathered = numbers.gather_numbers()
+    gathered.to_csv(numbers.ALL_NUMBERS, index=False)
+    numbers.ALL_NUMBERS_TXT.write_text(
+        "\n".join(numbers.text_lines(gathered)) + "\n", encoding="utf-8"
+    )
+    n = numbers.lookup(gathered)
+    print(f"numbers: {len(gathered)} from {gathered['step'].nunique()} steps")
 
     # figure 16 and its detailed version: April's headline; figure 00: the
     # overview; the index
-    q = overview.ISH_ANALYSIS["q"]
     fig = ish_plotting.plot_april_headline(
         headline,
         anova,
@@ -147,7 +148,7 @@ def main():
         f_info,
         null.shape[1],
         q,
-        save=figures / ish_plotting.figure_file("april_headline"),
+        save=figure_path("april_headline"),
     )
     plt.close(fig)
     fig = ish_plotting.plot_april_headline_detail(
@@ -155,28 +156,23 @@ def main():
         anova,
         groups,
         f_info,
-        overview.HEADLINE_ORDER,
+        april_headline.HEADLINE_ORDER,
         null.shape[1],
         q,
-        save=figures / ish_plotting.figure_file("april_headline_detail"),
+        save=figure_path("april_headline_detail"),
     )
     plt.close(fig)
     fig = ish_plotting.plot_overview(
         overview.overview_content(n),
         overview.figure_map(),
-        save=figures / ish_plotting.figure_file("overview"),
+        save=figure_path("overview"),
     )
     plt.close(fig)
-    with open(overview.INDEX, "w", encoding="utf-8") as fh:
-        fh.write(overview.figure_index(n))
-    missing = [
-        key
-        for key in ish_plotting.FIGURES
-        if not (figures / ish_plotting.figure_file(key)).exists()
-    ]
+    overview.INDEX.write_text(overview.figure_index(n), encoding="utf-8")
+    missing = [key for key in FIGURE_NUMBERS if not figure_path(key).exists()]
     keys = ("overview", "april_headline", "april_headline_detail")
-    drawn = [ish_plotting.figure_file(k) for k in keys]
-    print(f"figures: {', '.join(drawn)} and the index, in {figures}")
+    drawn = [figure_file(k) for k in keys]
+    print(f"figures: {', '.join(drawn)} and the index, in {structures.FIGURES}")
     if missing:
         print(f"  warning: the index names figures not drawn yet: {', '.join(missing)}")
 

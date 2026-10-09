@@ -96,77 +96,46 @@ import pandas as pd
 
 from sepmap import config, plotting
 from sepmap.adult import beyond_density, profiles, synaptome
+from sepmap.adult import plotting as adult_plotting
 from sepmap.ish import gene_table
-from sepmap.ish import plotting as ish_plotting
+from sepmap.ish.figure_index import figure_path
 from sepmap.structures import load_structure_set
 from sepmap.volumes.per_mouse import annotation_20
 
-FIGURES = config.DATA / "adult_v2" / "ish_analysis" / "figures"
-
-
-def place_samples():
-    """Read the source, check it, and place each sample in a structure of the CCF.
-
-    Returns the sample table, the CCF ontology and the structures of the annotation.
-    """
-    density, info = synaptome.load_source()
-    samples = synaptome.sample_table(density, info)
-    print(
-        f"source read: {density.shape[0]} subtypes x {density.shape[1]} samples, each "
-        "subtype divided by its largest value; "
-        f"{int((~samples['measured']).sum())} sample with no punctum at all"
-    )
-    ontology = synaptome.load_ontology()
-    structures = synaptome.structure_ids()
-    samples = synaptome.match_samples(samples, ontology, structures)
-    by = samples["matched_by"].value_counts().to_dict()
-    print(
-        f"samples placed: {int(samples['used'].sum())} of {len(samples)} in "
-        f"{samples.loc[samples['used'], 'structure'].nunique()} structures "
-        f"({by.get('id', 0)} with the source's Allen id, {by.get('acronym', 0)} found "
-        "by acronym)"
-    )
-    left_out = samples.loc[~samples["used"], "reason"].str.split(": ", n=1, expand=True)
-    for kind, part in left_out.groupby(0, sort=False):
-        print(f"  {len(part):3d}  {kind}: " + "; ".join(sorted(set(part[1]))))
-    return samples, ontology, structures
+# the share of the fit the measured density must cover to enter the main model
+BEYOND = config.SETTINGS["beyond"]
+ISH = config.SETTINGS["ish"]
 
 
 def agreement_terms(inputs, set_table):
-    """The maps each density is compared with: on the structures of the fit, the
-    density terms, Gria1, autofluorescence and the map as the fit builds them; on
-    the declared set, Gria1's profile and the two maps. Returns both and the
-    declared structures."""
+    """The maps each density is compared with, on the fit and on the declared set.
+
+    On the structures of the fit, the density terms, Gria1, autofluorescence and
+    the map as the fit builds them; on the declared set, Gria1's profile and the
+    two maps. Returns both and the declared structures.
+    """
     covariates, _, _ = beyond_density.build_covariates(
         inputs.expr, inputs.role, inputs.auto, inputs.structures
     )
+    gene = ISH["control_gene"]
     fit_terms = {
         name: pd.Series(covariates[key], index=inputs.structures)
         for name, key in (
             ("markers", "markers"),
             ("psd_pc1", "psd_pc1"),
-            ("Gria1", "Gria1"),
+            (gene, gene),
             ("autofluorescence", "autofluo"),
         )
     }
     fit_terms["nano"] = pd.Series(inputs.nano.mean(axis=0), index=inputs.structures)
     profile = profiles.load_profile()
     set_terms = {
-        "Gria1": pd.Series(gene_table.load_profiles()["Gria1"]),
+        gene: pd.Series(gene_table.load_profiles()[gene]),
         "autofluorescence": profile["zref_auto"],
         "nano": profile["zref_nano"],
     }
     declared = sorted(set_table.loc[set_table["in_set"], "structure"])
     return fit_terms, set_terms, declared
-
-
-def agreement_table(table, fit_terms, set_terms, fit, declared):
-    """agreement.csv: each density against the maps of the fit, the densities
-    against each other, and against the maps of the declared set."""
-    rows = synaptome.agreement_rows(table, fit_terms, fit, "fit")
-    rows += synaptome.measure_rows(table, fit, "fit")
-    rows += synaptome.agreement_rows(table, set_terms, declared, "declared")
-    return pd.DataFrame(rows)
 
 
 def main(offline):
@@ -182,8 +151,23 @@ def main(offline):
     )
 
     # each sample placed in a structure through the CCF ontology
-    samples, ontology, structures = place_samples()
+    samples, ontology, structures, shape = synaptome.placed_samples()
     samples.to_csv(synaptome.SAMPLES, index=False)
+    print(
+        f"source read: {shape[0]} subtypes x {shape[1]} samples, each subtype divided "
+        f"by its largest value; {int((~samples['measured']).sum())} sample with no "
+        "punctum at all"
+    )
+    by = samples["matched_by"].value_counts().to_dict()
+    print(
+        f"samples placed: {int(samples['used'].sum())} of {len(samples)} in "
+        f"{samples.loc[samples['used'], 'structure'].nunique()} structures "
+        f"({by.get('id', 0)} with the source's Allen id, {by.get('acronym', 0)} found "
+        "by acronym)"
+    )
+    left_out = samples.loc[~samples["used"], "reason"].str.split(": ", n=1, expand=True)
+    for kind, part in left_out.groupby(0, sort=False):
+        print(f"  {len(part):3d}  {kind}: " + "; ".join(sorted(set(part[1]))))
 
     # the density per structure, weighted by the units' voxels in the 20 um CCF
     parent = ontology["parent"].to_dict()
@@ -216,20 +200,22 @@ def main(offline):
     print(
         f"coverage: fit {n_fit_measured} of {n_fit} ({n_fit_measured / n_fit:.0%}), "
         f"declared {n_set_measured} of {n_set}; the rule asks "
-        f"{synaptome.BEYOND['min_psd95_coverage']:.0%}, so PSD95 {verdict}"
+        f"{BEYOND['min_psd95_coverage']:.0%}, so PSD95 {verdict}"
     )
 
     # agreement with the terms of the fit, and on the declared set
     fit_terms, set_terms, declared = agreement_terms(inputs, set_table)
-    agreement = agreement_table(table, fit_terms, set_terms, inputs.structures, declared)
+    agreement = synaptome.agreement_table(
+        table, fit_terms, set_terms, inputs.structures, declared
+    )
     agreement.to_csv(synaptome.AGREEMENT, index=False)
     hemispheres = synaptome.hemisphere_agreement(table, inputs.structures)
-    psd95 = agreement[
+    measured = agreement[
         (agreement["density"] == synaptome.MEASURE) & (agreement["structures"] == "fit")
     ]
     print(
-        "agreement of psd95 on the fit (Spearman): "
-        + ", ".join(f"{r.term} {r.rho:+.2f}" for r in psd95.itertuples())
+        f"agreement of {synaptome.MEASURE} on the fit (Spearman): "
+        + ", ".join(f"{r.term} {r.rho:+.2f}" for r in measured.itertuples())
         + f"; left against right {hemispheres[1]:+.2f} (n = {hemispheres[0]})"
     )
 
@@ -238,17 +224,16 @@ def main(offline):
     numbers.to_csv(synaptome.NUMBERS, index=False)
 
     # figure 14s; figure 14 needs analysis 4's check rows and is drawn at step 26
-    path = FIGURES / ish_plotting.figure_file("synaptome_detail")
-    fig = ish_plotting.plot_synaptome_detail(
+    fig = adult_plotting.plot_synaptome_detail(
         table,
         coverage,
         agreement,
         fit_terms["markers"],
-        synaptome.BEYOND["min_psd95_coverage"],
-        save=path,
+        BEYOND["min_psd95_coverage"],
+        save=figure_path("synaptome_detail"),
     )
     plt.close(fig)
-    print(f"figure: {path}")
+    print(f"figure: {figure_path('synaptome_detail')}")
 
 
 if __name__ == "__main__":

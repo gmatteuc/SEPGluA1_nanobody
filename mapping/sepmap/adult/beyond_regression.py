@@ -1,7 +1,8 @@
 """The regression of analysis 4 shown as a regression: map, prediction, leftover.
 
 adult.beyond_density reports the model's summary numbers (R2, replication) and
-adult.beyond_controls its controls; this module shows the fit itself, three ways:
+adult.beyond_controls its controls; this module writes the fit itself, for three
+views of it (drawn by adult.plotting):
 
     1  the map against the prediction, one dot per structure, with the identity
        line. A good model puts the cloud on that line; the spread away from it is
@@ -11,39 +12,22 @@ adult.beyond_controls its controls; this module shows the fit itself, three ways
     3  the same three quantities painted back onto the brain (map, prediction and
        leftover), because the leftover is a spatial claim.
 
-What is regressed on what, the main model of 8 October (adult.beyond_density
-has the reasons and the rule that picks the density):
-
-    y            the ten adults' mean zref per structure, ranked
-    predictors   one value per structure each, entered as x, x^2 and x^3:
-
-      Gria1      the gene of the stained protein, GluA1: the abundance term
-      markers    the synaptic marker genes of [beyond] markers, chosen by hand from
-                 the panel, presynaptic and postsynaptic, as the mean of their ranks.
-                 A hand-made list is arguable, hence the next predictor
-      psd_pc1    the first principal component of the postsynaptic-density genes
-                 of the ontology panel (role control_psd) measured in every
-                 structure. No gene is chosen individually: the component is
-                 whatever those genes have most in common
-      autofluo   not a gene: the autofluorescence of the same ten brains per
-                 structure, the only predictor measured in the tissue the map comes
-                 from
-
-    markers and psd_pc1 are synapse density from mRNA, the panel; the measured
-    PSD95 density takes their place when the rule of [beyond] says so.
+What is regressed on what is the main model of adult.beyond_density, which has the
+predictors and the reasons: the ten adults' mean zref per structure, ranked, on
+Gria1, synapse density (the mRNA panel of markers and psd_pc1, or the measured PSD95
+density when the rule of [beyond] says so) and autofluorescence, each bent (x, x^2,
+x^3).
 
 Guided figure 04 (adult.beyond_figures) draws its maps from regression_table.csv.
 
 Writes, in adult_v2/ish_analysis/beyond/ under the data root:
 
     regression_table.csv    every structure: map, prediction, leftover (ranks)
-    E_regression.png        the fit and its diagnostic (a working figure)
-    F_maps.png              map, prediction and leftover on the brain (working)
 
-Run by run_beyond_regression.py.
+Run by run_beyond_regression.py, which draws the working figures E_regression.png
+(the fit and its diagnostic) and F_maps.png (the three maps on the brain).
 """
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
@@ -54,13 +38,11 @@ from sepmap.adult.beyond_density import (
     cv_r2,
     full_map,
     load_inputs,
-    model,
+    model_columns,
     r_squared,
     residual,
-    save,
 )
 from sepmap.config import SETTINGS
-from sepmap.plotting import DARK_GREY, MID_GREY, RED, tidy
 from sepmap.volumes.per_mouse import annotation_20, structure_terms
 from sepmap.volumes.to_ccf import CCF_CROP
 
@@ -74,65 +56,23 @@ PLANES = tuple(BEYOND_REGRESSION["planes"])
 REGRESSION = OUT / "regression_table.csv"
 
 
-def paint(
-    plane: int, value_by_name: dict[str, float], names: dict[int, str]
-) -> np.ndarray:
-    """One coronal slice with each structure filled by its value, NaN elsewhere."""
-    labels = annotation_20("ccf")[plane]
-    out = np.full(labels.shape, np.nan, np.float32)
-    for idx in np.unique(labels):
-        if idx == 0:
-            continue
-        v = value_by_name.get(names.get(int(idx), ""))
-        if v is not None:
-            out[labels == idx] = v
-    return out
+def coronal_planes() -> list[dict]:
+    """The PLANES as the maps draw them, one dict each.
 
-
-def draw_fit(
-    ax: plt.Axes,
-    observed: np.ndarray,
-    predicted: np.ndarray,
-    res: np.ndarray,
-    structures: list[str],
-    fitted_r2: float,
-    cv: float,
-) -> None:
-    """Draw observed against predicted, the five largest residuals named."""
-    lim = [
-        min(observed.min(), predicted.min()) - 4,
-        max(observed.max(), predicted.max()) + 4,
+    lab: the parcellation indices of the plane, (DV, ML); ccf_plane: its number in
+    the full CCF at 10 um, as the route's other figures give it; names: the
+    structure of each index.
+    """
+    names, _, _ = structure_terms()
+    atlas = annotation_20("ccf")
+    return [
+        dict(lab=np.asarray(atlas[p]), ccf_plane=2 * (p + CCF_CROP[0]), names=names)
+        for p in PLANES
     ]
-    ax.plot(lim, lim, color=MID_GREY, ls="--", lw=1.0, zorder=1)
-    ax.scatter(
-        predicted,
-        observed,
-        s=16,
-        facecolor=DARK_GREY,
-        edgecolor="0.2",
-        linewidth=0.3,
-        zorder=2,
-    )
-    worst = np.argsort(-np.abs(res))[:5]
-    for i in worst:
-        ax.annotate(
-            structures[i][:24],
-            (predicted[i], observed[i]),
-            fontsize=6.5,
-            color=RED,
-            xytext=(4, 2),
-            textcoords="offset points",
-        )
-    ax.set_xlim(lim)
-    ax.set_ylim(lim)
-    ax.set_xlabel("predicted from Gria1 and synapse density (rank)", fontsize=8.5)
-    ax.set_ylabel("nano map (rank)", fontsize=8.5)
-    ax.set_title(f"the fit\nR2 {fitted_r2:.2f} fitted, {cv:.2f} predicted", fontsize=9.5)
-    tidy(ax)
 
 
 def diagnostic(
-    predicted: np.ndarray, res: np.ndarray
+    predicted: np.ndarray, leftover: np.ndarray
 ) -> tuple[float, float, float, float]:
     """The tilt and the fan of the residuals against the prediction.
 
@@ -140,8 +80,8 @@ def diagnostic(
     against the prediction; a model that is incomplete rather than mis-specified
     has neither.
     """
-    tilt = spearmanr(predicted, res)
-    fan = spearmanr(predicted, np.abs(res))
+    tilt = spearmanr(predicted, leftover)
+    fan = spearmanr(predicted, np.abs(leftover))
     return (
         float(tilt.statistic),
         float(tilt.pvalue),
@@ -150,180 +90,13 @@ def diagnostic(
     )
 
 
-def draw_diagnostic(
-    ax: plt.Axes, predicted: np.ndarray, res: np.ndarray, misspecified: bool
-) -> None:
-    """Draw the residual against the prediction, the standard diagnostic.
-
-    The title follows `misspecified`, whether a tilt or a fan reached
-    beyond_regression.diagnostic_p.
-    """
-    ax.axhline(0, color=MID_GREY, lw=1.0)
-    ax.scatter(
-        predicted,
-        res,
-        s=16,
-        facecolor=DARK_GREY,
-        edgecolor="0.2",
-        linewidth=0.3,
-        zorder=2,
-    )
-    ax.set_xlabel("predicted (rank)", fontsize=8.5)
-    ax.set_ylabel("residual (ranks)", fontsize=8.5)
-    if misspecified:
-        p_max = BEYOND_REGRESSION["diagnostic_p"]
-        title = (
-            f"the diagnostic\na tilt or a fan (p < {p_max:g}), so the model\n"
-            "may be mis-specified"
-        )
-    else:
-        title = (
-            "the diagnostic\nno tilt and no fan, so the model is\n"
-            "incomplete rather than mis-specified"
-        )
-    ax.set_title(title, fontsize=9.5)
-    tidy(ax)
-
-
-def draw_leftover(ax: plt.Axes, res: np.ndarray) -> None:
-    """Draw the distribution of the residuals, the leftover."""
-    ax.hist(res, bins=26, color=MID_GREY, edgecolor="0.3", linewidth=0.4)
-    ax.axvline(0, color=DARK_GREY, lw=1.4)
-    ax.set_xlabel("residual (ranks)", fontsize=8.5)
-    ax.set_ylabel("structures", fontsize=8.5)
-    ax.set_title(
-        f"the leftover\nspread {res.std():.1f} ranks over {len(res)} structures",
-        fontsize=9.5,
-    )
-    tidy(ax)
-
-
-def panel_e(
-    observed: np.ndarray,
-    predicted: np.ndarray,
-    res: np.ndarray,
-    structures: list[str],
-    fitted_r2: float,
-    cv: float,
-    misspecified: bool,
-) -> None:
-    """Draw panel E: observed against predicted, the diagnostic, the residuals."""
-    fig, axes = plt.subplots(1, 3, figsize=(13.4, 4.3))
-
-    # observed against predicted, the five largest residuals named; the residual
-    # against the prediction; the residuals
-    draw_fit(axes[0], observed, predicted, res, structures, fitted_r2, cv)
-    draw_diagnostic(axes[1], predicted, res, misspecified)
-    draw_leftover(axes[2], res)
-
-    fig.suptitle(
-        "E.  The regression of analysis 4: the nano map predicted from receptor "
-        "mRNA and synaptic density",
-        fontsize=10,
-    )
-    fig.tight_layout(rect=(0, 0, 1, 0.93))
-    save(fig, "E_regression.png")
-
-
-def draw_map(
-    fig: plt.Figure,
-    axes: np.ndarray,
-    r: int,
-    c: int,
-    plane: int,
-    img: np.ndarray,
-    title: str,
-    cmap: str,
-    span: float | None,
-    structures: list[str],
-) -> None:
-    """Draw one map, plane `r` of column `c`, with the column's colour bar at the bottom.
-
-    `span` is the symmetric limit of the residual, None for the ranks of the others.
-    """
-    ax = axes[r, c]
-    if span is None:
-        lo = 1 - BEYOND_REGRESSION["floor"] * (len(structures) - 1)
-        im = ax.imshow(
-            img, cmap=cmap, vmin=lo, vmax=len(structures), interpolation="nearest"
-        )
-    else:
-        im = ax.imshow(img, cmap=cmap, vmin=-span, vmax=span, interpolation="nearest")
-
-    # the image rasterised in the EPS, the text kept vector; NaN is
-    # transparent, so the black face is the ground
-    im.set_rasterized(True)
-    ax.set_facecolor("black")
-    ax.set_xticks([])
-    ax.set_yticks([])
-    for side in ax.spines.values():
-        side.set_visible(False)
-    if r == 0:
-        ax.set_title(title, fontsize=9)
-    if c == 0:
-        # the plane in the full CCF at 10 um, as the route's other figures give it
-        ax.set_ylabel(f"CCF plane {2 * (plane + CCF_CROP[0])} / 10 um", fontsize=8)
-    if r == len(PLANES) - 1:
-        cb = fig.colorbar(im, ax=ax, fraction=0.04, pad=0.02, orientation="horizontal")
-        cb.ax.tick_params(labelsize=6.5)
-        if span is None:
-            label = "rank among structures"
-        else:
-            label = "observed minus predicted (ranks)"
-        cb.set_label(label, fontsize=7)
-        if span is None:
-            # the floor sits below rank 1 so that nothing draws as black;
-            # the ticks still stop at the real range
-            cb.set_ticks([1, 25, 50, 75, 100, len(structures)])
-
-
-def panel_f(
-    observed: np.ndarray, predicted: np.ndarray, res: np.ndarray, structures: list[str]
-) -> None:
-    """Draw panel F: observed, predicted and residual maps on the PLANES."""
-    names, _, _ = structure_terms()
-
-    # (title, value per structure, colormap, symmetric limit or None for ranks)
-    maps = [
-        ("the nano map", dict(zip(structures, observed)), "hot", None),
-        (
-            "predicted from Gria1\nand synapse density",
-            dict(zip(structures, predicted)),
-            "hot",
-            None,
-        ),
-        (
-            "what is left over",
-            dict(zip(structures, res)),
-            "RdBu_r",
-            float(np.abs(res).max()),
-        ),
-    ]
-
-    fig, axes = plt.subplots(len(PLANES), 3, figsize=(10.2, 3.2 * len(PLANES)))
-    axes = np.atleast_2d(axes)
-    for r, plane in enumerate(PLANES):
-        for c, (title, values, cmap, span) in enumerate(maps):
-            img = paint(plane, values, names)
-            draw_map(fig, axes, r, c, plane, img, title, cmap, span, structures)
-
-    fig.suptitle(
-        "F.  The same three quantities on the brain.  Red in the third column is "
-        "a higher nano rank than\nGria1 and synapse density predict, blue is lower.  "
-        "Black is outside the brain, or a structure the\nfit does not use.",
-        fontsize=10,
-    )
-    fig.tight_layout(rect=(0, 0, 1, 0.94))
-    save(fig, "F_maps.png")
-
-
 def regression_table(
     structures: list[str],
     acronym: dict[str, str],
     division: dict[str, str],
     observed: np.ndarray,
     predicted: np.ndarray,
-    res: np.ndarray,
+    leftover: np.ndarray,
 ) -> pd.DataFrame:
     """regression_table.csv: every structure, the largest leftover first."""
     table = pd.DataFrame(
@@ -333,7 +106,7 @@ def regression_table(
             division=[division.get(s, "") for s in structures],
             observed_rank=observed,
             predicted_rank=predicted,
-            residual=res,
+            residual=leftover,
         )
     )
     return table.sort_values("residual", ascending=False, ignore_index=True)
@@ -348,17 +121,22 @@ def load_regression() -> pd.DataFrame:
     return pd.read_csv(REGRESSION, keep_default_na=False, na_values=[""])
 
 
-def main() -> None:
-    """Fit the model, write the table, and draw the working panels E and F."""
+def main() -> dict:
+    """Fit the main model, write the table, and print the diagnostic.
+
+    Returns what the working figures draw: the map, the prediction and the leftover
+    (ranks), the structures, the R2 fitted and held out, and whether the diagnostic
+    calls the model mis-specified.
+    """
     OUT.mkdir(parents=True, exist_ok=True)
     inputs = load_inputs()
     structures = inputs.structures
     covariates, psd, _ = covariates_for(inputs)
-    xs = model(covariates, inputs.terms)
+    columns = model_columns(covariates, inputs.terms)
     observed = full_map(inputs.nano)
-    res = residual(observed, xs)
-    predicted = observed - res
-    fitted, cv = r_squared(observed, xs), cv_r2(observed, xs)
+    leftover = residual(observed, columns)
+    predicted = observed - leftover
+    fitted, cv = r_squared(observed, columns), cv_r2(observed, columns)
     terms = [", ".join(inputs.terms[group]) for group in inputs.terms]
     print(
         f"{len(structures)} structures; predictors: {'; '.join(terms)} (psd_pc1 of "
@@ -368,17 +146,24 @@ def main() -> None:
         f"  R2 {fitted:.3f} fitted, {cv:.3f} cross-validated; "
         f"map against prediction rho {spearmanr(observed, predicted).statistic:.3f}"
     )
-    tilt, p_tilt, fan, p_fan = diagnostic(predicted, res)
+    tilt, p_tilt, fan, p_fan = diagnostic(predicted, leftover)
     misspecified = min(p_tilt, p_fan) < BEYOND_REGRESSION["diagnostic_p"]
     print(
-        f"  residual spread {res.std():.1f} ranks; "
+        f"  residual spread {leftover.std():.1f} ranks; "
         f"residual against predicted rho {tilt:+.3f} (p {p_tilt:.2g}), "
         f"|residual| against predicted rho {fan:+.3f} (p {p_fan:.2g}) "
         "(both near 0 when the model is not mis-specified)"
     )
     regression_table(
-        structures, inputs.acronym, inputs.division, observed, predicted, res
+        structures, inputs.acronym, inputs.division, observed, predicted, leftover
     ).to_csv(REGRESSION, index=False)
     print(f"  -> {REGRESSION}")
-    panel_e(observed, predicted, res, structures, fitted, cv, misspecified)
-    panel_f(observed, predicted, res, structures)
+    return dict(
+        observed=observed,
+        predicted=predicted,
+        leftover=leftover,
+        structures=structures,
+        fitted=fitted,
+        cv=cv,
+        misspecified=misspecified,
+    )

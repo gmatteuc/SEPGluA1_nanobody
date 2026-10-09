@@ -9,12 +9,9 @@ Allen map disagreeing with another, and what it looks like.
 
     nano map  ~  Gria1 + synapse density + autofluorescence  ->  leftover
 
-This is the main model, fixed on 8 October 2026 before it was run, when each
-term's share alone and the four-subunit model were known from the first run that
-day (settings.toml [beyond]); the check rows beside it ([beyond.variants]) are run
-by adult.beyond_controls.
-
-The steps, each printing its numbers (the working figures fig0 to fig3 draw them):
+This is the main model of settings.toml [beyond], fixed before it was run
+(docs/ISH_ANALYSIS.md, section 4.1); the check rows beside it ([beyond.variants])
+are run by adult.beyond_controls. The steps, each printing its numbers:
 
     0  the structures   the declared set (sepmap.structures), less the structures
                         where a subunit or marker gene has no ISH value; the
@@ -32,14 +29,14 @@ The steps, each printing its numbers (the working figures fig0 to fig3 draw them
 
 Everything is one number per structure, on ranks:
 
-    y            the ten adults' mean zref per structure (the declared reference,
-                 A1), ranked
+    y            the ten adults' mean zref per structure (the declared reference),
+                 ranked
     abundance    Gria1 (beyond.abundance). The mice carry SEP-GluA1, and Gria1
                  alone encodes GluA1; Gria2 to Gria4 encode partner subunits the
                  nanobody does not see, whose availability sets GluA1's assembly
                  and trafficking, so they belong to what the leftover may hold,
-                 not to abundance. The four subunits as four terms, the model of
-                 the run before, are the variant four_subunits
+                 not to abundance. The four subunits as four terms are the variant
+                 four_subunits
     density      synapse density, measured or from mRNA. Measured: the density of
                  PSD95 puncta (adult.synaptome, Zhu et al. 2018), which counts
                  excitatory synapses where they are. From Allen mRNA, the panel:
@@ -52,7 +49,7 @@ Everything is one number per structure, on ranks:
                  beyond.min_psd95_coverage of the structures of the fit, and the
                  fit then runs on the structures it covers (main_model); below that
                  the panel stays, on every structure of the fit, and PSD95 is a
-                 variant. It covers 77 of 126, so the panel stays
+                 variant
     autofluo     the ten adults' mean autofluorescence zref, the only predictor
                  measured in the same sections as the map
     bent         every predictor enters as x, x^2 and x^3. The rank relationships
@@ -80,25 +77,19 @@ not squared again. Then
     explained    CV R2 / ceiling        the share of the reproducible map predicted
     left         1 - CV R2 / ceiling    the share not predicted: the leftover
 
-The leftover is quoted as a range (adult.beyond_figures, a jackknife over the
-structures) beside the calibration floor of adult.beyond_calibration: what the same
-model leaves of a map that is exactly Gria1 and synapse density, measured with other
-Allen experiments. Part of any leftover is one Allen map disagreeing with another,
-and the floor says how much; the difference between the two is taken on the same
-structures and resampled with them.
+The leftover is quoted as a range (adult.beyond_calibration, a jackknife over the
+structures) beside the calibration floor: what the same model leaves of a map that
+is exactly Gria1 and synapse density, measured with other Allen experiments. Part
+of any leftover is one Allen map disagreeing with another, and the floor says how
+much; the difference between the two is taken on the same structures and resampled
+with them.
 
 The leftover replicating across mice is not separate evidence. If the map
 replicates, what is left of it once a smooth fit is removed must replicate too;
 implied_replication gives the value that the ceiling and the fit alone predict, and
-the figures show it beside the observed one.
-
-The words: the leftover is "not predicted by Gria1 expression or synapse density",
-never "beyond gene expression" (control F gives the model the components of every
-gene measured in all the structures).
-Nothing here measures what the leftover is. The surface fraction of the receptor is
-the reading the data support; translation, turnover, subunit composition or
-nanobody access would land in the same place, and a total-GluA1 stain on the same
-brains is what would tell them apart.
+the figures show it beside the observed one. Nothing here measures what the
+leftover is: it is what Gria1 expression and synapse density do not predict
+(docs/ISH_ANALYSIS.md, sections 2 and 4.5, on the words and the reading).
 
 The choices, and why:
 
@@ -108,9 +99,9 @@ The choices, and why:
     ranks everywhere        Allen expression energy has an arbitrary scale per
                             experiment; ranks assume only that more mRNA gives more
                             signal
-    the declared set        grey matter seen in all ten adults (A1): fibre tracts
-                            have no synapses, and structures seen in a few mice do
-                            not replicate
+    the declared set        grey matter seen in all ten adults: fibre tracts have no
+                            synapses, and structures seen in a few mice do not
+                            replicate
     naive and RWS pooled    the groups differ in whisker experience, not in what the
                             stain is; control D checks that the leftover does not
                             depend on the group
@@ -127,9 +118,8 @@ Writes, in adult_v2/ish_analysis/beyond/ under the data root:
     leftover_genes.csv         every gene's rho with the leftover, its spatial p
     leftover_sets.csv          the gene sets of analysis 3 against the leftover
     leftover_null.npz          the leftover's surrogates and every gene's rho with them
-    fig0_structures.png, fig1_ceiling.png, fig2_covariates.png, fig3_residual.png
 
-Run by run_beyond_density.py.
+Run by run_beyond_density.py, which draws the working figures fig0 to fig3.
 """
 
 import dataclasses
@@ -138,25 +128,23 @@ from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.cluster.vq import kmeans2
 from scipy.stats import rankdata, spearmanr
 
+from sepmap import structures
 from sepmap.adult import profiles, synaptome
-from sepmap.config import DATA, SETTINGS
+from sepmap.adult.profiles import ADULTS
+from sepmap.config import SETTINGS
 from sepmap.ish import gene_ranking, gene_sets, gene_table, spatial_null
-from sepmap.plotting import DARK_BLUE, RED, tidy
 from sepmap.structures import load_centroids, load_structure_set
-from sepmap.volumes.cohort import NAIVE, RWS
 
 # the half-cohort size and the terms of the main model; the agreement a leftover
 # needs to count as replicating
 BEYOND = SETTINGS["beyond"]
-BEYOND_CONTROLS = SETTINGS["beyond_controls"]
 
-OUT = DATA / "adult_v2" / "ish_analysis" / "beyond"
+OUT = structures.ISH_OUT / "beyond"
 STRUCTURES_USED = OUT / "structures_used.csv"
 PARTITION = OUT / "variance_partition.csv"
 REPLICATION = OUT / "replication.csv"
@@ -164,11 +152,6 @@ RESIDUALS = OUT / "residual_by_structure.csv"
 LEFTOVER_GENES = OUT / "leftover_genes.csv"
 LEFTOVER_SETS = OUT / "leftover_sets.csv"
 LEFTOVER_NULL = OUT / "leftover_null.npz"
-
-# the ten adults, naive then rws, and the rows of each group in the adult matrices
-ADULTS = profiles.ADULTS
-NAIVE_ROWS = [ADULTS.index(m) for m in NAIVE]
-RWS_ROWS = [ADULTS.index(m) for m in RWS]
 
 # the abundance term (Gria1); the four subunits, which set the structures of the fit
 # and make the variant four_subunits
@@ -202,9 +185,9 @@ class Inputs:
     order, and `synapses` the measured densities there (one column per
     synaptome.MEASURES, NaN where not measured). `expr` holds every gene's merged
     profile (mean ranks per structure), `role` its role in the ontology panel (''
-    outside it); `rows` lists every structure of the adult table, in the fit or
-    not, with the reason; `terms` is the main model, its predictors by group
-    (main_model).
+    outside it); `structures_used` lists every structure of the adult table, in
+    the fit or not, with the reason (structures_used.csv); `terms` is the main
+    model, its predictors by group (main_model).
     """
 
     structures: list[str]
@@ -216,7 +199,7 @@ class Inputs:
     p9_genes: set[str]
     division: dict[str, str]
     acronym: dict[str, str]
-    rows: pd.DataFrame
+    structures_used: pd.DataFrame
     terms: dict[str, tuple[str, ...]]
 
 
@@ -274,10 +257,19 @@ def model_terms(
     }
 
 
+def measured_structures(synapses: pd.DataFrame, measures: Sequence[str]) -> list[str]:
+    """The structures of `synapses` where every one of `measures` is measured.
+
+    `synapses` is indexed by structure.
+    """
+    values = synapses.reindex(columns=list(measures))
+    return list(values.index[values.notna().all(axis=1)])
+
+
 def main_model(
     fit: list[str], synapses: pd.DataFrame
 ) -> tuple[dict[str, tuple[str, ...]], list[str]]:
-    """The main model's terms and its structures, by the rule of 8 October.
+    """The main model's terms and its structures, by the rule of [beyond].
 
     The measured density (beyond.density, PSD95 puncta) replaces the mRNA panel
     when it covers at least beyond.min_psd95_coverage of the structures of the fit
@@ -286,16 +278,17 @@ def main_model(
     the measured densities on `fit`, NaN where not measured; a table without them
     covers nothing.
     """
-    values = synapses.reindex(index=fit, columns=list(MEASURED))
-    covered = list(values.index[values.notna().all(axis=1)])
+    covered = measured_structures(synapses.reindex(fit), MEASURED)
     if synaptome.in_main_model(len(covered), len(fit)):
         return model_terms(MEASURED), covered
     return model_terms(PANEL), list(fit)
 
 
 def load_inputs(markers: Sequence[str] = MARKERS, measured: bool = True) -> Inputs:
-    """The adult profiles, the gene table's profiles, the measured synapse density
-    and the structures of the main model.
+    """What every step reads: profiles, gene profiles, synapse density, structures.
+
+    The adult profiles, the gene table's profiles, the measured synapse density and the
+    structures of the main model.
 
     The structures of the fit follow structure_rows, the main model and the
     structures it runs on main_model. `markers` replaces beyond.markers in the rule
@@ -313,42 +306,47 @@ def load_inputs(markers: Sequence[str] = MARKERS, measured: bool = True) -> Inpu
     # autofluorescence above background in every adult, by structure
     auto = per_mouse.pivot(index="mouse", columns="structure", values="zref_auto")
     auto_ok = auto.reindex(index=ADULTS).notna().all(axis=0)
-    rows = structure_rows(set_table, expr, auto_ok, markers)
-    fit = sorted(rows.loc[rows["used"], "structure"])
+    used = structure_rows(set_table, expr, auto_ok, markers)
+    fit = sorted(used.loc[used["used"], "structure"])
 
     # the measured densities on the fit, and the main model by the rule
     if measured:
         synapses = synaptome.load_density().reindex(fit)[list(synaptome.MEASURES)]
     else:
         synapses = pd.DataFrame(index=fit)
-    terms, used = main_model(fit, synapses)
-    psd95 = synapses.reindex(columns=[synaptome.MEASURE])[synaptome.MEASURE]
-    rows["psd95_measured"] = rows["structure"].isin(psd95.index[psd95.notna()])
+    terms, fitted = main_model(fit, synapses)
+    measured = measured_structures(synapses, (synaptome.MEASURE,))
+    used["psd95_measured"] = used["structure"].isin(measured)
     return Inputs(
-        structures=used,
-        nano=gene_ranking.adult_matrix(per_mouse, "zref_nano", used, ADULTS),
-        auto=gene_ranking.adult_matrix(per_mouse, "zref_auto", used, ADULTS),
-        synapses=synapses.reindex(used),
+        structures=fitted,
+        nano=gene_ranking.adult_matrix(per_mouse, "zref_nano", fitted, ADULTS),
+        auto=gene_ranking.adult_matrix(per_mouse, "zref_auto", fitted, ADULTS),
+        synapses=synapses.reindex(fitted),
         expr=expr,
         role=role,
         p9_genes=p9_genes,
         division=dict(zip(set_table["structure"], set_table["division"])),
         acronym=dict(zip(set_table["structure"], set_table["acronym"])),
-        rows=rows,
+        structures_used=used,
         terms=terms,
     )
 
 
-def restrict(inputs: Inputs, structures: Sequence[str]) -> Inputs:
+def restrict(inputs: Inputs, subset: Sequence[str]) -> Inputs:
     """The same inputs on some of their structures, in the order given."""
-    columns = [inputs.structures.index(s) for s in structures]
+    columns = [inputs.structures.index(s) for s in subset]
     return dataclasses.replace(
         inputs,
-        structures=list(structures),
+        structures=list(subset),
         nano=inputs.nano[:, columns],
         auto=inputs.auto[:, columns],
-        synapses=inputs.synapses.reindex(structures),
+        synapses=inputs.synapses.reindex(subset),
     )
+
+
+def on_measured(inputs: Inputs, measures: Sequence[str]) -> Inputs:
+    """The inputs on the structures where every one of `measures` is measured."""
+    return restrict(inputs, measured_structures(inputs.synapses, measures))
 
 
 # ===== Statistics =====
@@ -366,6 +364,16 @@ def composite(
     return np.mean([rankdata([expr[g][s] for s in structures]) for g in genes], axis=0)
 
 
+def gene_matrix(
+    expr: dict[str, dict[str, float]], structures: list[str], genes: Sequence[str]
+) -> np.ndarray:
+    """Rank profiles of many genes as one array, genes x structures.
+
+    Ranks, since each Allen experiment has its own arbitrary intensity scale.
+    """
+    return np.array([rankdata([expr[g][s] for s in structures]) for g in genes])
+
+
 def first_pc(
     genes: Sequence[str], expr: dict[str, dict[str, float]], structures: list[str]
 ) -> tuple[np.ndarray, float]:
@@ -375,7 +383,7 @@ def first_pc(
     markers and arguing about the choice, take whatever those genes have most in
     common and call that the density axis.
     """
-    m = np.array([rankdata([expr[g][s] for s in structures]) for g in genes])
+    m = gene_matrix(expr, structures, genes)
     m = (m - m.mean(axis=1, keepdims=True)) / m.std(axis=1, keepdims=True)
     _, sv, vt = np.linalg.svd(m - m.mean(axis=0), full_matrices=False)
     pc = vt[0]
@@ -384,6 +392,14 @@ def first_pc(
     if np.corrcoef(pc, m.mean(axis=0))[0, 1] < 0:
         pc = -pc
     return pc, float(sv[0] ** 2 / (sv**2).sum())
+
+
+def projection(design: np.ndarray) -> np.ndarray:
+    """The hat matrix of `design` (structures x columns).
+
+    A map times its transpose is the map's least-squares fit on the columns.
+    """
+    return design @ np.linalg.pinv(design)
 
 
 def residual(y: np.ndarray, predictors: Sequence[np.ndarray]) -> np.ndarray:
@@ -413,7 +429,7 @@ def fold_labels(
     """The fold of each of n structures, one array per shuffling.
 
     Each shuffling orders the structures at random and deals them into the folds in
-    turn; the first, with seed 0, is the single shuffling of 26 September.
+    turn; the first, with seed 0, is the one shuffling of variants.csv.
     beyond.cv_repeats shufflings by default.
     """
     if repeats is None:
@@ -523,8 +539,8 @@ def spearman_brown(r: float) -> float:
 
 
 def replicates(agreement: float) -> bool:
-    """Whether two half-cohort maps or leftovers agree at beyond_controls.replication."""
-    return agreement >= BEYOND_CONTROLS["replication"]
+    """Whether two half-cohort maps or leftovers agree at beyond.replication."""
+    return agreement >= BEYOND["replication"]
 
 
 def half_map(matrix: np.ndarray, rows: Sequence[int]) -> np.ndarray:
@@ -554,19 +570,19 @@ def ceiling(
 
 def leftover_agreement(
     matrix: np.ndarray,
-    predictors: Sequence[np.ndarray],
+    columns: Sequence[np.ndarray],
     splits: list[tuple[list[int], list[int]]],
 ) -> list[float]:
     """How well the leftover of one half-cohort matches the other's, per split.
 
-    Each half's ranked map is fitted to the predictors on its own, and the two
+    Each half's ranked map is fitted to the model's columns on its own, and the two
     leftovers are compared by Spearman.
     """
     return [
         float(
             spearmanr(
-                residual(half_map(matrix, a), predictors),
-                residual(half_map(matrix, b), predictors),
+                residual(half_map(matrix, a), columns),
+                residual(half_map(matrix, b), columns),
             ).statistic
         )
         for a, b in splits
@@ -647,7 +663,7 @@ def predictors(
     return [covariates[name] for group in groups for name in terms[group]]
 
 
-def model(
+def model_columns(
     covariates: dict[str, np.ndarray],
     terms: dict[str, tuple[str, ...]],
     groups: Sequence[str] = ORDER,
@@ -655,11 +671,11 @@ def model(
 ) -> list[np.ndarray]:
     """The columns of a model: the groups' predictors, bent unless `bend` is False.
 
-    model(covariates, inputs.terms) is the main model: Gria1, the density terms and
-    autofluorescence, each as x, x^2 and x^3.
+    model_columns(covariates, inputs.terms) is the main model: Gria1, the density
+    terms and autofluorescence, each as x, x^2 and x^3.
     """
-    xs = predictors(covariates, terms, groups)
-    return flexible(xs) if bend else xs
+    straight = predictors(covariates, terms, groups)
+    return flexible(straight) if bend else straight
 
 
 def budget(
@@ -675,80 +691,65 @@ def budget(
     `labels`, fold_labels by default). The leftover is 1 minus the last.
     """
     return [
-        cv_r2(y, model(covariates, terms, ORDER[:k]), labels) / explainable
+        cv_r2(y, model_columns(covariates, terms, ORDER[:k]), labels) / explainable
         for k in range(1, len(ORDER) + 1)
     ]
 
 
-# ===== Drawing =====
+# ===== Reading back =====
 
 
-def save(fig: plt.Figure, name: str) -> None:
-    """Save a working figure as `name` in the output folder at 200 dpi, and close it."""
-    path = OUT / name
-    fig.savefig(path, dpi=200)
-    plt.close(fig)
-    print(f"  -> {path}")
+def load_leftover_genes() -> pd.DataFrame:
+    """leftover_genes.csv as step 4 of this module wrote it, empty text where blank."""
+    if not LEFTOVER_GENES.exists():
+        raise FileNotFoundError(
+            f"{LEFTOVER_GENES} not found: run run_beyond_density.py first"
+        )
+    genes = pd.read_csv(LEFTOVER_GENES, keep_default_na=False, na_values=[""])
+    for column in ("in_model", "gene_sets"):
+        genes[column] = genes[column].fillna("")
+    return genes
+
+
+def load_leftover_null(structures: list[str]) -> dict:
+    """leftover_null.npz: the leftover's surrogates and every gene's rho with them.
+
+    Returns structures, surrogates (as floats), rho (genes x surrogates) and genes;
+    the run stops unless they were drawn on `structures`, those of the main model.
+    """
+    with np.load(LEFTOVER_NULL) as z:
+        null = dict(
+            structures=[str(s) for s in z["structures"]],
+            surrogates=z["surrogates"].astype(float),
+            rho=z["null_rho"],
+            genes=[str(g) for g in z["genes"]],
+        )
+    if null["structures"] != structures:
+        raise ValueError(
+            f"{LEFTOVER_NULL} was drawn on other structures than the main model's "
+            f"{len(structures)}; run run_beyond_density.py first"
+        )
+    return null
 
 
 # ===== Steps =====
 
 
-def figure_structures(rows: pd.DataFrame) -> None:
-    """Draw fig0: the structures used per division, and those left out per reason."""
-    fig, axes = plt.subplots(
-        1, 2, figsize=(11.0, 3.9), gridspec_kw=dict(width_ratios=[1, 1.25])
-    )
-    counts = rows[rows["used"]].groupby("division").size().sort_values(ascending=False)
-    axes[0].bar(
-        range(len(counts)), counts.to_numpy(), color="0.65", edgecolor="0.25", lw=0.5
-    )
-    axes[0].set_xticks(range(len(counts)))
-    axes[0].set_xticklabels(counts.index, fontsize=7, rotation=45, ha="right")
-    axes[0].set_ylabel("structures used", fontsize=8)
-    axes[0].set_title(
-        f"what the fit runs on\n{int(rows['used'].sum())} grey-matter structures",
-        fontsize=9,
-    )
-    tidy(axes[0])
-
-    # the reasons, the declared set's own reasons pooled into one
-    why = rows.loc[~rows["used"], "reason"].map(
-        lambda r: "not in the declared set" if r.startswith("not in the declared") else r
-    )
-    why_counts = why.value_counts().sort_values()
-    axes[1].barh(
-        range(len(why_counts)),
-        why_counts.to_numpy(),
-        color=RED,
-        edgecolor="0.25",
-        linewidth=0.5,
-        alpha=0.85,
-    )
-    axes[1].set_yticks(range(len(why_counts)))
-    axes[1].set_yticklabels([w[:52] for w in why_counts.index], fontsize=7)
-    axes[1].set_xlabel("structures left out", fontsize=8)
-    axes[1].set_title(
-        "and what it leaves out\ndecided by rule, before any fitting", fontsize=9
-    )
-    tidy(axes[1])
-    fig.tight_layout()
-    save(fig, "fig0_structures.png")
-
-
 def step0_structures(inputs: Inputs) -> None:
-    """Write which structures the fit runs on, why the others are left out, and
-    which density the main model uses."""
-    print("\nSTEP 0  which structures the fit runs on")
-    rows = inputs.rows
-    rows.to_csv(STRUCTURES_USED, index=False)
-    out = rows[~rows["used"]]
-    n_fit = int(rows["used"].sum())
-    print(f"  {len(rows)} structures in the adult table, {n_fit} in the fit")
-    for reason, n in out["reason"].value_counts().items():
+    """Write the structures the fit runs on, why the others are left out, and the density.
+
+    The density is the one the main model uses, measured or from mRNA.
+    """
+    print("\nstep 0  which structures the fit runs on")
+    used = inputs.structures_used
+    used.to_csv(STRUCTURES_USED, index=False)
+    left_out = used[~used["used"]]
+    n_fit = int(used["used"].sum())
+    print(f"  {len(used)} structures in the adult table, {n_fit} in the fit")
+    for reason, n in left_out["reason"].value_counts().items():
         print(f"    {n:3d}  {reason}")
     lacking = defaultdict(int)
-    for text in out["missing_genes"]:
+    for text in left_out["missing_genes"]:
         for g in text.split():
             lacking[g] += 1
     if lacking:
@@ -757,24 +758,24 @@ def step0_structures(inputs: Inputs) -> None:
             + ", ".join(f"{g} {n}" for g, n in sorted(lacking.items()))
         )
 
-    # the rule of 8 October: the measured density replaces the panel only when it
-    # covers enough of the fit
-    n_measured = int(rows["psd95_measured"].sum())
-    needed = int(np.ceil(BEYOND["min_psd95_coverage"] * n_fit))
+    # the measured density replaces the panel only when it covers enough of the fit
+    n_measured = int(used["psd95_measured"].sum())
     density = ", ".join(inputs.terms["density"])
     print(
         f"  PSD95 density measured in {n_measured} of the {n_fit} "
-        f"({n_measured / n_fit:.0%}; the rule asks {needed}): the main model's "
-        f"density is {density}, on {len(inputs.structures)} structures"
+        f"({n_measured / n_fit:.0%}; the rule asks {synaptome.n_needed(n_fit)}): the "
+        f"main model's density is {density}, on {len(inputs.structures)} structures"
     )
-    figure_structures(rows)
 
 
 def step1_ceiling(
     nano: np.ndarray, splits: list[tuple[list[int], list[int]]]
-) -> tuple[float, list[float]]:
-    """How reproducible the map itself is: nothing below can beat this."""
-    print("\nSTEP 1  the ceiling: how much of this map is reproducible")
+) -> tuple[list[float], float]:
+    """How reproducible the map itself is: nothing below can beat this.
+
+    Returns the two half-maps' agreement per split and the ceiling, as ceiling does.
+    """
+    print("\nstep 1  the ceiling: how much of this map is reproducible")
     agreement, explainable = ceiling(nano, splits)
     half = float(np.mean(agreement))
     print(f"  over {len(splits)} five-against-five splits of the ten adults:")
@@ -782,55 +783,54 @@ def step1_ceiling(
     print(f"    Spearman-Brown, all ten adults    {explainable:.3f}")
     print(f"  so {explainable:.1%} of the map's variance is reproducible, and every")
     print("  R2 below is read against that rather than against 1.")
-
-    fig, ax = plt.subplots(figsize=(5.6, 3.9))
-    ax.hist(agreement, bins=25, color="0.7", edgecolor="0.35", linewidth=0.4)
-    ax.axvline(half, color=RED, lw=1.8)
-    ax.set_xlabel("Spearman between the two half-cohort maps", fontsize=8)
-    ax.set_ylabel(f"splits of ten adults ({len(splits)})", fontsize=8)
-    verdict = "is reproducible" if replicates(half) else "does not reproduce"
-    ax.set_title(
-        f"Step 1. the map {verdict}\n"
-        f"half-cohorts agree at {half:.3f}; ceiling (Spearman-Brown) {explainable:.3f}",
-        fontsize=9,
-    )
-    tidy(ax)
-    fig.tight_layout()
-    save(fig, "fig1_ceiling.png")
-    return explainable, agreement
+    return agreement, explainable
 
 
 def partition_models(
-    c: dict[str, np.ndarray], terms: dict[str, tuple[str, ...]]
+    covariates: dict[str, np.ndarray], terms: dict[str, tuple[str, ...]]
 ) -> list[tuple[str, str, list]]:
-    """The models of variance_partition.csv as (key, label, columns); "model" is the
-    main one, whose terms are `terms`."""
+    """The models of variance_partition.csv as (key, label, columns).
+
+    "model" is the main one, whose terms are `terms`.
+    """
     abundance = ", ".join(terms["abundance"])
     density = ", ".join(terms["density"])
     return [
-        ("abundance", f"abundance alone: {abundance}", model(c, terms, ("abundance",))),
+        (
+            "abundance",
+            f"abundance alone: {abundance}",
+            model_columns(covariates, terms, ("abundance",)),
+        ),
         (
             "subunits",
             "Gria1 to Gria4 alone, four terms",
-            flexible([c[g] for g in SUBUNITS]),
+            flexible([covariates[g] for g in SUBUNITS]),
         ),
-        ("density", f"density alone: {density}", model(c, terms, ("density",))),
+        (
+            "density",
+            f"density alone: {density}",
+            model_columns(covariates, terms, ("density",)),
+        ),
         (
             "autofluorescence",
             "autofluorescence alone",
-            model(c, terms, ("autofluorescence",)),
+            model_columns(covariates, terms, ("autofluorescence",)),
         ),
         (
             "abundance_density",
             f"{abundance} + {density}",
-            model(c, terms, ("abundance", "density")),
+            model_columns(covariates, terms, ("abundance", "density")),
         ),
         (
             "straight",
             "the main model, straight",
-            model(c, terms, bend=False),
+            model_columns(covariates, terms, bend=False),
         ),
-        ("model", f"the main model: {abundance} + {density} + autofluo", model(c, terms)),
+        (
+            "model",
+            f"the main model: {abundance} + {density} + autofluo",
+            model_columns(covariates, terms),
+        ),
     ]
 
 
@@ -839,55 +839,21 @@ def partition_table(
 ) -> pd.DataFrame:
     """variance_partition.csv: each model's terms, R2 held out and in-sample, shares."""
     rows = []
-    for key, label, xs in models:
-        cv = cv_r2(y, xs)
+    for key, label, columns in models:
+        cv = cv_r2(y, columns)
         rows.append(
             dict(
                 key=key,
                 model=label,
-                terms=len(xs) + 1,
+                terms=len(columns) + 1,
                 bent=key != "straight",
                 cv_r2=cv,
-                in_sample_r2=r_squared(y, xs),
+                in_sample_r2=r_squared(y, columns),
                 share_of_ceiling=cv / explainable,
                 left=1 - cv / explainable,
             )
         )
     return pd.DataFrame(rows)
-
-
-def figure_covariates(table: pd.DataFrame, explainable: float) -> None:
-    """Draw fig2: each model's cross-validated R2 against the ceiling."""
-    fig, ax = plt.subplots(figsize=(7.8, 4.5))
-    ax.barh(np.arange(len(table)), table["cv_r2"], color="0.65", edgecolor="0.25", lw=0.5)
-    ax.axvline(explainable, color=RED, lw=1.8)
-    ax.annotate(
-        f"ceiling {explainable:.3f}\n(the map's own reliability)",
-        (explainable, len(table) - 0.4),
-        color=RED,
-        fontsize=7.5,
-        ha="right",
-        va="top",
-        xytext=(-6, 0),
-        textcoords="offset points",
-    )
-    ax.set_yticks(np.arange(len(table)))
-    ax.set_yticklabels(table["model"], fontsize=7.5)
-    ax.set_xlim(min(0.0, float(table["cv_r2"].min()) - 0.02), 1.02)
-    ax.set_xlabel(
-        "variance of the map predicted on held-out structures (cross-validated R2)",
-        fontsize=8,
-    )
-    quoted = float(table.set_index("key").loc["model", "cv_r2"])
-    ax.set_title(
-        f"Step 2. what Gria1 and synapse density predict\n"
-        f"the main model, bent: {quoted / explainable:.1%} of the ceiling, "
-        f"{1 - quoted / explainable:.1%} left",
-        fontsize=9,
-    )
-    tidy(ax)
-    fig.tight_layout()
-    save(fig, "fig2_covariates.png")
 
 
 def step2_budget(
@@ -898,8 +864,8 @@ def step2_budget(
     share: float,
     explainable: float,
 ) -> pd.DataFrame:
-    """What Gria1, synapse density and autofluorescence predict."""
-    print("\nSTEP 2  what Gria1 and synapse density predict")
+    """What Gria1, synapse density and autofluorescence predict; the partition."""
+    print("\nstep 2  what Gria1 and synapse density predict")
     print(
         f"  psd_pc1 is the first component of {len(psd)} postsynaptic-density genes, "
         f"carrying {share:.1%} of their variance"
@@ -922,12 +888,10 @@ def step2_budget(
         f"{steps[1] - steps[0]:+.1%}, + autofluorescence {steps[2] - steps[1]:+.1%}; "
         f"left {1 - steps[2]:.1%}"
     )
-    figure_covariates(table, explainable)
     return table
 
 
 def replication_table(
-    nano: np.ndarray,
     splits: list[tuple[list[int], list[int]]],
     map_agreement: list[float],
     left_agreement: list[float],
@@ -945,19 +909,17 @@ def replication_table(
 
 def step3_replication(
     nano: np.ndarray,
-    xs: list[np.ndarray],
+    columns: list[np.ndarray],
     splits: list[tuple[list[int], list[int]]],
     map_agreement: list[float],
 ) -> tuple[list[float], float]:
     """Whether the leftover replicates across mice, and what that is worth."""
-    print("\nSTEP 3  does the leftover replicate across mice?")
-    agreement = leftover_agreement(nano, xs, splits)
+    print("\nstep 3  does the leftover replicate across mice?")
+    agreement = leftover_agreement(nano, columns, splits)
     y = full_map(nano)
     h = float(np.mean(map_agreement))
-    implied = implied_replication(h, r_squared(y, xs), len(xs) + 1, len(y))
-    replication_table(nano, splits, map_agreement, agreement).to_csv(
-        REPLICATION, index=False
-    )
+    implied = implied_replication(h, r_squared(y, columns), len(columns) + 1, len(y))
+    replication_table(splits, map_agreement, agreement).to_csv(REPLICATION, index=False)
     print(
         f"  half against half: the map {h:.3f}, its leftover {np.mean(agreement):.3f} "
         f"(lowest split {min(agreement):.3f})"
@@ -971,9 +933,9 @@ def step3_replication(
 
 def same_sign_share(
     nano: np.ndarray,
-    xs: list[np.ndarray],
+    columns: list[np.ndarray],
     splits: list[tuple[list[int], list[int]]],
-    res: np.ndarray,
+    leftover: np.ndarray,
 ) -> np.ndarray:
     """Per structure, the share of the half-cohort leftovers with the cohort's sign.
 
@@ -981,10 +943,10 @@ def same_sign_share(
     leftover has the same sign in all of them is above (or below) prediction in
     every five adults.
     """
-    same = np.zeros(len(res))
+    same = np.zeros(len(leftover))
     for a, b in splits:
         for half in (a, b):
-            same += np.sign(residual(half_map(nano, half), xs)) == np.sign(res)
+            same += np.sign(residual(half_map(nano, half), columns)) == np.sign(leftover)
     return same / (2 * len(splits))
 
 
@@ -992,15 +954,15 @@ def residual_table(
     inputs: Inputs,
     y: np.ndarray,
     predicted: np.ndarray,
-    res: np.ndarray,
+    leftover: np.ndarray,
     same: np.ndarray,
     per_adult: np.ndarray,
 ) -> pd.DataFrame:
     """residual_by_structure.csv: per structure, largest leftover first.
 
-    Beside the cohort's leftover: the share of half-cohort leftovers with its sign
-    (same_sign), and the leftover of each adult's own map (`per_adult`, adults x
-    structures) as a mean, an SD and a t across the adults (t_adults), the
+    Beside the cohort's leftover (residual): the share of half-cohort leftovers with
+    its sign (same_sign), and the leftover of each adult's own map (`per_adult`,
+    adults x structures) as a mean, an SD and a t across the adults (t_adults), the
     reliability that the bars of figure 04 show in grey.
     """
     n = per_adult.shape[0]
@@ -1014,7 +976,7 @@ def residual_table(
             division=[inputs.division.get(x, "") for x in s],
             nano_rank=y,
             predicted_rank=predicted,
-            residual=res,
+            residual=leftover,
             same_sign=same,
             adult_mean=mean,
             adult_sd=sd,
@@ -1024,26 +986,30 @@ def residual_table(
     return table.sort_values("residual", ascending=False, ignore_index=True)
 
 
-def per_adult_leftovers(nano: np.ndarray, xs: list[np.ndarray]) -> np.ndarray:
-    """Each adult's own leftover: its ranked map fitted to the model, adults x
-    structures."""
-    return np.array([residual(rankdata(row), xs) for row in nano])
+def per_adult_leftovers(nano: np.ndarray, columns: list[np.ndarray]) -> np.ndarray:
+    """Each adult's own leftover, its ranked map fitted to the model.
+
+    Adults x structures.
+    """
+    return np.array([residual(rankdata(row), columns) for row in nano])
 
 
-def leftover_boot(nano: np.ndarray, xs: list[np.ndarray], seed: int = 0) -> np.ndarray:
+def leftover_boot(
+    nano: np.ndarray, columns: list[np.ndarray], seed: int = 0
+) -> np.ndarray:
     """Leftovers of resampled cohorts, n_boot_mice x structures.
 
     Each is the mean of the adults drawn with replacement, ranked and fitted to the
-    model's columns `xs`.
+    model's columns.
     """
     boot = gene_ranking.bootstrap_maps(nano, seed=seed)
-    return np.array([residual(rankdata(b), xs) for b in boot])
+    return np.array([residual(rankdata(b), columns) for b in boot])
 
 
 def leftover_genes(
     inputs: Inputs,
-    res: np.ndarray,
-    xs: list[np.ndarray],
+    leftover: np.ndarray,
+    columns: list[np.ndarray],
     psd: list[str],
 ) -> tuple[pd.DataFrame, pd.DataFrame, np.ndarray, np.ndarray, list[str]]:
     """Every gene against the leftover, with the leftover's own spatial null.
@@ -1069,12 +1035,12 @@ def leftover_genes(
     s = inputs.structures
     centroids = load_centroids().loc[s]
     d = spatial_null.distance_matrix(centroids)
-    surr = spatial_null.surrogates(res, d, seed=0)
-    design = np.column_stack(list(xs) + [np.ones(len(res))])
-    surr = surr - surr @ (design @ np.linalg.pinv(design)).T
-    boot = leftover_boot(inputs.nano, xs)
+    surr = spatial_null.surrogates(leftover, d, seed=0)
+    design = np.column_stack(list(columns) + [np.ones(len(leftover))])
+    surr = surr - surr @ projection(design).T
+    boot = leftover_boot(inputs.nano, columns)
     vectors = gene_ranking.gene_vectors(inputs.expr, s)
-    table, null = gene_ranking.rank_genes(res, surr, boot, vectors)
+    table, null = gene_ranking.rank_genes(leftover, surr, boot, vectors)
     table = gene_ranking.with_q_and_ranks(table, inputs.p9_genes)
     in_model = {g: "abundance" for g in inputs.terms["abundance"]}
     if "psd_pc1" in inputs.terms["density"]:
@@ -1096,103 +1062,44 @@ def leftover_genes(
     return table, sets, surr, null, tested
 
 
-def figure_residual(
-    map_agreement: list[float],
-    agreement: list[float],
-    implied: float,
-    table: pd.DataFrame,
-) -> None:
-    """Draw fig3: the half-cohort agreements, and the structures most off prediction."""
-    fig, axes = plt.subplots(
-        1, 2, figsize=(11.8, 4.5), gridspec_kw=dict(width_ratios=[1, 1.15])
-    )
-    bins = np.linspace(
-        min(min(map_agreement), min(agreement)) - 0.005,
-        max(max(map_agreement), max(agreement)) + 0.005,
-        30,
-    )
-    axes[0].hist(
-        map_agreement,
-        bins=bins,
-        color="0.6",
-        edgecolor="0.3",
-        lw=0.3,
-        alpha=0.85,
-        label="the map itself",
-    )
-    axes[0].hist(
-        agreement,
-        bins=bins,
-        color=RED,
-        edgecolor="0.3",
-        lw=0.3,
-        alpha=0.7,
-        label="what is left of it",
-    )
-    axes[0].axvline(implied, color="0.1", lw=1, ls=(0, (3, 2)))
-    axes[0].set_xlabel("half-cohort against half-cohort (Spearman)", fontsize=8)
-    axes[0].set_ylabel(f"splits of ten adults ({len(agreement)})", fontsize=8)
-    axes[0].legend(fontsize=7.5, frameon=False, loc="upper left")
-    axes[0].set_title(
-        f"Step 3. map {np.mean(map_agreement):.3f}, leftover {np.mean(agreement):.3f}\n"
-        f"dashed: {implied:.3f}, what the ceiling and the fit alone imply",
-        fontsize=9,
-    )
-    tidy(axes[0])
+def print_leftover_rows(table: pd.DataFrame) -> None:
+    """Print rows of residual_by_structure.csv.
 
-    show = pd.concat([table.head(8), table.tail(6)])
-    axes[1].barh(
-        np.arange(len(show)),
-        show["residual"],
-        color=[RED if v > 0 else DARK_BLUE for v in show["residual"]],
-        edgecolor="0.25",
-        linewidth=0.4,
-    )
-    axes[1].set_yticks(np.arange(len(show)))
-    axes[1].set_yticklabels([s[:36] for s in show["structure"]], fontsize=6.8)
-    axes[1].invert_yaxis()
-    axes[1].axvline(0, color="0.3", lw=0.7)
-    axes[1].set_xlabel("nano rank minus predicted rank", fontsize=8)
-    axes[1].set_title("Step 4. where it is largest", fontsize=9)
-    tidy(axes[1])
-    fig.tight_layout()
-    save(fig, "fig3_residual.png")
+    Leftover in ranks, same-sign share, t across the adults' own leftovers.
+    """
+    for r in table.itertuples():
+        print(
+            f"    {r.structure[:48]:50s} {r.residual:+6.1f}   {r.same_sign:.2f}"
+            f"   t {r.t_adults:+6.1f}"
+        )
 
 
 def step4_where(
     inputs: Inputs,
-    xs: list[np.ndarray],
+    columns: list[np.ndarray],
     psd: list[str],
     splits: list[tuple[list[int], list[int]]],
-    map_agreement: list[float],
-    agreement: list[float],
-    implied: float,
-) -> None:
-    """Which structures carry the leftover, how steadily, and which genes follow it."""
-    print("\nSTEP 4  where the leftover lives")
+) -> pd.DataFrame:
+    """Which structures carry the leftover, how steadily, and which genes follow it.
+
+    Returns residual_by_structure.csv's table.
+    """
+    print("\nstep 4  where the leftover lives")
     y = full_map(inputs.nano)
-    res = residual(y, xs)
-    same = same_sign_share(inputs.nano, xs, splits, res)
-    per_adult = per_adult_leftovers(inputs.nano, xs)
-    table = residual_table(inputs, y, y - res, res, same, per_adult)
+    leftover = residual(y, columns)
+    same = same_sign_share(inputs.nano, columns, splits, leftover)
+    per_adult = per_adult_leftovers(inputs.nano, columns)
+    table = residual_table(inputs, y, y - leftover, leftover, same, per_adult)
     table.to_csv(RESIDUALS, index=False)
     print(
         "  above prediction (ranks; share of half-cohorts with the same sign; t across"
         " the adults' own leftovers):"
     )
-    for r in table.head(8).itertuples():
-        print(
-            f"    {r.structure[:48]:50s} {r.residual:+6.1f}   {r.same_sign:.2f}"
-            f"   t {r.t_adults:+6.1f}"
-        )
+    print_leftover_rows(table.head(8))
     print("  below:")
-    for r in table.tail(6).itertuples():
-        print(
-            f"    {r.structure[:48]:50s} {r.residual:+6.1f}   {r.same_sign:.2f}"
-            f"   t {r.t_adults:+6.1f}"
-        )
+    print_leftover_rows(table.tail(6))
 
-    genes, sets, surr, null, tested = leftover_genes(inputs, res, xs, psd)
+    genes, sets, surr, null, tested = leftover_genes(inputs, leftover, columns, psd)
     genes.to_csv(LEFTOVER_GENES, index=False)
     sets.to_csv(LEFTOVER_SETS, index=False)
     np.savez(
@@ -1211,7 +1118,7 @@ def step4_where(
             f"    {r.symbol:10s} rho {r.rho:+.3f}  spatial p {r.p_spatial:.4f}  "
             f"q {r.q_all:.3f}  {r.in_model}"
         )
-    for g in ("Cacng8", "Gria1"):
+    for g in gene_ranking.GAP_GENES:
         r = genes.set_index("symbol").loc[g]
         print(
             f"    {g}: rho {r['rho']:+.3f}, rank {int(r['rank_all'])} of {len(genes)}, "
@@ -1223,11 +1130,17 @@ def step4_where(
             f"    set {r.gene_set:20s} {r.n_genes:3d} genes, "
             f"median {r.median_rho:+.3f}, {p}"
         )
-    figure_residual(map_agreement, agreement, implied, table)
+    return table
 
 
-def main() -> None:
-    """Run the five steps on the ten adults and write their tables and figures."""
+def main() -> dict:
+    """Run the five steps on the ten adults and write their tables.
+
+    Returns what the working figures draw: the structures used, each split's
+    agreement of the two half-maps and of their leftovers, the ceiling, the
+    replication the ceiling and the fit imply, the partition, and the leftover by
+    structure.
+    """
     OUT.mkdir(parents=True, exist_ok=True)
     inputs = load_inputs()
     step0_structures(inputs)
@@ -1235,11 +1148,19 @@ def main() -> None:
 
     # the ceiling, the budget, the leftover's replication, and where it lives
     splits = half_splits()
-    explainable, map_agreement = step1_ceiling(inputs.nano, splits)
+    map_agreement, explainable = step1_ceiling(inputs.nano, splits)
     covariates, psd, share = covariates_for(inputs)
     y = full_map(inputs.nano)
-    step2_budget(y, covariates, inputs.terms, psd, share, explainable)
-    xs = model(covariates, inputs.terms)
-    agreement, implied = step3_replication(inputs.nano, xs, splits, map_agreement)
-    step4_where(inputs, xs, psd, splits, map_agreement, agreement, implied)
-    print("\nNow run run_beyond_controls.py: it tries to break this seven ways.")
+    partition = step2_budget(y, covariates, inputs.terms, psd, share, explainable)
+    columns = model_columns(covariates, inputs.terms)
+    agreement, implied = step3_replication(inputs.nano, columns, splits, map_agreement)
+    residuals = step4_where(inputs, columns, psd, splits)
+    return dict(
+        structures_used=inputs.structures_used,
+        map_agreement=map_agreement,
+        explainable=explainable,
+        partition=partition,
+        agreement=agreement,
+        implied=implied,
+        residuals=residuals,
+    )

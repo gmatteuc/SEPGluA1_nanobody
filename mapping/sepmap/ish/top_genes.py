@@ -32,8 +32,8 @@ The genes: those past the spatial null after BH over every gene in analysis 1,
 Gria1 and Cacng8 always, and every member of the AMPA receptor complex family that
 the leftover table holds, whether it passes or not.
 
-The tests against the leftover were named on 8 October 2026, before the main model
-ran (ish.gene_sets holds the family, its sources and what was seen before):
+The tests against the leftover were named in advance, before the main model ran
+(ish.gene_sets holds the family, its sources and what was seen before):
 
     1  Cacng8      its rho with the leftover; the uncorrected spatial p is the test
     2  the family  its median rho with the leftover against the same genes' median
@@ -50,23 +50,14 @@ ran (ish.gene_sets holds the family, its sources and what was seen before):
 The same three are read on the nano map itself, to describe the family, not as tests
 of the leftover.
 
-What the tests can and cannot say, checked on 9 October after they ran:
-
-    tier 1   Cacng8's p against the leftover of the four-subunit model (0.0024) was
-             seen before it was named, and that leftover and this one agree at 0.90
-             over the same structures: tier 1 re-tests a result already seen on a
-             near-identical map, it does not confirm it
-    tier 2   Dlg4 is a member and a marker of the main model's density term, so its
-             rho with the leftover is near zero by construction, as Gria1's would be;
-             the rules took out Gria1 alone, so Dlg4 stays and pulls the median toward
-             zero. Without Cacng8 the group test sits at the same edge (a check row),
-             so it is not separate from tier 1. Most matched controls are genes of
-             psd_pc1, which the model projects out, so a check row matches the family
-             again from the postsynaptic genes outside the model's terms
-    the null each leftover surrogate, once the model is projected out of it, is
-             rougher than the leftover; the tests are read again against Gaussian
-             fields of exponential covariance at null_check_ranges_mm, projected the
-             same way (smooth_null_check)
+What the tests rest on is set out in docs/ISH_ANALYSIS.md (section 5.7): Cacng8's
+p against the leftover of the four-subunit model was seen before it was named, so
+tier 1 re-tests a result already seen on a near-identical leftover; Dlg4 is a member
+and a marker of the main model, near zero by construction; and each surrogate of
+the leftover, the model projected out of it, is rougher at short range than the
+leftover, so the tests are read again against smoother Gaussian fields projected
+the same way (smooth_null_check), and the family again against controls from
+outside the model's terms (check_tests).
 
 Why the share taken has a null of its own: three more columns always win a little
 held-out variance by chance, and a smooth map wins more than a rough one, since
@@ -83,7 +74,7 @@ nulls (ish.gene_ranking):
     alike   the gene's fit on the main model's columns kept, its remainder replaced
             by a surrogate of the remainder as large: maps that relate to the model
             as the gene does, whose part beyond it is a smooth map unrelated to the
-            leftover. Added on 9 October, after the plain null's numbers were seen
+            leftover. It was added after the plain null's numbers were seen
 
 The main model is refitted on the structures of the fit the gene has, every
 predictor and the ceiling rebuilt there as the jackknife of adult.beyond_figures
@@ -96,10 +87,10 @@ import numpy as np
 import pandas as pd
 from scipy.stats import false_discovery_control, rankdata, spearmanr
 
-from sepmap.adult import beyond_density as bd
+from sepmap.adult import beyond_density
 from sepmap.adult import synaptome
 from sepmap.config import SETTINGS
-from sepmap.ish import gene_ranking, gene_table, spatial_null
+from sepmap.ish import gene_ranking, gene_sets, gene_table, spatial_null
 from sepmap.ish.gene_sets import (
     AMPA_FAMILY,
     GO_AMPA_COMPLEX,
@@ -109,8 +100,9 @@ from sepmap.ish.gene_sets import (
     SCHWENK_2012,
     set_test,
 )
+from sepmap.ish.numbers import numbers_frame, numbers_path
 from sepmap.ish.panel_test import greedy_match, two_sample
-from sepmap.ish.spatial_null import null_rho, spatial_p
+from sepmap.ish.spatial_null import ALPHA, BAND, null_rho, spatial_p
 from sepmap.structures import TABLES
 
 # the structures a gene needs, the BH level, the surrogates added in place of a gene
@@ -121,7 +113,7 @@ TOP_GENES = SETTINGS["top_genes"]
 TOP_TABLE = TABLES / "top_genes.csv"
 NAMED_TESTS = TABLES / "named_tests.csv"
 FAMILY_TABLE = TABLES / "family_members.csv"
-NUMBERS = TABLES / "numbers_top_genes.csv"
+NUMBERS = numbers_path("top_genes")
 NULL_CHECK = TABLES / "leftover_null_check.csv"
 
 # characterised whatever their rank: the gene of the stained protein, and the gene
@@ -138,12 +130,9 @@ FAMILY_SOURCES = (
 # the cellular component under which a gene's GO terms count as synaptic
 SYNAPSE = "GO:0045202"
 
-# the percentiles of a null distribution that a value must leave to pass at 0.05
-BAND = (2.5, 97.5)
-
 # the Allen experiments of the family members the gene table does not hold, counted
-# on 8 October when the family was named (ish.gene_sets): none, or some, outside both
-# panels, where adding a gene would change the rules
+# when the family was named (ish.gene_sets): none, or some outside both panels, where
+# adding a gene would change the rules
 UNTABLED_EXPERIMENTS = {
     "Olfm3": 0,
     "Prrt1": 0,
@@ -227,6 +216,27 @@ def chosen_genes(nano: pd.DataFrame, leftover: pd.DataFrame, q: float) -> pd.Dat
     return out.loc[order].reset_index(drop=True)
 
 
+def choose_genes(nano: pd.DataFrame, leftover: pd.DataFrame, q: float) -> tuple:
+    """The genes characterised, the family's members, and each member's control.
+
+    `nano` is the nano map's rows of gene_ranking.csv, `leftover` leftover_genes.csv.
+    Returns the chosen genes (chosen_genes), family_members.csv's table, the members
+    tested, the pool of other postsynaptic genes against the leftover, the pairs of
+    member and control (family_controls) and every gene's median energy.
+    """
+    table = gene_table.load_gene_table()
+    genes = gene_table.per_gene(table)
+    chosen = chosen_genes(nano, leftover, q)
+    members = family_members(genes, leftover)
+    family = list(members.loc[members["tested"], "symbol"])
+    _, level = gene_table.gene_levels(table)
+    tested = set(leftover["symbol"])
+    postsynaptic = gene_sets.members_from_table(genes)["other postsynaptic"]
+    pool = [g for g in postsynaptic if g in tested]
+    pairs = family_controls(family, pool, level)
+    return chosen, members, family, pool, pairs, level
+
+
 def family_members(genes: pd.DataFrame, leftover: pd.DataFrame) -> pd.DataFrame:
     """family_members.csv: every member of the family, its sources, tested or why not.
 
@@ -268,11 +278,6 @@ def family_members(genes: pd.DataFrame, leftover: pd.DataFrame) -> pd.DataFrame:
 # ===== What kind of map each gene is =====
 
 
-def named_terms(terms: list[str], names: dict[str, str]) -> str:
-    """GO ids with their names, joined: 'GO:0014069 postsynaptic density; ...'."""
-    return "; ".join(f"{t} {names.get(t, '')}".strip() for t in terms)
-
-
 def annotation_table(
     symbols: list[str],
     documentation: pd.DataFrame,
@@ -302,13 +307,28 @@ def annotation_table(
                 symbol=symbol,
                 name=doc["name"].get(symbol, ""),
                 ontology_role=doc["ontology_role"].get(symbol, ""),
-                go_panel_terms=named_terms(panel, names),
-                go_synapse_terms=named_terms(synaptic, names),
+                go_panel_terms=gene_table.go_term_list(panel, names),
+                go_synapse_terms=gene_table.go_term_list(synaptic, names),
                 gene_sets=doc["gene_sets"].get(symbol, ""),
                 p9_category=doc["p9_category"].get(symbol, ""),
             )
         )
     return pd.DataFrame(rows).fillna("")
+
+
+def annotation(symbols: list[str]) -> tuple[pd.DataFrame, str]:
+    """annotation_table of `symbols` from the gene table's cached records and GO.
+
+    Never asks a server: the records and go-basic.obo are those step 15 cached.
+    Returns the table and the release of go-basic.obo.
+    """
+    documentation = pd.read_csv(
+        gene_table.DOCUMENTATION, encoding="utf-8-sig", keep_default_na=False
+    )
+    records = gene_table.mygene_records(symbols, offline=True)
+    parents, names, release = gene_table.load_obo(offline=True)
+    table = annotation_table(symbols, documentation, records, parents, names)
+    return table, release
 
 
 def robustness_ranges(robust: pd.DataFrame, symbols: list[str]) -> pd.DataFrame:
@@ -338,7 +358,9 @@ def robustness_ranges(robust: pd.DataFrame, symbols: list[str]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def gene_on(inputs: bd.Inputs, symbol: str) -> tuple[list[int], np.ndarray]:
+def gene_on_fit(
+    inputs: beyond_density.Inputs, symbol: str
+) -> tuple[list[int], np.ndarray]:
     """The positions of the structures of the fit the gene has, and its values there."""
     profile = inputs.expr.get(symbol, {})
     columns = [
@@ -348,28 +370,30 @@ def gene_on(inputs: bd.Inputs, symbol: str) -> tuple[list[int], np.ndarray]:
     return columns, values
 
 
-def term_names(terms: dict[str, tuple[str, ...]]) -> list[str]:
+def predictor_names(terms: dict[str, tuple[str, ...]]) -> list[str]:
     """The main model's predictors by name, in the order of its budget."""
-    return [name for group in bd.ORDER for name in terms[group]]
+    return [name for group in beyond_density.ORDER for name in terms[group]]
 
 
-def predictor_rhos(inputs: bd.Inputs, symbols: list[str]) -> pd.DataFrame:
+def predictor_rhos(inputs: beyond_density.Inputs, symbols: list[str]) -> pd.DataFrame:
     """Per gene, rho with each term of the main model, its prediction, and PSD95.
 
     On the structures of the fit the gene has (n_fit): rho with Gria1, each density
     term, autofluorescence and the main model's in-sample prediction; and on those
     of them where the PSD95 punctum density is measured (n_psd95), rho with it.
     """
-    covariates, _, _ = bd.covariates_for(inputs)
-    y = bd.full_map(inputs.nano)
-    prediction = y - bd.residual(y, bd.model(covariates, inputs.terms))
+    covariates, _, _ = beyond_density.covariates_for(inputs)
+    y = beyond_density.full_map(inputs.nano)
+    prediction = y - beyond_density.residual(
+        y, beyond_density.model_columns(covariates, inputs.terms)
+    )
     psd95 = inputs.synapses.reindex(columns=[synaptome.MEASURE])[synaptome.MEASURE]
     psd95 = psd95.to_numpy(float)
     rows = []
     for symbol in symbols:
-        columns, values = gene_on(inputs, symbol)
+        columns, values = gene_on_fit(inputs, symbol)
         row = dict(symbol=symbol, n_fit=len(columns))
-        for name in term_names(inputs.terms):
+        for name in predictor_names(inputs.terms):
             row[f"rho_{name}"] = float(
                 spearmanr(values, covariates[name][columns]).statistic
             )
@@ -393,7 +417,7 @@ def remainder_surrogates(
     made orthogonal to the design and scaled to the remainder's SD; maps x
     structures.
     """
-    hat = design @ np.linalg.pinv(design)
+    hat = beyond_density.projection(design)
     fitted = hat @ gene
     rest = gene - fitted
     surr = spatial_null.surrogates(rest, d, n, seed=seed).astype(float)
@@ -403,7 +427,7 @@ def remainder_surrogates(
 
 
 def added_share(
-    inputs: bd.Inputs,
+    inputs: beyond_density.Inputs,
     symbol: str,
     centroids: pd.DataFrame,
     n_surrogates: int | None = None,
@@ -431,20 +455,20 @@ def added_share(
     """
     if n_surrogates is None:
         n_surrogates = TOP_GENES["n_added_surrogates"]
-    columns, values = gene_on(inputs, symbol)
+    columns, values = gene_on_fit(inputs, symbol)
     sub = inputs
     if len(columns) < len(inputs.structures):
-        sub = bd.restrict(inputs, [inputs.structures[i] for i in columns])
-    _, explainable = bd.ceiling(sub.nano, bd.half_splits())
-    y = bd.full_map(sub.nano)
-    covariates, _, _ = bd.covariates_for(sub)
-    xs = bd.model(covariates, sub.terms)
-    labels = bd.fold_labels(len(y))
+        sub = beyond_density.restrict(inputs, [inputs.structures[i] for i in columns])
+    _, explainable = beyond_density.ceiling(sub.nano, beyond_density.half_splits())
+    y = beyond_density.full_map(sub.nano)
+    covariates, _, _ = beyond_density.covariates_for(sub)
+    xs = beyond_density.model_columns(covariates, sub.terms)
+    labels = beyond_density.fold_labels(len(y))
 
     def left_with(extra: np.ndarray | None) -> float:
         """The share of the reproducible map left, with `extra` bent and added."""
-        used = xs if extra is None else xs + bd.flexible([rankdata(extra)])
-        return 1 - bd.cv_r2(y, used, labels) / explainable
+        used = xs if extra is None else xs + beyond_density.flexible([rankdata(extra)])
+        return 1 - beyond_density.cv_r2(y, used, labels) / explainable
 
     left_main = left_with(None)
     left_gene = left_with(values)
@@ -510,6 +534,69 @@ def tier_one(leftover: pd.DataFrame) -> dict:
     )
 
 
+def spatial_row(
+    map_name: str,
+    test: str,
+    role: str,
+    genes: list[str],
+    spatial: dict,
+    null_median: np.ndarray,
+) -> dict:
+    """A row of named_tests.csv for a group's median rho against the surrogates.
+
+    `spatial` is ish.gene_sets.set_test's row of `genes`, `null_median` their median
+    over each surrogate; second is the null's median.
+    """
+    second = float(np.median(null_median))
+    return dict(
+        tier="2",
+        map=map_name,
+        test=test,
+        role=role,
+        n_first=len(genes),
+        n_second=np.nan,
+        first=spatial["median_rho"],
+        second=second,
+        difference=spatial["median_rho"] - second,
+        null_lo=spatial["null_lo"],
+        null_hi=spatial["null_hi"],
+        critical=np.nan,
+        p=spatial["p_spatial"],
+    )
+
+
+def matched_row(
+    map_name: str,
+    test: str,
+    role: str,
+    first: np.ndarray,
+    second: np.ndarray,
+    rng: np.random.Generator,
+) -> tuple[dict, np.ndarray]:
+    """A row of named_tests.csv for a group against its controls, labels permuted.
+
+    `first` and `second` are the two sides' rho; critical is the difference beyond
+    which the label-permutation p falls below 0.05. Returns the row and the null.
+    """
+    difference, p, label_null = two_sample(first, second, rng)
+    row = dict(
+        tier="2",
+        map=map_name,
+        test=test,
+        role=role,
+        n_first=len(first),
+        n_second=len(second),
+        first=float(np.median(first)),
+        second=float(np.median(second)),
+        difference=difference,
+        null_lo=float(np.percentile(label_null, BAND[0])),
+        null_hi=float(np.percentile(label_null, BAND[1])),
+        critical=float(np.percentile(np.abs(label_null), 95)),
+        p=p,
+    )
+    return row, label_null
+
+
 def group_tests(
     family: list[str],
     pairs: dict[str, str],
@@ -535,43 +622,12 @@ def group_tests(
         role = "the test" if name == "leftover" else "description"
         row_of = {g: i for i, g in enumerate(null_genes)}
         spatial, null_median = set_test(family, rho, null, row_of)
-        rows.append(
-            dict(
-                tier="2",
-                map=name,
-                test=SPATIAL_TEST,
-                role=role,
-                n_first=len(family),
-                n_second=np.nan,
-                first=spatial["median_rho"],
-                second=float(np.median(null_median)),
-                difference=spatial["median_rho"] - float(np.median(null_median)),
-                null_lo=spatial["null_lo"],
-                null_hi=spatial["null_hi"],
-                critical=np.nan,
-                p=spatial["p_spatial"],
-            )
-        )
+        rows.append(spatial_row(name, SPATIAL_TEST, role, family, spatial, null_median))
         a = rho[family].to_numpy(float)
         b = rho[controls].to_numpy(float)
-        difference, p, label_null = two_sample(a, b, np.random.default_rng(child))
-        rows.append(
-            dict(
-                tier="2",
-                map=name,
-                test=MATCHED_TEST,
-                role=role,
-                n_first=len(a),
-                n_second=len(b),
-                first=float(np.median(a)),
-                second=float(np.median(b)),
-                difference=difference,
-                null_lo=float(np.percentile(label_null, BAND[0])),
-                null_hi=float(np.percentile(label_null, BAND[1])),
-                critical=float(np.percentile(np.abs(label_null), 95)),
-                p=p,
-            )
-        )
+        rng = np.random.default_rng(child)
+        row, label_null = matched_row(name, MATCHED_TEST, role, a, b, rng)
+        rows.append(row)
         nulls[name] = dict(spatial=null_median, labels=label_null)
     return pd.DataFrame(rows), nulls
 
@@ -602,36 +658,40 @@ def check_tests(
     pairs = family_controls(family, outside, level)
     a = rho[family].to_numpy(float)
     b = rho[[pairs[g] for g in family if g in pairs]].to_numpy(float)
-    difference, p, label_null = two_sample(a, b, np.random.default_rng(seed))
-    common = dict(tier="2", map="leftover", role="check", critical=np.nan)
+    rng = np.random.default_rng(seed)
     rows = [
-        dict(
-            **common,
-            test=WITHOUT_TEST,
-            n_first=len(without),
-            n_second=np.nan,
-            first=spatial["median_rho"],
-            second=float(np.median(null_median)),
-            difference=spatial["median_rho"] - float(np.median(null_median)),
-            null_lo=spatial["null_lo"],
-            null_hi=spatial["null_hi"],
-            p=spatial["p_spatial"],
-        ),
-        dict(
-            **common,
-            test=OUTSIDE_TEST,
-            n_first=len(a),
-            n_second=len(b),
-            first=float(np.median(a)),
-            second=float(np.median(b)),
-            difference=difference,
-            null_lo=float(np.percentile(label_null, BAND[0])),
-            null_hi=float(np.percentile(label_null, BAND[1])),
-            p=p,
-        ),
+        spatial_row("leftover", WITHOUT_TEST, "check", without, spatial, null_median),
+        matched_row("leftover", OUTSIDE_TEST, "check", a, b, rng)[0],
     ]
-    rows[1]["critical"] = float(np.percentile(np.abs(label_null), 95))
     return pd.DataFrame(rows)
+
+
+def named_tests(
+    family: list[str],
+    pairs: dict[str, str],
+    leftover: pd.DataFrame,
+    null: dict,
+    nano: pd.DataFrame,
+    nano_null: dict,
+    pool: list[str],
+    level: dict[str, float],
+) -> tuple[pd.DataFrame, dict[str, dict[str, np.ndarray]]]:
+    """named_tests.csv: tier 1 and tier 2 on the leftover; the group tests on the map.
+
+    Tier 2 as a group with its check rows; on the map as a description.
+
+    `null` and `nano_null` hold each map's null rho (rho) and the genes of its rows
+    (genes). Returns the table and the group tests' nulls (group_tests).
+    """
+    maps = dict(
+        leftover=(leftover.set_index("symbol")["rho"], null["rho"], null["genes"]),
+        nano=(nano.set_index("symbol")["rho"], nano_null["rho"], nano_null["genes"]),
+    )
+    group, group_nulls = group_tests(family, pairs, maps)
+    checks = check_tests(family, leftover, null["rho"], null["genes"], pool, level)
+    tier_one_row = pd.DataFrame([tier_one(leftover)])
+    tests = pd.concat([tier_one_row, group, checks], ignore_index=True)
+    return tests, group_nulls
 
 
 def neighbour_agreement(maps: np.ndarray, d: np.ndarray, k: int) -> np.ndarray:
@@ -658,8 +718,11 @@ def null_check_row(
     family: list[str],
     d: np.ndarray,
 ) -> dict:
-    """The tests against one null of the leftover: Cacng8's p, the family's p, and
-    how many genes fall below p 0.05, with how smooth the null's maps are."""
+    """The tests against one null of the leftover.
+
+    Cacng8's p, the family's p, and how many genes fall below p 0.05, with how smooth the
+    null's maps are.
+    """
     rho = leftover.set_index("symbol")["rho"]
     nulls = {
         g: null_rho(maps[:, columns], values) for g, (columns, values) in vectors.items()
@@ -676,13 +739,13 @@ def null_check_row(
         ),
         p_cacng8=p[LEFTOVER_GENE],
         p_family=spatial_p(float(np.median(rho[family])), family_null),
-        genes_p05=int(sum(v < 0.05 for v in p.values())),
+        genes_p05=int(sum(v < ALPHA for v in p.values())),
         genes=len(p),
     )
 
 
 def smooth_null_check(
-    inputs: bd.Inputs,
+    inputs: beyond_density.Inputs,
     residual: np.ndarray,
     surrogates: np.ndarray,
     leftover: pd.DataFrame,
@@ -701,9 +764,9 @@ def smooth_null_check(
     """
     s = inputs.structures
     d = spatial_null.distance_matrix(centroids.loc[s])
-    covariates, _, _ = bd.covariates_for(inputs)
-    design = np.column_stack(bd.model(covariates, inputs.terms) + [np.ones(len(s))])
-    hat = design @ np.linalg.pinv(design)
+    covariates, _, _ = beyond_density.covariates_for(inputs)
+    columns = beyond_density.model_columns(covariates, inputs.terms)
+    hat = beyond_density.projection(np.column_stack(columns + [np.ones(len(s))]))
     vectors = gene_ranking.gene_vectors(inputs.expr, s)
     smooth = neighbour_agreement(residual[None, :], d, TOP_GENES["neighbours"])[0]
     rows = [
@@ -737,11 +800,15 @@ def within_family_q(p: pd.Series) -> pd.Series:
 def characterise(parts: list[pd.DataFrame]) -> pd.DataFrame:
     """top_genes.csv: the parts, each one row per gene with a symbol, side by side.
 
-    The first part (chosen_genes) sets the genes and their order.
+    The first part (chosen_genes) sets the genes and their order. A text column of
+    a part that does not hold every gene (a family member's sources and control,
+    a gene's term of the model) is empty, not NaN, for the others.
     """
     out = parts[0]
     for part in parts[1:]:
         out = out.merge(part, on="symbol", how="left")
+    for column in ("family_sources", "in_model", "matched_control"):
+        out[column] = out[column].fillna("")
     return out
 
 
@@ -864,9 +931,9 @@ def top_numbers(table: pd.DataFrame, q: float) -> list[tuple]:
     """The numbers of the genes past the map's null, and of Cacng8 and Gria1."""
     top = table[table["top"]]
     free = top[top["in_model"] != "abundance"]
-    follow = free[free["leftover_p"] < 0.05]
-    take = free[free["p_taken"] < 0.05]
-    take_alike = free[free["p_taken_alike"] < 0.05]
+    follow = free[free["leftover_p"] < ALPHA]
+    take = free[free["p_taken"] < ALPHA]
+    take_alike = free[free["p_taken_alike"] < ALPHA]
     rows = [
         ("characterised", len(table), "genes characterised"),
         ("top_genes", len(top), f"genes past the map's null, BH over all, q < {q}"),
@@ -915,8 +982,10 @@ def top_numbers(table: pd.DataFrame, q: float) -> list[tuple]:
 def group_numbers(
     table: pd.DataFrame, tier2: pd.DataFrame, map_name: str, q: float
 ) -> list[tuple]:
-    """The numbers of tier 2's group tests on one map, and the members past BH
-    within the family there. `tier2` is named_tests.csv's tier 2, by map and test."""
+    """The numbers of tier 2's group tests on one map, and its members past BH there.
+
+    BH runs within the family. `tier2` is named_tests.csv's tier 2, by map and test.
+    """
     spatial = tier2.loc[(map_name, SPATIAL_TEST)]
     matched = tier2.loc[(map_name, MATCHED_TEST)]
     key = f"family_{map_name}"
@@ -1038,7 +1107,7 @@ def numbers_table(
     rows = top_numbers(table, q)
     rows += family_numbers(table, members, tests, q)
     rows += null_check_numbers(check)
-    return pd.DataFrame(rows, columns=["name", "value", "what"], dtype=object)
+    return numbers_frame(rows)
 
 
 def load_top_genes() -> pd.DataFrame:

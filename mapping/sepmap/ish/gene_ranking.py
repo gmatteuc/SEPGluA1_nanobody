@@ -3,12 +3,12 @@
 Each gene of the gene table is correlated with the adult map on the declared
 structures it has (its merged profile, ish.gene_table: structures with at least
 ish.min_voxels voxels of data), and the correlation is tested against the spatial
-null of ish.spatial_null (A7):
+null of ish.spatial_null:
 
     rho          Spearman over the declared structures the gene has; a gene with
                  fewer than ish.min_structures of them gets no row
     spatial p    two-sided, against the map's surrogates cut to the same
-                 structures; with 10,000 surrogates the smallest p is 1e-4
+                 structures; the smallest p is 1 / (surrogates + 1)
     q            Benjamini-Hochberg, within P9's 100 genes (the genes the figures
                  name, as in April) and within every gene of the table
     null band    the 2.5th and 97.5th percentiles of the gene's null rho: the band
@@ -20,10 +20,10 @@ null of ish.spatial_null (A7):
 
 The autofluorescence map of the same brains (each brain over its own isocortex
 mean of autofluorescence, scaled over the declared set as zref is) goes through the
-same steps with its own surrogates (A8). Were the ranking the tissue's rather than
-the label's, autofluorescence would order the genes as nano does.
+same steps with its own surrogates. Were the ranking the tissue's rather than the
+label's, autofluorescence would order the genes as nano does.
 
-The Cacng8 - Gria1 gap (named in advance, S5) is rho(Cacng8) - rho(Gria1) on the
+The Cacng8 - Gria1 gap (named in advance) is rho(Cacng8) - rho(Gria1) on the
 structures both genes have. The question is whether the map is more closely related
 to one gene than to the other, so its null is a map related to both alike: each
 null map is
@@ -50,8 +50,12 @@ import numpy as np
 import pandas as pd
 from scipy.stats import false_discovery_control, rankdata, spearmanr
 
+from sepmap.adult import profiles
 from sepmap.config import SETTINGS
-from sepmap.ish.spatial_null import null_rho, spatial_p
+from sepmap.ish import gene_table
+from sepmap.ish.gene_sets import LEFTOVER_GENE
+from sepmap.ish.numbers import numbers_frame, numbers_path
+from sepmap.ish.spatial_null import BAND, null_rho, spatial_p
 from sepmap.structures import TABLES
 
 # the voxels a gene value needs and the structures a correlation needs; the BH
@@ -63,15 +67,25 @@ RANKING = TABLES / "gene_ranking.csv"
 GAP = TABLES / "gap.csv"
 PER_ADULT = TABLES / "gene_ranking_per_adult.csv"
 NULL_RHO = TABLES / "null_rho.npz"
+NUMBERS = numbers_path("gene_ranking")
 
 # the maps, by name: the column of the adult tables that holds each
 MAPS = {"nano": "zref_nano", "auto": "zref_auto"}
 
-# the two genes of the gap, named in advance (S5)
+# the two genes of the gap, named in advance
 GAP_GENES = ("Cacng8", "Gria1")
 
-# the percentiles of a null distribution that a rho must leave to pass at 0.05
-BAND = (2.5, 97.5)
+# the row of gap.csv on the genes' merged profiles; the others pair two experiments
+MERGED = "merged profiles"
+
+# the genes figure 05 and the text quote: the top of P9's ranking, the gene of the
+# stained protein, and an astrocyte gene as the control
+QUOTED_GENES = ("Cacng8", "Gria1", "Aqp4")
+
+# surrogates used to set the weight of the shared part of the equal null, and the
+# bisection steps that set it
+EQUAL_FIT = 1000
+EQUAL_STEPS = 40
 
 
 # ===== Inputs =====
@@ -124,6 +138,11 @@ def bootstrap_maps(adults: np.ndarray, n: int | None = None, seed: int = 0) -> n
     rng = np.random.default_rng(seed)
     draws = rng.integers(0, adults.shape[0], size=(n, adults.shape[0]))
     return adults[draws].mean(axis=1)
+
+
+def map_rows(ranking: pd.DataFrame, map_name: str) -> pd.DataFrame:
+    """One map's rows of gene_ranking.csv, indexed by gene."""
+    return ranking[ranking["map"] == map_name].set_index("symbol")
 
 
 # ===== Gene by gene =====
@@ -201,6 +220,46 @@ def ranking_table(tables: dict[str, pd.DataFrame], genes: pd.DataFrame) -> pd.Da
     return pd.concat(parts, ignore_index=True)
 
 
+def rank_against_maps(
+    per_mouse: pd.DataFrame,
+    profile: pd.DataFrame,
+    declared: list[str],
+    surr: dict[str, np.ndarray],
+    vectors: dict[str, tuple[np.ndarray, np.ndarray]],
+    genes: pd.DataFrame,
+) -> tuple[pd.DataFrame, dict[str, np.ndarray], dict[str, np.ndarray]]:
+    """Every gene against each map: rho, spatial p, null band, spread over adults.
+
+    `per_mouse` and `profile` are the adult tables (adult.profiles), `surr` each
+    map's surrogates on the `declared` structures, `genes` the gene table's one row
+    per gene. Returns gene_ranking.csv's table, each map's null rho (genes x
+    surrogates) and each map's adults x structures.
+    """
+    results, nulls, adults = {}, {}, {}
+    for k, (name, column) in enumerate(MAPS.items()):
+        adults[name] = adult_matrix(per_mouse, column, declared, profiles.ADULTS)
+        boot = bootstrap_maps(adults[name], seed=k)
+        map_values = profile.loc[declared, column].to_numpy(float)
+        results[name], nulls[name] = rank_genes(map_values, surr[name], boot, vectors)
+        print(f"  {name}: {len(results[name])} genes tested", flush=True)
+    return ranking_table(results, genes), nulls, adults
+
+
+def check_matches_ranking(rho: pd.Series, what: str) -> None:
+    """Stop unless `rho` (by gene) is the nano map's rho of gene_ranking.csv.
+
+    `what` names the rho in the message: a step that recomputes the whole-brain rho
+    must find what analysis 1 wrote, or the two read different inputs.
+    """
+    nano = map_rows(load_ranking(), "nano")["rho"]
+    largest = float((rho - nano).abs().max())
+    if largest > 1e-9:
+        raise ValueError(
+            f"{what} differs from gene_ranking.csv by up to {largest:.2e}; "
+            "run run_ish_gene_ranking.py first"
+        )
+
+
 def passing(ranking: pd.DataFrame, map_name: str, within: str) -> pd.DataFrame:
     """The genes past the null at ish_analysis.q for one map, BH within p9 or all."""
     mine = ranking[ranking["map"] == map_name]
@@ -237,12 +296,6 @@ def standardise_rows(x: np.ndarray) -> np.ndarray:
     r = rankdata(x, axis=-1).astype(float)
     r = r - r.mean(axis=-1, keepdims=True)
     return r / r.std(axis=-1, keepdims=True)
-
-
-# surrogates used to set the weight of the shared part of the equal null, and the
-# bisection steps that set it
-EQUAL_FIT = 1000
-EQUAL_STEPS = 40
 
 
 def equal_null(
@@ -344,9 +397,7 @@ def gap_table(
     row, equal, unrelated = gap_row(
         map_values, surr, boot, merged[first], merged[second], structures
     )
-    rows = [
-        dict(kind="merged profiles", first_experiment="", second_experiment="", **row)
-    ]
+    rows = [dict(kind=MERGED, first_experiment="", second_experiment="", **row)]
     for ea, pa in sorted(per_experiment[first].items()):
         for eb, pb in sorted(per_experiment[second].items()):
             pair, _, _ = gap_row(map_values, surr, boot, pa, pb, structures)
@@ -364,6 +415,126 @@ def gap_table(
     return out, np.vstack([equal, unrelated])
 
 
+def gap_with_nulls(
+    table: pd.DataFrame,
+    merged: dict[str, dict[str, float]],
+    profile: pd.DataFrame,
+    declared: list[str],
+    surr: dict[str, np.ndarray],
+    nano_adults: np.ndarray,
+) -> tuple[pd.DataFrame, np.ndarray]:
+    """gap_table on the nano map: merged, per pairing of experiments, and its nulls.
+
+    `table` is the gene table, `merged` every gene's merged profile, `nano_adults`
+    the nano map's adults x structures, resampled with the seed of the ranking.
+    """
+    boot = bootstrap_maps(nano_adults, seed=0)
+    return gap_table(
+        profile.loc[declared, "zref_nano"].to_numpy(float),
+        surr["nano"],
+        boot,
+        merged,
+        gene_table.used_experiment_profiles(table),
+        declared,
+    )
+
+
+def merged_gap(gap: pd.DataFrame) -> pd.Series:
+    """The row of gap.csv on the two genes' merged profiles."""
+    return gap[gap["kind"] == MERGED].iloc[0]
+
+
+# ===== The numbers for the text =====
+
+
+def numbers_table(
+    ranking: pd.DataFrame, gap: pd.DataFrame, per_adult: pd.DataFrame
+) -> pd.DataFrame:
+    """numbers_gene_ranking.csv: the numbers of this step that the text quotes."""
+    q = ISH_ANALYSIS["q"]
+    rows = []
+    for name in MAPS:
+        mine = ranking[ranking["map"] == name]
+        p9 = mine[mine["p9_gene"]]
+        rows += [
+            (f"{name}_genes", len(mine), f"genes correlated with the {name} map"),
+            (f"{name}_p9_genes", len(p9), f"P9's genes correlated with the {name} map"),
+            (
+                f"{name}_pass_p9",
+                int((p9["q_p9"] < q).sum()),
+                f"P9's genes past the null, BH within P9's genes, q < {q}",
+            ),
+            (
+                f"{name}_pass_all",
+                int((mine["q_all"] < q).sum()),
+                f"genes past the null, BH within all genes, q < {q}",
+            ),
+            (
+                f"{name}_median_rho",
+                round(float(mine["rho"].median()), 3),
+                "median rho over all genes",
+            ),
+        ]
+        for gene in QUOTED_GENES:
+            r = mine[mine["symbol"] == gene].iloc[0]
+            rows += [
+                (f"{name}_rho_{gene}", round(r["rho"], 3), f"{gene}'s rho"),
+                (f"{name}_p_{gene}", round(r["p_spatial"], 5), f"{gene}'s spatial p"),
+                (f"{name}_q_p9_{gene}", round(r["q_p9"], 5), f"{gene}'s q within P9"),
+                (f"{name}_rank_p9_{gene}", r["rank_p9"], f"{gene}'s rank among P9's"),
+                (f"{name}_rank_all_{gene}", r["rank_all"], f"{gene}'s rank among all"),
+            ]
+    rows += gap_numbers(gap)
+    for gene in (ISH["control_gene"], LEFTOVER_GENE):
+        mine = per_adult[per_adult["symbol"] == gene]
+        for name in MAPS:
+            rows += [
+                (
+                    f"per_adult_{name}_{gene}_min",
+                    round(mine[f"rho_{name}"].min(), 3),
+                    f"lowest rho of one adult's {name} map with {gene}",
+                ),
+                (
+                    f"per_adult_{name}_{gene}_max",
+                    round(mine[f"rho_{name}"].max(), 3),
+                    f"highest rho of one adult's {name} map with {gene}",
+                ),
+            ]
+    return numbers_frame(rows)
+
+
+def gap_numbers(gap: pd.DataFrame) -> list[tuple]:
+    """The numbers of the Cacng8 - Gria1 gap: merged, its two nulls, the pairings."""
+    merged = merged_gap(gap)
+    pairs = gap[gap["kind"] == "experiment pairing"]
+    return [
+        ("gap", round(merged["gap"], 3), "rho(Cacng8) - rho(Gria1), merged profiles"),
+        ("gap_structures", int(merged["n_structures"]), "structures both genes have"),
+        ("gap_p", round(merged["p_equal"], 5), "its p, maps related to both alike"),
+        ("gap_equal_lo", round(merged["equal_lo"], 3), "2.5% of that null"),
+        ("gap_equal_hi", round(merged["equal_hi"], 3), "97.5% of that null"),
+        (
+            "gap_equal_first_as_large",
+            round(merged["equal_first_as_large"], 4),
+            "share of that null where Cacng8 leads by at least the gap",
+        ),
+        (
+            "gap_equal_second_as_large",
+            round(merged["equal_second_as_large"], 4),
+            "share of that null where Gria1 leads by at least the gap",
+        ),
+        ("gap_p_unrelated", round(merged["p_spatial"], 5), "its p, unrelated maps"),
+        ("gap_unrelated_lo", round(merged["null_lo"], 3), "2.5% of that null"),
+        ("gap_unrelated_hi", round(merged["null_hi"], 3), "97.5% of that null"),
+        ("gap_boot_lo", round(merged["boot_lo"], 3), "2.5% over resampled adults"),
+        ("gap_boot_hi", round(merged["boot_hi"], 3), "97.5% over resampled adults"),
+        ("gap_pairs_min", round(pairs["gap"].min(), 3), "smallest over pairings"),
+        ("gap_pairs_max", round(pairs["gap"].max(), 3), "largest over pairings"),
+        ("gap_pairs_p_min", round(pairs["p_equal"].min(), 5), "smallest p over pairings"),
+        ("gap_pairs_p_max", round(pairs["p_equal"].max(), 5), "largest p over pairings"),
+    ]
+
+
 # ===== Reading back =====
 
 
@@ -378,15 +549,40 @@ def load_ranking() -> pd.DataFrame:
     return table
 
 
-def load_null_rho(map_name: str) -> tuple[np.ndarray, list[str]]:
-    """Every gene's rho with every surrogate of one map, and the genes of its rows.
+def load_gap() -> pd.DataFrame:
+    """The table of the Cacng8 - Gria1 gap that run_ish_gene_ranking wrote."""
+    if not GAP.exists():
+        raise FileNotFoundError(f"{GAP} not found: run run_ish_gene_ranking.py first")
+    return pd.read_csv(GAP)
 
-    `map_name` gap gives the Cacng8 - Gria1 gap of every null map, two rows: maps
-    equally related to both genes, then the surrogates of the nano map.
-    """
+
+def save_null_rho(
+    genes: list[str], nulls: dict[str, np.ndarray], gap_null: np.ndarray
+) -> None:
+    """Write null_rho.npz: each map's null rho (genes x surrogates) and the gap's."""
+    np.savez(NULL_RHO, genes=np.array(genes), gap=gap_null, **nulls)
+
+
+def check_null_rho() -> None:
+    """Stop unless analysis 1 has written null_rho.npz."""
     if not NULL_RHO.exists():
         raise FileNotFoundError(
             f"{NULL_RHO} not found: run run_ish_gene_ranking.py first"
         )
+
+
+def load_null_rho(map_name: str) -> tuple[np.ndarray, list[str]]:
+    """Every gene's rho with every surrogate of one map, and the genes of its rows."""
+    check_null_rho()
     with np.load(NULL_RHO) as z:
         return z[map_name], [str(g) for g in z["genes"]]
+
+
+def load_gap_null() -> np.ndarray:
+    """The Cacng8 - Gria1 gap of every null map, from null_rho.npz.
+
+    Two rows: maps equally related to both genes, then the surrogates of the nano map.
+    """
+    check_null_rho()
+    with np.load(NULL_RHO) as z:
+        return z["gap"]

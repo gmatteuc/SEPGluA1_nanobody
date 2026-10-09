@@ -61,7 +61,8 @@ channels is taken. The method is in sepmap/adult/sep_channel_check.py. Writes, u
 adult_v2/ish_analysis/ in the data root:
 
     green_channel/sep_channel_check.csv   per adult: the ranges and correlations
-    green_channel/sep_channel_check.png   the working figure
+    green_channel/sep_channel_check.png   the working figure: the ranges, one adult,
+                                          the Gria1 correlations
     tables/numbers_green_channel.csv      the numbers of analysis 5, for the text
     figures/15_green_channel.png          the guided figure (15s in detail)
 
@@ -74,38 +75,15 @@ import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from sepmap import config, plotting
+from sepmap import config, plotting, structures
+from sepmap.adult import plotting as adult_plotting
 from sepmap.adult import sep_channel_check
+from sepmap.adult.profiles import ADULTS
 from sepmap.ish import planes
-from sepmap.ish import plotting as ish_plotting
-from sepmap.structures import TABLES
+from sepmap.ish.figure_index import figure_file, figure_path
 
 ISH_FIGURES = config.SETTINGS["ish_figures"]
 ISH = config.SETTINGS["ish"]
-
-FIGURES = config.DATA / "adult_v2" / "ish_analysis" / "figures"
-
-
-def numbers_table(rows: pd.DataFrame, n_structures: int) -> pd.DataFrame:
-    """The numbers of analysis 5 that the text quotes, one row each."""
-    out = [
-        ("adults", len(rows), "adults measured"),
-        ("structures", n_structures, "declared structures"),
-    ]
-    for column in rows.columns:
-        if column in ("mouse", "n_structures"):
-            continue
-        v = rows[column]
-        out += [
-            (
-                f"{column}_mean",
-                round(float(v.mean()), 3),
-                f"{column}, mean of the adults",
-            ),
-            (f"{column}_min", round(float(v.min()), 3), f"{column}, lowest adult"),
-            (f"{column}_max", round(float(v.max()), 3), f"{column}, highest adult"),
-        ]
-    return pd.DataFrame(out, columns=["name", "value", "what"], dtype=object)
 
 
 def main():
@@ -114,19 +92,26 @@ def main():
     per, rows = sep_channel_check.main()
     rows = pd.DataFrame(rows)
     n_structures = int(rows["n_structures"].iloc[0])
-    numbers_table(rows, n_structures).to_csv(
-        TABLES / "numbers_green_channel.csv", index=False
+    numbers = sep_channel_check.numbers_table(rows, n_structures)
+    numbers.to_csv(sep_channel_check.NUMBERS, index=False)
+
+    # the working figure: the ranges, the first adult, the Gria1 correlations
+    mouse = ADULTS[0]
+    working = sep_channel_check.OUT / "sep_channel_check.png"
+    fig = adult_plotting.plot_channel_check(
+        rows, per[mouse], mouse, ISH["control_gene"], save=working
     )
+    plt.close(fig)
+    print(f"\nworking figure: {working}")
 
     # figure 15, and 15s with the first adult's raw channels on the plane of the
     # guided figures
-    fig = ish_plotting.plot_green_channel(
-        rows, n_structures, save=FIGURES / ish_plotting.figure_file("green_channel")
+    fig = adult_plotting.plot_green_channel(
+        rows, n_structures, save=figure_path("green_channel")
     )
     plt.close(fig)
     plane = ISH_FIGURES["plane"]
-    mouse = sep_channel_check.ADULTS[0]
-    fig = ish_plotting.plot_green_channel_detail(
+    fig = adult_plotting.plot_green_channel_detail(
         rows,
         planes.channel_planes(mouse, plane),
         planes.label_plane(plane),
@@ -134,12 +119,11 @@ def main():
         plane,
         n_structures,
         ISH["control_gene"],
-        save=FIGURES / ish_plotting.figure_file("green_channel_detail"),
+        save=figure_path("green_channel_detail"),
     )
     plt.close(fig)
-    keys = ("green_channel", "green_channel_detail")
-    drawn = [ish_plotting.figure_file(k) for k in keys]
-    print(f"figures: {', '.join(drawn)} in {FIGURES}")
+    drawn = [figure_file(k) for k in ("green_channel", "green_channel_detail")]
+    print(f"figures: {', '.join(drawn)} in {structures.FIGURES}")
 
 
 if __name__ == "__main__":

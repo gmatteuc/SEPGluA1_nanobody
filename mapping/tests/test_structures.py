@@ -1,7 +1,5 @@
 """The declared structure set, zref with a declared reference, and the centroids."""
 
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -112,12 +110,9 @@ def test_border_voxels_peel_one_voxel_off_each_structure():
     assert core[3:6, 3:6, 3:6].all()
 
 
-@pytest.mark.skipif(
-    not Path(structures.STRUCTURE_SET).exists(),
-    reason="run_structure_set has not written the set on this data root",
-)
-def test_todays_set_has_204_structures_all_with_a_centroid():
-    """The declared set of the 5 October tables: 204 structures, each with a centroid."""
+@pytest.mark.skipif(not structures.STRUCTURE_SET.exists(), reason="data not connected")
+def test_written_set_has_204_structures_all_with_a_centroid():
+    """The written declared set: 204 structures, each with a centroid."""
     table = structures.load_structure_set()
     declared = set(table.loc[table["in_set"], "structure"])
     centroids = structures.load_centroids()

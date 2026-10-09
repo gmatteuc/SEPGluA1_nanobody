@@ -79,60 +79,19 @@ each map; the calibration is always run, a few minutes).
 
 import argparse
 
-import numpy as np
 import pandas as pd
 
 from sepmap import config, structures
 from sepmap.adult import profiles
 from sepmap.ish import spatial_null
 
-SPATIAL_NULL = config.SETTINGS["spatial_null"]
-
-OUT = config.DATA / "adult_v2" / "ish_analysis"
-
 # the maps, their profile columns, and the seed of each one's surrogates
 MAPS = {"nano": ("zref_nano", 0), "auto": ("zref_auto", 1)}
-
-
-def matched_misfit(variogram):
-    """Per map, median and largest |surrogates - map| / map in the matched range."""
-    out = {}
-    for name, sub in variogram[variogram["matched"]].groupby("map"):
-        rel = (sub["surrogate_median"] - sub["variogram"]).abs() / sub["variogram"]
-        out[name] = (float(rel.median()), float(rel.max()))
-    return out
-
-
-def numbers_table(n_structures, params, misfit, rates):
-    """The numbers of this step that the text quotes, one row each."""
-    rows = [
-        ("null_structures", n_structures, "declared structures the surrogates cover"),
-        ("null_surrogates", SPATIAL_NULL["n_surrogates"], "surrogates per map"),
-        ("calibration_range_mm", round(params[2], 3), "range of the fitted fields, mm"),
-        ("calibration_nugget", round(params[0], 4), "nugget of the fitted fields"),
-    ]
-    for name, (median, largest) in misfit.items():
-        rows.append(
-            (f"variogram_misfit_{name}", round(median, 3), "median, matched range")
-        )
-        rows.append(
-            (f"variogram_misfit_max_{name}", round(largest, 3), "largest, matched range")
-        )
-    for _, r in rates.iterrows():
-        what = f"{r['design']} design, {r['n_tests']} tests"
-        rows.append((f"fpr_ordinary_{r['design']}", round(r["ordinary"], 4), what))
-        rows.append((f"fpr_spatial_{r['design']}", round(r["spatial"], 4), what))
-        rows.append((f"sd_rho_{r['design']}", round(r["sd_rho"], 3), "smooth maps"))
-        rows.append(
-            (f"sd_rho_shuffled_{r['design']}", round(r["sd_rho_shuffled"], 3), "shuffled")
-        )
-    return pd.DataFrame(rows, columns=["name", "value", "what"], dtype=object)
 
 
 def main(recompute):
     """Print the settings, draw or read the surrogates, check them, write the tables."""
     config.print_settings({"recompute": recompute})
-    tables = OUT / "tables"
 
     # the declared structures, their centroids and the two maps
     declared = structures.declared_structures()
@@ -144,20 +103,13 @@ def main(recompute):
     # the surrogates of each map, drawn or read
     surr = {}
     if recompute or not all(p.exists() for p in spatial_null.SURROGATES.values()):
-        table = centroids.reset_index()[["structure", "ap_mm", "dv_mm", "ml_mm"]]
-        table.to_csv(spatial_null.SURROGATE_STRUCTURES, index=False)
         for name, (column, seed) in MAPS.items():
             surr[name] = spatial_null.surrogates(profile[column].to_numpy(), d, seed=seed)
-            np.save(spatial_null.SURROGATES[name], surr[name].astype(np.float32))
+        spatial_null.save_surrogates(surr, centroids)
         source = "drawn"
     else:
         for name in MAPS:
-            surr[name], listed = spatial_null.load_surrogates(name)
-            if listed != declared:
-                raise ValueError(
-                    "the surrogates were drawn on other structures than the declared "
-                    "set; run run_ish_spatial_null.py --recompute"
-                )
+            surr[name], _ = spatial_null.load_surrogates(name, declared)
         source = "read"
     shapes = ", ".join(f"{k} {v.shape[0]} x {v.shape[1]}" for k, v in surr.items())
     print(f"surrogates: {shapes} ({source})")
@@ -171,7 +123,7 @@ def main(recompute):
         ignore_index=True,
     )
     variogram.to_csv(spatial_null.VARIOGRAM, index=False)
-    misfit = matched_misfit(variogram)
+    misfit = spatial_null.matched_misfit(variogram)
     text = ", ".join(
         f"{k} median {m:.0%}, largest {x:.0%}" for k, (m, x) in misfit.items()
     )
@@ -185,13 +137,14 @@ def main(recompute):
     rates = spatial_null.false_positive_rates(calibration)
     for _, r in rates.iterrows():
         print(
-            f"calibration ({r['design']}, {r['n_tests']} tests): p < 0.05 in "
+            f"calibration ({r['design']}, {r['n_tests']} tests): p < "
+            f"{spatial_null.ALPHA} in "
             f"{r['ordinary']:.1%} by the ordinary p, {r['spatial']:.1%} by the spatial p"
         )
 
     # the numbers for the text
-    numbers = numbers_table(len(declared), params, misfit, rates)
-    numbers.to_csv(tables / "numbers_spatial_null.csv", index=False)
+    numbers = spatial_null.numbers_table(len(declared), params, misfit, rates)
+    numbers.to_csv(spatial_null.NUMBERS, index=False)
 
 
 if __name__ == "__main__":

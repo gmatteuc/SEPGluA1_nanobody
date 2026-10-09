@@ -149,9 +149,13 @@ import numpy as np
 import pandas as pd
 from scipy.stats import false_discovery_control, rankdata, spearmanr
 
+from sepmap import structures
+from sepmap.adult import profiles
 from sepmap.config import SETTINGS
+from sepmap.ish import spatial_null
+from sepmap.ish.numbers import numbers_frame, numbers_path
 from sepmap.ish.panel_test import greedy_match, partial, two_sample
-from sepmap.ish.spatial_null import spatial_p
+from sepmap.ish.spatial_null import BAND, spatial_p
 from sepmap.structures import TABLES
 
 # the genes a set needs to be tested, the BH level; the structures, permutations and
@@ -165,12 +169,15 @@ CONTRAST_TESTS = TABLES / "contrasts.csv"
 LOCALISATION = TABLES / "localisation_test.csv"
 LOCALISATION_SUMMARY = TABLES / "localisation_summary.csv"
 LOCALISATION_POWER = TABLES / "localisation_power.csv"
+NUMBERS = numbers_path("gene_sets")
 
 # the matched test with the four subunits removed as separate terms
 FOUR_SUBUNITS = "matched controls, four subunits removed"
 
-# the percentiles of a null distribution that a value must leave to pass at 0.05
-BAND = (2.5, 97.5)
+# the localisation tests kept from the run with the control pool of 5 October, and
+# the role of each test of the design in localisation_summary.csv
+OCTOBER_5_TESTS = ("matched controls", "positive control")
+TEST_ROLES = {"matched controls": "the test", "positive control": "positive control"}
 
 # the sets in the order the figures draw them
 SET_ORDER = (
@@ -320,7 +327,7 @@ AMPA_FAMILY = tuple(
 )
 
 
-def gene_sets(
+def set_members(
     genes: list[str], role: dict[str, str], components: dict[str, set[str]]
 ) -> dict[str, list[str]]:
     """The members of each set among `genes`, {set: sorted symbols}.
@@ -349,7 +356,7 @@ def context_set(
     """The genes annotated to both the presynapse and the postsynapse, sorted.
 
     Subunit and localisation genes are left out, as from the two GO sets; the
-    arguments are those of gene_sets.
+    arguments are those of set_members.
     """
     by_role = {g for g in genes if role.get(g, "") in PANEL_ROLE_SETS.values()}
     both = {
@@ -536,8 +543,10 @@ def contrast_tests(
 def subunit_composite(
     subunits: list[str], profiles: dict[str, dict[str, float]], structures: list[str]
 ) -> tuple[list[str], np.ndarray, list[np.ndarray]]:
-    """The structures every subunit has, the mean of the subunits' ranks there, and
-    each subunit's ranks."""
+    """The subunits' composite: the mean of their ranks where every subunit has a value.
+
+    Returns those structures, the composite there and each subunit's ranks.
+    """
     common = [s for s in structures if all(s in profiles[g] for g in subunits)]
     ranks = [rankdata([profiles[g][s] for s in common]) for g in subunits]
     return common, np.mean(ranks, axis=0), ranks
@@ -568,6 +577,9 @@ def partial_rows(
             continue
         values = np.array([profiles[gene][common[i]] for i in positions])
         x = map_values[positions]
+        four = np.nan
+        if subunit_ranks is not None:
+            four = partial(x, values, [r[positions] for r in subunit_ranks])
         rows.append(
             dict(
                 symbol=gene,
@@ -575,11 +587,7 @@ def partial_rows(
                 n_structures=len(positions),
                 rho=float(spearmanr(x, values).statistic),
                 rho_partial=partial(x, values, [composite[positions]]),
-                rho_partial_four=(
-                    partial(x, values, [r[positions] for r in subunit_ranks])
-                    if subunit_ranks is not None
-                    else np.nan
-                ),
+                rho_partial_four=four,
                 reliability=reliability.get(gene, np.nan),
                 median_energy=level.get(gene, np.nan),
             )
@@ -631,7 +639,6 @@ def localisation_tests(
     beyond which the label permutation gives p < 0.05. Returns the table and each
     test's label-permutation null.
     """
-    seeds = np.random.SeedSequence(seed).spawn(6)
     by = table.set_index("symbol")
     loc = list(table.loc[table["side"] == "localisation", "symbol"])
     ctrl = list(table.loc[table["side"] == "control", "symbol"])
@@ -651,6 +658,7 @@ def localisation_tests(
         (f"reliability {min_rel} or more", good_loc, good_ctrl, "rho_partial", False),
         ("positive control", high, low, "rho", True),
     )
+    seeds = np.random.SeedSequence(seed).spawn(len(tests))
     rows, nulls = [], {}
     for (name, first, second, column, absolute), child in zip(tests, seeds):
         a = by.loc[first, column].to_numpy(float)
@@ -794,11 +802,10 @@ def power_curve(
     the map's composite part, plus its remainder's SD times (a surrogate of the
     remainder, standardised, + c x the pattern that sets the localisation genes
     apart from their controls: the difference of the two sets' shared patterns,
-    standardised). Per
-    effect: the median matched difference over the maps, the share with a label
-    p < 0.05 (ish_analysis.power_perm permutations) and the share beyond the 95%
-    band of the c = 0 maps' differences (the spatial test). Columns: effect,
-    median_difference, power_labels, power_spatial.
+    standardised). Per effect: the median matched difference over the maps, the
+    share with a label p < 0.05 (ish_analysis.power_perm permutations) and the share
+    beyond the 95% band of the c = 0 maps' differences (the spatial test). Columns:
+    effect, median_difference, power_labels, power_spatial.
     """
     loc = list(table.loc[table["side"] == "localisation", "symbol"])
     matched = sorted(set(pairs.values()))
@@ -835,6 +842,80 @@ def power_curve(
     return pd.DataFrame(rows)
 
 
+def localisation_design(
+    members: dict[str, list[str]],
+    genes: pd.DataFrame,
+    merged: dict[str, dict[str, float]],
+    reliability: dict[str, float],
+    level: dict[str, float],
+) -> dict:
+    """The localisation genes against expression-matched postsynaptic controls.
+
+    The design of 5 October on the new inputs, then the same with its control pool
+    (the ontology panel's postsynaptic-density genes, role control_psd, which also
+    hold genes GO puts on both sides; secondary), the matched difference against
+    maps whose remainder once the composite is removed is a surrogate of the real
+    one, and the test's power. `genes` is the gene table's one row per gene,
+    `merged` every gene's merged profile, `reliability` and `level` each gene's
+    (ish.gene_table.gene_levels). Returns the tables and nulls the step writes and
+    draws, by name.
+    """
+    declared = structures.declared_structures()
+    profile = profiles.load_profile()
+    common, composite, subunit_ranks = subunit_composite(
+        members["subunits"], merged, declared
+    )
+    map_common = profile.loc[common, "zref_nano"].to_numpy(float)
+    sides = {g: "localisation" for g in members["localisation"]}
+    sides.update({g: "control" for g in members["other postsynaptic"]})
+    loc_table = partial_rows(
+        sides, common, map_common, composite, merged, reliability, level, subunit_ranks
+    )
+    pairs = matched_controls(loc_table, level)
+    loc_table["matched_to"] = loc_table["symbol"].map(pairs).fillna("")
+    summary, label_nulls = localisation_tests(loc_table, pairs)
+
+    # the same design with the control pool of 5 October
+    panel_controls = genes.loc[genes["ontology_role"] == "control_psd", "symbol"]
+    panel_sides = {g: "localisation" for g in members["localisation"]}
+    panel_sides.update({g: "control" for g in panel_controls})
+    panel_table = partial_rows(
+        panel_sides, common, map_common, composite, merged, reliability, level
+    )
+    panel_pairs = matched_controls(panel_table, level)
+    panel_table["matched_to"] = panel_table["symbol"].map(panel_pairs).fillna("")
+    panel_summary, _ = localisation_tests(panel_table, panel_pairs)
+    panel_summary = panel_summary[panel_summary["test"].isin(OCTOBER_5_TESTS)].copy()
+    panel_summary["test"] = "5 October's controls, " + panel_summary["test"]
+    summary["role"] = summary["test"].map(TEST_ROLES).fillna("check")
+    panel_summary["role"] = "secondary"
+    summary = pd.concat([summary, panel_summary], ignore_index=True)
+
+    # the matched difference against maps whose remainder is a surrogate of the
+    # real remainder; and the test's power
+    d = spatial_null.distance_matrix(structures.load_centroids().loc[common])
+    rest = remainder(map_common, composite)
+    surr = spatial_null.surrogates(rest, d, seed=1)
+    p_spatial, _ = matched_spatial(loc_table, pairs, surr, common, composite, merged)
+    power = power_curve(loc_table, pairs, surr, common, map_common, composite, merged)
+    summary["p_spatial"] = np.where(
+        summary["test"] == "matched controls", p_spatial, np.nan
+    )
+    loc_table.insert(1, "pool", "other postsynaptic (GO)")
+    panel_table.insert(1, "pool", "5 October (control_psd)")
+    return dict(
+        common=common,
+        loc_table=loc_table,
+        panel_table=panel_table,
+        summary=summary,
+        label_nulls=label_nulls,
+        pairs=pairs,
+        p_spatial=p_spatial,
+        power=power,
+        n_surrogates=surr.shape[0],
+    )
+
+
 def detectable(power: pd.DataFrame, column: str, level: float = 0.8) -> float:
     """The median difference at which `level` of the maps are found; NaN if never.
 
@@ -851,6 +932,64 @@ def detectable(power: pd.DataFrame, column: str, level: float = 0.8) -> float:
         return float(difference[0])
     share = (level - found[k - 1]) / (found[k] - found[k - 1])
     return float(difference[k - 1] + share * (difference[k] - difference[k - 1]))
+
+
+def numbers_table(
+    members: dict[str, list[str]],
+    tests: pd.DataFrame,
+    contrasts: pd.DataFrame,
+    summary: pd.DataFrame,
+    power: pd.DataFrame,
+) -> pd.DataFrame:
+    """numbers_gene_sets.csv: the numbers of this step that the text quotes."""
+    rows = []
+    for name, symbols in members.items():
+        rows.append((f"set_size_{name}", len(symbols), f"genes of {name} with a rho"))
+    for _, r in tests.iterrows():
+        key = f"{r['map']}_{r['gene_set']}"
+        rows += [
+            (f"set_median_{key}", round(r["median_rho"], 3), "the set's median rho"),
+            (f"set_p_{key}", round(r["p_spatial"], 5), "its spatial p"),
+            (f"set_q_{key}", round(r["q"], 5), "its q over the tested sets"),
+        ]
+    for _, r in contrasts.iterrows():
+        key = r["contrast"].replace(" ", "_")
+        rows += [
+            (f"{key}_difference", round(r["difference"], 3), "difference of medians"),
+            (f"{key}_p_spatial", round(r["p_spatial"], 5), "its spatial p"),
+            (f"{key}_p_labels", round(r["p_labels"], 5), "labels permuted"),
+            (f"{key}_n", f"{r['n_first']} against {r['n_second']}", "genes per side"),
+        ]
+    for _, r in summary.iterrows():
+        key = r["test"].replace(",", "").replace("'", "").replace(" ", "_")
+        rows += [
+            (f"localisation_{key}_difference", round(r["difference"], 4), r["test"]),
+            (f"localisation_{key}_p", round(r["p_labels"], 5), r["test"]),
+            (f"localisation_{key}_critical", round(r["critical"], 4), r["test"]),
+        ]
+    matched = summary.set_index("test").loc["matched controls"]
+    rows.append(
+        ("localisation_p_spatial", round(matched["p_spatial"], 5), "matched, surrogates")
+    )
+    zero = power[power["effect"] == 0].iloc[0]
+    rows += [
+        (
+            "localisation_label_fpr",
+            round(zero["power_labels"], 3),
+            "label test p < 0.05 on smooth maps with no effect",
+        ),
+        (
+            "localisation_detectable_labels",
+            round(detectable(power, "power_labels"), 4),
+            "smallest matched difference the label test finds in 80% of maps",
+        ),
+        (
+            "localisation_detectable_spatial",
+            round(detectable(power, "power_spatial"), 4),
+            "smallest matched difference the spatial test finds in 80% of maps",
+        ),
+    ]
+    return numbers_frame(rows)
 
 
 def load_tables() -> dict[str, pd.DataFrame]:

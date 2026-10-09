@@ -85,193 +85,24 @@ import argparse
 
 import matplotlib
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 
 from sepmap import config, plotting, structures
 from sepmap.adult import profiles
-from sepmap.ish import gene_ranking, gene_table, planes, spatial_null
+from sepmap.ish import gene_ranking, gene_sets, gene_table, planes, spatial_null
 from sepmap.ish import plotting as ish_plotting
+from sepmap.ish.figure_index import figure_file, figure_path
 from sepmap.volumes.per_mouse import structure_terms
 
 ISH_ANALYSIS = config.SETTINGS["ish_analysis"]
 ISH_FIGURES = config.SETTINGS["ish_figures"]
 
-OUT = config.DATA / "adult_v2" / "ish_analysis"
-
-# the genes of figure 05 beside the map: the top of P9's ranking, the subunit the
-# label is on, and a glial gene as the control
-COMPARISON_GENES = ("Cacng8", "Gria1", "Aqp4")
-
-
-def numbers_table(ranking, gap, per_adult):
-    """The numbers of this step that the text quotes, one row each."""
-    q = ISH_ANALYSIS["q"]
-    rows = []
-    for name in gene_ranking.MAPS:
-        mine = ranking[ranking["map"] == name]
-        p9 = mine[mine["p9_gene"]]
-        rows += [
-            (f"{name}_genes", len(mine), f"genes correlated with the {name} map"),
-            (f"{name}_p9_genes", len(p9), f"P9's genes correlated with the {name} map"),
-            (
-                f"{name}_pass_p9",
-                int((p9["q_p9"] < q).sum()),
-                f"P9's genes past the null, BH within P9's genes, q < {q}",
-            ),
-            (
-                f"{name}_pass_all",
-                int((mine["q_all"] < q).sum()),
-                f"genes past the null, BH within all genes, q < {q}",
-            ),
-            (
-                f"{name}_median_rho",
-                round(float(mine["rho"].median()), 3),
-                "median rho over all genes",
-            ),
-        ]
-        for gene in ("Cacng8", "Gria1", "Aqp4"):
-            r = mine[mine["symbol"] == gene].iloc[0]
-            rows += [
-                (f"{name}_rho_{gene}", round(r["rho"], 3), f"{gene}'s rho"),
-                (f"{name}_p_{gene}", round(r["p_spatial"], 5), f"{gene}'s spatial p"),
-                (f"{name}_q_p9_{gene}", round(r["q_p9"], 5), f"{gene}'s q within P9"),
-                (f"{name}_rank_p9_{gene}", r["rank_p9"], f"{gene}'s rank among P9's"),
-                (f"{name}_rank_all_{gene}", r["rank_all"], f"{gene}'s rank among all"),
-            ]
-    merged = gap[gap["kind"] == "merged profiles"].iloc[0]
-    pairs = gap[gap["kind"] == "experiment pairing"]
-    rows += [
-        ("gap", round(merged["gap"], 3), "rho(Cacng8) - rho(Gria1), merged profiles"),
-        ("gap_structures", int(merged["n_structures"]), "structures both genes have"),
-        ("gap_p", round(merged["p_equal"], 5), "its p, maps related to both alike"),
-        ("gap_equal_lo", round(merged["equal_lo"], 3), "2.5% of that null"),
-        ("gap_equal_hi", round(merged["equal_hi"], 3), "97.5% of that null"),
-        (
-            "gap_equal_first_as_large",
-            round(merged["equal_first_as_large"], 4),
-            "share of that null where Cacng8 leads by at least the gap",
-        ),
-        (
-            "gap_equal_second_as_large",
-            round(merged["equal_second_as_large"], 4),
-            "share of that null where Gria1 leads by at least the gap",
-        ),
-        ("gap_p_unrelated", round(merged["p_spatial"], 5), "its p, unrelated maps"),
-        ("gap_unrelated_lo", round(merged["null_lo"], 3), "2.5% of that null"),
-        ("gap_unrelated_hi", round(merged["null_hi"], 3), "97.5% of that null"),
-        ("gap_boot_lo", round(merged["boot_lo"], 3), "2.5% over resampled adults"),
-        ("gap_boot_hi", round(merged["boot_hi"], 3), "97.5% over resampled adults"),
-        ("gap_pairs_min", round(pairs["gap"].min(), 3), "smallest over pairings"),
-        ("gap_pairs_max", round(pairs["gap"].max(), 3), "largest over pairings"),
-        ("gap_pairs_p_min", round(pairs["p_equal"].min(), 5), "smallest p over pairings"),
-        ("gap_pairs_p_max", round(pairs["p_equal"].max(), 5), "largest p over pairings"),
-    ]
-    for gene in ("Gria1", "Cacng8"):
-        mine = per_adult[per_adult["symbol"] == gene]
-        for name in gene_ranking.MAPS:
-            rows += [
-                (
-                    f"per_adult_{name}_{gene}_min",
-                    round(mine[f"rho_{name}"].min(), 3),
-                    f"lowest rho of one adult's {name} map with {gene}",
-                ),
-                (
-                    f"per_adult_{name}_{gene}_max",
-                    round(mine[f"rho_{name}"].max(), 3),
-                    f"highest rho of one adult's {name} map with {gene}",
-                ),
-            ]
-    return pd.DataFrame(rows, columns=["name", "value", "what"], dtype=object)
-
-
-def comparison_rows(ranking, merged, table, lab, plane):
-    """The genes of figure 05: their ISH section on the plane and their rows."""
-    nano = ranking[ranking["map"] == "nano"].set_index("symbol")
-    n_all = len(nano)
-    rows = []
-    for gene in COMPARISON_GENES:
-        used = table[(table["symbol"] == gene) & ~table["excluded"]]
-        coronal = used[used["plane"] == "coronal"]
-        own = coronal[coronal["p9_experiment"]]
-        shown = (own if len(own) else coronal).iloc[0]
-        flagged = [int(k) for k in str(shown["flagged_sections"]).split()]
-        image = planes.ish_plane(
-            shown["experiment_id"], "coronal", flagged, plane, lab.shape
-        )
-        caption = (
-            f"Allen experiment {shown['experiment_id']}, one of the gene's "
-            f"{len(used)} (200 um)"
-        )
-        if len(used) == 1:
-            caption = f"Allen experiment {shown['experiment_id']}, its only one (200 um)"
-        rows.append(
-            dict(
-                symbol=gene,
-                image=image,
-                caption=caption,
-                profile=merged[gene],
-                ranking=nano.loc[gene],
-                n_all=n_all,
-            )
-        )
-    return rows
-
-
-def load_surrogates(declared):
-    """Each map's surrogates, checked to be drawn on the declared structures."""
-    surr = {}
-    for name in gene_ranking.MAPS:
-        surr[name], listed = spatial_null.load_surrogates(name)
-        if listed != declared:
-            raise ValueError(
-                "the surrogates were drawn on other structures than the declared set; "
-                "run run_ish_spatial_null.py --recompute"
-            )
-    return surr
-
-
-def rank_against_maps(per_mouse, profile, declared, surr, vectors, genes):
-    """Every gene against each map: rho, spatial p, null band, spread over adults.
-
-    Returns gene_ranking.csv's table, each map's null rho (genes x surrogates) and
-    each map's adults x structures.
-    """
-    results, nulls, adults = {}, {}, {}
-    for k, (name, column) in enumerate(gene_ranking.MAPS.items()):
-        adults[name] = gene_ranking.adult_matrix(
-            per_mouse, column, declared, profiles.ADULTS
-        )
-        boot = gene_ranking.bootstrap_maps(adults[name], seed=k)
-        map_values = profile.loc[declared, column].to_numpy(float)
-        results[name], nulls[name] = gene_ranking.rank_genes(
-            map_values, surr[name], boot, vectors
-        )
-        print(f"  {name}: {len(results[name])} genes tested", flush=True)
-    return gene_ranking.ranking_table(results, genes), nulls, adults
-
-
-def gap_with_nulls(table, merged, profile, declared, surr, nano_adults):
-    """The Cacng8 - Gria1 gap, merged and per pairing of experiments, and its nulls."""
-    region = gene_table.load_region_table()
-    used = set(table.loc[~table["excluded"], "experiment_id"])
-    per_experiment = gene_table.experiment_profiles(
-        region[region["experiment_id"].isin(used)]
-    )
-    boot = gene_ranking.bootstrap_maps(nano_adults, seed=0)
-    return gene_ranking.gap_table(
-        profile.loc[declared, "zref_nano"].to_numpy(float),
-        surr["nano"],
-        boot,
-        merged,
-        per_experiment,
-        declared,
-    )
+# surrogates of the nano map drawn on the plane of figure 06s
+SURROGATES_SHOWN = 3
 
 
 def draw_comparison(ranking, merged, table, profile, surr, nulls, vectors):
     """Figures 05 and 06 with their detailed versions: one comparison, the null."""
-    figures = OUT / "figures"
     declared = structures.declared_structures()
     set_table = structures.load_structure_set()
     n_surrogates = surr["nano"].shape[0]
@@ -279,7 +110,10 @@ def draw_comparison(ranking, merged, table, profile, surr, nulls, vectors):
     names, _, _ = structure_terms()
     lab = planes.label_plane(plane)
     map_values = profile.loc[declared, "zref_nano"]
-    rows = comparison_rows(ranking, merged, table, lab, plane)
+    nano = gene_ranking.map_rows(ranking, "nano")
+    rows = planes.comparison_rows(
+        nano, merged, table, lab, plane, gene_ranking.QUOTED_GENES
+    )
     fig = ish_plotting.plot_one_comparison(
         map_values,
         rows,
@@ -288,7 +122,7 @@ def draw_comparison(ranking, merged, table, profile, surr, nulls, vectors):
         names,
         plane,
         n_surrogates,
-        save=figures / ish_plotting.figure_file("one_comparison"),
+        save=figure_path("one_comparison"),
     )
     plt.close(fig)
     fig = ish_plotting.plot_one_comparison_detail(
@@ -300,26 +134,24 @@ def draw_comparison(ranking, merged, table, profile, surr, nulls, vectors):
         names,
         plane,
         n_surrogates,
-        save=figures / ish_plotting.figure_file("one_comparison_detail"),
+        save=figure_path("one_comparison_detail"),
     )
     plt.close(fig)
 
-    # the spatial null, with three surrogates on the plane and two genes against it
+    # the spatial null, with surrogates on the plane and the two genes against it;
+    # a surrogate holds the ranks 1 to n, drawn as 0 to 1
     variogram = pd.read_csv(spatial_null.VARIOGRAM)
     calibration = pd.read_csv(spatial_null.CALIBRATION)
     fig = ish_plotting.plot_spatial_null(
-        variogram,
-        calibration,
-        n_surrogates,
-        save=figures / ish_plotting.figure_file("spatial_null"),
+        variogram, calibration, n_surrogates, save=figure_path("spatial_null")
     )
     plt.close(fig)
     n = len(declared)
     map_ranks = dict(zip(declared, ish_plotting.ranks01(map_values.to_numpy())))
     surrogate_ranks = [
-        dict(zip(declared, (surr["nano"][k] - 1) / (n - 1))) for k in range(3)
+        dict(zip(declared, (surr["nano"][k] - 1) / (n - 1)))
+        for k in range(SURROGATES_SHOWN)
     ]
-    nano = ranking[ranking["map"] == "nano"].set_index("symbol")
     tested = list(vectors)
     shown = [
         (g, nano.loc[g, "rho"], nulls["nano"][tested.index(g)], nano.loc[g, "p_spatial"])
@@ -335,15 +167,13 @@ def draw_comparison(ranking, merged, table, profile, surr, nulls, vectors):
         plane,
         n_surrogates,
         genes=shown,
-        save=figures / ish_plotting.figure_file("spatial_null_detail"),
+        save=figure_path("spatial_null_detail"),
     )
     plt.close(fig)
 
 
 def draw_ranking(ranking, gap, gap_null, per_adult, subunits, n_surrogates):
-    """Figure 07s, P9's genes and the gap; figure 12 and its detailed version, the
-    autofluorescence map."""
-    figures = OUT / "figures"
+    """Figure 07s, P9's genes and the gap; figure 12 and 12s, autofluorescence."""
     q = ISH_ANALYSIS["q"]
     fig = ish_plotting.plot_gene_ranking(
         ranking,
@@ -353,7 +183,7 @@ def draw_ranking(ranking, gap, gap_null, per_adult, subunits, n_surrogates):
         ISH_FIGURES["t_max"],
         q,
         n_surrogates,
-        save=figures / ish_plotting.figure_file("gene_ranking"),
+        save=figure_path("gene_ranking"),
     )
     plt.close(fig)
     fig = ish_plotting.plot_autofluorescence(
@@ -362,7 +192,7 @@ def draw_ranking(ranking, gap, gap_null, per_adult, subunits, n_surrogates):
         subunits,
         q,
         n_surrogates,
-        save=figures / ish_plotting.figure_file("autofluorescence"),
+        save=figure_path("autofluorescence"),
     )
     plt.close(fig)
     fig = ish_plotting.plot_autofluorescence_detail(
@@ -371,7 +201,7 @@ def draw_ranking(ranking, gap, gap_null, per_adult, subunits, n_surrogates):
         subunits,
         q,
         n_surrogates,
-        save=figures / ish_plotting.figure_file("autofluorescence_detail"),
+        save=figure_path("autofluorescence_detail"),
     )
     plt.close(fig)
 
@@ -385,7 +215,10 @@ def main():
     declared = structures.declared_structures()
     profile = profiles.load_profile()
     per_mouse = profiles.load_per_mouse()
-    surr = load_surrogates(declared)
+    surr = {
+        name: spatial_null.load_surrogates(name, declared)[0]
+        for name in gene_ranking.MAPS
+    }
     n_surrogates = surr["nano"].shape[0]
     print(f"maps: nano and auto on {len(declared)} structures, {n_surrogates} surrogates")
 
@@ -394,11 +227,11 @@ def main():
     genes = gene_table.per_gene(table)
     merged = gene_table.load_profiles()
     vectors = gene_ranking.gene_vectors(merged, declared)
-    subunits = {s for s, t in zip(genes["symbol"], genes["gene_sets"]) if "subunits" in t}
+    subunits = set(gene_sets.members_from_table(genes)["subunits"])
     print(f"genes: {len(vectors)} of {len(genes)} share enough declared structures")
 
     # every gene against each map: rho, spatial p, null band, spread over adults
-    ranking, nulls, adults = rank_against_maps(
+    ranking, nulls, adults = gene_ranking.rank_against_maps(
         per_mouse, profile, declared, surr, vectors, genes
     )
     ranking.to_csv(gene_ranking.RANKING, index=False)
@@ -417,10 +250,12 @@ def main():
     print(f"per adult: {per_adult['mouse'].nunique()} adults x {len(vectors)} genes")
 
     # the Cacng8 - Gria1 gap, merged and per pairing of experiments
-    gap, gap_null = gap_with_nulls(table, merged, profile, declared, surr, adults["nano"])
+    gap, gap_null = gene_ranking.gap_with_nulls(
+        table, merged, profile, declared, surr, adults["nano"]
+    )
     gap.to_csv(gene_ranking.GAP, index=False)
-    np.savez(gene_ranking.NULL_RHO, genes=np.array(list(vectors)), gap=gap_null, **nulls)
-    first = gap.iloc[0]
+    gene_ranking.save_null_rho(list(vectors), nulls, gap_null)
+    first = gene_ranking.merged_gap(gap)
     print(
         f"gap: {first['gap']:+.3f} on {first['n_structures']} structures, p "
         f"{first['p_equal']:.4f} against maps related to both alike (c "
@@ -429,8 +264,8 @@ def main():
     )
 
     # the numbers for the text
-    numbers = numbers_table(ranking, gap, per_adult)
-    numbers.to_csv(OUT / "tables" / "numbers_gene_ranking.csv", index=False)
+    numbers = gene_ranking.numbers_table(ranking, gap, per_adult)
+    numbers.to_csv(gene_ranking.NUMBERS, index=False)
 
     # figures 05, 06, 07s and 12, with their detailed versions
     draw_comparison(ranking, merged, table, profile, surr, nulls, vectors)
@@ -444,8 +279,8 @@ def main():
         "autofluorescence",
         "autofluorescence_detail",
     )
-    drawn = [ish_plotting.figure_file(k) for k in keys]
-    print(f"figures: {', '.join(drawn)} in {OUT / 'figures'}")
+    drawn = [figure_file(k) for k in keys]
+    print(f"figures: {', '.join(drawn)} in {structures.FIGURES}")
 
 
 if __name__ == "__main__":

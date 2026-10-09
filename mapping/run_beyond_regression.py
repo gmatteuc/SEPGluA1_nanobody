@@ -60,7 +60,8 @@ sepmap/adult/beyond_regression.py. Writes, in adult_v2/ish_analysis/beyond/ unde
 the data root:
 
     regression_table.csv    every structure: map, prediction, leftover (ranks)
-    E_regression.png, F_maps.png    working figures
+    E_regression.png        working figures: the fit and its diagnostic, and the
+    F_maps.png              three maps on the brain
 
     python run_beyond_regression.py
 """
@@ -68,15 +69,47 @@ the data root:
 import argparse
 
 import matplotlib
+import matplotlib.pyplot as plt
 
 from sepmap import config, plotting
 from sepmap.adult import beyond_regression
+from sepmap.adult import plotting as adult_plotting
+
+# the p at which the diagnostic calls the model mis-specified, and the floor of the
+# rank maps' colour scale
+BEYOND_REGRESSION = config.SETTINGS["beyond_regression"]
 
 
 def main():
-    """Print the settings in force, then run the regression."""
+    """Print the settings in force, fit the main model, draw the fit and its maps."""
     config.print_settings({})
-    beyond_regression.main()
+    found = beyond_regression.main()
+
+    # the working figures: the fit and its diagnostic, the three maps on the brain
+    out = beyond_regression.OUT
+    fig = adult_plotting.plot_regression(
+        found["observed"],
+        found["predicted"],
+        found["leftover"],
+        found["structures"],
+        found["fitted"],
+        found["cv"],
+        found["misspecified"],
+        BEYOND_REGRESSION["diagnostic_p"],
+        save=out / "E_regression.png",
+    )
+    plt.close(fig)
+    fig = adult_plotting.plot_regression_maps(
+        beyond_regression.coronal_planes(),
+        found["observed"],
+        found["predicted"],
+        found["leftover"],
+        found["structures"],
+        BEYOND_REGRESSION["rank_floor"],
+        save=out / "F_maps.png",
+    )
+    plt.close(fig)
+    print(f"working figures: E_regression.png, F_maps.png in {out}")
 
 
 if __name__ == "__main__":

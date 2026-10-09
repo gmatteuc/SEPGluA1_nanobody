@@ -3,12 +3,11 @@
 Each adult brain was imaged in three channels: nano (the nanobody against the SEP
 tag, on sections that were not permeabilised), SEP (the tag's own green
 fluorescence) and auto (a channel with no label, the tissue's autofluorescence).
-The three-channel design of September read receptor at the membrane against
-receptor anywhere from ratios of these channels, and assumed that ex vivo the green
-channel reports the tagged receptor wherever it sits. That premise is checked here
-on the raw channels, before any ratio is taken: one mean per structure and adult, in
-log2, from the adult profiles (adult.profiles), with no denominator anywhere. Three
-things decide it.
+Reading receptor at the membrane against receptor anywhere from ratios of these
+channels assumes that ex vivo the green channel reports the tagged receptor
+wherever it sits. That premise is checked here on the raw channels, before any
+ratio is taken: one mean per structure and adult, in log2, from the adult profiles
+(adult.profiles), with no denominator anywhere. Three things decide it.
 
     dynamic range   how much a channel varies across the brain (p90 - p10 of log2
                     over the declared structures). Receptor is not flat
@@ -31,68 +30,59 @@ across the brain needs a total-GluA1 stain on the same brains; these data cannot
 
 The inputs are those of the rest of the ISH line: the declared structures
 (sepmap.structures), the channel means of adult.profiles, and Gria1's merged
-profile from the gene table (ish.gene_table, section QC applied). The September
-version took every structure each adult measured and Gria1's single experiment of
-the 100-gene panel; the arithmetic is unchanged.
+profile from the gene table (ish.gene_table, section QC applied).
 
-Writes, in adult_v2/ish_analysis/green_channel/ under the data root:
+Writes, in adult_v2/ish_analysis/ under the data root:
 
-    sep_channel_check.csv    per adult: the ranges and the correlations
-    sep_channel_check.png    the working figure (guided figure 15 is the one to show)
+    green_channel/sep_channel_check.csv    per adult: the ranges and the correlations
+    tables/numbers_green_channel.csv       the numbers of analysis 5, for the text
 
-Run by run_sep_channel_check.py, which also draws guided figures 15 and 15s.
+Run by run_sep_channel_check.py, which draws the working figure
+(green_channel/sep_channel_check.png) and guided figures 15 and 15s.
 """
 
 import math
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
 
-from sepmap.adult import profiles
 from sepmap.adult.beyond_density import residual
-from sepmap.config import DATA, SETTINGS
+from sepmap.adult.profiles import ADULTS, CHANNELS, load_per_mouse
+from sepmap.config import SETTINGS
 from sepmap.ish import gene_table
-from sepmap.plotting import RED, tidy
-from sepmap.structures import declared_structures
+from sepmap.ish.numbers import numbers_frame, numbers_path
+from sepmap.structures import ISH_OUT, declared_structures
 
 # the gene the channels are compared with (Gria1)
 ISH = SETTINGS["ish"]
 
-OUT = DATA / "adult_v2" / "ish_analysis" / "green_channel"
+OUT = ISH_OUT / "green_channel"
 TABLE = OUT / "sep_channel_check.csv"
-
-# the ten adults, naive and rws pooled
-ADULTS = profiles.ADULTS
-
-# the three raw channels, by the name the per-mouse files give them, and the column
-# of the adult profiles that holds each
-CHANNELS = ("sig", "auto", "sep")
-COLUMNS = {"sig": "nano_mean", "auto": "auto_mean", "sep": "sep_mean"}
+NUMBERS = numbers_path("green_channel")
 
 
 def channel_means(
-    table: pd.DataFrame, structures: list[str] | None = None
+    table: pd.DataFrame, subset: list[str]
 ) -> dict[str, dict[str, dict[str, float]]]:
     """{adult: {channel: {structure: log2 mean}}}, raw, no denominators.
 
     `table` is the per-adult table of adult.profiles (structures under
-    region_tables.min_vox20 voxels already left out); a mean not above background
-    is left out. With `structures`, only those.
+    region_tables.min_vox20 voxels already left out), cut to the structures of
+    `subset`; a mean not above background is left out. The channels are named as
+    the per-mouse files name them (sig for nano, auto, sep).
     """
-    if structures is not None:
-        table = table[table["structure"].isin(set(structures))]
+    table = table[table["structure"].isin(set(subset))]
     out = {}
     for mouse in ADULTS:
         mine = table[table["mouse"] == mouse]
         out[mouse] = {
             key: {
                 s: math.log2(v)
-                for s, v in zip(mine["structure"], mine[COLUMNS[key]])
+                for s, v in zip(mine["structure"], mine[f"{name}_mean"])
                 if v > 0
             }
-            for key in CHANNELS
+            for name, key in CHANNELS.items()
         }
     return out
 
@@ -100,6 +90,11 @@ def channel_means(
 def gria1_profile() -> dict[str, float]:
     """Gria1's merged profile from the gene table: {structure: mean rank}."""
     return gene_table.load_profiles()[ISH["control_gene"]]
+
+
+def log2_range(values: np.ndarray) -> float:
+    """p90 - p10 of log2 values: how much a channel varies across structures."""
+    return float(np.diff(np.percentile(values, [10, 90]))[0])
 
 
 def channel_rows(
@@ -113,8 +108,8 @@ def channel_rows(
     rows = []
     for mouse in ADULTS:
         ch = per[mouse]
-        common = sorted(set.intersection(*[set(ch[k]) for k in CHANNELS]))
-        v = {k: np.array([ch[k][s] for s in common]) for k in CHANNELS}
+        common = sorted(set.intersection(*[set(values) for values in ch.values()]))
+        v = {k: np.array([ch[k][s] for s in common]) for k in ch}
         with_gria1 = [s for s in common if s in profile]
         gria1 = np.array([profile[s] for s in with_gria1])
         idx = [common.index(s) for s in with_gria1]
@@ -123,9 +118,9 @@ def channel_rows(
             dict(
                 mouse=mouse,
                 n_structures=len(common),
-                range_nano=float(np.diff(np.percentile(v["sig"], [10, 90]))[0]),
-                range_auto=float(np.diff(np.percentile(v["auto"], [10, 90]))[0]),
-                range_sep=float(np.diff(np.percentile(v["sep"], [10, 90]))[0]),
+                range_nano=log2_range(v["sig"]),
+                range_auto=log2_range(v["auto"]),
+                range_sep=log2_range(v["sep"]),
                 rho_sep_auto=float(spearmanr(v["sep"], v["auto"]).statistic),
                 rho_sep_nano=float(spearmanr(v["sep"], v["sig"]).statistic),
                 rho_nano_auto=float(spearmanr(v["sig"], v["auto"]).statistic),
@@ -153,14 +148,14 @@ def load_table() -> pd.DataFrame:
     return pd.read_csv(TABLE)
 
 
-def col(rows: list[dict], k: str) -> np.ndarray:
+def column(rows: list[dict], key: str) -> np.ndarray:
     """One column of the table as an array, a value per adult."""
-    return np.array([r[k] for r in rows])
+    return np.array([r[key] for r in rows])
 
 
-def say(rows: list[dict], k: str) -> str:
+def mean_sd_range(rows: list[dict], key: str) -> str:
     """A column's mean +- SD over the adults, and its range, as printed."""
-    v = col(rows, k)
+    v = column(rows, key)
     return f"{np.mean(v):+.3f} +- {np.std(v):.3f}  ({v.min():+.2f} to {v.max():+.2f})"
 
 
@@ -172,11 +167,12 @@ def print_summary(rows: list[dict]) -> None:
         ("range_auto", "autofluo"),
         ("range_sep", "SEP"),
     ):
-        print(f"  {label:10s} {np.mean(col(rows, k)):.2f} +- {np.std(col(rows, k)):.2f}")
+        v = column(rows, k)
+        print(f"  {label:10s} {np.mean(v):.2f} +- {np.std(v):.2f}")
     print("\nwhat the green channel tracks (per adult, over structures)")
-    print(f"  SEP  ~ autofluo   {say(rows, 'rho_sep_auto')}")
-    print(f"  SEP  ~ nano       {say(rows, 'rho_sep_nano')}")
-    print(f"  nano ~ autofluo   {say(rows, 'rho_nano_auto')}")
+    print(f"  SEP  ~ autofluo   {mean_sd_range(rows, 'rho_sep_auto')}")
+    print(f"  SEP  ~ nano       {mean_sd_range(rows, 'rho_sep_nano')}")
+    print(f"  nano ~ autofluo   {mean_sd_range(rows, 'rho_nano_auto')}")
     print(f"\nagainst {ISH['control_gene']} mRNA")
     for k, label in (
         ("rho_nano_gria", "nano"),
@@ -184,120 +180,44 @@ def print_summary(rows: list[dict]) -> None:
         ("rho_sep_gria", "SEP"),
         ("rho_sepresid_gria", "SEP minus autofluo"),
     ):
-        print(f"  {label:20s} {say(rows, k)}")
-    print(f"\n  SEP minus autofluo, against nano: {say(rows, 'rho_sepresid_nano')}")
+        print(f"  {label:20s} {mean_sd_range(rows, k)}")
+    against_nano = mean_sd_range(rows, "rho_sepresid_nano")
+    print(f"\n  SEP minus autofluo, against nano: {against_nano}")
 
 
-def panel_ranges(ax: plt.Axes, rows: list[dict], rng: np.random.Generator) -> None:
-    """Draw how much each channel varies across the brain, a dot per adult."""
-    for i, k in enumerate(("range_nano", "range_auto", "range_sep")):
-        v = col(rows, k)
-        ax.scatter(
-            np.full(len(v), i) + rng.uniform(-0.1, 0.1, len(v)),
-            v,
-            s=18,
-            facecolor=RED if k == "range_sep" else "0.6",
-            edgecolor="0.25",
-            linewidth=0.4,
-            zorder=2,
-        )
-        ax.plot([i - 0.28, i + 0.28], [np.median(v)] * 2, color="0.15", lw=1.7, zorder=3)
-    ax.set_xticks(range(3))
-    ax.set_xticklabels(["nano", "autofluo", "SEP"], fontsize=8)
-    ax.set_ylabel("p90 - p10 across structures (log2)", fontsize=8)
-    ax.set_ylim(bottom=0)
-    ax.set_title("how much each channel varies\nacross the brain", fontsize=9)
+def numbers_table(rows: pd.DataFrame, n_structures: int) -> pd.DataFrame:
+    """numbers_green_channel.csv: the numbers of analysis 5 that the text quotes.
 
-
-def panels_first_adult(
-    axes: np.ndarray, per: dict[str, dict[str, dict[str, float]]]
-) -> None:
-    """Draw the green channel against autofluorescence and against nano, first adult."""
-    ax = axes[1]
-    mouse = ADULTS[0]
-    ch = per[mouse]
-    common = sorted(set.intersection(*[set(ch[k]) for k in CHANNELS]))
-    x = np.array([ch["auto"][s] for s in common])
-    y = np.array([ch["sep"][s] for s in common])
-    ax.scatter(x, y, s=10, facecolor="0.55", edgecolor="0.25", linewidth=0.3)
-    ax.set_xlabel("log2 autofluorescence", fontsize=8)
-    ax.set_ylabel("log2 SEP", fontsize=8)
-    ax.set_title(
-        f"{mouse}\nSEP against autofluo, rho = {spearmanr(x, y).statistic:+.2f}",
-        fontsize=9,
-    )
-    ax = axes[2]
-    nano = np.array([ch["sig"][s] for s in common])
-    ax.scatter(nano, y, s=10, facecolor="0.55", edgecolor="0.25", linewidth=0.3)
-    ax.set_xlabel("log2 nano", fontsize=8)
-    ax.set_ylabel("log2 SEP", fontsize=8)
-    ax.set_title(
-        f"SEP against nano, rho = {spearmanr(nano, y).statistic:+.2f}", fontsize=9
-    )
-
-
-def panel_gria1(ax: plt.Axes, rows: list[dict], rng: np.random.Generator) -> None:
-    """Draw each channel's correlation with Gria1 mRNA, a dot per adult."""
-    keys = ("rho_nano_gria", "rho_auto_gria", "rho_sep_gria", "rho_sepresid_gria")
-    labels = ["nano", "autofluo", "SEP", "SEP minus\nautofluo"]
-    for i, k in enumerate(keys):
-        v = col(rows, k)
-        ax.scatter(
-            np.full(len(v), i) + rng.uniform(-0.1, 0.1, len(v)),
-            v,
-            s=18,
-            facecolor=RED if "sep" in k else "0.6",
-            edgecolor="0.25",
-            linewidth=0.4,
-            zorder=2,
-        )
-        ax.plot([i - 0.28, i + 0.28], [np.median(v)] * 2, color="0.15", lw=1.7, zorder=3)
-    ax.axhline(0, color="0.8", lw=0.7, zorder=0)
-    ax.set_xticks(range(len(keys)))
-    ax.set_xticklabels(labels, fontsize=8)
-    ax.set_ylabel(f"Spearman with {ISH['control_gene']} mRNA", fontsize=8)
-    ax.set_title(
-        "a channel that reports the tagged receptor\nshould follow Gria1 at least as "
-        "nano does",
-        fontsize=9,
-    )
-
-
-def figure(per: dict[str, dict[str, dict[str, float]]], rows: list[dict]) -> None:
-    """Draw the working figure: the ranges, the first adult, the Gria1 correlations.
-
-    One jitter generator for the figure, drawn from in panel order.
+    `rows` is sep_channel_check.csv's table: per column, its mean, lowest and highest
+    over the adults.
     """
-    fig, axes = plt.subplots(1, 4, figsize=(15.5, 4.0))
-    rng = np.random.default_rng(0)
-    panel_ranges(axes[0], rows, rng)
-    panels_first_adult(axes, per)
-    panel_gria1(axes[3], rows, rng)
-    for ax in axes:
-        tidy(ax)
-    fig.suptitle(
-        "The green channel in fixed, mounted tissue: one dot per adult, "
-        "structure means with no denominator anywhere",
-        fontsize=9,
-    )
-    fig.tight_layout(rect=(0, 0, 1, 0.92))
-    path = OUT / "sep_channel_check.png"
-    fig.savefig(path, dpi=200)
-    plt.close(fig)
-    print(f"\n{path}")
+    out = [
+        ("adults", len(rows), "adults measured"),
+        ("structures", n_structures, "declared structures"),
+    ]
+    for name in rows.columns:
+        if name in ("mouse", "n_structures"):
+            continue
+        v = rows[name]
+        out += [
+            (f"{name}_mean", round(float(v.mean()), 3), f"{name}, mean of the adults"),
+            (f"{name}_min", round(float(v.min()), 3), f"{name}, lowest adult"),
+            (f"{name}_max", round(float(v.max()), 3), f"{name}, highest adult"),
+        ]
+    return numbers_frame(out)
 
 
 def main_inputs() -> tuple[dict, dict[str, float], list[str]]:
     """The channel means on the declared structures, Gria1's profile, the structures."""
     structures = declared_structures()
-    per = channel_means(profiles.load_per_mouse(), structures)
+    per = channel_means(load_per_mouse(), structures)
     return per, gria1_profile(), structures
 
 
 def main() -> tuple[dict, list[dict]]:
-    """Measure the three channels per adult, write the table, print and draw it.
+    """Measure the three channels per adult, write the table and print it.
 
-    Returns the channel means and the rows, for guided figures 15 and 15s.
+    Returns the channel means and the rows, for the figures.
     """
     OUT.mkdir(parents=True, exist_ok=True)
     per, profile, structures = main_inputs()
@@ -309,5 +229,4 @@ def main() -> tuple[dict, list[dict]]:
     rows = channel_rows(per, profile)
     write_table(rows)
     print_summary(rows)
-    figure(per, rows)
     return per, rows

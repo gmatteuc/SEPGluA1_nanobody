@@ -1,8 +1,8 @@
 """The gene ranking under other reasonable choices, against the primary (A3).
 
 The primary ranking (ish.gene_ranking) is one set of choices: Spearman, the nano
-map as zref with the declared reference (A1), each gene's merged profile after
-section QC (A2), full structure means, the declared structures (S1). Each row here
+map as zref with the declared reference, each gene's merged profile after section
+QC, full structure means, the declared structures. Each row here
 changes one of them, or several where a row reproduces an earlier route, and asks
 whether the order of the genes, and where Cacng8 and Gria1 sit, moves:
 
@@ -13,8 +13,8 @@ whether the order of the genes, and where Cacng8 and Gria1 sit, moves:
     borders     eroded means: the ISH side by one 200 um voxel (ish.regions), the
                 nano side by one 20 um voxel (adult.profiles), and both
     reading     the stored ratio reading (nano over autofluorescence) and the
-                stored zref before A1 (the 17 brains' shared structures as
-                reference), each the mean over the ten adults
+                stored zref of the young-against-adult tables (the 17 brains'
+                shared structures as reference), each the mean over the ten adults
     inputs      no section QC (the flagged sections measured as they are); P9's
                 single experiment per gene instead of the merged profile
     structures  P9's nine divisions (the structures of those divisions in the adult
@@ -40,6 +40,8 @@ import pandas as pd
 from scipy.stats import pearsonr, spearmanr
 
 from sepmap.config import DATA, SETTINGS
+from sepmap.ish import gene_ranking, gene_table, section_qc
+from sepmap.ish.numbers import numbers_frame, numbers_path
 from sepmap.ish.reliability import merge
 from sepmap.structures import TABLES
 from sepmap.young_vs_adult.region_plot import REGION_MEANS
@@ -52,6 +54,7 @@ STRUCTURES = SETTINGS["structures"]
 
 ROBUSTNESS = TABLES / "ranking_robustness.csv"
 SUMMARY = TABLES / "robustness_summary.csv"
+NUMBERS = numbers_path("robustness")
 
 # the region table of 5 October, frozen: P9's panel, one experiment per gene, no QC
 FROZEN_REGIONS = DATA / "adult_v2" / "ish" / "gene_region_table.csv"
@@ -102,7 +105,7 @@ def log2_profiles(
     return out
 
 
-def merged_profiles(
+def merge_experiments(
     per_experiment: dict[str, dict[str, dict[str, float]]],
 ) -> dict[str, dict[str, float]]:
     """Each gene's merged profile, the mean of its experiments' 0-1 ranks."""
@@ -130,6 +133,18 @@ def unflagged_region(region: pd.DataFrame, recomputed: pd.DataFrame) -> pd.DataF
     redone = set(recomputed["experiment_id"])
     kept = region[~region["experiment_id"].isin(redone)]
     return pd.concat([kept, recomputed], ignore_index=True)
+
+
+def region_without_qc(table: pd.DataFrame, region: pd.DataFrame) -> pd.DataFrame:
+    """The region table with the flagged experiments measured again, nothing missing.
+
+    `table` is the gene table, `region` the region table of the experiments it uses.
+    """
+    flags = section_qc.flagged_sections(section_qc.load_experiment_qc())
+    flagged = table[table["experiment_id"].isin(flags) & ~table["excluded"]]
+    redone = gene_table.region_table(flagged, {})
+    print(f"no QC: {len(flagged)} flagged experiments measured again", flush=True)
+    return unflagged_region(region, redone)
 
 
 def frozen_profiles() -> dict[str, dict[str, float]]:
@@ -161,6 +176,63 @@ def p9_division_structures(set_table: pd.DataFrame) -> list[str]:
         & ~set_table["structure"].str.lower().str.contains("unassigned")
     ]
     return sorted(mine["structure"])
+
+
+def variant_inputs(
+    table: pd.DataFrame,
+    genes: pd.DataFrame,
+    profile: pd.DataFrame,
+    set_table: pd.DataFrame,
+    declared: list[str],
+) -> dict[str, tuple[pd.Series, dict, list[str], str]]:
+    """{variant: (map, gene profiles, structures, statistic)} of every row of VARIANTS.
+
+    `table` is the gene table, `genes` its one row per gene, `profile` the adult
+    profile and `set_table` the structure set; the row without section QC measures
+    the flagged experiments again (about a minute).
+    """
+    region = gene_table.load_region_table()
+    used = set(table.loc[~table["excluded"], "experiment_id"])
+    region = region[region["experiment_id"].isin(used)]
+    per_experiment = gene_table.experiment_profiles(region)
+    eroded = merge_experiments(gene_table.experiment_profiles(region, "ish_mean_eroded"))
+    no_qc = merge_experiments(
+        gene_table.experiment_profiles(region_without_qc(table, region))
+    )
+    p9_own = dict(zip(genes["symbol"], genes["p9_experiment_id"]))
+    merged = gene_table.load_profiles()
+    zref = profile["zref_nano"]
+    zref_eroded = profile["zref_nano_eroded"]
+    stored_zref = stored_map("zref")
+    every = sorted(set_table["structure"])
+    inputs = {
+        "primary": (zref, merged, declared, "spearman"),
+        "pearson_log2": (zref, log2_profiles(per_experiment), declared, "pearson"),
+        "eroded_ish": (zref, eroded, declared, "spearman"),
+        "eroded_nano": (zref_eroded, merged, declared, "spearman"),
+        "eroded_both": (zref_eroded, eroded, declared, "spearman"),
+        "ratio": (stored_map("ratio"), merged, declared, "spearman"),
+        "stored_zref": (stored_zref, merged, declared, "spearman"),
+        "no_qc": (zref, no_qc, declared, "spearman"),
+        "p9_experiment": (
+            zref,
+            single_experiment(per_experiment, p9_own),
+            declared,
+            "spearman",
+        ),
+        "p9_divisions": (zref, merged, p9_division_structures(set_table), "spearman"),
+        "every_structure": (zref, merged, every, "spearman"),
+        "before_build": (
+            stored_zref,
+            frozen_profiles(),
+            sorted(stored_zref.index),
+            "spearman",
+        ),
+    }
+    missing = [name for name, _, _ in VARIANTS if name not in inputs]
+    if missing:
+        raise ValueError(f"VARIANTS lists {missing}, which variant_inputs does not build")
+    return inputs
 
 
 # ===== Correlations =====
@@ -231,7 +303,9 @@ def variant_rows(
     return table
 
 
-def agreement(table: pd.DataFrame, primary: pd.DataFrame, genes: set[str] | None):
+def agreement(
+    table: pd.DataFrame, primary: pd.DataFrame, genes: set[str] | None
+) -> tuple[float, int]:
     """Spearman of the genes' rho in a variant and in the primary, and the genes."""
     a = table.set_index("symbol")["rho"]
     b = primary.set_index("symbol")["rho"]
@@ -267,11 +341,70 @@ def summary_row(
         n_agreement_all=n_all,
         gap=gap,
     )
-    for gene in ("Cacng8", "Gria1"):
+    for gene in gene_ranking.GAP_GENES:
         row[f"rho_{gene}"] = by["rho"].get(gene, np.nan)
         row[f"rank_p9_{gene}"] = by["rank_p9"].get(gene, np.nan)
         row[f"rank_all_{gene}"] = by["rank_all"].get(gene, np.nan)
     return row
+
+
+def variant_tables(
+    inputs: dict[str, tuple[pd.Series, dict, list[str], str]], p9_genes: set[str]
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """ranking_robustness.csv and robustness_summary.csv, from variant_inputs.
+
+    The primary row must be analysis 1's ranking, and the run stops if it is not.
+    The gap is taken where a variant has both genes, NaN where it lacks one.
+    """
+    parts, gaps = [], {}
+    first, second = gene_ranking.GAP_GENES
+    for name, _, _ in VARIANTS:
+        map_values, gene_profiles, structure_list, method = inputs[name]
+        parts.append(
+            variant_rows(
+                name, map_values, gene_profiles, structure_list, p9_genes, method
+            )
+        )
+        gaps[name] = np.nan
+        if first in gene_profiles and second in gene_profiles:
+            gaps[name] = gap_on_shared(
+                map_values,
+                gene_profiles[first],
+                gene_profiles[second],
+                structure_list,
+                method,
+            )
+    per_gene = pd.concat(parts, ignore_index=True)
+    primary = per_gene[per_gene["variant"] == "primary"]
+    gene_ranking.check_matches_ranking(
+        primary.set_index("symbol")["rho"], "the primary row"
+    )
+    summary = pd.DataFrame(
+        [
+            summary_row(
+                v, per_gene[per_gene["variant"] == v[0]], primary, p9_genes, gaps[v[0]]
+            )
+            for v in VARIANTS
+        ]
+    )
+    return per_gene, summary
+
+
+def numbers_table(summary: pd.DataFrame) -> pd.DataFrame:
+    """numbers_robustness.csv: the numbers of this step that the text quotes."""
+    rows = []
+    for _, r in summary.iterrows():
+        name = r["variant"]
+        rows += [
+            (f"agreement_p9_{name}", round(r["agreement_p9"], 4), r["label"]),
+            (f"agreement_all_{name}", round(r["agreement_all"], 4), r["label"]),
+            (f"rank_p9_Gria1_{name}", r["rank_p9_Gria1"], r["label"]),
+            (f"rank_p9_Cacng8_{name}", r["rank_p9_Cacng8"], r["label"]),
+            (f"rho_Gria1_{name}", round(r["rho_Gria1"], 3), r["label"]),
+            (f"rho_Cacng8_{name}", round(r["rho_Cacng8"], 3), r["label"]),
+            (f"gap_{name}", round(r["gap"], 3), r["label"]),
+        ]
+    return numbers_frame(rows)
 
 
 def load_summary() -> pd.DataFrame:

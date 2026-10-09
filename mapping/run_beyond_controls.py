@@ -68,7 +68,9 @@ data root:
     readings.csv            control G, per reading
     variants.csv            the main model and every variant: structures,
                             budget, density alone, share left
-    fig4_controls.png, fig5_model_space.png, fig6_readings.png   working figures
+    fig4_controls.png       working figures: controls A to D, E and F, and G
+    fig5_model_space.png
+    fig6_readings.png
 
     python run_beyond_controls.py
 """
@@ -76,15 +78,48 @@ data root:
 import argparse
 
 import matplotlib
+import matplotlib.pyplot as plt
 
 from sepmap import config, plotting
 from sepmap.adult import beyond_controls
+from sepmap.adult import plotting as adult_plotting
 
 
 def main():
-    """Print the settings in force, then run the seven controls."""
+    """Print the settings in force, run the seven controls and the variants, draw."""
     config.print_settings({})
-    beyond_controls.main()
+    found = beyond_controls.main()
+
+    # the working figures: A to D, E and F, G
+    out = beyond_controls.OUT
+    passed = found["passed"]
+    figures = [
+        adult_plotting.plot_artefacts(
+            found["leftover"],
+            found["xyz"],
+            found["sizes"],
+            found["pairs"],
+            found["naive"],
+            found["rws"],
+            passed,
+            save=out / "fig4_controls.png",
+        ),
+        adult_plotting.plot_model_space(
+            found["curve"],
+            found["k_most"],
+            found["explainable"],
+            found["cubic"],
+            found["quintic"],
+            passed,
+            save=out / "fig5_model_space.png",
+        ),
+        adult_plotting.plot_readings(
+            found["readings"], passed["G"], save=out / "fig6_readings.png"
+        ),
+    ]
+    for fig in figures:
+        plt.close(fig)
+    print(f"\nworking figures: fig4_controls.png to fig6_readings.png in {out}")
 
 
 if __name__ == "__main__":

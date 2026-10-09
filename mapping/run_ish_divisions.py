@@ -85,130 +85,44 @@ import pandas as pd
 
 from sepmap import config, plotting, structures
 from sepmap.adult import profiles
-from sepmap.ish import divisions, gene_ranking, gene_table, planes, spatial_null
+from sepmap.ish import (
+    divisions,
+    gene_ranking,
+    gene_sets,
+    gene_table,
+    planes,
+    spatial_null,
+)
 from sepmap.ish import plotting as ish_plotting
+from sepmap.ish.figure_index import figure_file, figure_path
 from sepmap.volumes.per_mouse import structure_terms
 
 ISH_ANALYSIS = config.SETTINGS["ish_analysis"]
 ISH_FIGURES = config.SETTINGS["ish_figures"]
 
-OUT = config.DATA / "adult_v2" / "ish_analysis"
-
-
-def numbers_table(within, detail, calibration):
-    """The numbers of this step that the text quotes, one row each."""
-    q = ISH_ANALYSIS["q"]
-    have = within[within["rho_within"].notna()]
-    p9 = within["p9_gene"]
-    rows = [
-        ("genes", len(within), "genes split into between and within"),
-        ("genes_within", len(have), "genes in a division with enough structures"),
-        (
-            "agreement_division_only_all",
-            round(
-                divisions.agreement(
-                    within, "rho_division_only", within["symbol"].notna()
-                ),
-                3,
-            ),
-            "Spearman over genes, whole-brain against division-only rho",
-        ),
-        (
-            "agreement_division_only_p9",
-            round(divisions.agreement(within, "rho_division_only", p9), 3),
-            "the same over P9's genes",
-        ),
-        (
-            "agreement_within_all",
-            round(divisions.agreement(within, "rho_within", within["symbol"].notna()), 3),
-            "Spearman over genes, whole-brain against within rho",
-        ),
-        (
-            "agreement_within_p9",
-            round(divisions.agreement(within, "rho_within", p9), 3),
-            "the same over P9's genes",
-        ),
-        ("median_rho", round(within["rho"].median(), 3), "median whole-brain rho"),
-        (
-            "median_rho_within",
-            round(have["rho_within"].median(), 3),
-            "median within rho",
-        ),
-        (
-            "median_rho_p9",
-            round(within.loc[p9, "rho"].median(), 3),
-            "median whole-brain rho, P9's genes",
-        ),
-        (
-            "median_rho_within_p9",
-            round(within.loc[p9, "rho_within"].median(), 3),
-            "median within rho, P9's genes",
-        ),
-    ]
-    for null in ("spatial", "shuffle"):
-        rows += [
-            (
-                f"pass_all_{null}",
-                int((within[f"q_all_{null}"] < q).sum()),
-                f"genes past the within {null} null, BH within all, q < {q}",
-            ),
-            (
-                f"pass_p9_{null}",
-                int((within[f"q_p9_{null}"] < q).sum()),
-                f"P9's genes past the within {null} null, BH within P9's",
-            ),
-            (
-                f"calibration_{null}",
-                round(float((calibration[f"p_{null}"] < 0.05).mean()), 4),
-                f"random maps with p < 0.05 by the {null} null ({len(calibration)})",
-            ),
-        ]
-    for gene in divisions.DETAIL_GENES:
-        r = within[within["symbol"] == gene].iloc[0]
-        rows += [
-            (f"rho_division_only_{gene}", round(r["rho_division_only"], 3), gene),
-            (f"rho_within_{gene}", round(r["rho_within"], 3), gene),
-            (f"p_within_spatial_{gene}", round(r["p_within_spatial"], 5), gene),
-            (f"p_within_shuffle_{gene}", round(r["p_within_shuffle"], 5), gene),
-        ]
-    divisions_used = sorted(set(detail["division"]))
-    rows.append(("divisions_used", " ".join(divisions_used), "divisions entered"))
-    return pd.DataFrame(rows, columns=["name", "value", "what"], dtype=object)
-
-
-def within_calibration(map_values, division, surr, declared):
-    """The two nulls of the within rho on random smooth maps with the map's
-    smoothness (the spatial null's calibration fields)."""
-    d = spatial_null.distance_matrix(structures.load_centroids().loc[declared])
-    params = spatial_null.fit_exponential(map_values.to_numpy(float), d)
-    fields = spatial_null.random_fields(
-        d, params, ISH_ANALYSIS["n_calibration_within"], np.random.default_rng(1)
-    )
-    return divisions.calibration(map_values.to_numpy(float), division, surr, fields)
-
 
 def draw_figures(within, detail, map_values, division, merged, calibration, subunits):
     """Figure 09 and its detailed version."""
-    figures = OUT / "figures"
     set_table = structures.load_structure_set()
     q = ISH_ANALYSIS["q"]
     coarse = pd.Series(
         divisions.division_only(map_values.to_numpy(float), division),
         index=map_values.index,
     )
+    example = divisions.EXAMPLE_GENE
     min_structures = ISH_ANALYSIS["min_division_structures"]
     fig = ish_plotting.plot_between_within(
         within,
         map_values,
         coarse,
-        merged["Cacng8"],
-        "Cacng8",
+        merged[example],
+        example,
         set_table,
         subunits,
         divisions.DETAIL_GENES,
         q,
         min_structures,
-        save=figures / ish_plotting.figure_file("between_within"),
+        save=figure_path("between_within"),
     )
     plt.close(fig)
     fig = ish_plotting.plot_between_within_detail(
@@ -216,20 +130,19 @@ def draw_figures(within, detail, map_values, division, merged, calibration, subu
         detail,
         map_values,
         coarse,
-        merged["Cacng8"],
-        "Cacng8",
+        merged[example],
+        example,
         set_table,
         calibration,
         subunits,
         divisions.DETAIL_GENES,
         q,
         min_structures,
-        save=figures / ish_plotting.figure_file("between_within_detail"),
+        save=figure_path("between_within_detail"),
     )
     plt.close(fig)
-    keys = ("between_within", "between_within_detail")
-    drawn = [ish_plotting.figure_file(k) for k in keys]
-    print(f"figures: {', '.join(drawn)} in {figures}")
+    drawn = [figure_file(k) for k in ("between_within", "between_within_detail")]
+    print(f"figures: {', '.join(drawn)} in {structures.FIGURES}")
 
 
 def draw_sheets(within, detail, map_values, merged, ranking, n_surrogates):
@@ -238,10 +151,10 @@ def draw_sheets(within, detail, map_values, merged, ranking, n_surrogates):
     plane = ISH_FIGURES["plane"]
     names, _, _ = structure_terms()
     lab = planes.label_plane(plane)
-    folder = OUT / "figures" / "genes"
+    folder = structures.FIGURES / "genes"
     folder.mkdir(parents=True, exist_ok=True)
     by_gene = within.set_index("symbol")
-    nano_rows = ranking[ranking["map"] == "nano"].set_index("symbol")
+    nano_rows = gene_ranking.map_rows(ranking, "nano")
     for gene in divisions.DETAIL_GENES:
         fig = ish_plotting.plot_gene_sheet(
             gene,
@@ -264,7 +177,7 @@ def draw_sheets(within, detail, map_values, merged, ranking, n_surrogates):
 def main(sheets):
     """Print the settings, split every gene's rho; tables, figures, gene sheets."""
     config.print_settings({"sheets": sheets})
-    tables = OUT / "tables"
+    q = ISH_ANALYSIS["q"]
 
     # the declared structures, their divisions, the map and its surrogates
     declared = structures.declared_structures()
@@ -273,37 +186,27 @@ def main(sheets):
     division = np.array([division_of[s] for s in declared])
     profile = profiles.load_profile()
     map_values = profile.loc[declared, "zref_nano"]
-    surr, listed = spatial_null.load_surrogates("nano")
-    if listed != declared:
-        raise ValueError(
-            "the surrogates were drawn on other structures than the declared set; "
-            "run run_ish_spatial_null.py --recompute"
-        )
+    surr, _ = spatial_null.load_surrogates("nano", declared)
     print(f"map: {len(declared)} structures in {len(set(division))} divisions")
 
     # the genes
     genes = gene_table.per_gene(gene_table.load_gene_table())
     p9_genes = set(genes.loc[genes["p9_gene"], "symbol"])
-    subunits = {s for s, t in zip(genes["symbol"], genes["gene_sets"]) if "subunits" in t}
+    subunits = set(gene_sets.members_from_table(genes)["subunits"])
     merged = gene_table.load_profiles()
     vectors = gene_ranking.gene_vectors(merged, declared)
 
-    # between and within, per gene, with the two nulls of the within rho
+    # between and within, per gene, with the two nulls of the within rho; the
+    # whole-brain rho must be analysis 1's
     within, detail = divisions.gene_rows(
         map_values.to_numpy(float), division, surr, vectors
     )
     within = divisions.with_q(within, p9_genes)
-    ranking = gene_ranking.load_ranking()
-    nano = ranking[ranking["map"] == "nano"].set_index("symbol")["rho"]
-    largest = float((within.set_index("symbol")["rho"] - nano).abs().max())
-    if largest > 1e-9:
-        raise ValueError(
-            f"the whole-brain rho differs from gene_ranking.csv by up to {largest:.2e}; "
-            "run run_ish_gene_ranking.py first"
-        )
+    gene_ranking.check_matches_ranking(
+        within.set_index("symbol")["rho"], "the whole-brain rho"
+    )
     within.to_csv(divisions.WITHIN, index=False)
     detail.to_csv(divisions.WITHIN_DETAIL, index=False)
-    q = ISH_ANALYSIS["q"]
     print(
         f"within: {int(within['rho_within'].notna().sum())} genes; median "
         f"{within['rho_within'].median():+.3f} against {within['rho'].median():+.3f} "
@@ -312,21 +215,30 @@ def main(sheets):
     )
 
     # the two nulls on random smooth maps with the map's smoothness
-    calibration = within_calibration(map_values, division, surr, declared)
-    calibration.to_csv(tables / "within_calibration.csv", index=False)
+    calibration = divisions.within_calibration(
+        map_values.to_numpy(float),
+        division,
+        surr,
+        structures.load_centroids().loc[declared],
+    )
+    calibration.to_csv(divisions.CALIBRATION, index=False)
     rates = ", ".join(
-        f"{null} {float((calibration[f'p_{null}'] < 0.05).mean()):.1%}"
+        f"{null} {float((calibration[f'p_{null}'] < spatial_null.ALPHA).mean()):.1%}"
         for null in ("shuffle", "spatial")
     )
-    print(f"calibration: {len(calibration)} random maps, p < 0.05 by {rates}")
+    print(
+        f"calibration: {len(calibration)} random maps, p < {spatial_null.ALPHA} by "
+        f"{rates}"
+    )
 
     # the numbers for the text
-    numbers = numbers_table(within, detail, calibration)
-    numbers.to_csv(tables / "numbers_divisions.csv", index=False)
+    numbers = divisions.numbers_table(within, detail, calibration)
+    numbers.to_csv(divisions.NUMBERS, index=False)
 
     # figure 09 and its detailed version, and the gene sheets
     draw_figures(within, detail, map_values, division, merged, calibration, subunits)
     if sheets:
+        ranking = gene_ranking.load_ranking()
         draw_sheets(within, detail, map_values, merged, ranking, surr.shape[0])
 
 

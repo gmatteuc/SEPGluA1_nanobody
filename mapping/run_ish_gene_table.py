@@ -83,58 +83,17 @@ import argparse
 
 import matplotlib
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 
-from sepmap import config, plotting
-from sepmap.ish import gene_table, regions, section_qc
+from sepmap import config, plotting, structures
+from sepmap.ish import gene_table, section_qc
 from sepmap.ish import plotting as ish_plotting
-from sepmap.volumes.per_mouse import structure_terms
-
-OUT = config.DATA / "adult_v2" / "ish_analysis"
-
-
-def numbers_table(experiments, rel, members, labels, release):
-    """The numbers of this step that the text quotes, one row each."""
-    used = experiments[~experiments["excluded"]]
-    values = rel["reliability"].dropna()
-    by_gene = rel.set_index("symbol")["reliability"]
-    p9_genes = set(labels.loc[labels["p9_gene"], "symbol"])
-    rows = [
-        ("genes_listed", experiments["symbol"].nunique(), "genes of both panels"),
-        ("experiments_listed", len(experiments), "experiments, repair included"),
-        ("experiments_used", len(used), "experiments with a usable grid"),
-        ("genes_with_profile", rel["symbol"].nunique(), "genes with a profile"),
-        (
-            "p9_genes_with_profile",
-            len(p9_genes & set(rel["symbol"])),
-            "of P9's 100 genes",
-        ),
-        ("genes_reliability", len(values), "genes measured more than once"),
-        ("reliability_median", round(float(values.median()), 3), "median reliability"),
-        ("reliability_q1", round(float(values.quantile(0.25)), 3), "its first quartile"),
-        ("reliability_q3", round(float(values.quantile(0.75)), 3), "its third quartile"),
-        ("reliability_below_0.3", int((values < 0.3).sum()), "genes below 0.3"),
-        ("go_release", release, "go-basic.obo release of the ancestry"),
-    ]
-    for gene in ("Gria1", "Cacng8", "Dlg2"):
-        value = by_gene.get(gene, np.nan)
-        rows.append(
-            (f"reliability_{gene}", round(float(value), 3), f"{gene}'s reliability")
-        )
-    for name, symbols in members.items():
-        rows.append((f"set_{name}", len(symbols), f"genes in the set {name}"))
-    for reason, n in (
-        experiments.loc[experiments["excluded"], "exclude_reason"].value_counts().items()
-    ):
-        rows.append(("excluded", int(n), reason))
-    return pd.DataFrame(rows, columns=["name", "value", "what"], dtype=object)
+from sepmap.ish.figure_index import figure_file, figure_path
 
 
 def main(offline):
     """Print the settings, then measure, label and document every gene."""
     config.print_settings({"offline": offline})
-    tables = OUT / "tables"
 
     # the experiments, which can be used, and the sections to set missing
     experiments = gene_table.exclusion_reasons(gene_table.load_experiments())
@@ -148,10 +107,7 @@ def main(offline):
     )
 
     # region means per experiment, flagged sections missing
-    ann = regions.annotation_200()
-    names, _, _ = structure_terms()
-    eroded = regions.eroded_annotation(ann)
-    region = pd.DataFrame(gene_table.region_rows(experiments, flags, ann, names, eroded))
+    region = gene_table.region_table(experiments, flags)
     region.to_csv(gene_table.REGION_TABLE, index=False, float_format="%.6g")
     print(
         f"region means: {len(region):,} rows, {region['experiment_id'].nunique()} "
@@ -159,7 +115,7 @@ def main(offline):
     )
 
     # experiments that measure too few structures, then the reliability and the
-    # merged profile of each gene from the rest
+    # merged profile of each gene from the rest, at full precision
     n_before = int(experiments["excluded"].sum())
     experiments = gene_table.coverage_exclusions(experiments, region)
     used = set(experiments.loc[~experiments["excluded"], "experiment_id"])
@@ -189,17 +145,14 @@ def main(offline):
     table.to_csv(gene_table.GENE_TABLE, index=False)
     documentation = gene_table.documentation_table(labels, table, rel)
     documentation.to_csv(gene_table.DOCUMENTATION, index=False, encoding="utf-8-sig")
-    numbers = numbers_table(experiments, rel, members, labels, release)
-    numbers.to_csv(tables / "numbers_gene_table.csv", index=False)
+    numbers = gene_table.numbers_table(experiments, rel, members, labels, release)
+    numbers.to_csv(gene_table.NUMBERS, index=False)
     print(f"gene table: {len(table)} experiments, {len(documentation)} genes documented")
 
     # figure 02 and its detailed version
-    figures = OUT / "figures"
     usable_genes = labels[labels["symbol"].isin(set(profiles["symbol"]))]
     sections = section_qc.load_section_qc()
-    fig = ish_plotting.plot_genes(
-        usable_genes, table, rel, save=figures / ish_plotting.figure_file("genes")
-    )
+    fig = ish_plotting.plot_genes(usable_genes, table, rel, save=figure_path("genes"))
     plt.close(fig)
     fig = ish_plotting.plot_genes_detail(
         usable_genes,
@@ -208,11 +161,11 @@ def main(offline):
         summary,
         rel,
         set(members["subunits"]),
-        save=figures / ish_plotting.figure_file("genes_detail"),
+        save=figure_path("genes_detail"),
     )
     plt.close(fig)
-    drawn = [ish_plotting.figure_file(k) for k in ("genes", "genes_detail")]
-    print(f"figures: {', '.join(drawn)} in {figures}")
+    drawn = [figure_file(k) for k in ("genes", "genes_detail")]
+    print(f"figures: {', '.join(drawn)} in {structures.FIGURES}")
 
 
 if __name__ == "__main__":

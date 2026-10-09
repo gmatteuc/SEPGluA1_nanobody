@@ -2,10 +2,11 @@
 
 Two brain maps agree partly because both are smooth: neighbouring structures have
 similar values, cortex and hippocampus are high, thalamus and hypothalamus low. A
-map that knows only each structure's division still correlates with Cacng8 at 0.78.
-Shuffling the structures destroys that smoothness, so a permutation null is far too
-narrow and every rho looks significant (the inflation Fulcher 2021 measured in
-mouse). The null here keeps the smoothness (A7), with variogram-matched surrogates
+map that knows only each structure's division already correlates strongly with many
+genes (analysis 2, ish.divisions). Shuffling the structures destroys that
+smoothness, so a permutation null is far too narrow and every rho looks significant
+(the inflation Fulcher 2021 measured in mouse). The null here keeps the smoothness,
+with variogram-matched surrogates
 (Burt et al. 2020, NeuroImage 220:117038, the method of brainsmash's Base class,
 written here in numpy because brainsmash needs scikit-learn and joblib, which
 venv_atlas does not have):
@@ -14,8 +15,7 @@ venv_atlas does not have):
                  smoothness that matters is that of the ranks; and the values are
                  skewed (the hippocampus sits far above the rest), so their
                  variogram is set by a few large values, which the surrogates
-                 match less well (on the adult map of 5 October, a median misfit
-                 of 13% inside the matched range with values, 7% with ranks)
+                 match less well than they match the ranks
     distances    between the structures' centroids in one hemisphere, in mm
                  (structures.centroids)
     variogram    half the squared difference of every pair of structures, against
@@ -57,6 +57,7 @@ from scipy.optimize import curve_fit
 from scipy.stats import rankdata, spearmanr
 
 from sepmap.config import SETTINGS
+from sepmap.ish.numbers import numbers_frame, numbers_path
 from sepmap.structures import TABLES
 
 # the number of surrogates, the shares of neighbours, the variogram's range and
@@ -70,6 +71,7 @@ SURROGATES = {
 SURROGATE_STRUCTURES = TABLES / "surrogate_structures.csv"
 VARIOGRAM = TABLES / "variogram.csv"
 CALIBRATION = TABLES / "null_calibration.csv"
+NUMBERS = numbers_path("spatial_null")
 
 # the variogram's Gaussian kernel has an SD of its width over 2.68, so its weight
 # falls to about 3% one width from its centre, and the width is three steps of the
@@ -85,6 +87,9 @@ FIT_STEPS = 50
 
 # the level at which the calibration counts false positives
 ALPHA = 0.05
+
+# the percentiles of a null distribution that a value must leave to pass at ALPHA
+BAND = (2.5, 97.5)
 
 
 # ===== Variograms =====
@@ -240,22 +245,6 @@ def spatial_p(observed: float, null: np.ndarray) -> float:
     return (k + 1) / (len(null) + 1)
 
 
-def test_against_map(
-    gene: pd.Series, map_values: pd.Series, surr: np.ndarray
-) -> tuple[float, float, int, np.ndarray]:
-    """rho of a gene with the map, its spatial p, the structures used, and its null.
-
-    `gene` and `map_values` are indexed by structure, `surr` holds the map's
-    surrogates in the order of `map_values`; they are cut to the structures the
-    gene has.
-    """
-    common = [s for s in map_values.index if s in gene.index and np.isfinite(gene[s])]
-    columns = [map_values.index.get_loc(s) for s in common]
-    observed = spearmanr(map_values[common], gene[common]).statistic
-    null = null_rho(surr[:, columns], gene[common].to_numpy(float))
-    return float(observed), spatial_p(observed, null), len(common), null
-
-
 # ===== Checks of the null =====
 
 
@@ -391,8 +380,68 @@ def false_positive_rates(calibration: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def load_surrogates(map_name: str) -> tuple[np.ndarray, list[str]]:
-    """The surrogates of one map (nano or auto) and the structures of their columns."""
+def matched_misfit(variogram: pd.DataFrame) -> dict[str, tuple[float, float]]:
+    """Per map, the median and largest |surrogates - map| / map in the matched range.
+
+    `variogram` is variogram_table's, one map or several.
+    """
+    out = {}
+    for name, sub in variogram[variogram["matched"]].groupby("map"):
+        rel = (sub["surrogate_median"] - sub["variogram"]).abs() / sub["variogram"]
+        out[name] = (float(rel.median()), float(rel.max()))
+    return out
+
+
+def numbers_table(
+    n_structures: int,
+    params: tuple,
+    misfit: dict[str, tuple[float, float]],
+    rates: pd.DataFrame,
+) -> pd.DataFrame:
+    """numbers_spatial_null.csv: the numbers of this step that the text quotes."""
+    rows = [
+        ("null_structures", n_structures, "declared structures the surrogates cover"),
+        ("null_surrogates", SPATIAL_NULL["n_surrogates"], "surrogates per map"),
+        ("calibration_range_mm", round(params[2], 3), "range of the fitted fields, mm"),
+        ("calibration_nugget", round(params[0], 4), "nugget of the fitted fields"),
+    ]
+    for name, (median, largest) in misfit.items():
+        rows.append(
+            (f"variogram_misfit_{name}", round(median, 3), "median, matched range")
+        )
+        rows.append(
+            (f"variogram_misfit_max_{name}", round(largest, 3), "largest, matched range")
+        )
+    for _, r in rates.iterrows():
+        what = f"{r['design']} design, {r['n_tests']} tests"
+        rows.append((f"fpr_ordinary_{r['design']}", round(r["ordinary"], 4), what))
+        rows.append((f"fpr_spatial_{r['design']}", round(r["spatial"], 4), what))
+        rows.append((f"sd_rho_{r['design']}", round(r["sd_rho"], 3), "smooth maps"))
+        rows.append(
+            (f"sd_rho_shuffled_{r['design']}", round(r["sd_rho_shuffled"], 3), "shuffled")
+        )
+    return numbers_frame(rows)
+
+
+def save_surrogates(surr: dict[str, np.ndarray], centroids: pd.DataFrame) -> None:
+    """Write each map's surrogates (float32) and the structures of their columns.
+
+    `centroids` is the declared structures' table in the order of the columns.
+    """
+    table = centroids.reset_index()[["structure", "ap_mm", "dv_mm", "ml_mm"]]
+    table.to_csv(SURROGATE_STRUCTURES, index=False)
+    for name, maps in surr.items():
+        np.save(SURROGATES[name], maps.astype(np.float32))
+
+
+def load_surrogates(
+    map_name: str, declared: list[str] | None = None
+) -> tuple[np.ndarray, list[str]]:
+    """The surrogates of one map (nano or auto) and the structures of their columns.
+
+    With `declared`, the run stops unless the surrogates were drawn on exactly those
+    structures, in that order.
+    """
     path = SURROGATES[map_name]
     if not path.exists():
         raise FileNotFoundError(f"{path} not found: run run_ish_spatial_null.py first")
@@ -402,5 +451,10 @@ def load_surrogates(map_name: str) -> tuple[np.ndarray, list[str]]:
         raise ValueError(
             f"{path} has {surr.shape[1]} columns, {SURROGATE_STRUCTURES.name} lists "
             f"{len(structures)} structures; run run_ish_spatial_null.py --recompute"
+        )
+    if declared is not None and structures != declared:
+        raise ValueError(
+            "the surrogates were drawn on other structures than the declared set; "
+            "run run_ish_spatial_null.py --recompute"
         )
     return surr, structures

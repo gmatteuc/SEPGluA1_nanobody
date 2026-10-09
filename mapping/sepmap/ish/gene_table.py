@@ -4,14 +4,14 @@ Two panels were built at different times for different questions: P9's 100
 hand-picked genes (mapping/gene_targets.csv, one coronal experiment each) and the
 390-gene ontology panel (ish.panel_build, every experiment of genes taken from GO
 terms). Each analysis read one or the other. Here they become one table, a row per
-experiment (A9, step 0 of the ISH line):
+experiment:
 
-    experiments     the union of the two panels: 451 genes, 733 experiments. A
-                    P9 gene whose own grid cannot be used (Allen returns 404 for
-                    Chat and Tph2; Olig2 and Calb2 sit in a box of their own) and
-                    that the ontology panel lacks is repaired with its other Allen
-                    experiments, fetched once (the repair). Sst needs none: the
-                    ontology panel holds two of its experiments
+    experiments     the union of the two panels (numbers_gene_table.csv counts
+                    them). A P9 gene whose own grid cannot be used (Allen returns
+                    404 for Chat and Tph2; Olig2 and Calb2 sit in a box of their
+                    own) and that the ontology panel lacks is repaired with its
+                    other Allen experiments, fetched once (the repair). Sst needs
+                    none: the ontology panel holds two of its experiments
     region means    per experiment and structure, full and eroded by one 200 um
                     voxel (ish.regions), with the sections ish.section_qc flagged
                     set missing first
@@ -38,6 +38,7 @@ Run by run_ish_section_qc.py (the experiment list) and run_ish_gene_table.py.
 """
 
 import json
+import re
 import time
 import urllib.parse
 import urllib.request
@@ -48,18 +49,23 @@ import pandas as pd
 
 from sepmap.config import DATA, SETTINGS
 from sepmap.ish import panel_build, panel_fetch, regions, reliability, section_qc
-from sepmap.ish.gene_sets import context_set, gene_sets
-from sepmap.structures import TABLES
+from sepmap.ish.gene_sets import context_set, set_members
+from sepmap.ish.numbers import numbers_frame, numbers_path
+from sepmap.structures import ISH_OUT, TABLES
+from sepmap.volumes.per_mouse import structure_terms
 
-# the voxels a gene value needs to be used, the gene the panels must hold
+# the voxels and structures a gene value needs to be used; the reliability below
+# which a gene's Allen map does not reproduce
 ISH = SETTINGS["ish"]
+ISH_PANEL_TEST = SETTINGS["ish_panel_test"]
 
-CACHE = DATA / "adult_v2" / "ish_analysis" / "cache"
+CACHE = ISH_OUT / "cache"
 EXPERIMENTS = TABLES / "experiments.csv"
 REGION_TABLE = TABLES / "gene_region_table.csv"
 GENE_TABLE = TABLES / "gene_table.csv"
 PROFILES = TABLES / "gene_profiles.csv"
 DOCUMENTATION = TABLES / "gene_documentation.csv"
+NUMBERS = numbers_path("gene_table")
 
 # the mygene records of 5 October, read first and never written
 OLD_MYGENE = DATA / "adult_v2" / "ish" / "annotation"
@@ -72,6 +78,10 @@ MYGENE_BATCH = 200
 
 # how the downloads introduce themselves
 USER_AGENT = "sepmap (SEP-GluA1 histology analysis)"
+
+# the genes whose reliability the text quotes: the gene of the stained protein, the
+# gene named for the leftover, and a scaffold near the top of the ranking
+QUOTED_GENES = ("Gria1", "Cacng8", "Dlg2")
 
 
 class OfflineError(RuntimeError):
@@ -228,6 +238,14 @@ def region_rows(
     return rows
 
 
+def region_table(experiments: pd.DataFrame, flags: dict[str, list[int]]) -> pd.DataFrame:
+    """region_rows on the CCF of the 200 um grid, full and eroded, as one table."""
+    ann = regions.annotation_200()
+    names, _, _ = structure_terms()
+    eroded = regions.eroded_annotation(ann)
+    return pd.DataFrame(region_rows(experiments, flags, ann, names, eroded))
+
+
 def experiment_profiles(
     region: pd.DataFrame, column: str = "ish_mean"
 ) -> dict[str, dict[str, dict[str, float]]]:
@@ -268,15 +286,24 @@ def gene_reliability(per: dict) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def used_experiment_profiles(
+    table: pd.DataFrame,
+) -> dict[str, dict[str, dict[str, float]]]:
+    """experiment_profiles of the experiments the gene table uses, from the region table.
+
+    `table` is the gene table; {gene: {experiment: {structure: energy}}}.
+    """
+    region = load_region_table()
+    used = set(table.loc[~table["excluded"], "experiment_id"])
+    return experiment_profiles(region[region["experiment_id"].isin(used)])
+
+
 def gene_levels(table: pd.DataFrame) -> tuple[dict[str, float], dict[str, float]]:
     """{gene: reliability} and {gene: median energy}, from the usable experiments.
 
     `table` is the gene table; a gene measured once has no reliability.
     """
-    region = load_region_table()
-    used = set(table.loc[~table["excluded"], "experiment_id"])
-    per = experiment_profiles(region[region["experiment_id"].isin(used)])
-    rel = gene_reliability(per).set_index("symbol")
+    rel = gene_reliability(used_experiment_profiles(table)).set_index("symbol")
     return rel["reliability"].dropna().to_dict(), rel["median_energy"].to_dict()
 
 
@@ -441,6 +468,25 @@ def load_obo(offline: bool) -> tuple[dict[str, set[str]], dict[str, str], str]:
     return dict(parents), names, release
 
 
+def with_go_names(text: str, names: dict[str, str]) -> str:
+    """`text` with each GO id followed by its name in brackets, unless named already."""
+
+    def named(match: re.Match) -> str:
+        """The GO id matched, with its name after it when the text lacks it."""
+        term = match.group(0)
+        after = text[match.end() : match.end() + 1 + len(names.get(term, ""))]
+        if term not in names or after.strip() == names[term]:
+            return term
+        return f"{term} ({names[term]})"
+
+    return re.sub(r"GO:\d{7}", named, text)
+
+
+def go_term_list(terms: list[str], names: dict[str, str]) -> str:
+    """GO ids with their names, joined: 'GO:0014069 postsynaptic density; ...'."""
+    return "; ".join(f"{t} {names.get(t, '')}".strip() for t in terms)
+
+
 def with_ancestors(terms: set[str], parents: dict[str, set[str]]) -> set[str]:
     """The terms and every ancestor of them, by the relations in `parents`."""
     out = set()
@@ -457,6 +503,16 @@ def with_ancestors(terms: set[str], parents: dict[str, set[str]]) -> set[str]:
 # ===== The tables =====
 
 
+def cellular_components(
+    symbols: list[str], records: dict[str, dict], parents: dict[str, set[str]]
+) -> dict[str, set[str]]:
+    """{gene: its GO cellular-component terms with their ancestors}, from its record."""
+    return {
+        g: with_ancestors(go_annotations(records.get(g, {}), "CC"), parents)
+        for g in symbols
+    }
+
+
 def gene_labels(
     experiments: pd.DataFrame, records: dict[str, dict], parents: dict[str, set[str]]
 ) -> tuple[pd.DataFrame, dict[str, list[str]]]:
@@ -469,12 +525,9 @@ def gene_labels(
     ontology = read_panel("ontology").drop_duplicates("symbol").set_index("symbol")
     genes = sorted(experiments["symbol"].unique())
     role = {g: ontology["role"].get(g, "") for g in genes}
-    components = {
-        g: with_ancestors(go_annotations(records.get(g, {}), "CC"), parents)
-        for g in genes
-    }
+    components = cellular_components(genes, records, parents)
     usable = sorted(experiments.loc[~experiments["excluded"], "symbol"].unique())
-    members = gene_sets(usable, role, components)
+    members = set_members(usable, role, components)
     in_sets = defaultdict(list)
     for name, symbols in members.items():
         for s in symbols:
@@ -509,11 +562,7 @@ def context_members(symbols: list[str], offline: bool = True) -> list[str]:
     role = {g: ontology["role"].get(g, "") for g in symbols}
     records = mygene_records(symbols, offline)
     parents, _, _ = load_obo(offline)
-    components = {
-        g: with_ancestors(go_annotations(records.get(g, {}), "CC"), parents)
-        for g in symbols
-    }
-    return context_set(symbols, role, components)
+    return context_set(symbols, role, cellular_components(symbols, records, parents))
 
 
 def exclusion_reasons(experiments: pd.DataFrame) -> pd.DataFrame:
@@ -584,7 +633,7 @@ def experiment_table(
         "n_absence_kept",
         "absence_sections",
     ):
-        out[column] = out["experiment_id"].map(qc[column]) if column in qc else ""
+        out[column] = out["experiment_id"].map(qc[column])
     out["n_structures"] = out["experiment_id"].map(n_structures).fillna(0).astype(int)
     out["median_energy"] = out["experiment_id"].map(level)
     gene = labels.set_index("symbol")
@@ -677,7 +726,7 @@ def documentation_table(
                 sections_set_missing=" ".join(
                     f"{e}: {s}"
                     for e, s in zip(used["experiment_id"], used["flagged_sections"])
-                    if isinstance(s, str) and s
+                    if s
                 ),
                 reliability=rel["reliability"].get(g["symbol"], np.nan),
                 summary=g["summary"],
@@ -685,3 +734,47 @@ def documentation_table(
             )
         )
     return pd.DataFrame(rows)
+
+
+def numbers_table(
+    experiments: pd.DataFrame,
+    rel: pd.DataFrame,
+    members: dict[str, list[str]],
+    labels: pd.DataFrame,
+    release: str,
+) -> pd.DataFrame:
+    """numbers_gene_table.csv: the numbers of this step that the text quotes."""
+    used = experiments[~experiments["excluded"]]
+    values = rel["reliability"].dropna()
+    by_gene = rel.set_index("symbol")["reliability"]
+    p9_genes = set(labels.loc[labels["p9_gene"], "symbol"])
+    low = ISH_PANEL_TEST["min_reliability"]
+    rows = [
+        ("genes_listed", experiments["symbol"].nunique(), "genes of both panels"),
+        ("experiments_listed", len(experiments), "experiments, repair included"),
+        ("experiments_used", len(used), "experiments with a usable grid"),
+        ("genes_with_profile", rel["symbol"].nunique(), "genes with a profile"),
+        (
+            "p9_genes_with_profile",
+            len(p9_genes & set(rel["symbol"])),
+            f"of P9's {len(p9_genes)} genes",
+        ),
+        ("genes_reliability", len(values), "genes measured more than once"),
+        ("reliability_median", round(float(values.median()), 3), "median reliability"),
+        ("reliability_q1", round(float(values.quantile(0.25)), 3), "its first quartile"),
+        ("reliability_q3", round(float(values.quantile(0.75)), 3), "its third quartile"),
+        (f"reliability_below_{low}", int((values < low).sum()), f"genes below {low}"),
+        ("go_release", release, "go-basic.obo release of the ancestry"),
+    ]
+    for gene in QUOTED_GENES:
+        value = by_gene.get(gene, np.nan)
+        rows.append(
+            (f"reliability_{gene}", round(float(value), 3), f"{gene}'s reliability")
+        )
+    for name, symbols in members.items():
+        rows.append((f"set_{name}", len(symbols), f"genes in the set {name}"))
+    for reason, n in (
+        experiments.loc[experiments["excluded"], "exclude_reason"].value_counts().items()
+    ):
+        rows.append(("excluded", int(n), reason))
+    return numbers_frame(rows)

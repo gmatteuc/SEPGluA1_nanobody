@@ -83,99 +83,29 @@ import argparse
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
-from scipy.stats import spearmanr
 
 from sepmap import config, plotting, structures
 from sepmap.adult import profiles
+from sepmap.ish import planes
 from sepmap.ish import plotting as ish_plotting
+from sepmap.ish.figure_index import figure_path
 from sepmap.volumes.per_mouse import annotation_20, structure_terms
 
 ISH_FIGURES = config.SETTINGS["ish_figures"]
 STRUCTURES = config.SETTINGS["structures"]
 
-OUT = config.DATA / "adult_v2" / "ish_analysis"
-
-# the first 10 um CCF plane of the adult crop (volumes.per_mouse.atlas_grid)
-CROP_START = 180
-
-
-def numbers_table(set_table, reference, centroids, agreement):
-    """The numbers of this step that the text quotes, one row each."""
-    nano = reference[reference["channel"] == "nano"]
-    shift = (nano["median"] - nano["median_stored"]).abs()
-    rows = [
-        ("structures_in_table", len(set_table), "structures in the adult table"),
-        (
-            "structures_all_adults",
-            int((set_table["n_adults"] >= STRUCTURES["min_adults"]).sum()),
-            "measured in all the adults the rule asks for",
-        ),
-        (
-            "structures_below_5_adults",
-            int((set_table["n_adults"] < 5).sum()),
-            "left out: measured in fewer than five adults",
-        ),
-        (
-            "structures_5_to_9_adults",
-            int(
-                (
-                    (set_table["n_adults"] >= 5)
-                    & (set_table["n_adults"] < STRUCTURES["min_adults"])
-                ).sum()
-            ),
-            "left out: measured in five or more adults, but not in all",
-        ),
-        ("structures_declared", int(set_table["in_set"].sum()), "the declared set"),
-        (
-            "zref_zero_shift_min",
-            round(shift.min(), 4),
-            "smallest shift of an adult's zero",
-        ),
-        (
-            "zref_zero_shift_max",
-            round(shift.max(), 4),
-            "largest shift of an adult's zero",
-        ),
-        (
-            "cohort_map_agreement",
-            round(agreement, 5),
-            "Spearman of the cohort map before and after A1, declared set",
-        ),
-        (
-            "centroids_ml_max_mm",
-            round(float(centroids["ml_mm"].max()), 3),
-            "largest ML centroid, mm (one hemisphere: below 5.7)",
-        ),
-    ]
-    in_set = set_table[set_table["in_set"]]
-    for division, n in in_set["division"].value_counts().items():
-        rows.append(
-            (f"declared_{division}", int(n), f"declared structures in {division}")
-        )
-    return pd.DataFrame(rows, columns=["name", "value", "what"], dtype=object)
-
-
-def stored_agreement(profile):
-    """Spearman of the 10 adults' mean stored zref with the new one, over the set."""
-    table = pd.read_csv(profiles.REGION_MEANS)
-    stored = table[(table["reading"] == "zref") & table["mouse"].isin(profiles.ADULTS)]
-    stored = stored.groupby("structure")["log2_value"].mean()
-    in_set = profile[profile["in_set"]]
-    return float(spearmanr(stored.reindex(in_set.index), in_set["zref_nano"]).statistic)
-
 
 def main(recompute):
     """Print the settings, then declare the set, take zref and write the tables."""
     config.print_settings({"recompute": recompute})
-    tables = OUT / "tables"
-    tables.mkdir(parents=True, exist_ok=True)
+    structures.TABLES.mkdir(parents=True, exist_ok=True)
+    structures.FIGURES.mkdir(parents=True, exist_ok=True)
 
     # the CCF as structure codes, its interior and the ontology
-    names, acro, divi = structure_terms()
+    names, acronyms, divisions = structure_terms()
     ann = annotation_20("ccf")
     labels, label_names = structures.name_volume(ann, names)
-    meta = profiles.structure_meta(names, acro, divi)
+    meta = profiles.structure_meta(names, acronyms, divisions)
 
     # the channel means of every adult, plain and eroded, measured or from the cache
     if recompute or not profiles.PER_MOUSE_TABLE.exists():
@@ -212,7 +142,7 @@ def main(recompute):
     profile = profiles.adult_profile(per_mouse, set_table)
     profile.to_csv(profiles.PROFILE, index=False)
     profile = profiles.load_profile()
-    agreement = stored_agreement(profile)
+    agreement = profiles.stored_agreement(profile)
     print(
         f"adult profile: {len(profile)} structures, {int(profile['in_set'].sum())} "
         f"in the set; order against the stored zref rho {agreement:.5f}"
@@ -228,27 +158,24 @@ def main(recompute):
     )
 
     # the numbers for the text
-    numbers = numbers_table(set_table, reference, centroids, agreement)
-    numbers.to_csv(tables / "numbers_structure_set.csv", index=False)
+    numbers = profiles.numbers_table(set_table, reference, centroids, agreement)
+    numbers.to_csv(profiles.NUMBERS, index=False)
 
     # figure 01
-    figures = OUT / "figures"
-    figures.mkdir(parents=True, exist_ok=True)
     plane = ISH_FIGURES["plane"]
-    lab = ann[(plane - CROP_START) // 2]
     fig = ish_plotting.plot_structures(
         set_table,
         profile,
         reference,
         agreement,
-        np.asarray(lab),
+        np.asarray(ann[planes.crop_index(plane)]),
         names,
         plane,
         STRUCTURES["min_adults"],
-        save=figures / ish_plotting.figure_file("structures"),
+        save=figure_path("structures"),
     )
     plt.close(fig)
-    print(f"figure: {figures / ish_plotting.figure_file('structures')}")
+    print(f"figure: {figure_path('structures')}")
 
 
 if __name__ == "__main__":

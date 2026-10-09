@@ -54,7 +54,7 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     29. run_ish_overview       figures 00, 16 and 16s, the figure
                                index; the numbers for the text
 
-The main model fixed on 8 October: the ceiling (how reproducible the map is),
+The main model of [beyond]: the ceiling (how reproducible the map is),
 what Gria1, synapse density and autofluorescence predict on structures the fit has
 not seen, whether the leftover replicates across mice, where it lives, and every
 gene of the gene table against it with the leftover's spatial null. The rule of
@@ -70,7 +70,10 @@ in adult_v2/ish_analysis/beyond/ under the data root:
     leftover_genes.csv         every gene against the leftover, with its spatial p
     leftover_sets.csv          the gene sets of analysis 3 against the leftover
     leftover_null.npz          the leftover's surrogates, every gene's null rho
-    fig0_structures.png ... fig3_residual.png    working figures
+    fig0_structures.png        working figures: the structures of the fit, the
+    fig1_ceiling.png           ceiling, what each model predicts, the leftover's
+    fig2_covariates.png        replication and where it is largest
+    fig3_residual.png
 
     python run_beyond_density.py
 """
@@ -78,15 +81,46 @@ in adult_v2/ish_analysis/beyond/ under the data root:
 import argparse
 
 import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
 
 from sepmap import config, plotting
 from sepmap.adult import beyond_density
+from sepmap.adult import plotting as adult_plotting
 
 
 def main():
-    """Print the settings in force, then run the steps of analysis 4."""
+    """Print the settings in force, run the steps of analysis 4, draw them."""
     config.print_settings({})
-    beyond_density.main()
+    found = beyond_density.main()
+
+    # the working figures, one per step
+    out = beyond_density.OUT
+    reproducible = beyond_density.replicates(float(np.mean(found["map_agreement"])))
+    figures = [
+        adult_plotting.plot_structures_used(
+            found["structures_used"], save=out / "fig0_structures.png"
+        ),
+        adult_plotting.plot_ceiling(
+            found["map_agreement"],
+            found["explainable"],
+            reproducible,
+            save=out / "fig1_ceiling.png",
+        ),
+        adult_plotting.plot_covariates(
+            found["partition"], found["explainable"], save=out / "fig2_covariates.png"
+        ),
+        adult_plotting.plot_residual(
+            found["map_agreement"],
+            found["agreement"],
+            found["implied"],
+            found["residuals"],
+            save=out / "fig3_residual.png",
+        ),
+    ]
+    for fig in figures:
+        plt.close(fig)
+    print(f"\nworking figures: fig0_structures.png to fig3_residual.png in {out}")
 
 
 if __name__ == "__main__":

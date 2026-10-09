@@ -1,17 +1,12 @@
 """Known-answer checks of analyses 1 to 3: gene ranking, divisions, gene sets."""
 
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 import pytest
 from scipy.stats import spearmanr
 
-from sepmap import config
-from sepmap.ish.spatial_null import null_rho
 from sepmap.ish import divisions, gene_ranking, gene_sets, panel_test
-
-TABLES = Path(config.DATA) / "adult_v2" / "ish_analysis" / "tables"
+from sepmap.ish.spatial_null import null_rho
 
 
 def smooth_map(n=120, seed=0):
@@ -94,8 +89,7 @@ def test_gap_uses_only_structures_both_genes_have():
 
 
 def test_equal_null_matches_the_observed_level_and_is_narrower():
-    """Maps related to both genes alike reach the observed mean rho, and their gaps
-    centre on zero with a narrower spread than those of unrelated maps."""
+    """The equal null reaches the observed rho, centres on zero, and is narrower."""
     rng = np.random.default_rng(4)
     _, a = smooth_map(150, seed=1)
     _, b = smooth_map(150, seed=2)
@@ -127,13 +121,13 @@ def test_shuffle_within_divisions_keeps_each_divisions_values():
     values = np.arange(30, dtype=float)
     labels = np.array(["A"] * 10 + ["B"] * 12 + ["C"] * 8)
     parts = divisions.division_parts(np.arange(30), labels, min_structures=8)
-    maps = divisions.shuffle_within(values, parts, 20, rng)
+    maps = divisions.shuffled_maps(values, parts, 20, rng)
     for _, positions in parts:
         for row in maps:
             assert sorted(row[positions]) == sorted(values[positions])
     # the order inside a division changes, or the null would hold only the map itself
     assert (maps != values).any(axis=1).all()
-    out = divisions.shuffled_within(values, values, parts, 50, rng)
+    out = divisions.shuffled_within_rho(values, values, parts, 50, rng)
     assert out.shape == (50,)
 
 
@@ -200,11 +194,9 @@ def test_null_partial_equals_panel_tests_partial():
     assert np.allclose(fast, slow)
 
 
-@pytest.mark.skipif(
-    not (TABLES / "gene_ranking.csv").exists(), reason="data not connected"
-)
-def test_todays_ranking_is_complete_and_consistent():
-    """Today's ranking: both maps, every gene once per map, P9's 100 genes, q in 0..1."""
+@pytest.mark.skipif(not gene_ranking.RANKING.exists(), reason="data not connected")
+def test_written_ranking_is_complete_and_consistent():
+    """The written ranking: both maps, each gene once per map, P9's 100, q in 0..1."""
     ranking = gene_ranking.load_ranking()
     assert set(ranking["map"]) == {"nano", "auto"}
     for _, mine in ranking.groupby("map"):

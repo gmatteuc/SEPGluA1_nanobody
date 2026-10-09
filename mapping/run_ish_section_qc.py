@@ -83,96 +83,25 @@ import argparse
 
 import matplotlib
 import matplotlib.pyplot as plt
-import nibabel as nib
-import numpy as np
-import pandas as pd
 
 from sepmap import config, plotting, structures
-from sepmap.ish import gene_table, regions, section_qc
+from sepmap.ish import gene_table, planes, regions, section_qc
 from sepmap.ish import plotting as ish_plotting
-from sepmap.volumes.per_mouse import structure_terms
 
-OUT = config.DATA / "adult_v2" / "ish_analysis"
-
-
-def numbers_table(experiments, summary, sections):
-    """The numbers of this step that the text quotes, one row each."""
-    ok = summary[summary["grid"] == "ok"]
-    reasons = sections["reason"].fillna("").astype(str)
-    steps = sections[
-        (sections["status"] == section_qc.OK)
-        & reasons.str.startswith("dim against one side only")
-    ]
-    rows = [
-        ("experiments_listed", len(experiments), "experiments of both panels and repair"),
-        ("genes_listed", experiments["symbol"].nunique(), "genes of both panels"),
-        (
-            "experiments_repair",
-            int(experiments["repair_experiment"].sum()),
-            "experiments added by the repair",
-        ),
-        ("experiments_with_grid", len(ok), "experiments with a usable grid"),
-        (
-            "experiments_flagged",
-            int((ok["n_flagged"] > 0).sum()),
-            "experiments with at least one section set missing",
-        ),
-        ("sections_flagged", int(ok["n_flagged"].sum()), "sections set missing"),
-        (
-            "sections_absence_kept",
-            int(ok["n_absence_kept"].sum()),
-            "dim sections kept as true absence (exceptions list)",
-        ),
-        ("sections_judged", int(ok["n_judged"].sum()), "sections judged"),
-        (
-            "sections_faint",
-            int((sections["status"] == section_qc.FAINT).sum()),
-            "sections not judged: neighbours at the noise level",
-        ),
-        (
-            "sections_step",
-            len(steps),
-            "dim against one side only: kept, a step in expression",
-        ),
-        (
-            "experiments_step",
-            steps["experiment_id"].nunique(),
-            "experiments with a section kept at a step",
-        ),
-        (
-            "experiments_near_zero",
-            int(ok["near_zero"].astype(str).eq("True").sum()),
-            "experiments whose median section is at the noise level",
-        ),
-    ]
-    p9 = experiments.loc[experiments["p9_experiment"], "experiment_id"]
-    p9_ok = ok[ok["experiment_id"].isin(set(p9))]
-    rows.append(
-        (
-            "p9_experiments_flagged",
-            int((p9_ok["n_flagged"] > 0).sum()),
-            "P9's own experiments with a section set missing",
-        )
-    )
-    return pd.DataFrame(rows, columns=["name", "value", "what"], dtype=object)
+# the QC sheets and the overview of the flags
+QC_FIGURES = structures.FIGURES / "qc"
 
 
 def draw_sheets(sections, summary, shape, redraw):
-    """One QC sheet per experiment with a usable grid; those drawn only with `redraw`.
+    """One QC sheet per usable experiment, those already drawn only with `redraw`.
 
-    The template and the structures are taken on the 20 um grid, ten times finer
-    than the ISH grid, so the sheets draw the borders of structures.
+    Returns how many were drawn.
     """
-    folder = OUT / "figures" / "qc"
-    template = nib.load(config.DATA / "atlas" / "average_template_10.nii.gz")
-    template = np.asarray(template.dataobj)[::2, ::2, ::2]
-    ann = np.asarray(nib.load(config.DATA / "atlas" / "annotation_10.nii.gz").dataobj)
-    names, _, _ = structure_terms()
-    labels, _ = structures.name_volume(ann[::2, ::2, ::2], names)
+    template, labels = planes.sheet_atlas()
     usable = summary[summary["grid"] == "ok"]
     n_drawn = 0
     for i, r in enumerate(usable.to_dict("records"), 1):
-        path = folder / f"{r['symbol']}_{r['experiment_id']}.png"
+        path = QC_FIGURES / f"{r['symbol']}_{r['experiment_id']}.png"
         if path.exists() and not redraw:
             continue
         table = sections[sections["experiment_id"] == r["experiment_id"]]
@@ -188,8 +117,7 @@ def draw_sheets(sections, summary, shape, redraw):
 def main(sheets, redraw, offline):
     """Print the settings, list the experiments, judge their sections, draw."""
     config.print_settings({"sheets": sheets, "redraw": redraw, "offline": offline})
-    tables = OUT / "tables"
-    tables.mkdir(parents=True, exist_ok=True)
+    structures.TABLES.mkdir(parents=True, exist_ok=True)
 
     # every experiment of both panels, and the repair
     experiments = gene_table.experiment_list(offline)
@@ -216,21 +144,20 @@ def main(sheets, redraw, offline):
         f"{int((ok['n_flagged'] > 0).sum())} with flags, {int(ok['n_flagged'].sum())} "
         f"sections flagged, {int(ok['n_absence_kept'].sum())} kept as absence"
     )
-    numbers = numbers_table(experiments, summary, sections)
-    numbers.to_csv(tables / "numbers_section_qc.csv", index=False)
+    numbers = section_qc.numbers_table(experiments, summary, sections)
+    numbers.to_csv(section_qc.NUMBERS, index=False)
 
     # the overview of the flags, and with --sheets one sheet per experiment
-    folder = OUT / "figures" / "qc"
-    folder.mkdir(parents=True, exist_ok=True)
+    QC_FIGURES.mkdir(parents=True, exist_ok=True)
     p9_genes = set(experiments.loc[experiments["p9_experiment"], "symbol"])
     fig = ish_plotting.plot_flagged(
-        sections, summary, p9_genes, save=folder / "00_flagged.png"
+        sections, summary, p9_genes, save=QC_FIGURES / "00_flagged.png"
     )
     plt.close(fig)
-    print(f"figure: {folder / '00_flagged.png'}")
+    print(f"figure: {QC_FIGURES / '00_flagged.png'}")
     if sheets or redraw:
         n_drawn = draw_sheets(sections, summary, ann.shape, redraw)
-        print(f"QC sheets: {n_drawn} drawn in {folder}")
+        print(f"QC sheets: {n_drawn} drawn in {QC_FIGURES}")
 
 
 if __name__ == "__main__":

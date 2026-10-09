@@ -1,17 +1,13 @@
-"""Known-answer checks of the genes that follow the map and the tests named for the
-leftover (ish.top_genes)."""
-
-from pathlib import Path
+"""Known-answer checks of ish.top_genes: the genes that follow the map, the tests."""
 
 import numpy as np
 import pandas as pd
 import pytest
 from scipy.stats import false_discovery_control
 
-from sepmap.adult import beyond_density as bd
+from sepmap.adult import beyond_density
+from sepmap.adult.profiles import ADULTS
 from sepmap.ish import gene_sets, spatial_null, top_genes
-
-TABLES = Path(top_genes.TOP_TABLE).parent
 
 
 def test_the_genes_and_their_tiers():
@@ -38,8 +34,7 @@ def test_the_genes_and_their_tiers():
 
 
 def test_every_family_member_is_listed_with_its_reason():
-    """Tested, no usable experiment, too few structures, or not in the gene table
-    with or without Allen experiments."""
+    """Tested, no usable experiment, too few structures, or not in the gene table."""
     genes = pd.DataFrame(
         dict(symbol=["Shisa6", "Cacng2", "Cacng3"], n_experiments_used=[1, 0, 2])
     )
@@ -143,29 +138,29 @@ def synthetic_inputs(n: int = 80, seed: int = 0):
     profiles = {"Gria1": gria1}
     for k, gene in enumerate(("Gria2", "Gria3", "Gria4")):
         profiles[gene] = fields[4 + k]
-    for gene in bd.MARKERS:
+    for gene in beyond_density.MARKERS:
         profiles[gene] = density + 0.3 * rng.standard_normal(n)
     role = {}
     for k in range(3):
         profiles[f"Psd{k}"] = density + 0.3 * rng.standard_normal(n)
-        role[f"Psd{k}"] = bd.PSD_ROLE
+        role[f"Psd{k}"] = beyond_density.PSD_ROLE
     profiles["Planted"] = planted + 0.2 * rng.standard_normal(n)
     profiles["Noise"] = fields[7]
     expr = {g: dict(zip(structures, v)) for g, v in profiles.items()}
     truth = gria1 + density + 1.2 * planted
-    nano = truth + 0.3 * rng.standard_normal((len(bd.ADULTS), n))
-    inputs = bd.Inputs(
+    nano = truth + 0.3 * rng.standard_normal((len(ADULTS), n))
+    inputs = beyond_density.Inputs(
         structures=structures,
         nano=nano,
-        auto=auto + 0.3 * rng.standard_normal((len(bd.ADULTS), n)),
+        auto=auto + 0.3 * rng.standard_normal((len(ADULTS), n)),
         synapses=pd.DataFrame(index=structures),
         expr=expr,
         role=role,
         p9_genes=set(),
         division={s: "Isocortex" for s in structures},
         acronym={s: s for s in structures},
-        rows=pd.DataFrame(),
-        terms=bd.model_terms(),
+        structures_used=pd.DataFrame(),
+        terms=beyond_density.model_terms(),
     )
     return inputs, centroids
 
@@ -230,8 +225,7 @@ def test_a_family_like_its_controls_does_not_pass_against_them():
 
 
 def test_the_check_rows_leave_out_cacng8_and_the_models_own_genes():
-    """Without Cacng8 the family has one gene less; controls inside the model never
-    enter the second check, even when they match the family's expression best."""
+    """Without Cacng8 the family has a gene less; the model's genes are never controls."""
     rng = np.random.default_rng(4)
     family = ["Cacng8", "f1", "f2", "f3"]
     inside = ["m1", "m2", "m3", "m4"]
@@ -269,18 +263,16 @@ def test_neighbour_agreement_tells_a_smooth_map_from_a_shuffled_one():
     assert abs(rough) < 0.25
 
 
-@pytest.mark.skipif(
-    not (TABLES / "top_genes.csv").is_file(), reason="top_genes.csv not written"
-)
-def test_todays_top_genes():
-    """Today's table: Cacng8 and Gria1, every family member tested, the named tests."""
+@pytest.mark.skipif(not top_genes.TOP_TABLE.is_file(), reason="data not connected")
+def test_written_top_genes():
+    """The written table: Cacng8 and Gria1, every family member, the named tests."""
     table = top_genes.load_top_genes().set_index("symbol")
     assert {"Cacng8", "Gria1"} <= set(table.index)
     members = pd.read_csv(top_genes.FAMILY_TABLE)
     tested = set(members.loc[members["tested"].astype(str) == "True", "symbol"])
     assert tested == set(table.index[table["family"]])
     assert table.loc["Cacng8", "tier"].startswith("1")
-    leftover = pd.read_csv(bd.LEFTOVER_GENES).set_index("symbol")
+    leftover = beyond_density.load_leftover_genes().set_index("symbol")
     assert table.loc["Cacng8", "leftover_rho"] == pytest.approx(
         leftover.loc["Cacng8", "rho"]
     )

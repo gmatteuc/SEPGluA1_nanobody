@@ -1,9 +1,9 @@
 """The measured synapse density: PSD95 puncta per structure in one adult mouse (Zhu 2018).
 
-Analysis 4 asks how much of the nano map Gria1 and synapse density leave.
-Its density terms so far are Allen ISH maps, and mRNA sits in cell bodies: a
-presynaptic marker's mRNA marks where the neurons that make the synapses sit, not
-where their synapses are. Zhu et al. 2018 counted excitatory synapses where they
+Analysis 4 asks how much of the nano map Gria1 and synapse density leave. Its
+density terms from Allen ISH are mRNA, and mRNA sits in cell bodies: a presynaptic
+marker's mRNA marks where the neurons that make the synapses sit, not where their
+synapses are. Zhu et al. 2018 counted excitatory synapses where they
 are. In a knock-in mouse with PSD95 and SAP102 tagged (Dlg4-eGFP, Dlg3-mKO2), every
 punctum was detected in coronal sections of one adult male (postnatal day 80, five
 18 um sections, as Hansen et al. describe it), sorted into 37 subtypes by its
@@ -54,10 +54,8 @@ A sample is placed in a structure of the adult table through the CCF 2017 ontolo
        are weighted alike, and its covered share is unknown
     5  a structure none of whose parts was sampled stays missing, never filled
 
-The source's id is followed even where its name reads otherwise: one thalamic sample
-is written 'lMD', which Hansen et al. read as IMD (the intermediodorsal nucleus). It
-could equally be the lateral part of MD; read so, it would give MD a value, one
-structure more of the fit.
+The source's id is followed even where its name reads otherwise (one thalamic
+sample, docs/ISH_ANALYSIS.md section 4.2).
 
 A sample whose 37 densities are all zero (the right locus coeruleus) had no punctum
 detected anywhere, so it was not measured rather than empty, and is dropped. The
@@ -82,6 +80,8 @@ import pandas as pd
 from scipy.stats import spearmanr
 
 from sepmap.config import DATA, SETTINGS
+from sepmap.ish.numbers import numbers_frame, numbers_path
+from sepmap.structures import ISH_OUT
 
 # the subtypes of each density, and the coverage the measured map needs to replace the
 # mRNA density terms of analysis 4
@@ -89,12 +89,12 @@ BEYOND = SETTINGS["beyond"]
 
 REFERENCE = DATA / "reference" / "synaptome"
 FETCH_LOG = REFERENCE / "fetch_log.txt"
-OUT = DATA / "adult_v2" / "ish_analysis" / "synaptome"
+OUT = ISH_OUT / "synaptome"
 SAMPLES = OUT / "samples.csv"
 DENSITY = OUT / "density.csv"
 COVERAGE = OUT / "coverage.csv"
 AGREEMENT = OUT / "agreement.csv"
-NUMBERS = DATA / "adult_v2" / "ish_analysis" / "tables" / "numbers_synaptome.csv"
+NUMBERS = numbers_path("synaptome")
 
 # the CCF 2017 ontology, the annotation's terms, and the Allen id of each index of the
 # annotation volume, as the Allen Brain Cell atlas ships them beside the annotation
@@ -109,7 +109,6 @@ PARCELLATION = ATLAS / "parcellation.csv"
 REPOSITORY = "netneurolab/hansen_synaptome"
 COMMIT = "0399525412b6f50cfdeb5904b96da7fa8e4b507c"
 FOLDER = "data/synaptome/mouse_liu2018"
-RAW_URL = "https://raw.githubusercontent.com/{}/{}/{}/{}"
 
 # the files read, with git's hash of each at that commit (git hash-object), so a
 # download is checked against the commit itself
@@ -181,12 +180,12 @@ REASON_NO_STRUCTURE = "in no structure of the CCF annotation"
 
 def git_blob_sha1(data: bytes) -> str:
     """The hash git gives a file's contents (git hash-object): SHA-1 of a blob header."""
-    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+    return hashlib.sha1(f"blob {len(data)}\0".encode() + data).hexdigest()
 
 
 def file_url(name: str) -> str:
     """The raw URL of one file of the source folder at the pinned commit."""
-    return RAW_URL.format(REPOSITORY, COMMIT, FOLDER, name)
+    return f"https://raw.githubusercontent.com/{REPOSITORY}/{COMMIT}/{FOLDER}/{name}"
 
 
 def file_ok(path: Path, blob: str) -> bool:
@@ -381,7 +380,9 @@ def load_source() -> tuple[np.ndarray, pd.DataFrame]:
     density = np.array([row[1:] for row in first[1:]], dtype=float)
     subtypes = [int(row[0]) for row in first[1:]]
     if subtypes != list(range(1, N_SUBTYPES + 1)):
-        raise ValueError(f"{DENSITY_FILE.name}: subtypes {subtypes}, expected 1 to 37")
+        raise ValueError(
+            f"{DENSITY_FILE.name}: subtypes {subtypes}, expected 1 to {N_SUBTYPES}"
+        )
     names = [row[0] for row in second[1:]]
     info = pd.read_pickle(REGIONS_FILE)
     type_order = np.load(TYPE_ORDER_FILE, allow_pickle=False)
@@ -392,16 +393,14 @@ def load_source() -> tuple[np.ndarray, pd.DataFrame]:
 # ===== The ontology =====
 
 
-def load_ontology(path: Path | None = None) -> pd.DataFrame:
+def load_ontology() -> pd.DataFrame:
     """The CCF 2017 ontology: Allen id, acronym, name and parent id, indexed by id.
 
     parcellation_term.csv also holds the Allen Brain Cell atlas's own filler terms
     (ABC-Ontology-2023), which are not Allen structures; only the AllenCCF-Ontology-2017
     terms are kept. The root's parent is NO_PARENT.
     """
-    if path is None:
-        path = TERMS
-    terms = pd.read_csv(path, keep_default_na=False)
+    terms = pd.read_csv(TERMS, keep_default_na=False)
     terms = terms[terms["label"].str.startswith("AllenCCF-Ontology-2017")]
     parent = [
         int(p.removeprefix("MBA:")) if p else NO_PARENT
@@ -426,15 +425,13 @@ def ancestors(i: int, parent: dict[int, int]) -> list[int]:
     return out
 
 
-def structure_ids(path: Path | None = None) -> dict[int, str]:
+def structure_ids() -> dict[int, str]:
     """{Allen id: name} of the 'structure' terms of the CCF annotation.
 
     These are the structures of the adult table (volumes.per_mouse.structure_terms
     names them the same way); the Allen Brain Cell atlas's filler terms are left out.
     """
-    if path is None:
-        path = MEMBERSHIP
-    table = pd.read_csv(path, keep_default_na=False)
+    table = pd.read_csv(MEMBERSHIP, keep_default_na=False)
     keep = (table["parcellation_term_set_name"] == "structure") & table[
         "parcellation_term_label"
     ].str.startswith("AllenCCF-Ontology-2017")
@@ -443,9 +440,7 @@ def structure_ids(path: Path | None = None) -> dict[int, str]:
     return dict(zip(ids, table["parcellation_term_name"]))
 
 
-def id_voxels(
-    ann: np.ndarray, parent: dict[int, int], path: Path | None = None
-) -> dict[int, int]:
+def id_voxels(ann: np.ndarray, parent: dict[int, int]) -> dict[int, int]:
     """Voxels of every Allen id in a CCF annotation volume, its own and those below it.
 
     `ann` holds parcellation indices (the 20 um grid of the adult map,
@@ -453,9 +448,7 @@ def id_voxels(
     ('AllenCCF-Annotation-2020-<id>'), whose voxels count for it and for every term
     above it. A term the annotation does not draw, nor anything below it, has none.
     """
-    if path is None:
-        path = PARCELLATION
-    table = pd.read_csv(path, keep_default_na=False)
+    table = pd.read_csv(PARCELLATION, keep_default_na=False)
     table = table[table["label"].str.startswith("AllenCCF-Annotation")]
     id_of_index = {
         int(index): int(label.rsplit("-", 1)[-1])
@@ -613,6 +606,21 @@ def match_samples(
     return pd.concat([samples, pd.DataFrame(rows, index=samples.index)], axis=1)
 
 
+def placed_samples() -> tuple[pd.DataFrame, pd.DataFrame, dict[int, str], tuple]:
+    """Read and check the source, and place each sample in a structure of the CCF.
+
+    Returns the sample table (sample_table and match_samples), the CCF ontology, the
+    structures of the annotation by Allen id, and the density sheet's shape
+    (subtypes, samples).
+    """
+    density, info = load_source()
+    samples = sample_table(density, info)
+    ontology = load_ontology()
+    structures = structure_ids()
+    samples = match_samples(samples, ontology, structures)
+    return samples, ontology, structures, density.shape
+
+
 # ===== Per structure =====
 
 
@@ -654,7 +662,7 @@ def structure_density(
 
     A unit's density is the mean of its samples; a structure's, the weighted mean of
     its units (unit_weights; `parent` is the ontology's, {id: parent id}).
-    psd95_left and psd95_right are the same from one hemisphere's samples alone.
+    psd95_left and psd95_right are MEASURE from one hemisphere's samples alone.
     covered_share is the share of the structure's voxels in sampled units (1 when
     the structure itself was sampled; NaN with equal weights, when a unit's voxels
     are unknown, so a structure measured in some of its parts only is not flagged
@@ -684,10 +692,10 @@ def structure_density(
         for side in ("left", "right"):
             one = part[part["hemisphere"] == side]
             if one.empty:
-                row[f"psd95_{side}"] = np.nan
+                row[f"{MEASURE}_{side}"] = np.nan
             else:
-                row[f"psd95_{side}"] = weighted(
-                    one.groupby("unit_id")["psd95"].mean(), weights
+                row[f"{MEASURE}_{side}"] = weighted(
+                    one.groupby("unit_id")[MEASURE].mean(), weights
                 )
         rows.append(row)
     return pd.DataFrame(rows).set_index("structure")
@@ -747,9 +755,7 @@ def density_table(
 
 
 def coverage_table(density: pd.DataFrame) -> pd.DataFrame:
-    """coverage.csv: per division, the declared and fitted structures, and how many
-    are measured.
-    """
+    """coverage.csv: per division, the structures declared, fitted and measured."""
     rows = []
     for division, part in density.groupby("division", sort=False):
         declared = part[part["in_set"]]
@@ -768,13 +774,21 @@ def coverage_table(density: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def n_needed(n_fit: int) -> int:
+    """The structures of the fit the measured map must cover to enter the main model.
+
+    beyond.min_psd95_coverage of them, rounded up: 101 of 126 at 0.8.
+    """
+    return int(np.ceil(BEYOND["min_psd95_coverage"] * n_fit))
+
+
 def in_main_model(n_measured: int, n_fit: int) -> bool:
     """Whether the measured map replaces the mRNA density terms in the main model.
 
-    Giulio's rule of 8 October: when it covers at least beyond.min_psd95_coverage of
-    the structures of the fit.
+    The rule of [beyond]: when it covers at least n_needed of the structures of the
+    fit.
     """
-    return n_measured >= BEYOND["min_psd95_coverage"] * n_fit
+    return n_measured >= n_needed(n_fit)
 
 
 # ===== Agreement =====
@@ -825,16 +839,36 @@ def measure_rows(density: pd.DataFrame, structures: list[str], label: str) -> li
 def hemisphere_agreement(
     density: pd.DataFrame, structures: list[str]
 ) -> tuple[int, float]:
-    """(n, Spearman) of the left and right hemispheres' psd95 over `structures`.
+    """(n, Spearman) of the left and right hemispheres' MEASURE over `structures`.
 
     The map is one mouse, so the agreement of its two hemispheres, sampled in the
     same sections, is the only measure of its reliability there is.
     """
-    table = density.set_index("structure").loc[structures, ["psd95_left", "psd95_right"]]
-    both = table.dropna()
+    left, right = f"{MEASURE}_left", f"{MEASURE}_right"
+    both = density.set_index("structure").loc[structures, [left, right]].dropna()
     if len(both) < 3:
         return len(both), float("nan")
-    return len(both), float(spearmanr(both["psd95_left"], both["psd95_right"]).statistic)
+    return len(both), float(spearmanr(both[left], both[right]).statistic)
+
+
+def agreement_table(
+    density: pd.DataFrame,
+    fit_terms: dict[str, pd.Series],
+    set_terms: dict[str, pd.Series],
+    fit: list[str],
+    declared: list[str],
+) -> pd.DataFrame:
+    """agreement.csv: each density against the maps of the fit and of the declared set.
+
+    The densities are also set against each other.
+
+    `fit_terms` and `set_terms` hold each map, a value per structure, on the
+    structures of the fit (`fit`) and on the declared set (`declared`).
+    """
+    rows = agreement_rows(density, fit_terms, fit, "fit")
+    rows += measure_rows(density, fit, "fit")
+    rows += agreement_rows(density, set_terms, declared, "declared")
+    return pd.DataFrame(rows)
 
 
 def sample_numbers(samples: pd.DataFrame, density: pd.DataFrame) -> list[tuple]:
@@ -869,8 +903,11 @@ def sample_numbers(samples: pd.DataFrame, density: pd.DataFrame) -> list[tuple]:
 
 
 def coverage_numbers(density: pd.DataFrame) -> list[tuple]:
-    """The numbers of the coverage: of the declared set and of the fit, the rule, how
-    the measured structures of the fit are measured, and the divisions missing."""
+    """The numbers of the coverage, of the declared set and of the fit.
+
+    With the rule, how the measured structures of the fit are measured, and the
+    divisions missing.
+    """
     fit = density[density["in_fit"]]
     declared = density[density["in_set"]]
     n_fit = int(fit["measured"].sum())
@@ -888,11 +925,7 @@ def coverage_numbers(density: pd.DataFrame) -> list[tuple]:
             round(n_fit / len(fit), 4),
             "share of the fit's structures measured",
         ),
-        (
-            "fit_needed",
-            int(np.ceil(BEYOND["min_psd95_coverage"] * len(fit))),
-            "structures of the fit the rule asks for",
-        ),
+        ("fit_needed", n_needed(len(fit)), "structures of the fit the rule asks for"),
         (
             "in_main_model",
             in_main_model(n_fit, len(fit)),
@@ -951,20 +984,18 @@ def numbers_table(
                 f"{r.density} against {r.term}, {r.structures} structures (n = {r.n})",
             )
         )
-    return pd.DataFrame(rows, columns=["name", "value", "what"], dtype=object)
+    return numbers_frame(rows)
 
 
-def load_density(path: Path | None = None) -> pd.DataFrame:
+def load_density() -> pd.DataFrame:
     """density.csv as run_synaptome wrote it, indexed by structure.
 
     The densities are NaN where a structure was not measured; the text columns
     (reason, units, weighting) are empty there instead.
     """
-    if path is None:
-        path = DENSITY
-    if not path.exists():
-        raise FileNotFoundError(f"{path} not found: run run_synaptome.py first")
-    table = pd.read_csv(path)
+    if not DENSITY.exists():
+        raise FileNotFoundError(f"{DENSITY} not found: run run_synaptome.py first")
+    table = pd.read_csv(DENSITY)
     for column in ("reason", "units", "weighting"):
         table[column] = table[column].fillna("")
     return table.set_index("structure")

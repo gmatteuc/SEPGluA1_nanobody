@@ -55,6 +55,7 @@ import numpy as np
 import pandas as pd
 
 from sepmap.config import SETTINGS, code_root
+from sepmap.ish.numbers import numbers_frame, numbers_path
 from sepmap.ish.regions import NotReferenceGrid, read_energy
 from sepmap.structures import TABLES
 
@@ -64,6 +65,7 @@ ISH_QC = SETTINGS["ish_qc"]
 
 SECTION_QC = TABLES / "section_qc.csv"
 EXPERIMENT_QC = TABLES / "experiment_qc.csv"
+NUMBERS = numbers_path("section_qc")
 EXCEPTIONS = Path(code_root()) / "mapping" / "ish_section_exceptions.csv"
 
 # the axis of the (AP, DV, ML) grid along which each plane of section was cut
@@ -80,6 +82,9 @@ ABSENCE = "absence kept"
 NO_DATA = "no data"
 TOO_LITTLE_BRAIN = "too little brain"
 FAINT = "faint neighbours"
+
+# how the reason of a section kept at a step in expression begins
+STEP_REASON = "dim against one side only"
 
 
 def section_profile(vol: np.ndarray, brain: np.ndarray, axis: int) -> pd.DataFrame:
@@ -177,32 +182,49 @@ def flag_sections(profile: pd.DataFrame, kept_absent: set[int]) -> pd.DataFrame:
     dim = dim & ~step
     status, reason = [], []
     for k in range(len(out)):
-        if not big[k]:
-            status.append(TOO_LITTLE_BRAIN)
-            reason.append(f"{out['n_brain'].iloc[k]} in-brain voxels")
-        elif not has_data[k]:
-            status.append(NO_DATA)
-            reason.append("no voxel with data in the brain")
-        elif faint[k]:
-            status.append(FAINT)
-            reason.append(
-                f"reference {ref[k]:.3g} below {ISH_QC['min_reference']}: noise level"
-            )
-        elif dim[k] and k in kept_absent:
-            status.append(ABSENCE)
-            reason.append("dim, but listed as a true absence")
-        elif dim[k]:
-            status.append(FLAGGED)
-            reason.append(f"median {medians[k]:.3g} below {fraction} x {ref[k]:.3g}")
-        elif step[k]:
-            status.append(OK)
-            reason.append("dim against one side only: a step in expression")
-        else:
-            status.append(OK)
-            reason.append("")
+        found = dict(
+            big=big[k],
+            has_data=has_data[k],
+            faint=faint[k],
+            dim=dim[k],
+            step=step[k],
+            kept_absent=k in kept_absent,
+        )
+        status_k, reason_k = section_status(
+            found, out["n_brain"].iloc[k], medians[k], ref[k]
+        )
+        status.append(status_k)
+        reason.append(reason_k)
     out["status"] = status
     out["reason"] = reason
     return out
+
+
+def section_status(
+    found: dict[str, bool], n_brain: int, median: float, reference: float
+) -> tuple[str, str]:
+    """One section's status and its reason: the first rule that applies.
+
+    `found` holds what flag_sections found of the section: enough brain (big), data
+    in it (has_data), a reference at the noise level (faint), dim against both
+    sides (dim) or against one side only (step), listed as a true absence
+    (kept_absent).
+    """
+    if not found["big"]:
+        return TOO_LITTLE_BRAIN, f"{n_brain} in-brain voxels"
+    if not found["has_data"]:
+        return NO_DATA, "no voxel with data in the brain"
+    if found["faint"]:
+        reason = f"reference {reference:.3g} below {ISH_QC['min_reference']}: noise level"
+        return FAINT, reason
+    if found["dim"] and found["kept_absent"]:
+        return ABSENCE, "dim, but listed as a true absence"
+    if found["dim"]:
+        fraction = ISH_QC["local_fraction"]
+        return FLAGGED, f"median {median:.3g} below {fraction} x {reference:.3g}"
+    if found["step"]:
+        return OK, f"{STEP_REASON}: a step in expression"
+    return OK, ""
 
 
 def apply_flags(vol: np.ndarray, sections: list[int], axis: int) -> np.ndarray:
@@ -329,30 +351,91 @@ def qc_tables(
 
 
 def flagged_sections(summary: pd.DataFrame) -> dict[str, list[int]]:
-    """{experiment id: sections to set missing}, from the experiment summary."""
+    """{experiment id: sections to set missing}, from the experiment summary.
+
+    `summary` is experiment_qc.csv as load_experiment_qc reads it, flagged_sections
+    a text, empty when nothing was flagged.
+    """
     out = {}
-    for _, r in summary.iterrows():
-        text = r.get("flagged_sections", "")
-        if isinstance(text, str) and text:
-            out[str(r["experiment_id"])] = [int(k) for k in text.split()]
+    for eid, text in zip(summary["experiment_id"], summary["flagged_sections"]):
+        if text:
+            out[str(eid)] = [int(k) for k in text.split()]
     return out
 
 
-def load_experiment_qc(path: Path | None = None) -> pd.DataFrame:
+def numbers_table(
+    experiments: pd.DataFrame, summary: pd.DataFrame, sections: pd.DataFrame
+) -> pd.DataFrame:
+    """numbers_section_qc.csv: the numbers of this step that the text quotes."""
+    ok = summary[summary["grid"] == "ok"]
+    steps = sections[
+        (sections["status"] == OK) & sections["reason"].str.startswith(STEP_REASON)
+    ]
+    rows = [
+        ("experiments_listed", len(experiments), "experiments of both panels and repair"),
+        ("genes_listed", experiments["symbol"].nunique(), "genes of both panels"),
+        (
+            "experiments_repair",
+            int(experiments["repair_experiment"].sum()),
+            "experiments added by the repair",
+        ),
+        ("experiments_with_grid", len(ok), "experiments with a usable grid"),
+        (
+            "experiments_flagged",
+            int((ok["n_flagged"] > 0).sum()),
+            "experiments with at least one section set missing",
+        ),
+        ("sections_flagged", int(ok["n_flagged"].sum()), "sections set missing"),
+        (
+            "sections_absence_kept",
+            int(ok["n_absence_kept"].sum()),
+            "dim sections kept as true absence (exceptions list)",
+        ),
+        ("sections_judged", int(ok["n_judged"].sum()), "sections judged"),
+        (
+            "sections_faint",
+            int((sections["status"] == FAINT).sum()),
+            "sections not judged: neighbours at the noise level",
+        ),
+        ("sections_step", len(steps), f"{STEP_REASON}: kept, a step in expression"),
+        (
+            "experiments_step",
+            steps["experiment_id"].nunique(),
+            "experiments with a section kept at a step",
+        ),
+        (
+            "experiments_near_zero",
+            int(ok["near_zero"].sum()),
+            "experiments whose median section is at the noise level",
+        ),
+    ]
+    p9 = experiments.loc[experiments["p9_experiment"], "experiment_id"]
+    p9_ok = ok[ok["experiment_id"].isin(set(p9))]
+    rows.append(
+        (
+            "p9_experiments_flagged",
+            int((p9_ok["n_flagged"] > 0).sum()),
+            "P9's own experiments with a section set missing",
+        )
+    )
+    return numbers_frame(rows)
+
+
+def load_experiment_qc() -> pd.DataFrame:
     """The experiment summary run_ish_section_qc wrote."""
-    if path is None:
-        path = EXPERIMENT_QC
-    if not path.exists():
-        raise FileNotFoundError(f"{path} not found: run run_ish_section_qc.py first")
-    return pd.read_csv(path, dtype={"experiment_id": str}, keep_default_na=False)
+    if not EXPERIMENT_QC.exists():
+        raise FileNotFoundError(
+            f"{EXPERIMENT_QC} not found: run run_ish_section_qc.py first"
+        )
+    return pd.read_csv(EXPERIMENT_QC, dtype={"experiment_id": str}, keep_default_na=False)
 
 
-def load_section_qc(path: Path | None = None) -> pd.DataFrame:
+def load_section_qc() -> pd.DataFrame:
     """The section table run_ish_section_qc wrote."""
-    if path is None:
-        path = SECTION_QC
-    if not path.exists():
-        raise FileNotFoundError(f"{path} not found: run run_ish_section_qc.py first")
+    if not SECTION_QC.exists():
+        raise FileNotFoundError(
+            f"{SECTION_QC} not found: run run_ish_section_qc.py first"
+        )
     return pd.read_csv(
-        path, dtype={"experiment_id": str}, keep_default_na=False, na_values=[""]
+        SECTION_QC, dtype={"experiment_id": str}, keep_default_na=False, na_values=[""]
     )

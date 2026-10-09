@@ -1,9 +1,11 @@
 # Settings of the Python route, read once by sepmap/config.py into SETTINGS: the
 # analysis parameters, a table per stage, in run order. A module names each table it
 # reads after its imports (YOUNG_VS_ADULT = SETTINGS["young_vs_adult"]). Figure sizes
-# and colours stay in the code (sepmap/plotting.py), and so do the lists that define
-# an analysis beside the comments that justify them (the areas of a figure, the
-# curated gene roles, the GO terms of the panel).
+# and colours stay in the code (sepmap/plotting.py), and so do the lists fixed by the
+# method beside the comments that justify them (the areas of a figure, the curated
+# gene roles, the GO terms of the panel, the gene sets of ish.gene_sets); the
+# predictor lists of [beyond] and the divisions of [structures] are here because a
+# reader may change them.
 
 # the tissue mask of each brain (volumes.per_mouse)
 [tissue]
@@ -114,7 +116,7 @@ allen_rows = 50            # experiments asked of the Allen API per gene
 
 # spatial null (ish.spatial_null, A7): surrogate maps with the map's own smoothness
 [spatial_null]
-n_surrogates = 10000       # surrogates per map; the smallest p is 1e-4, below the 5e-4 that BH needs for the first of 95 genes at q 0.05
+n_surrogates = 10000       # surrogates per map; the smallest p is 1e-4, just under the 1.1e-4 (0.05 / 451) that BH needs for the first of 451 genes at q 0.05
 deltas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]  # shares of the nearest structures over which a shuffled map is smoothed; each surrogate takes the one whose variogram fits best (Burt 2020)
 pv = 25                    # percentile of the distances between structures up to which the variogram is matched: the short range, where the autocorrelation is; figure 06 B shows the fit beyond it
 nh = 25                    # distances at which the smoothed variogram is evaluated (Burt 2020)
@@ -129,31 +131,30 @@ n_boot_mice = 2000         # resamples of the ten adults: each gene's rho spread
 min_division_structures = 8  # structures a division needs, for one gene, to enter the mean within divisions (A6); with fewer, one rho is too noisy to average
 n_perm_within = 10000      # shuffles of structures within divisions: the cheap first null of analysis 2 in the ISH discussion (docs/history/ISH_DISCUSSION.md, section 8), reported beside the spatial one, which the figures use
 n_calibration_within = 1000  # random smooth maps (the spatial null's calibration fields) tested inside divisions, to show which within null keeps 5% false positives
+n_perm_within_calibration = 1000  # shuffles inside divisions per random map of that check: enough to place each map's p against 0.05
 min_set_genes = 5          # genes with a profile a set needs to be tested, as the word test asked
 power_maps = 500           # maps per effect size in the power check of the localisation test, each the real map's composite part plus a surrogate of its remainder: enough to place a power of 80% within about 2 points
 power_perm = 2000          # label permutations per map in the power check; a p near 0.05 is placed within about 0.005
 power_effects = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0]  # how much of the pattern that sets the localisation genes apart from their controls is added to the remainder, in units of its SD; 0 gives the label test's false-positive rate
-log2_floor = 0.01          # energy added before the log2 of the Pearson row of the robustness table: between the 1st and 5th percentiles of all structure means (0.006 and 0.05 on 8 October), so a structure with almost no signal does not sit at -30
+log2_floor = 0.01          # energy added before the log2 of the Pearson row of the robustness table: between the 1st and 5th percentiles of all structure means, so a structure with almost no signal does not sit at -30
 
 [ish_panel_test]
 min_structures = 80        # structures a gene must share with the map and the subunit composite
-min_reliability = 0.3      # reliability a gene needs in the sensitivity run (a gene without one is left out)
+min_reliability = 0.3      # reliability a gene needs in the sensitivity run and the localisation test (a gene without one is left out); below it the figures and the text call a gene's Allen map unreliable
 n_perm = 20000             # label permutations per test
 min_sensitivity_genes = 10 # genes on each side that the sensitivity run needs
 min_control_genes = 30     # control genes with a reliability that the positive control needs
 
 # analysis 4 (adult.beyond_density): what Gria1 expression and synapse density leave of
-# the adult map, the map being A1's zref of the adult profile (adult.profiles). The main
-# model, fixed on 8 October 2026 before it was run (each term's share alone and the
-# four-subunit model were known from the first run that day):
+# the adult map, the map being the zref of the adult profile (adult.profiles). The main
+# model (docs/ISH_ANALYSIS.md, section 4.1, says when it was fixed and what was known):
 #     nano zref ~ abundance + density + autofluorescence
 # each term as x, x^2 and x^3, scored on held-out structures as below; the variants are
 # check rows reported beside it ([beyond.variants])
 [beyond]
 half = 5                   # animals per half when the cohort is split
 abundance = ["Gria1"]      # the stained protein is SEP-GluA1, and Gria1 alone encodes it; Gria2-4 encode partner subunits the nanobody does not see, whose availability sets GluA1's assembly and trafficking: surface regulation, not abundance
-# the four subunits, each its own term: the abundance of the run of 8 October, kept as
-# the variant four_subunits
+# the four subunits, each its own term: the variant four_subunits
 subunits = ["Gria1", "Gria2", "Gria3", "Gria4"]
 # synapse density, measured: PSD95 punctum density (Zhu et al. 2018, Neuron 99:781; one
 # adult male, about P80; puncta per unit area of 37 subtypes in 775 regions of the Allen
@@ -166,8 +167,8 @@ density = ["psd95"]
 psd95_subtypes = [[1, 11], [19, 37]]  # Zhu 2018's subtypes whose puncta carry PSD95, as inclusive ranges: 1-11 PSD95 alone, 19-37 PSD95 with SAP102. The shared table divides each subtype's density by its largest value over the 775 regions, so counts cannot be summed: the density is the mean of these subtypes' scaled densities, each subtype's map weighing alike
 sap102_subtypes = [[12, 37]]  # the subtypes whose puncta carry SAP102: 12-18 SAP102 alone, 19-37 with PSD95 (the variants sap102 and all_puncta), taken the same way
 # the structures of the fit stay the declared ones where Gria1 to Gria4 and every marker
-# have an ISH value and autofluorescence is above background (126 on 8 October), so
-# every variant runs on them. A structure is covered by PSD95 when one of the 775
+# have an ISH value and autofluorescence is above background, so every variant runs on
+# them. A structure is covered by PSD95 when one of the 775
 # regions is it or lies inside it (by Allen id); its density is the mean over those
 # regions, both hemispheres, weighted by their voxels in the 20 um CCF annotation
 min_psd95_coverage = 0.8   # share of the structures of the fit PSD95 must cover to replace the mRNA panel in the main model (at least 101 of 126); the main fit then runs on the structures where every predictor exists, and says how many. Below it, the main model keeps the panel on every structure of the fit, and PSD95 is a variant on the structures it covers
@@ -179,15 +180,15 @@ markers = ["Syp", "Syn1", "Vamp2", "Bsn", "Syt1", "Dlg4", "Homer1", "Shank2", "S
 # the markers the variant panel_postsynaptic leaves out: presynaptic mRNA marks where
 # the neurons that make the synapses sit, not where their synapses are
 presynaptic_markers = ["Syp", "Syn1", "Vamp2", "Bsn", "Syt1"]
-cv_repeats = 20            # shufflings of the structures into five folds, the held-out R2 averaged over them: over 500 single shufflings the leftover moved between 24.6% and 32.1% (8 October), so one alone is not quoted; the mean of 20 is steady to about half a point
+cv_repeats = 20            # shufflings of the structures into five folds, the held-out R2 averaged over them: one shuffling alone moves the leftover by several points (the single shufflings of variants.csv), so it is not quoted; the mean of 20 is steady to about half a point
 cv_blocks = 20             # spatial blocks of the variant with blocked folds: k-means clusters of the structures' centroids, about six structures each, dealt into the five folds
+replication = 0.5          # the agreement above which a half-cohort map or leftover is said to replicate in the steps' printouts and working figures (any reproducible map's leftover passes it, so no verdict rests on it)
 
 # the check rows reported beside the main value, so a reader sees how much the choice of
 # density measure matters. Each changes one thing of the main model, on its structures
 # unless it says otherwise; the row that is the main model is not repeated.
-# psd95_and_panel puts every density measure in at once. The rules of 8 October expected
-# it to bound the leftover from below; scored on held-out structures it does not, since
-# a term that adds nothing costs a little through overfitting
+# psd95_and_panel puts every density measure in at once (docs/ISH_ANALYSIS.md, section
+# 4.3, on why it is no bound)
 [beyond.variants]
 psd95 = "density: PSD95 puncta, on the structures PSD95 covers"
 panel = "density: the mRNA panel (markers, psd_pc1), on the structures PSD95 covers"
@@ -199,17 +200,15 @@ all_puncta = "density: every punctum, PSD95 or SAP102, on the structures PSD95 c
 four_subunits = "abundance: Gria1 to Gria4, each its own term"
 
 [beyond_controls]
-max_pcs = 40               # the largest gene-space model of control F, in components: past the turn of its held-out R2, which peaks near 25 components and falls after (8 October)
+max_pcs = 40               # the largest gene-space model of control F, in components: past the turn of its held-out R2, which peaks near 25 components and falls after
 nested_repeats = 5         # shufflings of the outer and of the inner folds of control F's nested cross-validation, which picks the number of components inside each training fold
 f_draws = 5                # draws of made-up animals per direction in control F's own calibration
 n_single = 200             # single shufflings of the folds whose leftovers give the spread one shuffling alone would have (variants.csv)
-min_centroids = 50         # A: structures with a centroid that the control needs
 gradient_r2 = 0.5          # A: a smooth quadratic in position explaining more than this, a gradient could explain it
 size_rho = 0.4             # B: |rho| of the residual with structure volume above this, size drives it
 pair_rho = 0.1             # C: two mice whose leftovers agree below this, one animal may carry it
 groups_rho = 0.5           # D: naive and RWS leftovers agreeing below this, the pooling hides something
 curvature_gain = 0.05      # E: cross-validated R2 gained by fifth powers above this, the model is not bent enough
-replication = 0.5          # the agreement above which a half-cohort map or leftover is said to replicate where beyond_density and beyond_figures say so (any reproducible map's leftover passes it, so no verdict rests on it)
 readings_replication = 0.8 # G: every reading's leftover must replicate above this
 
 # analysis 4's calibration (adult.beyond_calibration): the main model of [beyond] on maps
@@ -219,25 +218,25 @@ readings_replication = 0.8 # G: every reading's leftover must replicate above th
 [beyond_calibration]
 n_noise = 20               # draws of animal noise per known map and direction, which give the floor a range rather than one value
 n_jackknife = 400          # subsamples of the calibration structures on which the nano map, the floor and the Gria1 map are recomputed together: the interval of their differences
-jackknife_share = 0.2      # share of the structures each subsample leaves out (delete-d jackknife); a fifth leaves enough structures for the 13 columns of the main model (22 of the four-subunit check row)
-jackknife_draws = 4        # draws of animals per known map and direction on each subsample; the mean over 8 is steady to about a point
+jackknife_share = 0.2      # share of the structures each subsample leaves out (delete-d jackknife); a fifth leaves enough structures for the 13 columns of the main model
+jackknife_draws = 4        # draws of animals per known map and direction on each subsample, so 8 per known map; their mean is steady to about a point
 jackknife_splits = 20      # half-cohort splits behind the ceiling on each subsample
 
 # the guided figures of part 1 (adult.beyond_figures): figures 03, 03s1, 03s2, 04,
 # 11s1 and 14; their intervals come from the jackknife of [beyond_calibration]
 [beyond_figures]
 n_perm = 10000             # shuffles of one half's leftover, what two unrelated leftovers agree at (for scale)
-t_max_structures = 10.0    # figure 04: a structure's bar is black at this t of the adults' own leftovers, near the 90th percentile of |t| over the structures (9.2 on 8 October)
+t_max_structures = 10.0    # figure 04: a structure's bar is black at this t of the adults' own leftovers, near the 90th percentile of |t| over the structures
 
 [beyond_regression]
-# coronal planes to draw, in 20 um planes of the cropped CCF grid (450 of them): cortex
-# with hippocampus beneath it and thalamus at the midline, where the residual is
-# largest in both directions
+# coronal planes to draw, in 20 um planes of the cropped CCF grid (450 of them; 10 um
+# CCF planes 610, 710 and 810): cortex with hippocampus beneath it and thalamus at the
+# midline, where the residual is largest in both directions
 planes = [215, 265, 315]
 # the brain sits on black, because hot ends in white and the brightest structures
-# would vanish into a white page; hot also begins in black, so the floor is set below
-# the data and rank 1 lands about a tenth of the way up the colormap
-floor = 0.12
+# would vanish into a white page; hot also begins in black, so the rank maps' scale
+# starts below the data and rank 1 lands about a tenth of the way up the colormap
+rank_floor = 0.12
 diagnostic_p = 0.05        # panel E: a tilt or a fan of the residuals against the prediction (Spearman) below this p reads as a mis-specified model
 
 # the genes that follow the map most, characterised, and the tests named for the
@@ -248,13 +247,14 @@ n_added_surrogates = 1000  # maps with a gene's own smoothness added to the main
 # the projection of the model leaves rough at short range: Gaussian fields of
 # exponential covariance, projected the same way (top_genes.smooth_null_check)
 null_check_ranges_mm = [2.0, 6.0, 10.0]  # ranges of the fields, around the 4 mm the spatial null's calibration fitted to the map (ish.spatial_null)
-null_check_maps = 5000    # fields per range; a p near 0.05 is then placed within about 0.006
-neighbours = 5            # nearest structures whose mean a map is set against to say how smooth it is at short range
+null_check_maps = 5000     # fields per range; a p near 0.05 is then placed within about 0.006
+neighbours = 5             # nearest structures whose mean a map is set against to say how smooth it is at short range
 
-# the guided figures of the ISH analysis (ish.plotting)
+# the guided figures of the ISH analysis, read by the run scripts that draw them and
+# by adult.beyond_figures
 [ish_figures]
 plane = 700                # CCF plane at 10 um of every coronal panel (ISH section 35): cortex, hippocampus and thalamus in one section, the plane of Figure 1 of docs/history/ISH_DISCUSSION.md
-t_max = 40.0               # the grey of a gene's bar saturates at this rho over its SD across resampled adults: near the 90th percentile over P9's genes (39 on 8 October), so the steadiest tenth is black
+t_max = 40.0               # the grey of a gene's bar saturates at this rho over its SD across resampled adults: near the 90th percentile over P9's genes, so the steadiest tenth is black
 
 # The ISH chain runs twice: on the hand-written 100-gene panel, then on the
 # 390-gene ontology panel that run_panel_build writes. run_ish_regions.py and

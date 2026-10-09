@@ -3,7 +3,7 @@
 A whole-brain rho mixes two things: the contrast between divisions (cortex and
 hippocampus high, thalamus and hypothalamus low) and the order of the structures
 inside a division. Brain maps share the first almost whatever they measure, so a
-gene can rank high through it alone. Two numbers per gene separate them (A6):
+gene can rank high through it alone. Two numbers per gene separate them:
 
     division-only rho   rho of the gene with a map that knows only each
                         structure's division: every declared structure takes the
@@ -29,7 +29,9 @@ The within rho is tested two ways:
                     map's; the p the figures use
 
 Both are two-sided and corrected by Benjamini-Hochberg within P9's genes and within
-all genes, as in analysis 1.
+all genes, as in analysis 1. Both nulls are checked on random smooth maps with the
+map's smoothness (the spatial null's calibration fields), which have no relation to
+the map: a null that keeps its 5% there can be read.
 
 Run by run_ish_divisions.py.
 """
@@ -39,7 +41,9 @@ import pandas as pd
 from scipy.stats import false_discovery_control, rankdata, spearmanr
 
 from sepmap.config import SETTINGS
-from sepmap.ish.spatial_null import spatial_p
+from sepmap.ish import spatial_null
+from sepmap.ish.numbers import numbers_frame, numbers_path
+from sepmap.ish.spatial_null import ALPHA, BAND, spatial_p
 from sepmap.structures import TABLES
 
 # the structures a division needs to enter, the shuffles, the BH level
@@ -47,14 +51,16 @@ ISH_ANALYSIS = SETTINGS["ish_analysis"]
 
 WITHIN = TABLES / "within_division.csv"
 WITHIN_DETAIL = TABLES / "within_division_detail.csv"
+CALIBRATION = TABLES / "within_calibration.csv"
+NUMBERS = numbers_path("divisions")
 
-# the percentiles of a null distribution that a value must leave to pass at 0.05
-BAND = (2.5, 97.5)
-
-# the genes of the gene sheets and of figure 09s D (A6): the top of P9's ranking, the
+# the genes of the gene sheets and of figure 09s D: the top of P9's ranking, the
 # subunit, a metabotropic receptor and a scaffold near the top, and an astrocyte
 # gene as the control
 DETAIL_GENES = ("Cacng8", "Gria1", "Grm5", "Dlg2", "Aqp4")
+
+# the gene of panel A of figures 09 and 09s, the top of P9's ranking
+EXAMPLE_GENE = "Cacng8"
 
 
 def division_only(map_values: np.ndarray, divisions: np.ndarray) -> np.ndarray:
@@ -113,7 +119,7 @@ def within_rho(
     return total / weights
 
 
-def shuffle_within(
+def shuffled_maps(
     map_values: np.ndarray,
     parts: list[tuple[str, np.ndarray]],
     n: int,
@@ -126,7 +132,7 @@ def shuffle_within(
     return maps
 
 
-def shuffled_within(
+def shuffled_within_rho(
     map_values: np.ndarray,
     gene: np.ndarray,
     parts: list[tuple[str, np.ndarray]],
@@ -134,7 +140,7 @@ def shuffled_within(
     rng: np.random.Generator,
 ) -> np.ndarray:
     """The within rho of `n` maps shuffled inside each division."""
-    return within_rho(shuffle_within(map_values, parts, n, rng), gene, parts)
+    return within_rho(shuffled_maps(map_values, parts, n, rng), gene, parts)
 
 
 def gene_rows(
@@ -167,7 +173,9 @@ def gene_rows(
         )
         if parts:
             observed = float(within_rho(map_values[columns], values, parts)[0])
-            shuffled = shuffled_within(map_values[columns], values, parts, n_perm, rng)
+            shuffled = shuffled_within_rho(
+                map_values[columns], values, parts, n_perm, rng
+            )
             spatial = within_rho(surr[:, columns], values, parts)
             row.update(
                 rho_within=observed,
@@ -211,9 +219,15 @@ def with_q(table: pd.DataFrame, p9_genes: set[str]) -> pd.DataFrame:
     return out
 
 
-def agreement(table: pd.DataFrame, column: str, genes: pd.Series) -> float:
-    """Spearman over genes of the whole-brain rho and `column`, for the genes given."""
-    mine = table[genes & table[column].notna()]
+def agreement(table: pd.DataFrame, column: str, genes: pd.Series | None = None) -> float:
+    """Spearman over genes of the whole-brain rho and `column`.
+
+    `genes` marks the genes taken (P9's, say), every gene with a value by default.
+    """
+    have = table[column].notna()
+    if genes is not None:
+        have = have & genes
+    mine = table[have]
     return float(spearmanr(mine["rho"], mine[column]).statistic)
 
 
@@ -228,15 +242,17 @@ def calibration(
 
     `fields` holds maps with no relation to the map (ish.spatial_null.random_fields)
     on every declared structure. Per map: its within rho with the map, and the p
-    of the shuffle null (1,000 shuffles) and of the spatial null.
+    of the shuffle null (ish_analysis.n_perm_within_calibration shuffles) and of
+    the spatial null.
     """
     rng = np.random.default_rng(seed)
+    n_perm = ISH_ANALYSIS["n_perm_within_calibration"]
     columns = np.arange(len(map_values))
     parts = division_parts(columns, divisions)
     rows = []
     for k, field in enumerate(fields):
         observed = float(within_rho(map_values, field, parts)[0])
-        shuffled = shuffled_within(map_values, field, parts, 1000, rng)
+        shuffled = shuffled_within_rho(map_values, field, parts, n_perm, rng)
         spatial = within_rho(surr, field, parts)
         rows.append(
             dict(
@@ -247,6 +263,107 @@ def calibration(
             )
         )
     return pd.DataFrame(rows)
+
+
+def within_calibration(
+    map_values: np.ndarray,
+    divisions: np.ndarray,
+    surr: np.ndarray,
+    centroids: pd.DataFrame,
+    seed: int = 1,
+) -> pd.DataFrame:
+    """The calibration on fields with the map's smoothness, as the spatial null's are.
+
+    `centroids` are the declared structures' (sepmap.structures), in the order of
+    the map; ish_analysis.n_calibration_within fields of an exponential covariance
+    fitted to the map's variogram (ish.spatial_null.fit_exponential), drawn with
+    `seed`.
+    """
+    d = spatial_null.distance_matrix(centroids)
+    params = spatial_null.fit_exponential(map_values, d)
+    fields = spatial_null.random_fields(
+        d, params, ISH_ANALYSIS["n_calibration_within"], np.random.default_rng(seed)
+    )
+    return calibration(map_values, divisions, surr, fields)
+
+
+def numbers_table(
+    within: pd.DataFrame, detail: pd.DataFrame, calibration_table: pd.DataFrame
+) -> pd.DataFrame:
+    """numbers_divisions.csv: the numbers of this step that the text quotes."""
+    q = ISH_ANALYSIS["q"]
+    have = within[within["rho_within"].notna()]
+    p9 = within["p9_gene"]
+    rows = [
+        ("genes", len(within), "genes split into between and within"),
+        ("genes_within", len(have), "genes in a division with enough structures"),
+        (
+            "agreement_division_only_all",
+            round(agreement(within, "rho_division_only"), 3),
+            "Spearman over genes, whole-brain against division-only rho",
+        ),
+        (
+            "agreement_division_only_p9",
+            round(agreement(within, "rho_division_only", p9), 3),
+            "the same over P9's genes",
+        ),
+        (
+            "agreement_within_all",
+            round(agreement(within, "rho_within"), 3),
+            "Spearman over genes, whole-brain against within rho",
+        ),
+        (
+            "agreement_within_p9",
+            round(agreement(within, "rho_within", p9), 3),
+            "the same over P9's genes",
+        ),
+        ("median_rho", round(within["rho"].median(), 3), "median whole-brain rho"),
+        (
+            "median_rho_within",
+            round(have["rho_within"].median(), 3),
+            "median within rho",
+        ),
+        (
+            "median_rho_p9",
+            round(within.loc[p9, "rho"].median(), 3),
+            "median whole-brain rho, P9's genes",
+        ),
+        (
+            "median_rho_within_p9",
+            round(within.loc[p9, "rho_within"].median(), 3),
+            "median within rho, P9's genes",
+        ),
+    ]
+    n_maps = len(calibration_table)
+    for null in ("spatial", "shuffle"):
+        rows += [
+            (
+                f"pass_all_{null}",
+                int((within[f"q_all_{null}"] < q).sum()),
+                f"genes past the within {null} null, BH within all, q < {q}",
+            ),
+            (
+                f"pass_p9_{null}",
+                int((within[f"q_p9_{null}"] < q).sum()),
+                f"P9's genes past the within {null} null, BH within P9's",
+            ),
+            (
+                f"calibration_{null}",
+                round(float((calibration_table[f"p_{null}"] < ALPHA).mean()), 4),
+                f"random maps with p < {ALPHA} by the {null} null ({n_maps})",
+            ),
+        ]
+    for gene in DETAIL_GENES:
+        r = within[within["symbol"] == gene].iloc[0]
+        rows += [
+            (f"rho_division_only_{gene}", round(r["rho_division_only"], 3), gene),
+            (f"rho_within_{gene}", round(r["rho_within"], 3), gene),
+            (f"p_within_spatial_{gene}", round(r["p_within_spatial"], 5), gene),
+            (f"p_within_shuffle_{gene}", round(r["p_within_shuffle"], 5), gene),
+        ]
+    divisions_used = sorted(set(detail["division"]))
+    rows.append(("divisions_used", " ".join(divisions_used), "divisions entered"))
+    return numbers_frame(rows)
 
 
 def load_within() -> tuple[pd.DataFrame, pd.DataFrame]:

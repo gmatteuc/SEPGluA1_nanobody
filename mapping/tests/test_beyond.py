@@ -1,21 +1,16 @@
 """Known-answer checks of analysis 4 (beyond) and analysis 5 (the green channel)."""
 
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 import pytest
 from scipy.stats import rankdata, spearmanr
 
-from sepmap import config
-from sepmap.adult import beyond_calibration as bc
-from sepmap.adult import beyond_density as bd
-from sepmap.adult import beyond_figures as bf
-from sepmap.adult import sep_channel_check as scc
+from sepmap.adult import beyond_calibration, beyond_density, sep_channel_check
+from sepmap.adult.profiles import ADULTS
 
-BEYOND = Path(config.DATA) / "adult_v2" / "ish_analysis" / "beyond"
-N_ADULTS = len(bd.ADULTS)
-SPLITS = bd.half_splits()
+BEYOND = beyond_density.OUT
+N_ADULTS = len(ADULTS)
+SPLITS = beyond_density.half_splits()
 
 
 def cohort(truth: np.ndarray, sd: float, seed: int = 0) -> np.ndarray:
@@ -38,8 +33,8 @@ def test_ceiling_is_the_reliability_not_its_square():
     rng = np.random.default_rng(1)
     truth = rng.standard_normal(500)
     adults = cohort(truth, sd=1.5)
-    _, explainable = bd.ceiling(adults, SPLITS)
-    with_truth = spearmanr(bd.full_map(adults), truth).statistic ** 2
+    _, explainable = beyond_density.ceiling(adults, SPLITS)
+    with_truth = spearmanr(beyond_density.full_map(adults), truth).statistic ** 2
     # 500 structures: the agreement is known to about +-0.02
     assert abs(explainable - with_truth) < 0.03
     assert abs(explainable**2 - with_truth) > 0.05
@@ -47,22 +42,30 @@ def test_ceiling_is_the_reliability_not_its_square():
 
 def test_spearman_brown_steps_up_a_half_agreement():
     """Two halves agreeing at 0.974 make a ten-adult map of reliability 0.987."""
-    assert bd.spearman_brown(0.974) == pytest.approx(0.98683, abs=1e-5)
-    assert np.isnan(bd.spearman_brown(-1.0))
+    assert beyond_density.spearman_brown(0.974) == pytest.approx(0.98683, abs=1e-5)
+    assert np.isnan(beyond_density.spearman_brown(-1.0))
 
 
 def test_implied_replication_reproduces_the_hand_worked_value():
     """h 0.974, in-sample R2 0.701, 13 terms, 126 structures imply 0.922."""
-    assert bd.implied_replication(0.974, 0.701, 13, 126) == pytest.approx(0.922, abs=1e-3)
-    assert np.isnan(bd.implied_replication(0.9, 0.95, 13, 126))
+    assert beyond_density.implied_replication(0.974, 0.701, 13, 126) == pytest.approx(
+        0.922, abs=1e-3
+    )
+    assert np.isnan(beyond_density.implied_replication(0.9, 0.95, 13, 126))
 
 
 def test_a_map_made_of_its_predictors_leaves_almost_nothing():
     """A curved function of the predictors, bent, is predicted to within a few %."""
     xs, truth = predictors_and_truth()
     adults = cohort(truth, sd=0.1)
-    _, explainable = bd.ceiling(adults, SPLITS)
-    left = 1 - bd.cv_r2(bd.full_map(adults), bd.flexible(xs)) / explainable
+    _, explainable = beyond_density.ceiling(adults, SPLITS)
+    left = (
+        1
+        - beyond_density.cv_r2(
+            beyond_density.full_map(adults), beyond_density.flexible(xs)
+        )
+        / explainable
+    )
     assert left < 0.08
 
 
@@ -73,7 +76,9 @@ def test_a_leftover_of_pure_animal_noise_does_not_replicate():
     z = [(x - x.mean()) / x.std() for x in xs]
     truth = z[0] + 0.5 * z[1] ** 2
     adults = cohort(truth, sd=1.0)
-    agreement = bd.leftover_agreement(adults, bd.flexible(xs), SPLITS[:20])
+    agreement = beyond_density.leftover_agreement(
+        adults, beyond_density.flexible(xs), SPLITS[:20]
+    )
     # 300 structures: two unrelated leftovers agree within about +-0.12
     assert abs(np.mean(agreement)) < 0.12
 
@@ -84,10 +89,10 @@ def test_a_planted_leftover_replicates_and_keeps_its_sign():
     rng = np.random.default_rng(3)
     planted = 2.0 * rng.standard_normal(len(truth))
     adults = cohort(truth + planted, sd=0.5)
-    model = bd.flexible(xs)
-    assert np.mean(bd.leftover_agreement(adults, model, SPLITS[:20])) > 0.8
-    res = bd.residual(bd.full_map(adults), model)
-    same = bd.same_sign_share(adults, model, SPLITS[:20], res)
+    model = beyond_density.flexible(xs)
+    assert np.mean(beyond_density.leftover_agreement(adults, model, SPLITS[:20])) > 0.8
+    res = beyond_density.residual(beyond_density.full_map(adults), model)
+    same = beyond_density.same_sign_share(adults, model, SPLITS[:20], res)
     big = np.abs(res) > np.percentile(np.abs(res), 90)
     assert same[big].min() > 0.9
 
@@ -97,21 +102,37 @@ def test_cross_validation_does_not_reward_noise_predictors():
     rng = np.random.default_rng(4)
     y = rng.standard_normal(120)
     xs = [rng.standard_normal(120) for _ in range(20)]
-    assert bd.r_squared(y, xs) > 0.1
-    assert bd.cv_r2(y, xs) < 0.05
+    assert beyond_density.r_squared(y, xs) > 0.1
+    assert beyond_density.cv_r2(y, xs) < 0.05
 
 
 def test_the_main_model_bends_gria1_the_panel_and_autofluorescence():
-    """x, x^2 and x^3 of four predictors; seven with the four subunits; three with
-    PSD95 in place of the panel."""
-    names = bd.SUBUNITS + ("markers", "psd_pc1", "autofluo", "psd95")
+    """Four predictors bent; seven with the four subunits; three with PSD95."""
+    names = beyond_density.SUBUNITS + ("markers", "psd_pc1", "autofluo", "psd95")
     covariates = {k: np.arange(10.0) for k in names}
-    main = bd.model_terms()
+    main = beyond_density.model_terms()
     assert main["abundance"] == ("Gria1",)
-    assert len(bd.model(covariates, main)) == 3 * 4
-    assert len(bd.model(covariates, bd.model_terms(abundance=bd.SUBUNITS))) == 3 * 7
-    assert len(bd.model(covariates, bd.model_terms(bd.MEASURED))) == 3 * 3
-    assert len(bd.model(covariates, main, ("abundance",), bend=False)) == 1
+    assert len(beyond_density.model_columns(covariates, main)) == 3 * 4
+    assert (
+        len(
+            beyond_density.model_columns(
+                covariates, beyond_density.model_terms(abundance=beyond_density.SUBUNITS)
+            )
+        )
+        == 3 * 7
+    )
+    assert (
+        len(
+            beyond_density.model_columns(
+                covariates, beyond_density.model_terms(beyond_density.MEASURED)
+            )
+        )
+        == 3 * 3
+    )
+    assert (
+        len(beyond_density.model_columns(covariates, main, ("abundance",), bend=False))
+        == 1
+    )
 
 
 def test_psd95_replaces_the_panel_only_when_it_covers_enough_of_the_fit():
@@ -119,31 +140,31 @@ def test_psd95_replaces_the_panel_only_when_it_covers_enough_of_the_fit():
     fit = [f"s{i}" for i in range(10)]
     synapses = pd.DataFrame({"psd95": np.arange(10.0)}, index=fit)
     synapses.loc[["s0", "s1"], "psd95"] = np.nan
-    terms, used = bd.main_model(fit, synapses)
-    assert terms["density"] == bd.MEASURED
+    terms, used = beyond_density.main_model(fit, synapses)
+    assert terms["density"] == beyond_density.MEASURED
     assert used == fit[2:]
     synapses.loc["s2", "psd95"] = np.nan
-    terms, used = bd.main_model(fit, synapses)
-    assert terms["density"] == bd.PANEL
+    terms, used = beyond_density.main_model(fit, synapses)
+    assert terms["density"] == beyond_density.PANEL
     assert used == fit
-    terms, used = bd.main_model(fit, pd.DataFrame(index=fit))
-    assert terms["density"] == bd.PANEL
+    terms, used = beyond_density.main_model(fit, pd.DataFrame(index=fit))
+    assert terms["density"] == beyond_density.PANEL
     assert used == fit
 
 
 def test_a_measured_density_is_a_predictor_only_where_every_structure_has_it():
     """psd95, measured everywhere, is ranked; sap102, missing in one place, is not."""
     structures = ["a", "b", "c", "d"]
-    genes = bd.SUBUNITS + bd.MARKERS + ("Psd1", "Psd2")
+    genes = beyond_density.SUBUNITS + beyond_density.MARKERS + ("Psd1", "Psd2")
     rng = np.random.default_rng(14)
     expr = {g: dict(zip(structures, rng.standard_normal(4))) for g in genes}
-    role = {"Psd1": bd.PSD_ROLE, "Psd2": bd.PSD_ROLE}
+    role = {"Psd1": beyond_density.PSD_ROLE, "Psd2": beyond_density.PSD_ROLE}
     synapses = pd.DataFrame(
         {"psd95": [0.3, 0.1, 0.4, 0.2], "sap102": [0.1, np.nan, 0.2, 0.3]},
         index=structures,
     )
     auto = rng.standard_normal((N_ADULTS, 4))
-    covariates, psd, _ = bd.build_covariates(
+    covariates, psd, _ = beyond_density.build_covariates(
         expr, role, auto, structures, synapses=synapses
     )
     assert psd == ["Psd1", "Psd2"]
@@ -153,9 +174,17 @@ def test_a_measured_density_is_a_predictor_only_where_every_structure_has_it():
 
 def test_the_genes_measured_once_are_those_of_the_main_model():
     """A marker with one experiment is listed, a subunit outside the model is not."""
-    split = [g for g in bd.SUBUNITS + bd.MARKERS if g not in ("Gria4", "Shank2")]
-    assert bc.measured_once(split, bd.model_terms()) == ["Shank2"]
-    assert bc.measured_once(split, bd.model_terms(bd.MEASURED)) == ["psd95"]
+    split = [
+        g
+        for g in beyond_density.SUBUNITS + beyond_density.MARKERS
+        if g not in ("Gria4", "Shank2")
+    ]
+    assert beyond_calibration.measured_once(split, beyond_density.model_terms()) == [
+        "Shank2"
+    ]
+    assert beyond_calibration.measured_once(
+        split, beyond_density.model_terms(beyond_density.MEASURED)
+    ) == ["psd95"]
 
 
 def test_structure_rows_give_the_reason_a_structure_is_left_out():
@@ -169,14 +198,16 @@ def test_structure_rows_give_the_reason_a_structure_is_left_out():
             reason=["", "", "not grey matter"],
         )
     )
-    genes = bd.SUBUNITS + bd.MARKERS
+    genes = beyond_density.SUBUNITS + beyond_density.MARKERS
     expr = {g: {"kept": 1.0, "no_gene": 1.0, "outside": 1.0} for g in genes}
-    del expr[bd.MARKERS[0]]["no_gene"]
-    rows = bd.structure_rows(set_table, expr, pd.Series(True, index=set_table.structure))
+    del expr[beyond_density.MARKERS[0]]["no_gene"]
+    rows = beyond_density.structure_rows(
+        set_table, expr, pd.Series(True, index=set_table.structure)
+    )
     by = rows.set_index("structure")
     assert bool(by.loc["kept", "used"])
     assert not by.loc["no_gene", "used"]
-    assert by.loc["no_gene", "missing_genes"] == bd.MARKERS[0]
+    assert by.loc["no_gene", "missing_genes"] == beyond_density.MARKERS[0]
     assert by.loc["outside", "reason"].startswith("not in the declared set")
 
 
@@ -190,7 +221,7 @@ def test_experiment_halves_alternate_by_id_and_share_a_single_experiment():
         },
         "one": {"5": {"a": 1.0, "b": 2.0}},
     }
-    a, b, split = bc.experiment_halves(per)
+    a, b, split = beyond_calibration.experiment_halves(per)
     assert split == ["three"]
     assert a["three"]["a"] > a["three"]["b"]
     assert b["three"]["a"] < b["three"]["b"]
@@ -200,8 +231,8 @@ def test_experiment_halves_alternate_by_id_and_share_a_single_experiment():
 def test_made_up_adults_agree_between_halves_as_asked():
     """Noise sized from h gives two halves of five that agree at about h."""
     truth = np.random.default_rng(5).standard_normal(500)
-    adults = bc.fake_cohort(truth, 0.9, np.random.default_rng(6))
-    agreement, _ = bd.ceiling(adults, SPLITS[:30])
+    adults = beyond_calibration.fake_cohort(truth, 0.9, np.random.default_rng(6))
+    agreement, _ = beyond_density.ceiling(adults, SPLITS[:30])
     # 500 structures: the mean agreement sits within about 0.02 of h
     assert abs(np.mean(agreement) - 0.9) < 0.03
 
@@ -211,9 +242,11 @@ def test_calibration_floor_grows_with_the_mismatch_of_the_predictors():
     xs, truth = predictors_and_truth()
     rng = np.random.default_rng(7)
     noisy = [rankdata(x + rng.normal(0, 60, len(x))) for x in xs]
-    adults = bc.fake_cohort(truth, 0.97, np.random.default_rng(8))
-    exact = bc.analyse(adults, bd.flexible(xs), SPLITS[:20])
-    mismatched = bc.analyse(adults, bd.flexible(noisy), SPLITS[:20])
+    adults = beyond_calibration.fake_cohort(truth, 0.97, np.random.default_rng(8))
+    exact = beyond_calibration.analyse(adults, beyond_density.flexible(xs), SPLITS[:20])
+    mismatched = beyond_calibration.analyse(
+        adults, beyond_density.flexible(noisy), SPLITS[:20]
+    )
     assert exact["left"] < 0.08
     assert mismatched["left"] > exact["left"] + 0.1
 
@@ -224,7 +257,7 @@ def test_green_channel_rows_are_computed_on_the_structures_all_channels_have():
     structures = [f"s{i}" for i in range(60)]
     auto = rng.standard_normal(60)
     per = {}
-    for mouse in scc.ADULTS:
+    for mouse in ADULTS:
         sep = auto + 0.1 * rng.standard_normal(60)
         nano = rng.standard_normal(60)
         per[mouse] = {
@@ -233,18 +266,17 @@ def test_green_channel_rows_are_computed_on_the_structures_all_channels_have():
             "sep": dict(zip(structures[1:], sep[1:])),
         }
     profile = dict(zip(structures, auto))
-    rows = pd.DataFrame(scc.channel_rows(per, profile))
+    rows = pd.DataFrame(sep_channel_check.channel_rows(per, profile))
     assert (rows["n_structures"] == 59).all()
     assert (rows["rho_sep_auto"] > 0.9).all()
     assert (rows["rho_sepresid_gria"].abs() < 0.5).all()
 
 
 @pytest.mark.skipif(
-    not (BEYOND / "variance_partition.csv").exists(), reason="analysis 4 has not run"
+    not (BEYOND / "variance_partition.csv").exists(), reason="data not connected"
 )
-def test_todays_tables_hold_the_main_model_its_variants_and_the_calibration():
-    """The partition has the main model of 13 terms; the variants their check rows;
-    the calibration both known maps."""
+def test_written_tables_hold_the_main_model_its_variants_and_the_calibration():
+    """The main model has 13 terms; the variants their rows; the calibration both maps."""
     partition = pd.read_csv(BEYOND / "variance_partition.csv").set_index("key")
     assert {"model", "abundance", "subunits", "density"} <= set(partition.index)
     model = partition.loc["model"]
@@ -256,14 +288,16 @@ def test_todays_tables_hold_the_main_model_its_variants_and_the_calibration():
     assert variants.loc["psd95", "n_structures"] == variants.loc["panel", "n_structures"]
     calibration = pd.read_csv(BEYOND / "calibration.csv")
     counts = calibration["map"].value_counts()
-    assert counts[bc.ABUNDANCE_DENSITY] == counts[bc.GRIA1] > 0
+    assert (
+        counts[beyond_calibration.FLOOR_MAP] == counts[beyond_calibration.GRIA1_MAP] > 0
+    )
 
 
-def test_the_first_shuffling_is_the_single_one_of_26_september():
-    """fold_labels' first shuffling deals the folds as the single seeded one did."""
+def test_the_first_shuffling_is_one_seeded_permutation_dealt_in_turn():
+    """fold_labels' first shuffling deals a seeded permutation into the folds."""
     n = 126
     order = np.random.default_rng(0).permutation(n)
-    label = bd.fold_labels(n, repeats=3)[0]
+    label = beyond_density.fold_labels(n, repeats=3)[0]
     for k in range(5):
         assert set(np.nonzero(label == k)[0]) == set(order[k::5])
 
@@ -273,7 +307,7 @@ def test_spatial_blocks_keep_neighbours_in_one_fold():
     rng = np.random.default_rng(10)
     centres = rng.uniform(0, 10, (20, 3))
     xyz = np.repeat(centres, 6, axis=0) + 0.05 * rng.standard_normal((120, 3))
-    for label in bd.block_labels(xyz, n_blocks=20, repeats=3):
+    for label in beyond_density.block_labels(xyz, n_blocks=20, repeats=3):
         assert len(np.unique(label)) == 5
         for i in range(20):
             assert len(np.unique(label[6 * i : 6 * i + 6])) == 1
@@ -284,16 +318,21 @@ def test_repeated_folds_score_a_known_model_as_one_shuffling_does_on_average():
     xs, truth = predictors_and_truth(n=150, seed=11)
     y = rankdata(truth + np.random.default_rng(12).normal(0, 0.5, len(truth)))
     single = [
-        bd.cv_r2(y, bd.flexible(xs), bd.fold_labels(len(y), repeats=1, seed=s))
+        beyond_density.cv_r2(
+            y,
+            beyond_density.flexible(xs),
+            beyond_density.fold_labels(len(y), repeats=1, seed=s),
+        )
         for s in range(30)
     ]
-    repeated = bd.cv_r2(y, bd.flexible(xs), bd.fold_labels(len(y), repeats=30))
+    repeated = beyond_density.cv_r2(
+        y, beyond_density.flexible(xs), beyond_density.fold_labels(len(y), repeats=30)
+    )
     assert min(single) <= repeated <= max(single)
 
 
 def test_density_contrasts_take_the_rows_difference_and_its_paired_interval():
-    """The point is the rows' difference; the interval is that of the paired
-    difference over the subsamples, narrower than either row's own."""
+    """The point is the rows' difference, its paired interval narrower than a row's."""
     rng = np.random.default_rng(14)
     variants = pd.DataFrame(
         dict(
@@ -307,11 +346,11 @@ def test_density_contrasts_take_the_rows_difference_and_its_paired_interval():
     for key, row in variants.set_index("key").iterrows():
         jack[f"left_{key}"] = row["left"] + shared + rng.normal(0, 0.01, 400)
         jack[f"alone_{key}"] = row["density_alone"] + shared + rng.normal(0, 0.01, 400)
-    contrasts = bf.density_contrasts(variants, jack)
+    contrasts = beyond_calibration.density_contrasts(variants, jack)
     point, (lo, hi) = contrasts["psd95_minus_panel_left"]
     assert point == pytest.approx(0.07)
     assert lo < point < hi
-    own = bc.jackknife_sd(jack["left_psd95"], 77, 15)
+    own = beyond_calibration.jackknife_sd(jack["left_psd95"], 77, 15)
     assert (hi - lo) / 2 < 1.96 * own / 3
 
 
@@ -322,4 +361,6 @@ def test_jackknife_sd_of_a_mean_matches_its_standard_error():
     d = 20
     values = [np.delete(x, rng.choice(100, d, replace=False)).mean() for _ in range(2000)]
     # 2000 subsamples: the jackknife SD is known to within about 3%
-    assert bc.jackknife_sd(values, 100, d) == pytest.approx(x.std(ddof=1) / 10, rel=0.08)
+    assert beyond_calibration.jackknife_sd(values, 100, d) == pytest.approx(
+        x.std(ddof=1) / 10, rel=0.08
+    )

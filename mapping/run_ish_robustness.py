@@ -78,105 +78,17 @@ import argparse
 
 import matplotlib
 import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 
 from sepmap import config, plotting, structures
 from sepmap.adult import profiles
-from sepmap.ish import gene_ranking, gene_table, regions, robustness, section_qc
+from sepmap.ish import gene_ranking, gene_sets, gene_table, robustness
 from sepmap.ish import plotting as ish_plotting
-from sepmap.volumes.per_mouse import structure_terms
-
-OUT = config.DATA / "adult_v2" / "ish_analysis"
-
-
-def numbers_table(summary):
-    """The numbers of this step that the text quotes, one row each."""
-    rows = []
-    for _, r in summary.iterrows():
-        name = r["variant"]
-        rows += [
-            (f"agreement_p9_{name}", round(r["agreement_p9"], 4), r["label"]),
-            (f"agreement_all_{name}", round(r["agreement_all"], 4), r["label"]),
-            (f"rank_p9_Gria1_{name}", r["rank_p9_Gria1"], r["label"]),
-            (f"rank_p9_Cacng8_{name}", r["rank_p9_Cacng8"], r["label"]),
-            (f"rho_Gria1_{name}", round(r["rho_Gria1"], 3), r["label"]),
-            (f"rho_Cacng8_{name}", round(r["rho_Cacng8"], 3), r["label"]),
-            (f"gap_{name}", round(r["gap"], 3), r["label"]),
-        ]
-    return pd.DataFrame(rows, columns=["name", "value", "what"], dtype=object)
-
-
-def unflagged_rows(table, region):
-    """The region table with the flagged experiments measured without section QC."""
-    flags = section_qc.flagged_sections(section_qc.load_experiment_qc())
-    flagged = table[table["experiment_id"].isin(flags) & ~table["excluded"]]
-    ann = regions.annotation_200()
-    names, _, _ = structure_terms()
-    eroded = regions.eroded_annotation(ann)
-    redone = pd.DataFrame(gene_table.region_rows(flagged, {}, ann, names, eroded))
-    print(f"no QC: {len(flagged)} flagged experiments measured again", flush=True)
-    return robustness.unflagged_region(region, redone)
-
-
-def variant_inputs(table, genes, profile, set_table, declared):
-    """{variant: (map, gene profiles, structures, statistic)} of every row."""
-    region = gene_table.load_region_table()
-    used = set(table.loc[~table["excluded"], "experiment_id"])
-    region = region[region["experiment_id"].isin(used)]
-    per_experiment = gene_table.experiment_profiles(region)
-    eroded = robustness.merged_profiles(
-        gene_table.experiment_profiles(region, "ish_mean_eroded")
-    )
-    no_qc = robustness.merged_profiles(
-        gene_table.experiment_profiles(unflagged_rows(table, region))
-    )
-    p9_own = dict(zip(genes["symbol"], genes["p9_experiment_id"]))
-    merged = gene_table.load_profiles()
-    zref = profile["zref_nano"]
-    zref_eroded = profile["zref_nano_eroded"]
-    stored_zref = robustness.stored_map("zref")
-    every = sorted(set_table["structure"])
-    return {
-        "primary": (zref, merged, declared, "spearman"),
-        "pearson_log2": (
-            zref,
-            robustness.log2_profiles(per_experiment),
-            declared,
-            "pearson",
-        ),
-        "eroded_ish": (zref, eroded, declared, "spearman"),
-        "eroded_nano": (zref_eroded, merged, declared, "spearman"),
-        "eroded_both": (zref_eroded, eroded, declared, "spearman"),
-        "ratio": (robustness.stored_map("ratio"), merged, declared, "spearman"),
-        "stored_zref": (stored_zref, merged, declared, "spearman"),
-        "no_qc": (zref, no_qc, declared, "spearman"),
-        "p9_experiment": (
-            zref,
-            robustness.single_experiment(per_experiment, p9_own),
-            declared,
-            "spearman",
-        ),
-        "p9_divisions": (
-            zref,
-            merged,
-            robustness.p9_division_structures(set_table),
-            "spearman",
-        ),
-        "every_structure": (zref, merged, every, "spearman"),
-        "before_build": (
-            stored_zref,
-            robustness.frozen_profiles(),
-            sorted(stored_zref.index),
-            "spearman",
-        ),
-    }
+from sepmap.ish.figure_index import figure_file, figure_path
 
 
 def main():
     """Print the settings, then rank the genes under every variant; tables, figures."""
     config.print_settings({})
-    tables = OUT / "tables"
 
     # the inputs of the primary and of every variant
     declared = structures.declared_structures()
@@ -185,49 +97,14 @@ def main():
     table = gene_table.load_gene_table()
     genes = gene_table.per_gene(table)
     p9_genes = set(genes.loc[genes["p9_gene"], "symbol"])
-    subunits = {s for s, t in zip(genes["symbol"], genes["gene_sets"]) if "subunits" in t}
-    inputs = variant_inputs(table, genes, profile, set_table, declared)
+    subunits = set(gene_sets.members_from_table(genes)["subunits"])
+    inputs = robustness.variant_inputs(table, genes, profile, set_table, declared)
     print(f"variants: {len(inputs)}, {len(p9_genes)} of P9's genes among {len(genes)}")
 
-    # every variant's rho per gene; the primary must be analysis 1's ranking
-    parts, gaps = [], {}
-    for name, _, _ in robustness.VARIANTS:
-        map_values, gene_profiles, structure_list, method = inputs[name]
-        part = robustness.variant_rows(
-            name, map_values, gene_profiles, structure_list, p9_genes, method
-        )
-        parts.append(part)
-        if all(g in gene_profiles for g in gene_ranking.GAP_GENES):
-            gaps[name] = robustness.gap_on_shared(
-                map_values,
-                gene_profiles[gene_ranking.GAP_GENES[0]],
-                gene_profiles[gene_ranking.GAP_GENES[1]],
-                structure_list,
-                method,
-            )
-        else:
-            gaps[name] = np.nan
-    per_gene = pd.concat(parts, ignore_index=True)
-    primary = per_gene[per_gene["variant"] == "primary"]
-    ranking = gene_ranking.load_ranking()
-    nano = ranking[ranking["map"] == "nano"].set_index("symbol")["rho"]
-    largest = float((primary.set_index("symbol")["rho"] - nano).abs().max())
-    if largest > 1e-9:
-        raise ValueError(
-            f"the primary row differs from gene_ranking.csv by up to {largest:.2e}; "
-            "run run_ish_gene_ranking.py first"
-        )
+    # every variant's rho per gene, and the summary: agreement, where the two genes
+    # sit, the gap
+    per_gene, summary = robustness.variant_tables(inputs, p9_genes)
     per_gene.to_csv(robustness.ROBUSTNESS, index=False)
-
-    # the summary: agreement, where the two genes sit, the gap
-    summary = pd.DataFrame(
-        [
-            robustness.summary_row(
-                v, per_gene[per_gene["variant"] == v[0]], primary, p9_genes, gaps[v[0]]
-            )
-            for v in robustness.VARIANTS
-        ]
-    )
     summary.to_csv(robustness.SUMMARY, index=False)
     for _, r in summary.iterrows():
         print(
@@ -235,27 +112,19 @@ def main():
             f"{r['n_agreement_p9']} of P9's genes; Gria1 {r['rank_p9_Gria1']:.0f}, "
             f"Cacng8 {r['rank_p9_Cacng8']:.0f}, gap {r['gap']:+.3f}"
         )
-    numbers_table(summary).to_csv(tables / "numbers_robustness.csv", index=False)
+    robustness.numbers_table(summary).to_csv(robustness.NUMBERS, index=False)
 
-    # figure 13 and its detailed version
-    figures = OUT / "figures"
-    gap = pd.read_csv(gene_ranking.GAP)
-    merged = gap[gap["kind"] == "merged profiles"].iloc[0]
+    # figure 13 and its detailed version, the band of the primary's gap behind them
+    merged = gene_ranking.merged_gap(gene_ranking.load_gap())
     band = (float(merged["equal_lo"]), float(merged["equal_hi"]))
-    fig = ish_plotting.plot_robustness(
-        summary, band, save=figures / ish_plotting.figure_file("robustness")
-    )
+    fig = ish_plotting.plot_robustness(summary, band, save=figure_path("robustness"))
     plt.close(fig)
     fig = ish_plotting.plot_robustness_detail(
-        summary,
-        per_gene,
-        subunits,
-        band,
-        save=figures / ish_plotting.figure_file("robustness_detail"),
+        summary, per_gene, subunits, band, save=figure_path("robustness_detail")
     )
     plt.close(fig)
-    drawn = [ish_plotting.figure_file(k) for k in ("robustness", "robustness_detail")]
-    print(f"figures: {', '.join(drawn)} in {figures}")
+    drawn = [figure_file(k) for k in ("robustness", "robustness_detail")]
+    print(f"figures: {', '.join(drawn)} in {structures.FIGURES}")
 
 
 if __name__ == "__main__":
