@@ -238,6 +238,11 @@ planes = [215, 265, 315]
 floor = 0.12
 diagnostic_p = 0.05        # panel E: a tilt or a fan of the residuals against the prediction (Spearman) below this p reads as a mis-specified model
 
+# the genes that follow the map most, characterised, and the tests named for the
+# leftover (ish.top_genes)
+[top_genes]
+n_added_surrogates = 1000  # maps with a gene's own smoothness added to the main model in its place, the null of the share of the leftover the gene takes; the smallest p is then 0.001, and the run about 4 minutes for 40 genes
+
 # the guided figures of the ISH analysis (ish.plotting)
 [ish_figures]
 plane = 700                # CCF plane at 10 um of every coronal panel (ISH section 35): cortex, hippocampus and thalamus in one section, the plane of Figure 1 of docs/history/ISH_DISCUSSION.md

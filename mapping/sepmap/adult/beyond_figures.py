@@ -612,4 +612,6 @@ def main() -> None:
         save=FIGURES / ish_plotting.figure_file("leftover_genes"),
     )
     plt.close(fig)
-    print(f"figures 03, 04 and 11 in {FIGURES}")
+    keys = ("beyond_budget", "beyond_where", "leftover_genes")
+    drawn = [ish_plotting.figure_file(k) for k in keys]
+    print(f"figures: {', '.join(drawn)} in {FIGURES}")

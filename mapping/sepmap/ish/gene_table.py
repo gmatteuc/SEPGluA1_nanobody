@@ -268,6 +268,18 @@ def gene_reliability(per: dict) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def gene_levels(table: pd.DataFrame) -> tuple[dict[str, float], dict[str, float]]:
+    """{gene: reliability} and {gene: median energy}, from the usable experiments.
+
+    `table` is the gene table; a gene measured once has no reliability.
+    """
+    region = load_region_table()
+    used = set(table.loc[~table["excluded"], "experiment_id"])
+    per = experiment_profiles(region[region["experiment_id"].isin(used)])
+    rel = gene_reliability(per).set_index("symbol")
+    return rel["reliability"].dropna().to_dict(), rel["median_energy"].to_dict()
+
+
 def profile_rows(per: dict) -> list[dict]:
     """Each gene's merged profile: the mean of its experiments' 0-1 ranks."""
     rows = []

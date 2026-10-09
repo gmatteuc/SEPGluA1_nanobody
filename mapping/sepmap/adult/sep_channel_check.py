@@ -38,9 +38,9 @@ the 100-gene panel; the arithmetic is unchanged.
 Writes, in adult_v2/ish_analysis/green_channel/ under the data root:
 
     sep_channel_check.csv    per adult: the ranges and the correlations
-    sep_channel_check.png    the working figure (guided figure 14 is the one to show)
+    sep_channel_check.png    the working figure (guided figure 17 is the one to show)
 
-Run by run_sep_channel_check.py, which also draws guided figure 14.
+Run by run_sep_channel_check.py, which also draws guided figure 17.
 """
 
 import math
@@ -297,7 +297,7 @@ def main_inputs() -> tuple[dict, dict[str, float], list[str]]:
 def main() -> tuple[dict, list[dict]]:
     """Measure the three channels per adult, write the table, print and draw it.
 
-    Returns the channel means and the rows, for guided figure 14.
+    Returns the channel means and the rows, for guided figure 17.
     """
     OUT.mkdir(parents=True, exist_ok=True)
     per, profile, structures = main_inputs()

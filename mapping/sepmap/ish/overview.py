@@ -45,7 +45,7 @@ from scipy.stats import f_oneway, false_discovery_control, spearmanr
 
 from sepmap.config import DATA, SETTINGS
 from sepmap.ish.gene_sets import set_test
-from sepmap.ish.plotting import FIGURES, QUESTIONS, figure_file, figure_ref
+from sepmap.ish.plotting import FIGURES, QUESTIONS, figure_file, figure_ref, ordinal
 from sepmap.structures import TABLES
 
 # the BH level the figures and the text count genes and sets at
@@ -113,7 +113,7 @@ def gather_numbers(tables: Path | None = None) -> pd.DataFrame:
         part.insert(0, "step", path.stem.removeprefix("numbers_"))
         parts.append(part)
     if not parts:
-        raise FileNotFoundError(f"no numbers_*.csv in {tables}: run steps 13 to 27 first")
+        raise FileNotFoundError(f"no numbers_*.csv in {tables}: run steps 13 to 29 first")
     return pd.concat(parts, ignore_index=True)
 
 
@@ -462,14 +462,6 @@ def pct(n: dict[str, str], key: str) -> str:
     return f"{num(n, key):.0%}"
 
 
-def ordinal(value: str | float) -> str:
-    """A rank as words write it: '1st', '2nd', '11th', '17th'."""
-    k = int(float(value))
-    if k % 100 in (11, 12, 13):
-        return f"{k}th"
-    return f"{k}{ {1: 'st', 2: 'nd', 3: 'rd'}.get(k % 10, 'th') }"
-
-
 def inside_or_past(p: float, q: float = 0.05) -> str:
     """'past its null' or 'inside its null', by the p and the level."""
     if p < q:
@@ -704,8 +696,74 @@ def gene_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
             f"{float(glia_q) if glia_q else float('nan'):.3f}), localisation "
             f"{num(n, 'beyond.leftover_set_localisation'):+.2f} (q "
             f"{num(n, 'beyond.leftover_set_q_localisation'):.2f}). Cacng8 was named "
-            "for this leftover in advance, its uncorrected p the test; the sets and "
-            "the other genes describe it.",
+            "for this leftover in advance, its uncorrected p the test, and the AMPA "
+            f"receptor complex family with it ({figure_ref('ampa_family')}); the sets "
+            "and the other genes describe it.",
+        ),
+    }
+
+
+def top_gene_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
+    """What to look at and what to take from figures 12 to 14."""
+    follow = n["top_genes.top_follow_leftover_list"].split()
+    alike = n["top_genes.top_take_alike_list"].split()
+    plain = n["top_genes.top_take_list"].split()
+    untested = n["top_genes.family_not_tested"].split()
+    past = n["top_genes.family_leftover_pass_within_list"].split()
+    gap_p = num(n, "gene_ranking.gap_p")
+    return {
+        "top_genes": (
+            "A, each gene's rho with the map against its pale null band, a red "
+            "diamond where the gene also follows the leftover; B, its mean rho inside "
+            "divisions; C, its rho with Gria1, the density terms and the main model's "
+            "prediction; D, what it takes of the leftover when added to the main "
+            "model, against maps of its smoothness.",
+            f"{n['top_genes.top_genes']} genes pass the map's null after BH, "
+            f"{n['top_genes.top_within']} of them inside divisions too. "
+            f"{len(follow)} also follow the leftover before correction "
+            f"({', '.join(follow) or 'none'}). Added to the main model, "
+            f"{len(alike)} take more of it than 95% of maps that relate to the model "
+            f"as they do ({', '.join(alike) or 'none'}), {len(plain)} more than 95% of "
+            f"their plain surrogates ({', '.join(plain) or 'none'}). Cacng8 takes "
+            f"{num(n, 'top_genes.taken_Cacng8'):.1%} of the reproducible map (p "
+            f"{num(n, 'top_genes.p_taken_alike_Cacng8'):.3f} against maps alike, "
+            f"{num(n, 'top_genes.p_taken_Cacng8'):.3f} against plain surrogates); its "
+            "rho with the main model's prediction is "
+            f"{num(n, 'top_genes.rho_prediction_Cacng8'):.2f}.",
+        ),
+        "cacng8_gria1": (
+            "A and B, the map against Gria1 and against Cacng8, one dot per "
+            "structure; C, what Gria1 and synapse density leave against Cacng8; D, "
+            "Cacng8's lead over Gria1 against maps that follow both alike.",
+            f"The map follows Cacng8 at {num(n, 'top_genes.rho_Cacng8'):+.2f} and "
+            f"Gria1 at {num(n, 'top_genes.rho_Gria1'):+.2f} (inside divisions "
+            f"{num(n, 'top_genes.rho_within_Cacng8'):+.2f} and "
+            f"{num(n, 'top_genes.rho_within_Gria1'):+.2f}); the two genes agree at "
+            f"{num(n, 'top_genes.rho_Gria1_Cacng8'):+.2f}. Cacng8's lead, "
+            f"{num(n, 'gene_ranking.gap'):+.2f}, is {inside_or_past(gap_p)} of maps "
+            f"that follow both alike (p {gap_p:.2f}). Against the leftover Cacng8 "
+            f"gives {num(n, 'top_genes.leftover_rho_Cacng8'):+.2f}, p "
+            f"{num(n, 'top_genes.leftover_p_Cacng8'):.4f}, the test named in advance.",
+        ),
+        "ampa_family": (
+            "A, each member of the family against the leftover, with its null band; "
+            "B, the family's median against the leftover's surrogates; C, against "
+            "postsynaptic genes of the same expression; D and E, the same on the map "
+            "itself, to describe the family.",
+            f"{n['top_genes.family_tested']} of the family's "
+            f"{n['top_genes.family_listed']} members have a usable map (not "
+            f"{', '.join(untested)}). Against the leftover the family's median is "
+            f"{num(n, 'top_genes.family_leftover_median'):+.3f}, spatial p "
+            f"{num(n, 'top_genes.family_leftover_p'):.3f}; against "
+            f"{n['top_genes.family_controls']} matched postsynaptic genes "
+            f"{num(n, 'top_genes.family_leftover_controls_difference'):+.3f}, p "
+            f"{num(n, 'top_genes.family_leftover_controls_p'):.3f}; "
+            f"{len(past)} member past BH within the family "
+            f"({', '.join(past) or 'none'}). On the map the median is "
+            f"{num(n, 'top_genes.family_nano_median'):+.3f} (p "
+            f"{num(n, 'top_genes.family_nano_p'):.3f}), against the same controls "
+            f"{num(n, 'top_genes.family_nano_controls_difference'):+.3f} (p "
+            f"{num(n, 'top_genes.family_nano_controls_p'):.3f}).",
         ),
     }
 
@@ -819,6 +877,36 @@ def part1_verdict(n: dict[str, str]) -> str:
     )
 
 
+def named_tests_text(n: dict[str, str]) -> str:
+    """The tests named in advance for the leftover, in words that follow the numbers."""
+    q = ISH_ANALYSIS["q"]
+    cacng8 = num(n, "top_genes.leftover_p_Cacng8")
+    spatial = num(n, "top_genes.family_leftover_p")
+    matched = num(n, "top_genes.family_leftover_controls_p")
+    first = "follows it" if cacng8 < q else "does not follow it"
+    if spatial < q and matched >= q:
+        family = (
+            "the AMPA receptor complex family follows it beyond the surrogates but "
+            "no more than postsynaptic genes of the same expression"
+        )
+    elif spatial < q:
+        family = (
+            "the AMPA receptor complex family follows it beyond the surrogates and "
+            "beyond matched postsynaptic genes"
+        )
+    elif matched < q:
+        family = (
+            "the AMPA receptor complex family follows it beyond matched postsynaptic "
+            "genes, not beyond the surrogates"
+        )
+    else:
+        family = "the AMPA receptor complex family as a group does not"
+    return (
+        f"Against what Gria1 and synapse density leave, Cacng8, named in advance, "
+        f"{first} (p {cacng8:.4f}); {family} (p {spatial:.3f} and {matched:.3f})."
+    )
+
+
 def part2_verdict(n: dict[str, str]) -> str:
     """Where part 2 stands, in words that follow the numbers."""
     q = ISH_ANALYSIS["q"]
@@ -840,8 +928,51 @@ def part2_verdict(n: dict[str, str]) -> str:
         "map follows Cacng8 and Gria1 beyond the null, inside divisions too, but "
         "Cacng8's lead over Gria1 is inside the null of maps related to both alike, "
         "no gene set passes, and the localisation genes do no better than matched "
-        "controls."
+        "controls. " + named_tests_text(n)
     )
+
+
+def top_gene_meanings(n: dict[str, str]) -> dict[str, str]:
+    """What figures 12 to 14 mean, each verdict following its numbers."""
+    q = ISH_ANALYSIS["q"]
+    follow = n["top_genes.top_follow_leftover_list"].split()
+    gap_p = num(n, "gene_ranking.gap_p")
+    cacng8 = num(n, "top_genes.leftover_p_Cacng8")
+    out = {}
+    if follow:
+        out["top_genes"] = (
+            "The genes that follow the map most are maps much like Gria1 and synapse "
+            "density, which is why the main model predicts most of the map; "
+            f"{len(follow)} of them also follow part of what it leaves "
+            f"({', '.join(follow)}). They describe the map; Cacng8's test is named "
+            "in advance, the others' are not."
+        )
+    else:
+        out["top_genes"] = (
+            "The genes that follow the map most are maps much like Gria1 and synapse "
+            "density; none of them follows what the main model leaves."
+        )
+    if gap_p >= q and cacng8 < q:
+        out["cacng8_gria1"] = (
+            "These maps cannot tell whether the nano map follows Cacng8 more "
+            "closely than Gria1, but Cacng8, named in advance, follows what Gria1 "
+            "and synapse density leave: the result that points the way the "
+            "surface-fraction reading does, a correspondence and not a measurement."
+        )
+    elif cacng8 < q:
+        out["cacng8_gria1"] = (
+            "The map follows Cacng8 more closely than Gria1, and Cacng8 follows what "
+            "Gria1 and synapse density leave."
+        )
+    else:
+        out["cacng8_gria1"] = (
+            "Cacng8 does not follow what Gria1 and synapse density leave beyond its null."
+        )
+    out["ampa_family"] = named_tests_text(n) + (
+        " The family was defined by the proteomics of native complexes and by GO, "
+        "before the main model ran."
+    )
+    return out
 
 
 def meanings(n: dict[str, str]) -> dict[str, str]:
@@ -953,8 +1084,8 @@ def meanings(n: dict[str, str]) -> dict[str, str]:
         out["leftover_genes"] = (
             "No single gene follows the leftover past BH over every gene"
             + (
-                "; the glia set does, a test not named in advance, so a lead to test "
-                "afresh, not a finding"
+                "; the glia set does, a test not named in advance, so an unplanned "
+                "lead, not a finding"
                 if glia
                 else ", and no gene set does"
             )
@@ -968,6 +1099,7 @@ def meanings(n: dict[str, str]) -> dict[str, str]:
             " Cacng8, the one gene named in advance, follows it "
             f"(p {cacng8_p:.4f}, uncorrected as named)."
         )
+    out |= top_gene_meanings(n)
     auto_p = num(n, "gene_ranking.auto_p_Gria1")
     above = int(float(n["overview.adults_nano_above_auto_Gria1"]))
     if auto_p >= q and above == 10:
@@ -1018,6 +1150,9 @@ PARTS = (
             "localisation",
             "between_within",
             "leftover_genes",
+            "top_genes",
+            "cacng8_gria1",
+            "ampa_family",
         ),
     ),
     ("Controls and limits", ("autofluorescence", "robustness", "green_channel")),
@@ -1038,6 +1173,9 @@ DRAWN_BY = {
     "localisation": "run_ish_gene_sets.py",
     "between_within": "run_ish_divisions.py",
     "leftover_genes": "run_beyond_figures.py",
+    "top_genes": "run_ish_top_genes.py",
+    "cacng8_gria1": "run_ish_top_genes.py",
+    "ampa_family": "run_ish_top_genes.py",
     "autofluorescence": "run_ish_gene_ranking.py",
     "robustness": "run_ish_robustness.py",
     "green_channel": "run_sep_channel_check.py",
@@ -1059,9 +1197,12 @@ receptors (Cacng8, a TARP; trafficking and scaffolding genes) are tested as
 corroboration of it, against abundance genes, unrelated genes and the spatial null.
 Three tests carry that corroboration: the Cacng8 - Gria1 gap ({gap}, panel B),
 localisation genes against matched controls once the subunit composite is removed
-({local}), and the genes against the leftover itself ({leftover}). The surface
-fraction is an interpretation, not a measurement: a total-GluA1 stain on the same
-brains would measure it, and the green channel cannot ({limit}).
+({local}), and the genes against the leftover itself ({leftover}). The genes that
+follow the map most are then described one by one ({top}), and the tests named in
+advance for the leftover, Cacng8 and the AMPA receptor complex family, are
+{family}. The surface fraction is an interpretation, not a measurement: a
+total-GluA1 stain on the same brains would measure it, and the green channel
+cannot ({limit}).
 """
 
 INDEX_TAIL = """## Sheets
@@ -1076,18 +1217,26 @@ INDEX_TAIL = """## Sheets
 - `genes/<gene>.png`: Cacng8, Gria1, Grm5, Dlg2 and Aqp4: the nano and gene rank
   maps, the scatter of ranks with one fitted line per division, the whole-brain and
   within-division rho with their p (`run_ish_divisions.py --sheets`).
+- `top_genes/<gene>.png`: every gene of figures 12 and 14 (the genes past the
+  map's null, Gria1, Cacng8 and the AMPA receptor complex family): its map, against
+  the map and against the leftover, what it takes of the leftover against maps of
+  its smoothness, what it is like, its numbers and GO terms
+  (`run_ish_top_genes.py --sheets`; PNG only).
 """
 
 
 def figure_index(n: dict[str, str]) -> str:
     """figures/README.md: the guided walk, each figure with its question and caption."""
-    walk = input_walk(n) | beyond_walk(n) | gene_walk(n) | control_walk(n)
+    walk = input_walk(n) | beyond_walk(n) | gene_walk(n) | top_gene_walk(n)
+    walk |= control_walk(n)
     meaning = meanings(n)
     lines = [
         INDEX_HEAD.format(
             gap=figure_ref("gene_ranking"),
             local=figure_ref("localisation"),
             leftover=figure_ref("leftover_genes"),
+            top=figure_ref("top_genes"),
+            family=f"{figure_ref('cacng8_gria1')} and {figure_ref('ampa_family')}",
             limit=figure_ref("green_channel"),
         )
     ]
@@ -1163,7 +1312,7 @@ def argument_text(n: dict[str, str]) -> list[tuple[str, str]]:
             "(Cacng8, trafficking and scaffolding genes) should track the map better "
             "than abundance genes or unrelated genes, beyond the spatial null "
             f"(figures {FIGURES['one_comparison']:02d} to "
-            f"{FIGURES['leftover_genes']:02d}). This run: Cacng8 leads Gria1 by "
+            f"{FIGURES['ampa_family']:02d}). This run: Cacng8 leads Gria1 by "
             f"{num(n, 'gene_ranking.gap'):+.2f} (p {gap_p:.2f} against maps related "
             f"to both alike); {sets_past} of {sets} gene sets pass; localisation "
             "against matched controls "
@@ -1173,7 +1322,11 @@ def argument_text(n: dict[str, str]) -> list[tuple[str, str]]:
             f"found); {n['beyond.leftover_genes_pass']} of "
             f"{n['beyond.leftover_genes']} genes follow the leftover past BH, and "
             "Cacng8, named for it in advance, has spatial p "
-            f"{num(n, 'beyond.leftover_p_Cacng8'):.4f}.\n" + part2_verdict(n),
+            f"{num(n, 'beyond.leftover_p_Cacng8'):.4f}; the AMPA receptor complex "
+            f"family, p {num(n, 'top_genes.family_leftover_p'):.3f} against the "
+            "surrogates and "
+            f"{num(n, 'top_genes.family_leftover_controls_p'):.3f} against matched "
+            "controls.\n" + part2_verdict(n),
         ),
         (
             "The limit",
@@ -1271,7 +1424,7 @@ def gene_rows(n: dict[str, str]) -> list[dict]:
         dict(
             part="part 2",
             title="Part 2: gene by gene",
-            figures=figs("one_comparison", "spatial_null", "gene_ranking"),
+            figures=figs("one_comparison", "spatial_null", "gene_ranking", "top_genes"),
             question="Which genes' maps order the structures as the nano map does, "
             "beyond a map with its smoothness? Does Cacng8 lead Gria1?",
             lines=[
@@ -1290,6 +1443,11 @@ def gene_rows(n: dict[str, str]) -> list[dict]:
                 "the spatial p is calibrated: "
                 f"{num(n, 'spatial_null.fpr_spatial_map'):.1%} false positives at "
                 f"0.05 (ordinary p: {pct(n, 'spatial_null.fpr_ordinary_map')})",
+                f"of the {n['top_genes.top_genes']} past the null, "
+                f"{n['top_genes.top_follow_leftover']} also follow the leftover; "
+                f"Cacng8 takes {num(n, 'top_genes.taken_Cacng8'):.1%} of the map from "
+                f"it (p {num(n, 'top_genes.p_taken_alike_Cacng8'):.3f} against maps "
+                "alike to the model)",
             ],
             open="A background panel of a few thousand Allen genes, to place the "
             "panel among genes nobody chose.",
@@ -1346,7 +1504,7 @@ def gene_rows(n: dict[str, str]) -> list[dict]:
         dict(
             part="part 2",
             title="Part 2: the leftover itself",
-            figures=figs("leftover_genes"),
+            figures=figs("leftover_genes", "cacng8_gria1", "ampa_family"),
             question="Does any gene, or any kind of gene, follow what Gria1 and "
             "synapse density leave?",
             lines=[
@@ -1360,8 +1518,15 @@ def gene_rows(n: dict[str, str]) -> list[dict]:
                 f"{float(glia_q) if glia_q else float('nan'):.3f}), localisation "
                 f"{num(n, 'beyond.leftover_set_localisation'):+.2f}; of these, only "
                 "Cacng8 named in advance",
+                "the AMPA receptor complex family, named in advance: median "
+                f"{num(n, 'top_genes.family_leftover_median'):+.3f}, p "
+                f"{num(n, 'top_genes.family_leftover_p'):.3f} against the "
+                "surrogates, "
+                f"{num(n, 'top_genes.family_leftover_controls_p'):.3f} against "
+                "matched controls",
             ],
-            open="Whether the glia lead holds, tested afresh on other data.",
+            open="The glia set's lead from the first, four-subunit model of 8 "
+            "October: unplanned, not pursued.",
         ),
     ]
 

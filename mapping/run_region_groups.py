@@ -25,9 +25,9 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     16. run_ish_spatial_null   A7: surrogate maps and their checks
     17. run_ish_gene_ranking   analysis 1: each gene against the
                                map, the null, autofluorescence (A8),
-                               the Cacng8 - Gria1 gap; figures 05 to 07 and 12
+                               the Cacng8 - Gria1 gap; figures 05 to 07 and 15
     18. run_ish_robustness     A3: the ranking under other choices;
-                               figure 13
+                               figure 16
     19. run_ish_divisions      analysis 2 (A6): between or within
                                divisions; figure 10, gene sheets
     20. run_ish_gene_sets      analysis 3: kinds of genes; localisation
@@ -42,9 +42,13 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                is known
     25. run_beyond_regression  the regression, per structure
     26. run_beyond_figures     figures 03, 04 and 11
-    27. run_sep_channel_check  analysis 5: what the green channel
-                               reports; figure 14
-    28. run_ish_overview       figures 00 and 15, the figure index;
+    27. run_ish_top_genes      the genes that follow the map most,
+                               characterised; Cacng8 and the AMPA
+                               receptor complex family against the
+                               leftover; figures 12 to 14, sheets
+    28. run_sep_channel_check  analysis 5: what the green channel
+                               reports; figure 17
+    29. run_ish_overview       figures 00 and 18, the figure index;
                                the numbers for the text
 
 The per-mouse measurements of run_region_plot, pooled into sensory systems

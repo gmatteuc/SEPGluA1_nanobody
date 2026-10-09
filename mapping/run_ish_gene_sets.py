@@ -25,9 +25,9 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     16. run_ish_spatial_null   A7: surrogate maps and their checks
     17. run_ish_gene_ranking   analysis 1: each gene against the
                                map, the null, autofluorescence (A8),
-                               the Cacng8 - Gria1 gap; figures 05 to 07 and 12
+                               the Cacng8 - Gria1 gap; figures 05 to 07 and 15
     18. run_ish_robustness     A3: the ranking under other choices;
-                               figure 13
+                               figure 16
     19. run_ish_divisions      analysis 2 (A6): between or within
                                divisions; figure 10, gene sheets
     20. run_ish_gene_sets      analysis 3: kinds of genes; localisation   <- this script
@@ -42,9 +42,13 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                is known
     25. run_beyond_regression  the regression, per structure
     26. run_beyond_figures     figures 03, 04 and 11
-    27. run_sep_channel_check  analysis 5: what the green channel
-                               reports; figure 14
-    28. run_ish_overview       figures 00 and 15, the figure index;
+    27. run_ish_top_genes      the genes that follow the map most,
+                               characterised; Cacng8 and the AMPA
+                               receptor complex family against the
+                               leftover; figures 12 to 14, sheets
+    28. run_sep_channel_check  analysis 5: what the green channel
+                               reports; figure 17
+    29. run_ish_overview       figures 00 and 18, the figure index;
                                the numbers for the text
 
 Tests the gene sets fixed in advance (sepmap/ish/gene_sets.py) against the adult
@@ -159,15 +163,6 @@ def named_terms(text, names):
     return re.sub(r"GO:\d{7}", name, text)
 
 
-def gene_levels(table):
-    """{gene: reliability} and {gene: median energy}, from the usable experiments."""
-    region = gene_table.load_region_table()
-    used = set(table.loc[~table["excluded"], "experiment_id"])
-    per = gene_table.experiment_profiles(region[region["experiment_id"].isin(used)])
-    rel = gene_table.gene_reliability(per).set_index("symbol")
-    return rel["reliability"].dropna().to_dict(), rel["median_energy"].to_dict()
-
-
 def main():
     """Print the settings, then test the sets, the contrasts and localisation."""
     config.print_settings({})
@@ -216,7 +211,7 @@ def main():
     common, composite, subunit_ranks = gene_sets.subunit_composite(
         members["subunits"], merged, declared
     )
-    reliability, level = gene_levels(table)
+    reliability, level = gene_table.gene_levels(table)
     map_common = profile.loc[common, "zref_nano"].to_numpy(float)
     sides = {g: "localisation" for g in members["localisation"]}
     sides.update({g: "control" for g in members["other postsynaptic"]})
@@ -320,7 +315,8 @@ def main():
         save=figures / ish_plotting.figure_file("localisation"),
     )
     plt.close(fig)
-    print(f"figures: 09 and 10 in {figures}")
+    drawn = [ish_plotting.figure_file(k) for k in ("gene_sets", "localisation")]
+    print(f"figures: {', '.join(drawn)} in {figures}")
 
 
 if __name__ == "__main__":
