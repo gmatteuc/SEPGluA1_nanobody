@@ -738,8 +738,8 @@ detailed version, and part 1 run once more the same day in its second version
 ([ISH_ANALYSIS.md](ISH_ANALYSIS.md)). Still open: what the leftover of the
 beyond-abundance analysis is (a total-receptor channel); the broad negative
 pattern of genes expressed in every neuron against the second version's leftover,
-which are also the genes the tissue's autofluorescence follows, exploratory so far
-(ISH_ANALYSIS.md, section 8.2); a background panel of a few
+which are also the genes the tissue's autofluorescence follows, exploratory, with
+no named test for now (ISH_ANALYSIS.md, sections 5.7 and 8.1); a background panel of a few
 thousand Allen genes, to place the panel's genes among genes nobody chose; and
 the true absences of the section QC, proposed and not yet reviewed.
 
@@ -826,6 +826,14 @@ For the reasons, see the plan and the documents named.
   panels with one line saying what to take from it, its detailed version the
   same number with an s; the overview a one-page summary. The arm modules and
   their run scripts moved to `archive/`.
+- **The ISH line's reporting choices** (Giulio, 9 October, as recommended after
+  the reviews; [ISH_ANALYSIS.md](ISH_ANALYSIS.md), section 8.1): the floor errs
+  both ways; the curved model stays a check, with no spline row; both intervals
+  of part 1 are quoted, the one over structures first; the density term keeps
+  its committed rule; tier 3 stays exploratory, with no named test now; control
+  F's range goes from 40 to 60 components (it now peaks inside it, at 47, and
+  predicts 85%; the control passes as before); version 1's benchmark sentence
+  stays in the record.
 - **The adult map by depth** (Giulio, 9 October): the mean flatmaps in
   `PuOr_r` at ±0.9 zref, as the adult column of the young-against-adult
   flatmaps, with a hot version (`run_adult_layers --cmap hot`); the bars grey by

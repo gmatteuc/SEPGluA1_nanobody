@@ -312,9 +312,10 @@ split between Gria1 and density is loosely fixed under it.
   six pass (figure 03s2; `adult_v2\ish_analysis\beyond\controls.csv`). Control E
   does not: curving the two terms raises the held-out R² from 0.551 to 0.615, so
   part of the straight leftover is curvature; the curved check row shows how much
-  (not a bound: fifth powers leave 36%). The components of the 209 genes measured in every structure predict
-  81%, and the nano map stands above that model's own floor (22% to 24% left
-  against 3% to 5%). So the claim is "not predicted by Gria1 expression or
+  (not a bound: fifth powers leave 36%). The components of the 209 genes
+  measured in every structure predict 85% (most often 47 components, picked
+  inside each training fold), and the nano map stands above that model's own
+  floor (22% to 24% left against 3% to 5%). So the claim is "not predicted by Gria1 expression or
   synapse density", never "beyond gene expression".
 - The leftover is in good part a contrast between divisions (40% of its
   variance): the hippocampal formation, the striatum and olfactory areas sit
