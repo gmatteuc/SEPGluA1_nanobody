@@ -4684,7 +4684,7 @@ def numbers_block(row: pd.Series) -> list[str]:
         f"{row['rho_variants_max']:+.2f}",
         f"inside divisions: {row['rho_within']:+.2f}, q {row['q_within']:.3f}",
         f"with the leftover: rank {int(row['leftover_rank'])}, q over every gene "
-        f"{row['leftover_q_all']:.2f}",
+        f"{row['leftover_q_all']:.3f}",
         f"the main model on its {int(row['n_added'])} structures leaves "
         f"{row['left_main']:.1%}, with the gene {row['left_with_gene']:.1%}",
     ]
