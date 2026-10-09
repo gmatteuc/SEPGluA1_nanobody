@@ -30,16 +30,19 @@ import pandas as pd
 from matplotlib.lines import Line2D
 
 from sepmap.config import SETTINGS
-from sepmap.plotting import RED, hot_cut, save_figure, tidy, transparent_bad
+from sepmap.plotting import (
+    NANO,
+    NANO_DOT,
+    RED,
+    hot_cut,
+    save_figure,
+    tidy,
+    transparent_bad,
+)
 from sepmap.young_vs_adult import closeup
 
 ADULT_LAYERS = SETTINGS["adult_layers"]
 CLOSEUP = SETTINGS["closeup"]
-
-# the nano channel and its per-mouse dots, as sep_palette('nano') and ('nano_dot');
-# plotting.py holds no channel colours yet
-NANO = (0.95, 0.55, 0.10)
-NANO_DOT = (0.65, 0.30, 0.00)
 
 # the marker of each adult group
 GROUP_MARKERS = {"naive": "o", "rws": "^"}
