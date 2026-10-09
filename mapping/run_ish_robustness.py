@@ -86,8 +86,8 @@ import matplotlib.pyplot as plt
 from sepmap import config, plotting, structures
 from sepmap.adult import profiles
 from sepmap.ish import gene_ranking, gene_sets, gene_table, robustness
-from sepmap.ish import plotting as ish_plotting
 from sepmap.ish.figure_index import figure_file, figure_path
+from sepmap.ish.plotting import ranking as ranking_figures
 
 
 def main():
@@ -122,9 +122,9 @@ def main():
     # primary's two-sided test, fixed in advance, does not pass
     merged = gene_ranking.merged_gap(gene_ranking.load_gap())
     band = (-float(merged["equal_two_sided"]), float(merged["equal_two_sided"]))
-    fig = ish_plotting.plot_robustness(summary, band, save=figure_path("robustness"))
+    fig = ranking_figures.plot_robustness(summary, band, save=figure_path("robustness"))
     plt.close(fig)
-    fig = ish_plotting.plot_robustness_detail(
+    fig = ranking_figures.plot_robustness_detail(
         summary, per_gene, subunits, band, save=figure_path("robustness_detail")
     )
     plt.close(fig)

@@ -5,8 +5,9 @@ The guided figures of part 1, how much of the map Gria1 and synapse density leav
 (14, 14s), drawn as the ISH line's: number and question at the top, one
 line to take from a main figure, grey notes on how to read it at the foot, a
 takeaway that follows its numbers; their shared pieces (heading, footer, panel
-titles, the scatter of structures by group of divisions) are those of ish.plotting,
-so the walk reads as one set, and they are saved as PNG and EPS at its dpi. Beside
+titles, the scatter of structures by group of divisions) are those of
+ish.plotting.shared, so the walk reads as one set, and they are saved as PNG and EPS
+at its dpi. Beside
 them, the working figures of the steps (fig0 to fig6, E_regression, F_maps,
 sep_channel_check.png), PNG only at 200 dpi, which show each step's numbers as it
 runs. The modules that compute draw nothing: every function here takes tables and
@@ -29,7 +30,7 @@ from sepmap.adult.beyond_calibration import FLOOR_MAP
 from sepmap.ish.figure_index import figure_ref
 from sepmap.ish.gene_sets import AMPA_FAMILY, LEFTOVER_GENE
 from sepmap.ish.numbers import points as points_text
-from sepmap.ish.plotting import (
+from sepmap.ish.plotting.shared import (
     DIVISION_ORDER,
     RANK_FLOOR,
     colour_bar,

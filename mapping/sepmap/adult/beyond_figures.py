@@ -82,7 +82,7 @@ from sepmap.ish.figure_index import figure_file, figure_path
 from sepmap.ish.gene_sets import LEFTOVER_GENE
 from sepmap.ish.numbers import numbers_frame, numbers_path
 from sepmap.ish.numbers import points as points_text
-from sepmap.ish.plotting import group_of
+from sepmap.ish.plotting.shared import group_of
 from sepmap.ish.spatial_null import ALPHA
 from sepmap.plotting import paint
 

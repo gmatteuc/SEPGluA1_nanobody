@@ -104,8 +104,8 @@ from sepmap import config, plotting
 from sepmap.adult import density_markers, synaptome
 from sepmap.adult import plotting as adult_plotting
 from sepmap.ish import gene_table
-from sepmap.ish import plotting as ish_plotting
 from sepmap.ish.figure_index import figure_path
+from sepmap.ish.plotting import shared as shared_figures
 from sepmap.structures import load_structure_set
 
 # the number of genes chosen and of random halves
@@ -246,7 +246,7 @@ def main(offline):
         agreement,
         density_markers.composite_on(chosen, profiles, measured),
         psd95.reindex(measured),
-        ish_plotting.group_of(set_table),
+        shared_figures.group_of(set_table),
         selection,
         comparison,
         reasons,

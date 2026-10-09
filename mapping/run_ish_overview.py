@@ -89,8 +89,8 @@ import pandas as pd
 
 from sepmap import config, plotting, structures
 from sepmap.ish import april_headline, gene_ranking, numbers, overview, robustness
-from sepmap.ish import plotting as ish_plotting
 from sepmap.ish.figure_index import FIGURE_NUMBERS, figure_file, figure_path
+from sepmap.ish.plotting import headline as headline_figures
 
 ISH_ANALYSIS = config.SETTINGS["ish_analysis"]
 
@@ -145,7 +145,7 @@ def main():
 
     # figure 16 and its detailed version: April's headline; figure 00: the
     # overview; the index
-    fig = ish_plotting.plot_april_headline(
+    fig = headline_figures.plot_april_headline(
         headline,
         anova,
         groups,
@@ -155,7 +155,7 @@ def main():
         save=figure_path("april_headline"),
     )
     plt.close(fig)
-    fig = ish_plotting.plot_april_headline_detail(
+    fig = headline_figures.plot_april_headline_detail(
         headline,
         anova,
         groups,
@@ -166,7 +166,7 @@ def main():
         save=figure_path("april_headline_detail"),
     )
     plt.close(fig)
-    fig = ish_plotting.plot_overview(
+    fig = headline_figures.plot_overview(
         overview.overview_content(n),
         overview.figure_map(),
         save=figure_path("overview"),

@@ -97,8 +97,8 @@ from sepmap.ish import (
     planes,
     spatial_null,
 )
-from sepmap.ish import plotting as ish_plotting
 from sepmap.ish.figure_index import figure_file, figure_path
+from sepmap.ish.plotting import sets as set_figures
 from sepmap.volumes.per_mouse import structure_terms
 
 ISH_ANALYSIS = config.SETTINGS["ish_analysis"]
@@ -115,7 +115,7 @@ def draw_figures(within, detail, map_values, division, merged, calibration, subu
     )
     example = divisions.EXAMPLE_GENE
     min_structures = ISH_ANALYSIS["min_division_structures"]
-    fig = ish_plotting.plot_between_within(
+    fig = set_figures.plot_between_within(
         within,
         map_values,
         coarse,
@@ -129,7 +129,7 @@ def draw_figures(within, detail, map_values, division, merged, calibration, subu
         save=figure_path("between_within"),
     )
     plt.close(fig)
-    fig = ish_plotting.plot_between_within_detail(
+    fig = set_figures.plot_between_within_detail(
         within,
         detail,
         map_values,
@@ -160,7 +160,7 @@ def draw_sheets(within, detail, map_values, merged, ranking, n_surrogates):
     by_gene = within.set_index("symbol")
     nano_rows = gene_ranking.map_rows(ranking, "nano")
     for gene in divisions.DETAIL_GENES:
-        fig = ish_plotting.plot_gene_sheet(
+        fig = set_figures.plot_gene_sheet(
             gene,
             map_values,
             merged[gene],

@@ -94,8 +94,9 @@ import pandas as pd
 from sepmap import config, plotting, structures
 from sepmap.adult import profiles
 from sepmap.ish import gene_ranking, gene_sets, gene_table, planes, spatial_null
-from sepmap.ish import plotting as ish_plotting
 from sepmap.ish.figure_index import figure_file, figure_path
+from sepmap.ish.plotting import ranking as ranking_figures
+from sepmap.ish.plotting import shared as shared_figures
 from sepmap.volumes.per_mouse import structure_terms
 
 ISH_ANALYSIS = config.SETTINGS["ish_analysis"]
@@ -118,7 +119,7 @@ def draw_comparison(ranking, merged, table, profile, surr, nulls, vectors):
     rows = planes.comparison_rows(
         nano, merged, table, lab, plane, gene_ranking.QUOTED_GENES
     )
-    fig = ish_plotting.plot_one_comparison(
+    fig = ranking_figures.plot_one_comparison(
         map_values,
         rows,
         set_table,
@@ -129,7 +130,7 @@ def draw_comparison(ranking, merged, table, profile, surr, nulls, vectors):
         save=figure_path("one_comparison"),
     )
     plt.close(fig)
-    fig = ish_plotting.plot_one_comparison_detail(
+    fig = ranking_figures.plot_one_comparison_detail(
         map_values,
         planes.nano_plane(plane),
         rows,
@@ -146,12 +147,12 @@ def draw_comparison(ranking, merged, table, profile, surr, nulls, vectors):
     # a surrogate holds the ranks 1 to n, drawn as 0 to 1
     variogram = pd.read_csv(spatial_null.VARIOGRAM)
     calibration = pd.read_csv(spatial_null.CALIBRATION)
-    fig = ish_plotting.plot_spatial_null(
+    fig = ranking_figures.plot_spatial_null(
         variogram, calibration, n_surrogates, save=figure_path("spatial_null")
     )
     plt.close(fig)
     n = len(declared)
-    map_ranks = dict(zip(declared, ish_plotting.ranks01(map_values.to_numpy())))
+    map_ranks = dict(zip(declared, shared_figures.ranks01(map_values.to_numpy())))
     surrogate_ranks = [
         dict(zip(declared, (surr["nano"][k] - 1) / (n - 1)))
         for k in range(SURROGATES_SHOWN)
@@ -161,7 +162,7 @@ def draw_comparison(ranking, merged, table, profile, surr, nulls, vectors):
         (g, nano.loc[g, "rho"], nulls["nano"][tested.index(g)], nano.loc[g, "p_spatial"])
         for g in gene_ranking.GAP_GENES
     ]
-    fig = ish_plotting.plot_spatial_null_detail(
+    fig = ranking_figures.plot_spatial_null_detail(
         variogram,
         calibration,
         map_ranks,
@@ -179,7 +180,7 @@ def draw_comparison(ranking, merged, table, profile, surr, nulls, vectors):
 def draw_ranking(ranking, gap, gap_null, per_adult, subunits, n_surrogates):
     """Figure 07s, P9's genes and the gap; figure 12 and 12s, autofluorescence."""
     q = ISH_ANALYSIS["q"]
-    fig = ish_plotting.plot_gene_ranking(
+    fig = ranking_figures.plot_gene_ranking(
         ranking,
         gap,
         gap_null,
@@ -190,7 +191,7 @@ def draw_ranking(ranking, gap, gap_null, per_adult, subunits, n_surrogates):
         save=figure_path("gene_ranking"),
     )
     plt.close(fig)
-    fig = ish_plotting.plot_autofluorescence(
+    fig = ranking_figures.plot_autofluorescence(
         ranking,
         per_adult,
         subunits,
@@ -199,7 +200,7 @@ def draw_ranking(ranking, gap, gap_null, per_adult, subunits, n_surrogates):
         save=figure_path("autofluorescence"),
     )
     plt.close(fig)
-    fig = ish_plotting.plot_autofluorescence_detail(
+    fig = ranking_figures.plot_autofluorescence_detail(
         ranking,
         per_adult,
         subunits,

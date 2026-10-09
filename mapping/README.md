@@ -40,9 +40,15 @@ mapping/
                         divisions, gene_sets, top_genes, april_headline, overview
                         (the ISH analysis); numbers (each step's numbers for the
                         text), figure_index (the guided figures' numbers and
-                        questions), planes (the coronal images a figure shows),
-                        plotting (its figures); compare, words, roles, panel_test
-                        (the run of 5 October, retiring)
+                        questions), planes (the coronal images a figure shows);
+                        compare, words, roles, panel_test (the run of 5 October,
+                        retiring)
+      plotting/         its figures, a module per part: inputs (01, 02, the QC
+                        sheets), ranking (05, 06, 07s, 12, 13), sets (09, 10, the
+                        gene sheets), leftover (07, 08, 11, 11s2, the top-gene
+                        sheets), headline (00, 15); shared (the title, notes and
+                        save of every figure, and the pieces several draw, which
+                        adult/plotting uses too)
 ```
 
 ## Setup and run

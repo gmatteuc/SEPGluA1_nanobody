@@ -8,7 +8,7 @@ from scipy.stats import false_discovery_control
 from sepmap.adult import beyond_density
 from sepmap.adult.profiles import ADULTS
 from sepmap.ish import gene_sets, spatial_null, top_genes
-from sepmap.ish import plotting as ish_plotting
+from sepmap.ish.plotting import leftover as leftover_figures
 
 
 def test_the_genes_and_their_tiers():
@@ -284,12 +284,12 @@ def test_figure_08s_line_says_only_what_the_two_sided_test_says():
     lead, no band, no "more closely".
     """
     gap = pd.Series(dict(gap=0.167, p_equal=0.105, equal_lo=-0.224, equal_hi=0.166))
-    line = ish_plotting.gap_verdict(gap)
+    line = leftover_figures.gap_verdict(gap)
     assert "+0.17, is inside the two-sided test" in line
     for word in ("lead", "band", "closely"):
         assert word not in line
     gap["p_equal"] = 0.01
-    assert "is past the two-sided test" in ish_plotting.gap_verdict(gap)
+    assert "is past the two-sided test" in leftover_figures.gap_verdict(gap)
 
 
 def test_figure_11s2s_line_names_the_members_past_bh_and_their_sign():
@@ -299,12 +299,12 @@ def test_figure_11s2s_line_names_the_members_past_bh_and_their_sign():
         for name, p in (("first", 0.0066), ("spatial", 0.92), ("matched", 0.29))
     }
     past = pd.DataFrame(dict(symbol=["Olfm1", "Gria4"], leftover_rho=[-0.2, -0.5]))
-    line = ish_plotting.family_takeaway(t, past, 10000)
+    line = leftover_figures.family_takeaway(t, past, 10000)
     assert line.endswith("past BH within it: Olfm1, Gria4, each below zero")
     assert "does not pass the surrogates" in line
     mixed = past.assign(leftover_rho=[0.2, -0.5])
-    assert ish_plotting.family_takeaway(t, mixed, 10000).endswith("Olfm1, Gria4")
-    none = ish_plotting.family_takeaway(t, past.iloc[:0], 10000)
+    assert leftover_figures.family_takeaway(t, mixed, 10000).endswith("Olfm1, Gria4")
+    none = leftover_figures.family_takeaway(t, past.iloc[:0], 10000)
     assert none.endswith("no member passes BH within it")
 
 

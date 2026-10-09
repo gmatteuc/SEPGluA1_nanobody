@@ -157,8 +157,8 @@ Each is defined in one place; never copy a value into a script.
   never types one. `plotting.bars_grey(t, t_max)` is
   `sep_palette('bars')`: grey 0.78 at t = 0 to black at t_max.
 - Scatter plots of many structures: 35-point dots, no edge, alpha 0.85.
-- Names beside dots never sit on each other: `ish/plotting.spread_labels` (a
-  scatter) and `spread_positions` (a column of names) move them apart and join
+- Names beside dots never sit on each other: `ish/plotting/shared.spread_labels`
+  (a scatter) and `spread_positions` (a column of names) move them apart and join
   a moved name to its dot. A spatial p is written `p = 0.012` (three decimals),
   or `p ≤ 0.0001` when no surrogate reached it.
 - Counts in titles are computed, never typed. Coronal planes are drawn dorsal
@@ -297,13 +297,19 @@ file follows it, `tools/` included (Y5).
   analysis, laid out the same way (`sepmap/volumes/`, `young_vs_adult/`).
 - `config.py` loads the settings and holds the paths. `plotting.py` holds the
   palette, the style, the save function and every figure function (one per
-  sub-package with figures); the modules that compute draw nothing. In the
-  Python route, `mapping/sepmap/plotting.py` holds the palette, the
-  colormaps, `save_figure` and the drawing several modules share (the coronal
-  frame, a structure map painted on a plane and its borders); `ish/plotting.py`
-  and `adult/plotting.py` hold the figures of those two sub-packages. The
-  figure functions of `volumes/` and `young_vs_adult/` are still in their
-  modules, and new figure code goes into a plotting module.
+  sub-package with figures); the modules that compute draw nothing. A plotting
+  module too long to read as one (a few thousand lines) becomes a package,
+  `plotting/`, with one module per part of the analysis, named for the part,
+  and `shared.py` for what more than one of them uses; nothing else is shared
+  between them, and a run script imports the module it draws with as
+  `<part>_figures` (`from sepmap.ish.plotting import ranking as
+  ranking_figures`). In the Python route, `mapping/sepmap/plotting.py` holds
+  the palette, the colormaps, `save_figure` and the drawing several modules
+  share (the coronal frame, a structure map painted on a plane and its
+  borders); `ish/plotting/` (`shared`, `inputs`, `ranking`, `sets`,
+  `leftover`, `headline`) and `adult/plotting.py` hold the figures of those
+  two sub-packages. The figure functions of `volumes/` and `young_vs_adult/`
+  are still in their modules, and new figure code goes into a plotting module.
 - Only run scripts have an `if __name__ == "__main__":` block. `__init__.py`
   is empty or a one-line docstring.
 - Notebooks are optional, numbered (`01_exploration.ipynb`), and only call the
@@ -463,9 +469,11 @@ def fit_all(matrix, return_flags=False):
   spine, Type 42 fonts in an EPS), `bars_grey`, `draw_plane` (one coronal
   plane in a panel: the atlas dark grey under the data, borders on top), the
   save function and `tidy` for the axes. The figure functions of the ISH
-  analysis are in `mapping/sepmap/ish/plotting.py`, those of the adult map
-  (part 1 of the ISH line, the green channel and the working figures of steps
-  22 to 25) in `mapping/sepmap/adult/plotting.py`.
+  analysis are in `mapping/sepmap/ish/plotting/`, a module per part (the
+  inputs, each gene against the map with its checks, divisions and gene sets,
+  the genes against the leftover, the overview), those of the adult map (part
+  1 of the ISH line, the green channel and the working figures of steps 22 to
+  25) in `mapping/sepmap/adult/plotting.py`.
 - The save function closes the figure after `fig.savefig(save, dpi=150,
   bbox_inches="tight")`; new figures use its dpi, existing ones keep theirs.
   The route's `plotting.save_figure(fig, path, dpi)` writes the PNG and, by

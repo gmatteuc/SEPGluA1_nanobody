@@ -94,8 +94,8 @@ import pandas as pd
 from sepmap import config, plotting, structures
 from sepmap.adult import beyond_density, profiles
 from sepmap.ish import divisions, gene_ranking, gene_sets, planes, robustness, top_genes
-from sepmap.ish import plotting as ish_plotting
 from sepmap.ish.figure_index import figure_file, figure_path
+from sepmap.ish.plotting import leftover as leftover_figures
 from sepmap.volumes.per_mouse import structure_terms
 
 ISH_ANALYSIS = config.SETTINGS["ish_analysis"]
@@ -153,11 +153,11 @@ def draw_figures(table, inputs, leftover, tests, group_nulls, members, residual,
     map_values = profiles.load_profile().loc[
         structures.declared_structures(), "zref_nano"
     ]
-    fig = ish_plotting.plot_top_genes(
+    fig = leftover_figures.plot_top_genes(
         table, q, ISH_FIGURES["t_max"], save=figure_path("top_genes")
     )
     plt.close(fig)
-    fig = ish_plotting.plot_cacng8_gria1(
+    fig = leftover_figures.plot_cacng8_gria1(
         table.set_index("symbol"),
         map_values,
         inputs.expr,
@@ -168,7 +168,7 @@ def draw_figures(table, inputs, leftover, tests, group_nulls, members, residual,
         save=figure_path("cacng8_gria1"),
     )
     plt.close(fig)
-    fig = ish_plotting.plot_leftover(
+    fig = leftover_figures.plot_leftover(
         table,
         residual,
         inputs.expr[gene_sets.LEFTOVER_GENE],
@@ -181,7 +181,7 @@ def draw_figures(table, inputs, leftover, tests, group_nulls, members, residual,
         save=figure_path("leftover"),
     )
     plt.close(fig)
-    fig = ish_plotting.plot_ampa_family(
+    fig = leftover_figures.plot_ampa_family(
         table[table["family"]],
         tests,
         group_nulls,
@@ -210,7 +210,7 @@ def draw_sheets(table, inputs, residual, added_nulls, n):
     folder = structures.FIGURES / "top_genes"
     folder.mkdir(parents=True, exist_ok=True)
     for _, row in table.iterrows():
-        fig = ish_plotting.plot_top_gene_sheet(
+        fig = leftover_figures.plot_top_gene_sheet(
             row,
             map_values,
             inputs.expr[row["symbol"]],

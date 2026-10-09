@@ -90,7 +90,7 @@ import matplotlib.pyplot as plt
 
 from sepmap import config, plotting, structures
 from sepmap.ish import gene_table, planes, regions, section_qc
-from sepmap.ish import plotting as ish_plotting
+from sepmap.ish.plotting import inputs as input_figures
 
 # the QC sheets and the overview of the flags
 QC_FIGURES = structures.FIGURES / "qc"
@@ -110,7 +110,7 @@ def draw_sheets(sections, summary, shape, redraw):
             continue
         table = sections[sections["experiment_id"] == r["experiment_id"]]
         grid = section_qc.read_grid(r["experiment_id"], shape)
-        fig = ish_plotting.plot_qc_sheet(table, r, grid, template, labels, save=path)
+        fig = input_figures.plot_qc_sheet(table, r, grid, template, labels, save=path)
         plt.close(fig)
         n_drawn += 1
         if i % 50 == 0:
@@ -154,7 +154,7 @@ def main(sheets, redraw, offline):
     # the overview of the flags, and with --sheets one sheet per experiment
     QC_FIGURES.mkdir(parents=True, exist_ok=True)
     p9_genes = set(experiments.loc[experiments["p9_experiment"], "symbol"])
-    fig = ish_plotting.plot_flagged(
+    fig = input_figures.plot_flagged(
         sections, summary, p9_genes, save=QC_FIGURES / "00_flagged.png"
     )
     plt.close(fig)

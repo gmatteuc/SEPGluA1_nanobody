@@ -95,8 +95,8 @@ import numpy as np
 from sepmap import config, plotting, structures
 from sepmap.adult import profiles
 from sepmap.ish import planes
-from sepmap.ish import plotting as ish_plotting
 from sepmap.ish.figure_index import figure_path
+from sepmap.ish.plotting import inputs as input_figures
 from sepmap.volumes.per_mouse import annotation_20, structure_terms
 
 ISH_FIGURES = config.SETTINGS["ish_figures"]
@@ -182,7 +182,7 @@ def main(recompute):
 
     # figure 01
     plane = ISH_FIGURES["plane"]
-    fig = ish_plotting.plot_structures(
+    fig = input_figures.plot_structures(
         set_table,
         profile,
         reference,

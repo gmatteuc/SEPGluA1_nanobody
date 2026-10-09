@@ -95,8 +95,8 @@ import pandas as pd
 
 from sepmap import config, plotting, structures
 from sepmap.ish import gene_ranking, gene_sets, gene_table
-from sepmap.ish import plotting as ish_plotting
 from sepmap.ish.figure_index import figure_file, figure_path
+from sepmap.ish.plotting import sets as set_figures
 
 ISH_ANALYSIS = config.SETTINGS["ish_analysis"]
 
@@ -112,7 +112,7 @@ def draw_figures(member_rows, tests, contrasts, contrast_nulls, local):
     _, term_names, _ = gene_table.load_obo(offline=True)
     rules = {k: gene_table.with_go_names(v, term_names) for k, v in rules.items()}
     n_surrogates = local["n_surrogates"]
-    fig = ish_plotting.plot_gene_kinds(
+    fig = set_figures.plot_gene_kinds(
         member_rows,
         tests,
         list(gene_sets.SET_ORDER),
@@ -125,7 +125,7 @@ def draw_figures(member_rows, tests, contrasts, contrast_nulls, local):
         save=figure_path("gene_kinds"),
     )
     plt.close(fig)
-    fig = ish_plotting.plot_gene_sets(
+    fig = set_figures.plot_gene_sets(
         member_rows,
         tests,
         contrasts,
@@ -138,7 +138,7 @@ def draw_figures(member_rows, tests, contrasts, contrast_nulls, local):
         save=figure_path("gene_sets"),
     )
     plt.close(fig)
-    fig = ish_plotting.plot_localisation(
+    fig = set_figures.plot_localisation(
         local["loc_table"],
         local["summary"],
         local["label_nulls"],

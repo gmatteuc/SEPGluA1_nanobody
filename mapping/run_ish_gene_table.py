@@ -91,8 +91,8 @@ import pandas as pd
 
 from sepmap import config, plotting, structures
 from sepmap.ish import gene_table, section_qc
-from sepmap.ish import plotting as ish_plotting
 from sepmap.ish.figure_index import figure_file, figure_path
+from sepmap.ish.plotting import inputs as input_figures
 
 
 def main(offline):
@@ -156,9 +156,9 @@ def main(offline):
     # figure 02 and its detailed version
     usable_genes = labels[labels["symbol"].isin(set(profiles["symbol"]))]
     sections = section_qc.load_section_qc()
-    fig = ish_plotting.plot_genes(usable_genes, table, rel, save=figure_path("genes"))
+    fig = input_figures.plot_genes(usable_genes, table, rel, save=figure_path("genes"))
     plt.close(fig)
-    fig = ish_plotting.plot_genes_detail(
+    fig = input_figures.plot_genes_detail(
         usable_genes,
         table,
         sections,
