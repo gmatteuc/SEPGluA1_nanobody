@@ -13,7 +13,9 @@
 % region by region (each region's clusters from bwconncomp of its own voxels
 % of one sign), also on (c) a map whose clusters cross a region border and
 % touch the other sign, and whose heaviest cluster differs at 6, 18 and 26
-% connectivity, that a split's mirror image is its negative, that the cluster
+% connectivity, where the voxels it keeps of each heaviest cluster on request
+% (keep_cluster_voxels) must be that cluster's, that a split's mirror image is
+% its negative, that the cluster
 % and top-volume measures put the large region first at a corrected p < 0.05
 % in (a), and that in (b) no measure reaches a corrected p < 0.05 more often
 % than chance; prints how every measure ranks the two regions of (a). Prints
@@ -191,6 +193,7 @@ vol_cut_noise = missing_tissue(noisy_mice(grid_size, n_mice, noise_sigma), brain
     region_vol, n_regions, voxel_mm, perm_settings.min_mice_per_group);
 observed_only = perm_settings;
 observed_only.n_permutations = 1;
+observed_only.keep_cluster_voxels = true;
 perm_cut = region_permutation_test(stacks_cut, n_ctrl, geom_cut, observed_only);
 
 % the clusters of all the significant voxels that hold two regions or both signs
@@ -204,6 +207,11 @@ n_crossing = crossing_clusters(signed_cut, region_vol, perm_settings);
 [n_pass, n_fail] = check_measures(perm_cut.maps{1}, perm_cut.splits.observed, ...
     signed_cut, region_vol, n_regions, perm_settings, topvol_k, '(c) map 1', ...
     n_pass, n_fail);
+
+% the voxels kept of each heaviest cluster, which per_mouse_region_values reads
+[n_pass, n_fail] = check_cluster_voxels(perm_cut.maps{1}, perm_cut.splits.observed, ...
+    strcmp(perm_cut.measure_names, 'cluster'), signed_cut, region_vol, n_regions, ...
+    '(c) map 1', n_pass, n_fail);
 
 % the heaviest positive cluster of the large region at 6, 18 and 26: three
 % different masses, so the check above tells 18 from the other two
@@ -501,6 +509,44 @@ largest_error = max(relative_error([engine_pos; engine_neg], ...
     'quantile, top volume and heaviest cluster equal each region''s own, both ' ...
     'signs (largest relative difference %.1g)'], label, largest_error), n_pass, ...
     n_fail);
+end
+
+function [n_pass, n_fail] = check_cluster_voxels(map, observed_row, is_cluster, ...
+    signed_rolled, region_vol, n_regions, label, n_pass, n_fail)
+% The voxels the test kept of every region's heaviest cluster of each sign: as
+% many as the cluster has, all in the region and of the cluster's sign, their
+% summed |surprise| its mass; none for a region without a cluster.
+
+all_match = true;
+n_clusters = 0;
+for r = 1:n_regions
+    for s = 1:2
+
+        % the kept voxels, and the cluster's mass and sign
+        voxels = map.detail.cluster_voxels{r, s};
+        if s == 1
+            mass = map.null_pos(observed_row, r, is_cluster);
+            direction = 1;
+        else
+            mass = map.null_neg(observed_row, r, is_cluster);
+            direction = -1;
+        end
+
+        if isempty(voxels)
+            is_match = map.detail.cluster_n(r, s) == 0;
+        else
+            n_clusters = n_clusters + 1;
+            values = direction * double(signed_rolled(voxels));
+            is_match = numel(voxels) == map.detail.cluster_n(r, s) && ...
+                all(region_vol(voxels) == r) && all(values > 0) && ...
+                abs(sum(values) - mass) <= 1e-6 * max(1, mass);
+        end
+        all_match = all_match && is_match;
+    end
+end
+[n_pass, n_fail] = check(all_match && n_clusters > 0, sprintf(['%s: the kept ' ...
+    'voxels of the %d heaviest clusters are theirs (count, region, sign, mass)'], ...
+    label, n_clusters), n_pass, n_fail);
 end
 
 function err = relative_error(engine, reference)
