@@ -14,10 +14,11 @@ How to read this page:
 - Scripts are named as after the refactor; the name a figure was made under,
   when different, is in brackets. The full table of old and new names is
   [refactor_name_map.csv](refactor_name_map.csv).
-- Python run scripts run in `tools\venv_atlas`, except `run_closeup.py`, which
-  runs in `tools\venv_flat`. Their run order is in the header of every
-  `mapping/run_*.py`. Their settings are in `mapping/settings.toml`, by table
-  (`[closeup]`, `[videos]` and so on); each run prints the settings in force.
+- Python run scripts run in `tools\venv_atlas`, except `run_closeup.py` and
+  `run_adult_layers.py`, which run in `tools\venv_flat`. Their run order is in
+  the header of every `mapping/run_*.py`. Their settings are in
+  `mapping/settings.toml`, by table (`[closeup]`, `[videos]` and so on); each
+  run prints the settings in force.
 - MATLAB drivers set their settings in their `%% Settings` block; they run
   after `sep_setup_paths`, once per session.
 - Code states: the tag `grant-2026-09` is the code behind the grant figures;
@@ -199,12 +200,27 @@ ten naive and RWS adults pooled.
 | `<data>\comparisons_v2\ccf\adult\<reading>_mean.npy`, `_sd.npy`, `_n.npy` | `mapping/run_cohort.py` (`v2_cohort.py`) | the cohort mean, SD and brain count per voxel, on the CCF at 20 um; `<reading>_folded_mean.npy`, `_sd`, `_n` the same with each brain's hemispheres averaged first, on the left half |
 | `<data>\comparisons_v2\ccf\adult\video_<reading>_adult.mp4` | `mapping/run_video.py` (`v2_video.py`) | the mean and its reliability t, plane by plane |
 | `<data>\comparisons_v2\young_vs_adult\region_means_per_mouse.csv` | `mapping/run_region_plot.py` (`v2_region_plot.py`) | one value per reading, mouse and structure; the table the adult and ISH analyses read |
+| `<data>\adult_v2\layers\01_flatmaps_by_band_smooth3x1x1.png/.eps` | `mapping/run_adult_layers.py` | the ten adults' mean zref and the SD between them, by depth band, on the flattened cortex |
+| `<data>\adult_v2\layers\02_areas_by_band.png/.eps` | `run_adult_layers.py` | every isocortex area by band along the Harris 2019 hierarchy, a dot per adult, bars grey by SEM |
+| `<data>\adult_v2\layers\03_laminar_profiles.png/.eps` | `run_adult_layers.py` | five layers of eleven areas, a line per adult |
+| `<data>\adult_v2\layers\area_layers_per_mouse.csv`, `area_layers_summary.csv`, `depth_summary.csv`, `zref_scaling.csv` | `run_adult_layers.py` | the numbers to quote: per adult, area and depth; per area and depth; per depth, the reliability and the rho with the hierarchy; the flatmaps' zref scaling against the tables' |
 
 The same videos exist for `naive` and `rws` alone. Settings: the readings
 (`[readings] in_force`, or `V2_READINGS`); the tissue mask (`[tissue]`); the
 smallest structure, 250 voxels of 20 um (`[region_tables] min_vox20`); for the
 videos the colour range per reading (`[videos] mean_vmax`), the t panel's
 upper end (`t_pct`) and the brains a voxel needs (`min_n`).
+
+The map by depth (`[adult_layers]`): a cell counts when it covers a quarter of
+its area's atlas voxels at that depth (`min_coverage`), an area and depth gets a
+mean from 3 adults (`min_mice`), a flatmap pixel from 5 (`[young_vs_adult]
+min_n_adult`); the mean flatmaps use the close-up's smoothing and `PuOr_r` at
+±0.9 zref (`[closeup] smooth`, `vmax`), the SD flatmaps hot up to `sd_max`
+(0.35), the bars a grey from black at SEM 0 to lightest at `sem_max` (0.10).
+`--cmap hot` draws the mean flatmaps in hot into `layers\hot\`, `--no-flatmap`
+leaves them out, `--reproject` projects every adult again instead of reading
+the cache `flatmap_bands.npz`. The tables quote; the flatmaps show the pattern
+(their zref scaling differs slightly from the tables', `zref_scaling.csv`).
 
 **Changed since.** The videos' reliability t is taken over each brain's two
 hemispheres averaged first, one value per brain, from the `_folded` files

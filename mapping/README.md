@@ -16,6 +16,8 @@ mapping/
   settings.toml         every analysis parameter, a table per stage
   gene_targets.csv      the hand-written 100-gene panel of P9 (April)
   ish_section_exceptions.csv  dim ISH sections kept as true absence, with reason and status
+  harris2019_hierarchy.csv  the cortical hierarchy of Harris et al. 2019 (Supplementary
+                        Table 9), read by run_adult_layers
   tests/                pytest, known answers on synthetic data (tests/README.md)
   sepmap/               the package the run scripts call
     config.py           the data root (SEP_DATA_ROOT and its guards), the settings, the cohort table
@@ -32,7 +34,9 @@ mapping/
                         beyond_density, beyond_controls, beyond_calibration,
                         beyond_regression, beyond_figures, sep_channel_check;
                         plotting (their figures, the guided ones of part 1 and
-                        analysis 5, and the green channel's working one)
+                        analysis 5, and the green channel's working one);
+                        layers (the adult map by cortical depth), layers_plotting
+                        (its figures)
     ish/                panel_build, panel_fetch, regions, reliability (the inputs,
                         regions and reliability used by gene_table; their run
                         scripts belong to the run of 5 October);
@@ -53,8 +57,10 @@ mapping/
 
 ## Setup and run
 
-- `tools\venv_atlas` runs every script but `run_closeup.py`, which needs
-  `ccf_streamlines` and runs in `tools\venv_flat`. Their pinned requirements,
+- `tools\venv_atlas` runs every script but `run_closeup.py` and
+  `run_adult_layers.py`, which need `ccf_streamlines` and run in
+  `tools\venv_flat` (`run_adult_layers.py --no-flatmap` also runs in
+  `venv_atlas`). Their pinned requirements,
   and how to create them, are `tools/requirements_atlas.txt` and
   `requirements_flat.txt`. CCF Translator, in `venv_atlas`, downloads its
   DeMBA-to-CCF deformation fields on first use; the copy the results were
@@ -77,6 +83,7 @@ mapping/
   `run_ish_gene_table`, `run_synaptome` and `run_density_markers` call the
   network for what their caches lack; `--offline` makes the last four stop
   instead.
+- Tests: from `mapping\`, `..\tools\venv_dev\Scripts\python.exe -m pytest tests`.
 
 | stage | steps | what |
 |---|---|---|
@@ -90,6 +97,7 @@ mapping/
 | beyond Gria1 expression and synapse density | 23 `run_beyond_density`, 24 `run_beyond_controls`, 25 `run_beyond_calibration`, 26 `run_beyond_regression`, 27 `run_beyond_figures` | how much of the map the main model (Gria1 and synapse density, two straight terms; `[beyond]`) predicts, split into what only Gria1 predicts, what the two share, what only density predicts and what is left, the two weights, and the genes against what it leaves; seven controls, and the leftover under other folds; the same model on a map whose answer is known (the floor), the nano map against it on the same structures, and every check row of `[beyond.checks]` with its own floor; the regression per structure; figures 03 (with the density genes against PSD95), 03s1 (the check rows), 03s2 (the controls), 04 and 11s1 |
 | the genes that follow the map | 28 `run_ish_top_genes` | the genes past the map's null, Gria1, Cacng8 and the AMPA receptor complex family described on every axis of the ISH line, each added to the main model against maps of its smoothness; the tests named in advance for the leftover (Cacng8, then the family as a group and gene by gene; `ish/gene_sets.py`); per-gene sheets |
 | the green channel, the overview | 29 `run_sep_channel_check`, 30 `run_ish_overview` | what the green channel reports; April's headline, the numbers for the text, the overview and the index of the figures |
+| adult by depth | 31 `run_adult_layers` | every isocortex area of the ten adults in three depth bands and five layers, along the Harris 2019 hierarchy: the per-mouse table, flatmaps of the mean and of the SD between adults, the areas band by band, laminar profiles |
 
 What fixes the order: step 5's `region_means_per_mouse.csv` is read by steps
 13 (the stored `cref` and `zref`, to measure what the declared reference
@@ -101,7 +109,11 @@ step 16's surrogates by 17, 19 and 20; step 17's `gene_ranking.csv` and
 21's synapse density by 22 to 28; step 22's genes, written into `settings.toml`,
 by 23 to 28, and its tables by 27 (figure 03 D, the density genes against PSD95)
 and 30; step 23's tables by 24 to 28, and steps 24 to 26's by 27; step 30
-reads every step's numbers, so it comes last. Sheet 07
+reads every step's numbers, so it closes the ISH line. Step 31 reads the
+per-mouse files of steps 1 and 2, checks its whole-area cells against step 5's
+`region_means_per_mouse.csv` both ways, and needs ccf_streamlines' assets in
+`atlas_flatmap\`, as step 9 does; it reads nothing of the ISH line and comes
+after it. Sheet 07
 of step 10 reads the tables of steps 4 and 5, and sheet 08 the background
 masks of `../group_comparison/run_normalise_groups` (naive and P20), so in a
 full run the plasticity chain comes first. The scripts of the ISH run of 5
@@ -158,6 +170,15 @@ against the genes have no premise.
   structure in one adult mouse (Zhu et al. 2018), placed in the CCF structures
   by Allen id (`run_synaptome`, `run_density_markers`); PSD95 itself is a check
   row. Method, figures and results: `../docs/ISH_ANALYSIS.md`.
+- **The adult map by depth** (step 31): per adult, isocortex area and depth
+  (three bands, supragranular L1 + L2/3, granular L4 and infragranular L5 + L6;
+  the five layers; the whole depth), the region tables' zref from 250 voxels,
+  counted when the cell covers a
+  quarter of its area (`adult_layers.min_coverage`). Two contrasts within each
+  brain (supragranular - infragranular, L2/3 - L5). Mean, SEM and t across
+  adults; the half-against-half reliability of each depth's profile over areas,
+  and its Spearman with the Harris 2019 hierarchy. The bars are grey by SEM,
+  since zref's zero is the brain's median structure.
 - The results and what they mean: `../docs/SCIENTIFIC_CONTEXT.md`.
 
 ## Outputs
@@ -190,6 +211,11 @@ Under `<data>\adult_v2\`:
   `../docs/ISH_ANALYSIS.md`, section 10.
 - `panel\`: `panel_v2.csv`, `panel_genes.csv`, `fetch_failures.csv`, the API
   cache `cache\` (steps 11 and 12)
+- `layers\`: `area_layers_per_mouse.csv` (value, coverage and the reason a
+  cell is left out), `area_layers_summary.csv`, `depth_summary.csv`,
+  `zref_scaling.csv`, `01_flatmaps_by_band_smooth3x1x1`, `02_areas_by_band`,
+  `03_laminar_profiles`, the cache `flatmap_bands.npz`; `layers\<cmap>\` with
+  `--cmap` (step 31)
 - `ish\`, `arms\`, `beyond\`: the run of 5 October, frozen and not to quote
   (`../docs/FIGURES.md`, Superseded outputs)
 
@@ -255,5 +281,21 @@ the ISH tables, the API answers and the grids.
   `../adult_matlab/` answer (enrichment calls per structure, the
   autofluorescence control per structure: A4, A5), so they keep running
   until it does.
-- The tests (`tests/`) cover the ISH analysis; the per-brain steps and the
-  young-against-adult tables have none yet.
+- The tests (`tests/`) cover the ISH analysis and the adult map by depth; the
+  per-brain steps and the young-against-adult tables have none yet.
+- The map by depth quotes its tables. The flatmaps average each voxel's zref,
+  scaled by the brain's own structures rather than the shared ones: at the
+  cortex mean, flatmap minus table runs from -0.01 to +0.12 zref (MG692 +0.12,
+  CGF033 +0.09, mean +0.04), and the spread ratio is 0.89 to 1.01
+  (`zref_scaling.csv`).
+- The between-adult SD flatmaps carry each brain's section banding (sections
+  150 um apart, smoothing 60 um along AP), most in the supragranular band, and
+  are highest where the sections end (posterior and lateral visual areas,
+  frontal pole) and along the medial wall.
+- VISpl has no group mean at any depth, nor FRP supragranular; VISpor's means
+  rest on 4 to 7 adults and stay the most variable (SD 0.27 to 0.28).
+- `region_groups.layer_of` does not read ACAv 6a and 6b, named without the word
+  layer, so the frontal infragranular group of the young-against-adult route
+  leaves them out.
+- `cohort.mouse_scalars`' cache is keyed on the per-mouse file's date only, not
+  on `region_tables.min_vox20`.
