@@ -15,6 +15,8 @@ function per_mouse_region_values(run_settings)
 %     Per_Mouse_LOO_<tag>.mat      the folds' clusters, voxel by voxel
 %     Per_Mouse_Values_<tag>       the figure, .fig and .png
 %     Per_Mouse_Maps_<tag>.mat     the cache of each mouse's maps (see below)
+%     Per_Mouse_LOO_Relabelled_<tag>.mat  the leave-one-out redone under every
+%                                  split, with loo_relabel (see below)
 %
 %   Each mouse is taken as run_group_differences takes it: NaN outside its
 %   tissue and smoothed (tissue_only), folded onto the left hemisphere
@@ -51,24 +53,39 @@ function per_mouse_region_values(run_settings)
 %   p < cluster_p, connectivity), here by region_permutation_test on the
 %   observed split alone, within loo_region. The left-out mouse's ai (on that
 %   fold's maps, loo_ai) and ai_raw (loo_ai_raw) are read in the fold's heaviest
-%   positive cluster of the L - R map, so no mouse is read in a cluster its own
-%   data helped define. Fold 0 leaves no mouse out: its cluster must be that of
-%   run_group_differences, which is checked against its table when it is there.
-%   A fold with no cluster gives NaN. Not left out: each mouse's share in its
-%   group's normalisation (run_normalise_groups fits every mouse onto its
-%   group's median cortex), a scale per mouse that cannot move a cluster.
+%   cluster where |L - R| is higher in the experimental group (a positive t),
+%   so no mouse is read in a cluster its own data helped define. Fold 0 leaves
+%   no mouse out: its cluster must be that of run_group_differences, which is
+%   checked against its table when it is there. A fold with no cluster gives
+%   NaN. Not redone without the mouse: run_normalise_groups, which fits every
+%   mouse of a group onto the group's median cortex, so without one mouse the
+%   others' lines would change too. To first order they change by one line
+%   common to the group, which leaves the fold's t of |L - R| as it is (the
+%   fold's alignment is refitted, and a scale common to both groups does not
+%   change a t); what is left is second order.
 %
 %   Statistics, per value, over the mice with a value: the exact permutation p
 %   of the difference of the group means (experimental minus control), over
 %   every split of the pooled mice into groups of the observed sizes (252 for 5
-%   and 5), the observed one included; one-sided in the direction named before
-%   the experiment (experimental higher: RWS potentiates the stimulated
-%   barrels' synapses and brings AMPA receptors to their surface), and
-%   two-sided beside it; the Welch t for reference; Hedges' g.
+%   and 5), the observed one included, one-sided for the experimental group
+%   higher and two-sided; the Welch t for reference; Hedges' g. With
+%   direction_named, the one-sided p is the test named before any number and
+%   comes first (RWS potentiates the stimulated barrels' synapses and brings
+%   AMPA receptors to their surface, Gambino et al. 2014); without it, the
+%   two-sided p comes first. For the leave-one-out values this p shuffles the
+%   values, each read in its fold's cluster under the true groups. With
+%   loo_relabel the leave-one-out is also redone under every split, each fold's
+%   cluster found again with the split's groups (the fold keeping its
+%   alignment, as the test keeps it under its splits), and the p of the
+%   difference of the group means is taken over those: the full test, which
+%   leads for those two values.
 %
 %   The maps are cached: each mouse's region sums and the box around loo_region
 %   that the leave-one-out reads, so the statistics and the figure can be redone
-%   without smoothing every mouse again; force_recompute_mice redoes them.
+%   without smoothing every mouse again; force_recompute_mice redoes them. The
+%   cache is read only if each group's normalised stack still holds the mice
+%   and the lines of run_normalise_groups it was made from. The redone
+%   leave-one-out is cached beside it, Per_Mouse_LOO_Relabelled_<tag>.mat.
 
 % settings of run_per_mouse_values, under the names the code below uses
 paths = run_settings.paths;
@@ -84,11 +101,19 @@ slab_range = run_settings.slab_range;
 cluster_p = run_settings.cluster_p;
 cluster_connectivity = run_settings.cluster_connectivity;
 force_recompute_mice = run_settings.force_recompute_mice;
+direction_named = run_settings.direction_named;
+loo_relabel = run_settings.loo_relabel;
 channel = run_settings.channel;
 comp_tag = run_settings.comp_tag;
 ctrl_dir = run_settings.ctrl_dir;
 exp_dir = run_settings.exp_dir;
 comp_out_dir = run_settings.comp_out_dir;
+
+% the experimental groups of run_group_differences
+if ~ismember(exp_type, {'rws', 'behavior'})
+    error('run_per_mouse_values: unknown exp_type ''%s'' (use ''rws'' or ''behavior'').', ...
+        exp_type);
+end
 
 % the leave-one-out's region must be one of the regions named
 if ~ismember(loo_region, regions)
@@ -146,7 +171,8 @@ cache_settings = struct('regions', {regions}, 'loo_region', loo_region, ...
     'slab_range', slab_range, 'apply_smoothing', apply_smoothing, ...
     'smooth_sigma', smooth_sigma, 'exp_named', {exp_named});
 
-% from the cache, or one mouse at a time from the stacks
+% from the cache, if the groups' normalised stacks are still those it was made
+% from, or one mouse at a time from the stacks
 cache_file = fullfile(comp_out_dir, ['Per_Mouse_Maps_' file_tag '.mat']);
 if exist(cache_file, 'file') && ~force_recompute_mice
     fprintf('Loading the mice''s maps from %s...\n', cache_file);
@@ -158,6 +184,9 @@ if exist(cache_file, 'file') && ~force_recompute_mice
     ctrl_mice = S_cache.ctrl_mice;
     exp_mice = S_cache.exp_mice;
     clear S_cache
+    check_cache_against_stack(ctrl_mice, ctrl_dir, channel, cache_file);
+    check_cache_against_stack(exp_mice, exp_dir, channel, cache_file);
+    maps_recomputed = false;
 else
     ctrl_mice = group_mice(ctrl_type, ctrl_dir, channel, {}, brainMask, masks, ...
         apply_smoothing, smooth_sigma);
@@ -165,6 +194,7 @@ else
         apply_smoothing, smooth_sigma);
     fprintf('Saving the mice''s maps to %s...\n', cache_file);
     save(cache_file, 'ctrl_mice', 'exp_mice', 'cache_settings', '-v7.3');
+    maps_recomputed = true;
 end
 clear brainMask
 
@@ -203,21 +233,62 @@ loo_box = struct('box_ap', masks.box_ap, 'box_dv', masks.box_dv, ...
 save(fullfile(comp_out_dir, ['Per_Mouse_LOO_' file_tag '.mat']), 'loo_clusters', ...
     'loo_box', 'loo_region');
 
+%% Leave-one-out under every split
+
+% the leave-one-out redone under every split of the mice, for the full p of its
+% two values; from its cache when it was made from these stacks and settings,
+% and the maps were not made again in this run
+relabelled = [];
+if loo_relabel
+    relabel_file = fullfile(comp_out_dir, ['Per_Mouse_LOO_Relabelled_' file_tag '.mat']);
+    relabel_settings = struct('cache_settings', cache_settings, ...
+        'ctrl_norm_params', ctrl_mice.stack_norm_params, ...
+        'exp_norm_params', exp_mice.stack_norm_params, ...
+        'min_mice_per_group', min_mice_per_group, 'slab_range', slab_range, ...
+        'cluster_p', cluster_p, 'cluster_connectivity', cluster_connectivity);
+    if exist(relabel_file, 'file') && ~maps_recomputed
+        S_relabel = load(relabel_file, 'relabelled', 'relabel_settings');
+        if isequal(S_relabel.relabel_settings, relabel_settings)
+            fprintf('Loading the leave-one-out under every split from %s...\n', ...
+                relabel_file);
+            relabelled = S_relabel.relabelled;
+        end
+        clear S_relabel
+    end
+    if isempty(relabelled)
+        relabelled = loo_relabelled(ctrl_mice, exp_mice, masks, perm_settings);
+        save(relabel_file, 'relabelled', 'relabel_settings');
+    end
+
+    % its first split, the groups as they are, must be the leave-one-out above
+    if ~isequaln(relabelled.ai(1, :)', loo.ai) || ...
+            ~isequaln(relabelled.ai_raw(1, :)', loo.ai_raw)
+        error(['run_per_mouse_values: the first split of %s, the groups as they ' ...
+               'are, does not give the leave-one-out''s values. Set ' ...
+               'force_recompute_mice = true.'], relabel_file);
+    end
+end
+
 %% Statistics and figure
 
 % the values tested and drawn, in the figure's order
 values = value_list(regions, loo_region);
 
-% each value's group test, and the tables
+% each value's group test, with the full p of the leave-one-out's values, and
+% the tables
 T_stats = value_statistics(T_mice, values, ctrl_type, exp_type);
+T_stats = add_relabelled_p(T_stats, relabelled);
 writetable(T_mice, fullfile(comp_out_dir, ['Per_Mouse_Values_' file_tag '.csv']));
 writetable(T_stats, fullfile(comp_out_dir, ['Per_Mouse_Stats_' file_tag '.csv']));
 writetable(T_loo, fullfile(comp_out_dir, ['Per_Mouse_LOO_' file_tag '.csv']));
 print_summary(T_mice, T_stats, T_loo, values);
 
-% one panel per value, one dot per mouse
-plot_per_mouse_values(T_mice, T_stats, T_loo, values, regions, ctrl_type, exp_type, ...
-    slope, intercept, file_tag, comp_out_dir);
+% one panel per value, one dot per mouse; the figure's text from the settings
+comparison = struct('ctrl_type', ctrl_type, 'exp_type', exp_type, ...
+    'direction_named', direction_named, 'slope', slope, 'intercept', intercept, ...
+    'perm_settings', perm_settings);
+plot_per_mouse_values(T_mice, T_stats, T_loo, values, regions, comparison, file_tag, ...
+    comp_out_dir);
 fprintf('Per-mouse values saved to: %s\n', comp_out_dir);
 
 end
@@ -344,6 +415,10 @@ n_mice = numel(names);
 G = struct();
 G.group = group;
 G.names = names;
+
+% the normalised stack's mice and their lines, which the cache is checked against
+G.stack_mice = S_norm.current_mice;
+G.stack_norm_params = S_norm.norm_params;
 G.profiles = nan(raw_size(1), n_mice);
 G.test = cell(n_mice, 1);
 G.raw = cell(n_mice, 1);
@@ -390,6 +465,22 @@ for k = 1:n_mice
     clear raw lr_diff lr_sum bg_mask
 
     fprintf('  done in %.1f min.\n', toc(t_mouse) / 60);
+end
+end
+
+function check_cache_against_stack(G, group_dir, channel, cache_file)
+% Stops unless the group's normalised stack still holds the mice and the lines
+% of run_normalise_groups the cached maps were made from: after step 2 is run
+% again, the cache would otherwise give the old maps without a word.
+
+norm_file = fullfile(group_dir, [channel '_4d_normalized.mat']);
+S_norm = load(norm_file, 'current_mice', 'norm_params');
+if ~isfield(G, 'stack_norm_params') || ~isequal(G.stack_mice, S_norm.current_mice) ...
+        || ~isequal(G.stack_norm_params, S_norm.norm_params)
+    error(['run_per_mouse_values: the maps of %s in %s were not made from the ' ...
+           'normalised stack now in %s (its mice or their lines differ, or the ' ...
+           'cache predates the check). Set force_recompute_mice = true.'], G.group, ...
+           cache_file, norm_file);
 end
 end
 
@@ -537,9 +628,10 @@ end
 function [T_loo, loo] = leave_one_out(ctrl_mice, exp_mice, masks, perm_settings, ...
     step3_table, loo_region)
 % Fold 0, the comparison as it is, then each mouse left out in turn, control
-% mice first: the fold's alignment, its heaviest positive cluster and where it
-% sits, and the left-out mouse's ai on the fold's maps and ai_raw in that
-% cluster; the clusters' voxels, one cell per fold, fold 0 first.
+% mice first: the fold's alignment, its heaviest cluster where |L - R| is higher
+% in the experimental group and where it sits, and the left-out mouse's ai on
+% the fold's maps and ai_raw in that cluster; the clusters' voxels, one cell per
+% fold, fold 0 first.
 
 n_ctrl = numel(ctrl_mice.names);
 n_exp = numel(exp_mice.names);
@@ -579,7 +671,8 @@ for f = 0:n_folds
     [~, ~, ~, slope, intercept, common_factor] = align_exp_to_ctrl( ...
         ctrl_mice.profiles(:, keep_ctrl), exp_mice.profiles(:, keep_exp));
 
-    % its heaviest positive cluster in the region, as the test finds it
+    % its heaviest cluster in the region where |L - R| is higher in the
+    % experimental group, as the test finds it
     [cluster_lin, cluster] = fold_cluster(ctrl_mice.box(keep_ctrl), ...
         exp_mice.box(keep_exp), slope, intercept, common_factor, masks, perm_settings);
     if f == 0
@@ -613,7 +706,8 @@ for f = 0:n_folds
         loo.cluster_n(f) = cluster.n;
     end
     if f >= 1 && isempty(cluster_lin)
-        fprintf('  no positive cluster in %s without %s.\n', loo_region, left_out);
+        fprintf('  no cluster with a positive t in %s without %s.\n', loo_region, ...
+            left_out);
     end
     if f >= 1 && ~isempty(cluster_lin) && isnan(ai)
         fprintf(['  %s has no AI on the fold''s maps in its cluster: its mean L + R ' ...
@@ -670,36 +764,17 @@ end
 
 function [cluster_lin, cluster] = fold_cluster(boxes_ctrl, boxes_exp, slope, ...
     intercept, common_factor, masks, perm_settings)
-% The heaviest positive cluster of the L - R map in the box's region, for the
-% mice given, by region_permutation_test on the groups as they are: its voxels
-% (linear indices into the box's folded grid, empty for none), voxels, mass
-% and peak.
+% The heaviest cluster in the box's region where |L - R| is higher in the
+% experimental group (a positive t), for the mice given, by
+% region_permutation_test on the groups as they are: its voxels (linear indices
+% into the box's folded grid, empty for none), voxels, mass and peak.
 
-% every mouse's |L - R| on the band, control mice first, as the test's stacks
+% every mouse's |L - R| on the band, control mice first, and the candidates
 n_ctrl = numel(boxes_ctrl);
-n_mice = n_ctrl + numel(boxes_exp);
-stack = zeros(numel(masks.band_lin), n_mice, 'single');
-for k = 1:n_mice
-    if k <= n_ctrl
-        lr_diff = aligned_lr(boxes_ctrl{k}, false, slope, intercept, common_factor);
-    else
-        lr_diff = aligned_lr(boxes_exp{k - n_ctrl}, true, slope, intercept, ...
-            common_factor);
-    end
-    stack(:, k) = abs(lr_diff(masks.band_lin));
-end
-
-% the candidates, as the test takes them: voxels where at least twice
-% min_mice_per_group mice have a value, the fewest with which a t is possible;
-% the region's voxels labelled 1, the band around it 0, which the rolling median
-% reads but no cluster takes
-is_cand = sum(~isnan(stack), 2) >= 2 * perm_settings.min_mice_per_group;
-geom = struct();
-geom.grid_size = masks.box_size;
-geom.cand_lin = masks.band_lin(is_cand);
-geom.cand_region = uint16(masks.band_in_region(is_cand));
-geom.n_regions = 1;
-geom.voxel_mm = 0.01;
+is_exp = [false(n_ctrl, 1); true(numel(boxes_exp), 1)];
+stack = band_stack([boxes_ctrl(:); boxes_exp(:)], is_exp, slope, intercept, ...
+    common_factor, masks);
+[geom, is_cand] = band_geometry(stack, masks, perm_settings);
 perm = region_permutation_test({stack(is_cand, :)}, n_ctrl, geom, perm_settings);
 
 % the positive cluster
@@ -710,8 +785,109 @@ cluster = struct();
 cluster.n = map.detail.cluster_n(1, 1);
 cluster.mass = map.null_pos(perm.splits.observed, 1, is_cluster);
 cluster.peak = map.detail.cluster_peak(1, 1);
-fprintf('  heaviest positive cluster: %d voxels, mass %.2f, peak %.2f\n', cluster.n, ...
-    cluster.mass, cluster.peak);
+fprintf('  heaviest cluster with a positive t: %d voxels, mass %.2f, peak %.2f\n', ...
+    cluster.n, cluster.mass, cluster.peak);
+end
+
+function stack = band_stack(boxes, is_exp, slope, intercept, common_factor, masks)
+% The mice's |L - R| on the band, one column per mouse in the order given, each
+% on the common scale (the experimental mice through the line), as the test's
+% stacks.
+
+stack = zeros(numel(masks.band_lin), numel(boxes), 'single');
+for k = 1:numel(boxes)
+    lr_diff = aligned_lr(boxes{k}, is_exp(k), slope, intercept, common_factor);
+    stack(:, k) = abs(lr_diff(masks.band_lin));
+end
+end
+
+function [geom, is_cand] = band_geometry(stack, masks, perm_settings)
+% The candidates, as the test takes them: voxels where at least twice
+% min_mice_per_group mice have a value, the fewest with which a t is possible;
+% the region's voxels labelled 1, the band around it 0, which the rolling median
+% reads but no cluster takes. Which mice have a value does not depend on their
+% groups, so a fold's candidates serve every split of its mice.
+
+is_cand = sum(~isnan(stack), 2) >= 2 * perm_settings.min_mice_per_group;
+geom = struct();
+geom.grid_size = masks.box_size;
+geom.cand_lin = masks.band_lin(is_cand);
+geom.cand_region = uint16(masks.band_in_region(is_cand));
+geom.n_regions = 1;
+geom.voxel_mm = 0.01;
+end
+
+function relabelled = loo_relabelled(ctrl_mice, exp_mice, masks, perm_settings)
+% The leave-one-out redone under every split of the pooled mice into groups of
+% the observed sizes, the groups as they are first: for each split and each
+% mouse left out, the heaviest cluster among the other mice where |L - R| is
+% higher in the split's experimental group, and the left-out mouse's ai on the
+% fold's maps and ai_raw in it (NaN without a cluster). Each fold keeps the
+% alignment fitted on its mice's true groups, as the test keeps the alignment
+% under its splits: a split relabels the mice, not their scales.
+
+n_ctrl = numel(ctrl_mice.names);
+n_mice = n_ctrl + numel(exp_mice.names);
+names = [ctrl_mice.names(:); exp_mice.names(:)];
+boxes = [ctrl_mice.box(:); exp_mice.box(:)];
+boxes_raw = [ctrl_mice.box_raw(:); exp_mice.box_raw(:)];
+profiles = [ctrl_mice.profiles, exp_mice.profiles];
+is_exp = (1:n_mice)' > n_ctrl;
+
+% every split as a logical row, true for the mice labelled control; nchoosek's
+% first is mice 1 to n_ctrl, the groups as they are
+ctrl_sets = nchoosek(1:n_mice, n_ctrl);
+n_splits = size(ctrl_sets, 1);
+in_ctrl = false(n_splits, n_mice);
+for s = 1:n_splits
+    in_ctrl(s, ctrl_sets(s, :)) = true;
+end
+
+relabelled = struct();
+relabelled.names = names;
+relabelled.in_ctrl = in_ctrl;
+relabelled.ai = nan(n_splits, n_mice);
+relabelled.ai_raw = nan(n_splits, n_mice);
+
+% the test without its progress lines, which would come once per call
+quiet_settings = perm_settings;
+quiet_settings.quiet = true;
+fprintf('Leave-one-out redone under each of %d splits, %d folds each...\n', n_splits, ...
+    n_mice);
+t_start = tic;
+for f = 1:n_mice
+
+    % the fold's mice, their alignment on their true groups, their |L - R| on
+    % the band and the candidates
+    kept = setdiff(1:n_mice, f);
+    kept_exp = is_exp(kept);
+    [~, ~, ~, slope, intercept, common_factor] = align_exp_to_ctrl( ...
+        profiles(:, kept(~kept_exp)), profiles(:, kept(kept_exp)));
+    stack = band_stack(boxes(kept), kept_exp, slope, intercept, common_factor, masks);
+    [geom, is_cand] = band_geometry(stack, masks, perm_settings);
+    stack = stack(is_cand, :);
+
+    % the left-out mouse on the fold's maps and on its raw stack
+    [lr_diff, lr_sum] = aligned_lr(boxes{f}, is_exp(f), slope, intercept, ...
+        common_factor);
+    [lr_diff_raw, lr_sum_raw] = compute_lr_stats(boxes_raw{f});
+
+    % each split's groups among the fold's mice, its control mice first
+    for s = 1:n_splits
+        split_ctrl = in_ctrl(s, kept);
+        order = [find(split_ctrl), find(~split_ctrl)];
+        perm = region_permutation_test({stack(:, order)}, nnz(split_ctrl), geom, ...
+            quiet_settings);
+        cluster_lin = perm.maps{1}.detail.cluster_voxels{1, 1};
+        if ~isempty(cluster_lin)
+            relabelled.ai(s, f) = cluster_ai(lr_diff, lr_sum, cluster_lin);
+            relabelled.ai_raw(s, f) = cluster_ai(lr_diff_raw, lr_sum_raw, cluster_lin);
+        end
+    end
+    elapsed_min = toc(t_start) / 60;
+    fprintf('  fold %d of %d (without %s): %.1f min, about %.1f min left\n', f, n_mice, ...
+        names{f}, elapsed_min, elapsed_min / f * (n_mice - f));
+end
 end
 
 function [ai, coverage] = cluster_ai(lr_diff, lr_sum, cluster_lin)
@@ -853,6 +1029,51 @@ p_two = mean(abs(differences) >= abs(observed));
 p_one = mean(differences >= observed);
 end
 
+function T_stats = add_relabelled_p(T_stats, relabelled)
+% The full p of the leave-one-out's values, from the leave-one-out redone under
+% every split, as columns of the statistics: NaN for the other values, and for
+% every value when it was not redone.
+
+T_stats.p_relabelled_exp_higher = nan(height(T_stats), 1);
+T_stats.p_relabelled_two_sided = nan(height(T_stats), 1);
+T_stats.n_splits_relabelled = zeros(height(T_stats), 1);
+if isempty(relabelled)
+    return
+end
+loo_values = {'loo_ai', 'ai'; 'loo_ai_raw', 'ai_raw'};
+for v = 1:size(loo_values, 1)
+    row = strcmp(T_stats.value, loo_values{v, 1});
+    [p_one, p_two, n_splits] = relabelled_p(relabelled.(loo_values{v, 2}), ...
+        relabelled.in_ctrl);
+    T_stats.p_relabelled_exp_higher(row) = p_one;
+    T_stats.p_relabelled_two_sided(row) = p_two;
+    T_stats.n_splits_relabelled(row) = n_splits;
+end
+end
+
+function [p_one, p_two, n_splits] = relabelled_p(values, in_ctrl)
+% The p of the difference of the group means (experimental minus control) over
+% the splits of the redone leave-one-out, each split with its own values (one
+% row per split, the groups as they are first) and over the mice with a value:
+% the share of the splits with a difference that reach the groups' own,
+% upwards (one-sided) or in either direction (two-sided).
+
+n_splits_all = size(values, 1);
+differences = nan(n_splits_all, 1);
+for s = 1:n_splits_all
+    has_value = ~isnan(values(s, :));
+    differences(s) = mean(values(s, ~in_ctrl(s, :) & has_value)) - ...
+        mean(values(s, in_ctrl(s, :) & has_value));
+end
+
+% a split whose group has no mouse with a value gives no difference
+has_difference = ~isnan(differences);
+n_splits = nnz(has_difference);
+observed = differences(1);
+p_one = mean(differences(has_difference) >= observed);
+p_two = mean(abs(differences(has_difference)) >= abs(observed));
+end
+
 function g = hedges_g(x_ctrl, x_exp)
 % Hedges' g of experimental minus control: the difference of the means over the
 % pooled SD, with the small-sample correction.
@@ -875,18 +1096,23 @@ fprintf('Leave-one-out folds:\n');
 disp(T_loo);
 fprintf('Group tests:\n');
 disp(T_stats(:, {'value', 'n_ctrl', 'n_exp', 'mean_ctrl', 'mean_exp', ...
-    'p_perm_exp_higher', 'p_perm_two_sided', 'n_splits', 'welch_p', 'hedges_g'}));
+    'p_perm_exp_higher', 'p_perm_two_sided', 'n_splits', 'welch_p', 'hedges_g', ...
+    'p_relabelled_exp_higher', 'p_relabelled_two_sided', 'n_splits_relabelled'}));
 end
 
 % ===== Local functions: figure =====
 
-function plot_per_mouse_values(T_mice, T_stats, T_loo, values, regions, ctrl_type, ...
-    exp_type, slope, intercept, file_tag, comp_out_dir)
+function plot_per_mouse_values(T_mice, T_stats, T_loo, values, regions, comparison, ...
+    file_tag, comp_out_dir)
 % One panel per value, one dot per mouse with its name, each group's mean and
 % SEM, and the p of the value: a row per region named in advance, then the
 % leave-one-out's values and the notes.
 
-% a row per region, a column per kind of value; the leave-one-out in the last row
+ctrl_type = comparison.ctrl_type;
+exp_type = comparison.exp_type;
+
+% a row per region, a column per kind of value, the leave-one-out in the last
+% row: four columns, not the three of docs/STYLE.md, so a row is one region
 n_kinds = 4;
 n_rows_grid = numel(regions) + 1;
 n_cols_grid = n_kinds;
@@ -914,7 +1140,7 @@ for v = 1:numel(values)
         short_names(~is_ctrl), ctrl_type, exp_type);
     stat = T_stats(strcmp(T_stats.value, values(v).name), :);
     title(panel_title, 'FontSize', 10, 'Interpreter', 'none');
-    subtitle(stat_lines(stat, ctrl_type, exp_type), 'FontSize', 8, 'Interpreter', 'none');
+    subtitle(stat_lines(stat, comparison), 'FontSize', 8, 'Interpreter', 'none');
     ylabel(values(v).label, 'FontSize', 9);
 end
 
@@ -922,8 +1148,9 @@ end
 subplot(n_rows_grid, n_cols_grid, ...
     [(n_rows_grid - 1) * n_cols_grid + 3, n_rows_grid * n_cols_grid]);
 axis off;
-text(0, 1, notes_lines(T_mice, T_loo, regions, exp_type, slope), 'Units', ...
-    'normalized', 'VerticalAlignment', 'top', 'FontSize', 9, 'Interpreter', 'none');
+text(0, 1.05, notes_lines(T_mice, T_stats, T_loo, regions, comparison, ...
+    numel(values)), 'Units', 'normalized', 'VerticalAlignment', 'top', 'FontSize', 8, ...
+    'Interpreter', 'none');
 
 % the title: the comparison, its alignment and its test
 title_line = sprintf('Per-mouse values in the regions named in advance - %s', ...
@@ -931,7 +1158,7 @@ title_line = sprintf('Per-mouse values in the regions named in advance - %s', ..
 align_line = sprintf(['%s aligned onto %s by the line %.3f x %+.1f; p: exact ' ...
                       'permutation of the difference of the group means, over every ' ...
                       'split of the mice with a value (%d for all of them)'], exp_type, ...
-                      ctrl_type, slope, intercept, n_splits);
+                      ctrl_type, comparison.slope, comparison.intercept, n_splits);
 sgtitle({title_line, ['\rm\fontsize{11}' align_line]}, 'FontSize', 14, ...
     'FontWeight', 'bold');
 
@@ -976,8 +1203,9 @@ set(gca, 'FontSize', 9);
 end
 
 function draw_group(x_pos, values, names, dot_colour, mean_colour, label_gap)
-% One group: its dots at x_pos, their names to the right, kept label_gap apart,
-% and its mean and SEM just to the left.
+% One group: its dots at x_pos, their names to the right, kept label_gap apart
+% and each joined to its dot by a thin line, and its mean and SEM just to the
+% left.
 
 has_value = ~isnan(values);
 values = values(has_value);
@@ -996,9 +1224,13 @@ plot(x_pos - 0.2 + [-0.1 0.1], [group_mean group_mean], '-', 'Color', mean_colou
 errorbar(x_pos - 0.2, group_mean, group_sem, 'Color', mean_colour, 'LineWidth', 1.2, ...
     'CapSize', 6);
 
-% the names, moved apart where two dots are close
+% the names, moved apart where two dots are close, each joined to its dot
 label_y = spread_labels(values, label_gap);
-text(x_pos + 0.07 * ones(numel(values), 1), label_y, names, 'FontSize', 7, ...
+for k = 1:numel(values)
+    plot(x_pos + [0.03 0.075], [values(k) label_y(k)], '-', 'Color', mean_colour, ...
+        'LineWidth', 0.4);
+end
+text(x_pos + 0.08 * ones(numel(values), 1), label_y, names, 'FontSize', 7, ...
     'Color', mean_colour, 'Interpreter', 'none', 'VerticalAlignment', 'middle');
 end
 
@@ -1016,48 +1248,102 @@ label_y = zeros(numel(y), 1);
 label_y(order) = placed;
 end
 
-function lines = stat_lines(stat, ctrl_type, exp_type)
-% The p of a value under its panel's title: the one-sided p of the direction
-% named before the experiment first, the two-sided p beside it.
+function lines = stat_lines(stat, comparison)
+% The p of a value under its panel's title: its exact permutation p, one-sided
+% (experimental group higher) and two-sided, the one named before any number
+% first; for the leave-one-out's values the p of the leave-one-out redone under
+% every split leads, and the p of the values shuffled follows.
 
-first = sprintf('perm p %.3f %s > %s, %.3f two-sided', stat.p_perm_exp_higher, ...
-    exp_type, ctrl_type, stat.p_perm_two_sided);
-second = sprintf('Welch p %.3f, Hedges g %.2f, n %d and %d', stat.welch_p, ...
+shuffled = p_pair(stat.p_perm_exp_higher, stat.p_perm_two_sided, comparison);
+rest = sprintf('Welch p %.3f, Hedges g %.2f, n %d and %d', stat.welch_p, ...
     stat.hedges_g, stat.n_ctrl, stat.n_exp);
-lines = {first, second};
+if stat.n_splits_relabelled > 0
+    redone = p_pair(stat.p_relabelled_exp_higher, stat.p_relabelled_two_sided, ...
+        comparison);
+    lines = {sprintf('p %s, leave-one-out redone per split', redone), ...
+        sprintf('values shuffled: p %s; %s', shuffled, rest)};
+else
+    lines = {sprintf('perm p %s', shuffled), rest};
+end
 end
 
-function lines = notes_lines(T_mice, T_loo, regions, exp_type, slope)
+function text_p = p_pair(p_one, p_two, comparison)
+% A one-sided p (experimental group higher) and a two-sided one: the one-sided
+% first when its direction was named before any number, the two-sided first
+% otherwise.
+
+one_sided = sprintf('%.3f %s > %s', p_one, comparison.exp_type, comparison.ctrl_type);
+two_sided = sprintf('%.3f two-sided', p_two);
+if comparison.direction_named
+    text_p = [one_sided ', ' two_sided];
+else
+    text_p = [two_sided ', ' one_sided];
+end
+end
+
+function lines = notes_lines(T_mice, T_stats, T_loo, regions, comparison, n_values)
 % The notes beside the leave-one-out's panels: what each value is, why none is
-% signed, the folds without a cluster, the mice with little of a region, and the
-% comparison's caveat.
+% signed, how the leave-one-out and the p are made, the folds without a
+% cluster, the mice with little of a region, and the comparison's caveat; the
+% settings from the run, not typed.
+
+ctrl_type = comparison.ctrl_type;
+exp_type = comparison.exp_type;
+perm_settings = comparison.perm_settings;
+short_name = @(names) cellfun(@(n) strtok(n, '_'), names, 'UniformOutput', false);
 
 lines = {
     'AI: mean |L - R| over mean (L + R) in the region, each mouse over its own voxels.'
-    'Test maps: the folded, smoothed maps of run_group_differences, the experimental'
-    '  group through the alignment line (its intercept enters L + R).'
     'Raw stack: the collected stack less the mouse''s off-tissue level (median of its'
-    '  background voxels outside the atlas brain), smoothed the same way. Its zero is'
-    '  no signal; on the test maps it is the normalisation''s, so read the AI there'
-    '  as the test sees it, and the raw AI as the ratio.'
+    '  background voxels outside the atlas brain), smoothed as step 3. Its zero is no'
+    '  signal, so the raw AI is the ratio to read.'
+    'Test maps: the folded, smoothed maps of run_group_differences, the experimental'
+    '  group through the alignment line (its intercept enters L + R); their zero is'
+    '  the normalisation''s, so the AI there is the index as the test sees it.'
     'L + R / isocortex: the region''s mean L + R over the isocortex''s.'
     'No signed value: left and right are not certain for every brain, so the'
     '  stimulated side is unknown mouse by mouse (the test too takes |L - R|).'
-    'Leave-one-out: each mouse read in the heaviest positive L - R cluster (p < 0.01,'
-    '  rolling median, 18-connected) of the comparison redone without it.'
+    sprintf(['Leave-one-out: each mouse read in the heaviest cluster where |L - R| ' ...
+             'is higher in %s'], exp_type)
+    sprintf(['  (a positive t at p < %g; median over +/- %d planes; %d-connected; a t ' ...
+             'where each'], perm_settings.cluster_p, perm_settings.slab_range, ...
+             perm_settings.cluster_connectivity)
+    sprintf('  group has %d mice) of the comparison redone without it.', ...
+        perm_settings.min_mice_per_group)
     };
+
+% which p comes first, and why
+if comparison.direction_named
+    lines{end + 1} = sprintf(['One-sided p (%s > %s) first: the direction named ' ...
+        'before any number (RWS'], exp_type, ctrl_type);
+    lines{end + 1} = '  potentiates the stimulated barrels, Gambino et al. 2014).';
+else
+    lines{end + 1} = sprintf(['Two-sided p first: the one-sided direction (%s > %s) ' ...
+        'is carried over'], exp_type, ctrl_type);
+    lines{end + 1} = '  from RWS, not named for this comparison before any number.';
+end
+n_splits_relabelled = max(T_stats.n_splits_relabelled);
+if n_splits_relabelled > 0
+    lines{end + 1} = sprintf(['Leave-one-out p: the leave-one-out redone under each ' ...
+        'of %d splits of the'], n_splits_relabelled);
+    lines{end + 1} = ['  mice; "values shuffled" keeps each fold''s cluster as the ' ...
+        'true groups gave it.'];
+end
+lines{end + 1} = sprintf(['%d values per comparison; their p are not corrected ' ...
+    'across them.'], n_values);
 
 % the folds without a cluster, and the mice without an AI in theirs
 no_cluster = T_loo.fold > 0 & T_loo.cluster_n == 0;
 if any(no_cluster)
-    lines{end + 1} = ['No cluster without: ' strjoin(T_loo.left_out(no_cluster), ', ')];
+    lines{end + 1} = ['No cluster without: ' ...
+        strjoin(short_name(T_loo.left_out(no_cluster)), ', ')];
 else
     lines{end + 1} = 'Every fold has a cluster.';
 end
 no_ai = T_loo.fold > 0 & T_loo.cluster_n > 0 & isnan(T_loo.left_out_ai);
 if any(no_ai)
     lines{end + 1} = ['No AI on the test maps (mean L + R not above 0) in its fold''s ' ...
-        'cluster: ' strjoin(T_loo.left_out(no_ai), ', ')];
+        'cluster: ' strjoin(short_name(T_loo.left_out(no_ai)), ', ')];
 end
 
 % the mice with less than half of a region
@@ -1066,12 +1352,12 @@ for r = 1:numel(regions)
     is_low = coverage < 0.5;
     if any(is_low)
         lines{end + 1} = sprintf('Less than half of %s: %s', regions{r}, ...
-            strjoin(T_mice.mouse(is_low), ', ')); %#ok<AGROW>
+            strjoin(short_name(T_mice.mouse(is_low)), ', ')); %#ok<AGROW>
     end
 end
 
 % what the comparison itself leaves open
-lines = [lines; comparison_caveat(exp_type, slope)];
+lines = [lines(:); comparison_caveat(exp_type, comparison.slope)];
 end
 
 function lines = comparison_caveat(exp_type, slope)

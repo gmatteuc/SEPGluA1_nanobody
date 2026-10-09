@@ -18,24 +18,27 @@
 % its own isocortex. No signed value: left and right are not certain for every
 % brain, so the stimulated side is not known mouse by mouse. Then each mouse
 % is left out in turn, the comparison is done again without it as step 3 does
-% it, and the mouse's index is read in the heaviest positive cluster of the
-% barrel field's L - R map that the others give, so no mouse is read in a
-% cluster its own data helped define. Every value is compared between the
-% groups by an exact permutation of the mice (252 splits for 5 against 5),
-% one-sided for the experimental group higher, the direction named before the
-% experiment, and two-sided, with the Welch t and Hedges' g beside it. Saves,
-% in data\comparisons\<ctrl>_vs_<exp>_<channel>\, Per_Mouse_Values_<tag> (.csv
-% and the figure, .fig and .png), Per_Mouse_Stats_<tag>.csv,
-% Per_Mouse_LOO_<tag> (.csv, and .mat with the folds' clusters) and the cache
-% of the mice's maps, Per_Mouse_Maps_<tag>.mat, <tag> being the comparison and
-% the smoothing.
+% it, and the mouse's index is read in the heaviest cluster of the barrel field
+% where |L - R| is higher in the experimental group (a positive t) that the
+% others give, so no mouse is read in a cluster its own data helped define.
+% Every value is compared between the groups by an exact permutation of the
+% mice (252 splits for 5 against 5), one-sided for the experimental group
+% higher and two-sided, with the Welch t and Hedges' g beside it; the
+% leave-one-out's values also by the leave-one-out redone under every split.
+% Saves, in data\comparisons\<ctrl>_vs_<exp>_<channel>\,
+% Per_Mouse_Values_<tag> (.csv and the figure, .fig and .png),
+% Per_Mouse_Stats_<tag>.csv, Per_Mouse_LOO_<tag> (.csv, and .mat with the
+% folds' clusters) and the caches of the mice's maps, Per_Mouse_Maps_<tag>.mat,
+% and of the redone leave-one-out, Per_Mouse_LOO_Relabelled_<tag>.mat, <tag>
+% being the comparison and the smoothing.
 %
 % Setup: naive against rws, nano channel, smoothed with sigma 5 as step 3,
 % the barrel field and the primary visual area, the cluster settings of step
 % 3. For naive against behavior set exp_type = 'behavior'. Run sep_setup_paths
 % first, once per MATLAB session; the code is in
-% pipeline\per_mouse_region_values.m (about 30 minutes for ten mice, two
-% from the cache).
+% pipeline\per_mouse_region_values.m (for ten mice, about 30 minutes for the
+% maps and about an hour for the leave-one-out under every split; two from the
+% caches).
 
 clear; clc; close all;
 
@@ -74,8 +77,20 @@ slab_range = 10;
 cluster_p = 0.01;
 cluster_connectivity = 18;
 
+% whether the one-sided direction, the experimental group higher, was named
+% before any number: for RWS it was (Giulio, 9 October 2026: RWS potentiates
+% the stimulated barrels' synapses and brings AMPA receptors to their surface,
+% Gambino et al. 2014), and its one-sided p comes first; for behavior it is
+% carried over from RWS, not named on its own, and the two-sided p comes first
+direction_named = strcmp(exp_type, 'rws');
+
+% redo the leave-one-out under every split of the mice (each fold's cluster
+% found again with the split's groups), for the full p of its two values; read
+% from its cache after the first run
+loo_relabel = true;
+
 % redo every mouse's maps rather than read them from the cache, after a change
-% to the stacks or to how a mouse is processed
+% to how a mouse is processed (a change to the normalised stacks stops the run)
 force_recompute_mice = false;
 
 % channel to compare ('nano' or 'auto'), as in run_group_differences
@@ -108,6 +123,8 @@ run_settings.min_mice_per_group = min_mice_per_group;
 run_settings.slab_range = slab_range;
 run_settings.cluster_p = cluster_p;
 run_settings.cluster_connectivity = cluster_connectivity;
+run_settings.direction_named = direction_named;
+run_settings.loo_relabel = loo_relabel;
 run_settings.force_recompute_mice = force_recompute_mice;
 run_settings.channel = channel;
 run_settings.comp_tag = comp_tag;
