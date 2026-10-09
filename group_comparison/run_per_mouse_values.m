@@ -7,38 +7,43 @@
 %   3. run_group_differences   left-right differences, control against experimental group
 %   4. run_per_mouse_values    each mouse's values in regions named in advance  <- this script
 %
-% The voxel maps of step 3 give a group result; this gives one value per mouse
-% in regions named before looking (the barrel field, and the primary visual
-% area as a control), to show which mice carry an effect and whether every
-% mouse of a group does. Each mouse is taken as step 3 takes it (its tissue
-% smoothed, folded onto the left hemisphere, the experimental group aligned
-% onto the control group), and in each region gets its asymmetry index, mean
-% |L - R| over mean (L + R), on those maps and on its collected stack less its
-% off-tissue level (no normalisation, no alignment), and its L + R relative to
-% its own isocortex. No signed value: left and right are not certain for every
-% brain, so the stimulated side is not known mouse by mouse. Then each mouse
-% is left out in turn, the comparison is done again without it as step 3 does
-% it, and the mouse's index is read in the heaviest cluster of the barrel field
-% where |L - R| is higher in the experimental group (a positive t) that the
-% others give, so no mouse is read in a cluster its own data helped define.
-% Every value is compared between the groups by an exact permutation of the
-% mice (252 splits for 5 against 5), one-sided for the experimental group
-% higher and two-sided, with the Welch t and Hedges' g beside it; the
-% leave-one-out's values also by the leave-one-out redone under every split.
-% Saves, in data\comparisons\<ctrl>_vs_<exp>_<channel>\,
+% The voxel maps of step 3 give a group result; this gives one value per mouse,
+% to show which mice carry an effect and whether every mouse of a group does.
+% Each mouse is taken as step 3 takes it (its tissue smoothed, folded onto the
+% left hemisphere, the experimental group aligned onto the control group). Its
+% asymmetry index, mean |L - R| over mean (L + R), is read first in the
+% barrel-field cluster of step 3's test, the heaviest where |L - R| is higher
+% in the experimental group (a positive t), found with all the mice: on its
+% collected stack less its off-tissue level (no normalisation, no alignment),
+% on step 3's maps and on its autofluorescence. That is step 3's test seen
+% mouse by mouse, and its p redoes the cluster search under every split of the
+% mice (the selection-matched test). Then over whole regions named before
+% looking (the barrel field, and the primary visual area as a control): the
+% index and the L + R relative to the mouse's own isocortex, their p the
+% exact permutation of the values. No signed value: left and right are not
+% certain for every brain, so the stimulated side is not known mouse by mouse.
+% Last, stricter, each mouse is left out in turn, the comparison is done again
+% without it, and its index is read in the cluster the others give, so no
+% mouse is read in a cluster its own data helped define; its p redoes the
+% leave-one-out under every split. Every p is one-sided for the experimental
+% group higher and two-sided. Saves, in data\comparisons\<ctrl>_vs_<exp>_<channel>\,
 % Per_Mouse_Values_<tag> (.csv and the figure, .fig and .png),
-% Per_Mouse_Stats_<tag>.csv, Per_Mouse_LOO_<tag> (.csv, and .mat with the
-% folds' clusters) and the caches of the mice's maps, Per_Mouse_Maps_<tag>.mat,
-% and of the redone leave-one-out, Per_Mouse_LOO_Relabelled_<tag>.mat, <tag>
-% being the comparison and the smoothing.
+% Per_Mouse_Stats_<tag>.csv, Per_Mouse_LOO_<tag> (the leave-one-out's figure,
+% .csv, and .mat with the folds' clusters) and the caches of the mice's maps,
+% Per_Mouse_Maps_<tag>.mat, of their autofluorescence, Per_Mouse_Auto_<tag>.mat,
+% of the selection-matched test, Per_Mouse_Selection_<tag>.mat, and of the
+% redone leave-one-out, Per_Mouse_LOO_Relabelled_<tag>.mat, <tag> being the
+% comparison and the smoothing.
 %
 % Setup: naive against rws, nano channel, smoothed with sigma 5 as step 3,
 % the barrel field and the primary visual area, the cluster settings of step
-% 3. For naive against behavior set exp_type = 'behavior'. Run sep_setup_paths
-% first, once per MATLAB session; the code is in
+% 3, the autofluorescence stacked by run_collect_by_group with channels =
+% {'auto'}. For naive against behavior set exp_type = 'behavior'. Run
+% sep_setup_paths first, once per MATLAB session; the code is in
 % pipeline\per_mouse_region_values.m (for ten mice, about 25 minutes for the
-% maps and an hour for the leave-one-out under every split, 25 minutes for 5
-% against 4; a few minutes from the caches).
+% maps, 25 for the autofluorescence, 6 for the selection-matched test and an
+% hour for the leave-one-out under every split, 25 minutes for 5 against 4; a
+% few minutes from the caches).
 
 clear; clc; close all;
 
@@ -62,14 +67,15 @@ behavior_mice = {'MG705_Gria1', 'MG709_Gria1', 'MG716_Gria1', 'MG718_Gria1'};
 % whisker, and the primary visual area as a cortical control
 regions = {'SSp-bfd', 'VISp'};
 
-% the region of the leave-one-out clusters, one of regions
-loo_region = 'SSp-bfd';
+% the region of the clusters, of the selection-matched test and of the
+% leave-one-out, one of regions
+cluster_region = 'SSp-bfd';
 
 % smoothing of each mouse's tissue, as in run_group_differences (the test's maps)
 apply_smoothing = true;
 smooth_sigma = 5.0;
 
-% the leave-one-out's test, as run_group_differences and its bars do it: a t
+% the clusters' test, as run_group_differences and its bars do it: a t
 % with at least min_mice_per_group mice per group, the surprise's median over
 % +/- slab_range planes, voxels at p < cluster_p, touching by a face or an edge
 min_mice_per_group = 3;
@@ -147,7 +153,7 @@ run_settings.ctrl_type = ctrl_type;
 run_settings.exp_type = exp_type;
 run_settings.behavior_mice = behavior_mice;
 run_settings.regions = regions;
-run_settings.loo_region = loo_region;
+run_settings.cluster_region = cluster_region;
 run_settings.apply_smoothing = apply_smoothing;
 run_settings.smooth_sigma = smooth_sigma;
 run_settings.min_mice_per_group = min_mice_per_group;

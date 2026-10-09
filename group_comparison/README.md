@@ -210,16 +210,23 @@ variant is tried.
   cause. After RWS it gives 0.020 where the full test gives 0.13.
 - Outputs, in the comparison's folder, `<tag>` the comparison and the
   smoothing (`naive_vs_rws_nano_smooth5`): `Per_Mouse_Values_<tag>` (.csv,
-  one row per mouse, and the figure), `Per_Mouse_Stats_<tag>.csv`,
-  `Per_Mouse_LOO_<tag>.csv` (one row per fold, with where its cluster sits)
-  and `.mat` (the folds' clusters, voxel by voxel), and the caches of the
-  mice's maps, `Per_Mouse_Maps_<tag>.mat`, and of the leave-one-out redone
-  under every split, `Per_Mouse_LOO_Relabelled_<tag>.mat`
-  (`force_recompute_mice` redoes both). The maps' cache is read only if
-  each group's normalised stack still holds the mice and the lines of step 2
-  it was made from. For ten mice about 25 minutes for the maps and an hour
-  for the leave-one-out under every split (25 minutes for 5 against 4), a few
-  minutes from the caches.
+  one row per mouse, and the figure: the selection-matched values, the null
+  of the raw one, then the regions), `Per_Mouse_Stats_<tag>.csv` (per value
+  the p of its test, the column `test` saying which; for the cluster values
+  the shuffled p in columns named anti-conservative), `Per_Mouse_LOO_<tag>`
+  (the leave-one-out's figure; .csv, one row per fold, with where its cluster
+  sits; .mat, the folds' clusters, voxel by voxel), and the caches of the
+  mice's maps, `Per_Mouse_Maps_<tag>.mat`, of their autofluorescence,
+  `Per_Mouse_Auto_<tag>.mat`, of the selection-matched test,
+  `Per_Mouse_Selection_<tag>.mat` (every split's clusters, their mass and
+  every mouse's values in them), and of the leave-one-out redone under every
+  split, `Per_Mouse_LOO_Relabelled_<tag>.mat` (`force_recompute_mice` redoes
+  them all). The maps' cache is read only if each group's normalised stack
+  still holds the mice and the lines of step 2 it was made from, the others
+  only if made from those maps and settings. For ten mice about 25 minutes
+  for the maps, 25 for the autofluorescence, 6 for the selection-matched test
+  and an hour for the leave-one-out under every split (25 minutes for 5
+  against 4), a few minutes from the caches.
 
 Results, 9 October 2026, on copies of the stacks of the production run of
 7 October (fold 0 gives step 3's barrel-field cluster, its voxel count and
