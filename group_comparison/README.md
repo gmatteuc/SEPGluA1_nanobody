@@ -10,7 +10,7 @@ with more animals ([`../docs/ADDING_DATA.md`](../docs/ADDING_DATA.md), step 5).
 
 | step | script | what it does |
 |---|---|---|
-| 1 | `run_collect_by_group` | stack the registered nano volumes of a group's mice into one 4D array (AP x DV x ML x mouse), in cohort-table order |
+| 1 | `run_collect_by_group` | stack the registered nano volumes of a group's mice into one 4D array (AP x DV x ML x mouse), in cohort-table order; the autofluorescence too with `channels = {'nano', 'auto'}` |
 | 2 | `run_normalise_groups` | per mouse and plane, a background mask; each mouse fitted onto the group's median cortex with a robust line, then applied to the whole volume |
 | 3 | `run_group_differences` | each mouse folded onto the left hemisphere (L - R and L + R; the group means take \|L - R\|); the experimental group aligned onto the control group's profile; tissue smoothed in 3D, each mouse NaN outside its tissue; group means, Welch t and surprise (-log10 p) maps over the mice with tissue at each voxel, a t only where each group has at least `min_mice_per_group` of them (3), slab figures, regional bars, five region measures with an exact label permutation test, videos |
 
@@ -310,11 +310,14 @@ the two groups (`align_exp_to_ctrl`), the regions of the bars
 - This route normalises each mouse onto its group and the experimental group
   onto the control group; the Python route (`../mapping/`) scales each brain
   on its own. A result that uses both must make them comparable first.
-- Only the nano stack is written. The `auto_4d.mat`, `mask_4d.mat` and average
-  files in the adults' group folders are older (19 November 2025) and come
-  from an earlier registration: not to be read (`collect_by_group`'s help).
-  The autofluorescence per brain is in the registered tiffs, which the
-  Python route reads.
+- Step 1 stacks the nano channel, and the autofluorescence when asked
+  (`channels = {'auto'}`); each stack it writes holds its mice and the
+  registered files they were read from (`collected_mice`, `source_files`).
+  The `auto_4d.mat`, `mask_4d.mat` and average files in the adults'
+  production group folders are older (19 November 2025) and come from an
+  earlier registration: not to be read (`collect_by_group`'s help);
+  `run_per_mouse_values` refuses an `auto_4d.mat` without `source_files`.
+  The Python route reads the autofluorescence from the registered tiffs.
 - `../adult_matlab/run_characterize_distribution`, kept until the Python
   route replaces it, reads the normalised stacks of step 2; the other two
   scripts of `../adult_matlab/` read its outputs.
