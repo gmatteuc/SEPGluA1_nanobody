@@ -189,20 +189,21 @@ questions of the map:
     (L2/3 - L5 over each module's areas: auditory -0.11, visual and medial
     -0.06, somatomotor +0.04).
   - The rise with depth sits at the two ends. L1 is below L2/3 in 40 of 41
-    areas (median -0.25 zref) and L5 below L6 in 37 of 42 (median -0.09), while
+    areas (median -0.24 zref) and L5 below L6 in 37 of 42 (median -0.09), while
     L2/3 against L5 splits (21 of 41 lower, median -0.005): L2/3 is clearly
     below L5 (t ≤ -3) in 13 areas, auditory, visual, retrosplenial and orbital
     among them, and clearly above it only in PL. So supragranular is below
-    infragranular in 37 of 41 areas (median -0.16) mostly because L1 is low and
+    infragranular in 37 of 41 areas (median -0.15) mostly because L1 is low and
     L6 high; it is clearly reversed (t ≥ 3) in PL, ILA and ACAv.
   - Highest in the supragranular and infragranular bands: ILA (0.79 and 0.74),
     PL, ACAv and VISpor (VISli too, infragranular); in layer 4 VISpor, TEa and
     VISli. Lowest: RSPd, RSPv and ORBl in the supragranular band, SSp-n and
     SSp-m in layer 4 and the infragranular band (`area_layers_summary.csv`).
   - Between adults the median SD of an area's band is 0.13, 0.09 and 0.10 zref
-    (SEM 0.042, 0.030 and 0.031); VISpor, measured in 4 to 7 adults, varies
-    most (SD 0.27 to 0.28). VISpl has no mean at any depth, nor FRP in the
-    supragranular band: the sections cover too little of them. The flatmaps of
+    (SEM 0.042, 0.030 and 0.031); VISpor, measured in 4 to 7 adults band by
+    band, varies most (SD 0.27 to 0.28). VISpl has no mean in any band or over
+    the whole depth (only in L6, from 3 adults), nor FRP in the supragranular
+    band: the sections cover too little of them. The flatmaps of
     the mean and of the SD (`01_flatmaps_by_band_smooth3x1x1.png`) show the
     pattern; the SD between adults is highest where the sections end and
     carries their banding, so it is partly measurement.
@@ -315,8 +316,8 @@ split between Gria1 and density is loosely fixed under it.
   (not a bound: fifth powers leave 36%). The components of the 209 genes
   measured in every structure predict 85% (most often 47 components, picked
   inside each training fold), and the nano map stands above that model's own
-  floor (22% to 24% left against 3% to 5%). So the claim is "not predicted by Gria1 expression or
-  synapse density", never "beyond gene expression".
+  floor (22% to 24% left against 3% to 5%). So the claim is "not predicted by
+  Gria1 expression or synapse density", never "beyond gene expression".
 - The leftover is in good part a contrast between divisions (40% of its
   variance): the hippocampal formation, the striatum and olfactory areas sit
   above prediction as a whole, the isocortex and the hypothalamus below

@@ -60,9 +60,8 @@ mapping/
 - `tools\venv_atlas` runs every script but `run_closeup.py` and
   `run_adult_layers.py`, which need `ccf_streamlines` and run in
   `tools\venv_flat` (`run_adult_layers.py --no-flatmap` also runs in
-  `venv_atlas`). Their pinned requirements,
-  and how to create them, are `tools/requirements_atlas.txt` and
-  `requirements_flat.txt`. CCF Translator, in `venv_atlas`, downloads its
+  `venv_atlas`). Their pinned requirements, and how to create them, are
+  `tools/requirements_atlas.txt` and `requirements_flat.txt`. CCF Translator, in `venv_atlas`, downloads its
   DeMBA-to-CCF deformation fields on first use; the copy the results were
   made with is kept in `<data>\atlas\ccf_translator_fields\`.
 - Run from the code root, in the order of the scripts' headers:
@@ -113,10 +112,9 @@ reads every step's numbers, so it closes the ISH line. Step 31 reads the
 per-mouse files of steps 1 and 2, checks its whole-area cells against step 5's
 `region_means_per_mouse.csv` both ways, and needs ccf_streamlines' assets in
 `atlas_flatmap\`, as step 9 does; it reads nothing of the ISH line and comes
-after it. Sheet 07
-of step 10 reads the tables of steps 4 and 5, and sheet 08 the background
-masks of `../group_comparison/run_normalise_groups` (naive and P20), so in a
-full run the plasticity chain comes first. The scripts of the ISH run of 5
+after it. Sheet 07 of step 10 reads the tables of steps 4 and 5, and sheet 08
+the background masks of `../group_comparison/run_normalise_groups` (naive and
+P20), so in a full run the plasticity chain comes first. The scripts of the ISH run of 5
 October (`run_ish_regions`, `run_ish_compare`, `run_ish_words`,
 `run_ish_roles`, `run_ish_reliability`, `run_ish_panel_test`) are out of the run
 order: they write the frozen folder `adult_v2\ish\`, and move to `archive/`
@@ -173,9 +171,9 @@ against the genes have no premise.
 - **The adult map by depth** (step 31): per adult, isocortex area and depth
   (three bands, supragranular L1 + L2/3, granular L4 and infragranular L5 + L6;
   the five layers; the whole depth), the region tables' zref from 250 voxels,
-  counted when the cell covers a
-  quarter of its area (`adult_layers.min_coverage`). Two contrasts within each
-  brain (supragranular - infragranular, L2/3 - L5). Mean, SEM and t across
+  counted when the cell covers a quarter of its area
+  (`adult_layers.min_coverage`). Two contrasts within each brain
+  (supragranular - infragranular, L2/3 - L5). Mean, SEM and t across
   adults; the half-against-half reliability of each depth's profile over areas,
   and its Spearman with the Harris 2019 hierarchy. The bars are grey by SEM,
   since zref's zero is the brain's median structure.
@@ -265,14 +263,15 @@ the ISH tables, the API answers and the grids.
   sections: it covers about half of part 1's fit and 96 of the 204 declared
   structures, so it chooses the density genes and is a check row, not the
   density term; a region the source gives only above several structures (PTLp,
-  the midbrain's motor part) is never spread onto them. As shared, each of its 37 punctum subtypes is scaled to 0..1, so the
-  PSD95 density is a mean of subtype maps, not a count of puncta.
+  the midbrain's motor part) is never spread onto them. As shared, each of
+  its 37 punctum subtypes is scaled to 0..1, so the PSD95 density is a mean of
+  subtype maps, not a count of puncta.
 - The true absences of the section QC (`ish_section_exceptions.csv`, one
   section today) and the sections kept at a step in expression are a human
   call, proposed and not yet reviewed.
-- The ISH outputs quoted in the documents were made on a full copy of the
-  production inputs (`SEP_DATA_ROOT`); the production data root has them once
-  steps 13 to 30 run there after the merge.
+- The ISH outputs and the map by depth quoted in the documents were made on a
+  full copy of the production inputs (`SEP_DATA_ROOT`); the production data
+  root has them once steps 13 to 31 run there.
 - The young cohort holds P16, P20 and P22 brains. A brain of another age
   (`mapping_cohort` `young_P28` and so on) goes through the per-brain steps,
   but no cohort takes it until one is added (see `../docs/ADDING_DATA.md`,
@@ -292,8 +291,9 @@ the ISH tables, the API answers and the grids.
   150 um apart, smoothing 60 um along AP), most in the supragranular band, and
   are highest where the sections end (posterior and lateral visual areas,
   frontal pole) and along the medial wall.
-- VISpl has no group mean at any depth, nor FRP supragranular; VISpor's means
-  rest on 4 to 7 adults and stay the most variable (SD 0.27 to 0.28).
+- VISpl has a group mean only in L6 (3 adults), none in a band or over the
+  whole depth, and FRP none in the supragranular band; VISpor's band means rest
+  on 4 to 7 adults (its L1 on 3) and stay the most variable (SD 0.27 to 0.28).
 - `region_groups.layer_of` does not read ACAv 6a and 6b, named without the word
   layer, so the frontal infragranular group of the young-against-adult route
   leaves them out.
