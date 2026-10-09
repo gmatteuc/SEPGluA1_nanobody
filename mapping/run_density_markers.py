@@ -1,6 +1,7 @@
 """The synapse-density genes of analysis 4, chosen by measured PSD95 without the map.
 
-Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
+Python route, in run order (tools\\venv_atlas; run_closeup and run_adult_layers in
+tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
      3. run_cohort             cohort mean, SD and n per voxel
@@ -57,6 +58,7 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                reports; figures 14, 14s
     30. run_ish_overview       figures 00, 15 and 15s, the figure
                                index; the numbers for the text
+    31. run_adult_layers       the adult map by depth (venv_flat)
 
 Downloads the mouse GO annotation (MGI's GAF) and go-basic.obo of one GO release from
 the GO Consortium's archive into reference/go/<release>/ under the data root (only
