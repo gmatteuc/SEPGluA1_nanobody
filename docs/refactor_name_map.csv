@@ -384,7 +384,7 @@ landmark_refine/handler.py,
 landmark_refine/requirements.txt,
 landmark_refine/serve.py,
 landmark_refine/weights/loftr_outdoor.ckpt,
-v2_adult_arms.py,mapping/sepmap/adult/arms.py
+v2_adult_arms.py,archive/adult_arms.py
 v2_beyond_controls.py,mapping/sepmap/adult/beyond_controls.py
 v2_beyond_density.py,mapping/sepmap/adult/beyond_density.py
 v2_beyond_figures.py,mapping/sepmap/adult/beyond_figures.py
@@ -393,7 +393,7 @@ v2_cohort.py,mapping/sepmap/volumes/cohort.py
 v2_compare.py,mapping/sepmap/young_vs_adult/compare.py
 v2_diagnostics.py,mapping/sepmap/diagnostics.py
 v2_inspect.py,mapping/sepmap/young_vs_adult/closeup.py
-v2_ish_arms.py,mapping/sepmap/ish/arms.py
+v2_ish_arms.py,archive/ish_arms.py
 v2_ish_compare.py,mapping/sepmap/ish/compare.py
 v2_ish_panel_test.py,mapping/sepmap/ish/panel_test.py
 v2_ish_regions.py,mapping/sepmap/ish/regions.py
@@ -421,7 +421,7 @@ v2_video_compare.py,mapping/sepmap/young_vs_adult/video_compare.py
 ,mapping/sepmap/adult/__init__.py
 ,mapping/sepmap/ish/__init__.py
 ,mapping/settings.toml
-,mapping/run_adult_arms.py
+,archive/run_adult_arms.py
 ,mapping/run_beyond_controls.py
 ,mapping/run_beyond_density.py
 ,mapping/run_beyond_figures.py
@@ -430,7 +430,7 @@ v2_video_compare.py,mapping/sepmap/young_vs_adult/video_compare.py
 ,mapping/run_cohort.py
 ,mapping/run_compare.py
 ,mapping/run_diagnostics.py
-,mapping/run_ish_arms.py
+,archive/run_ish_arms.py
 ,mapping/run_ish_compare.py
 ,mapping/run_ish_panel_test.py
 ,mapping/run_ish_regions.py

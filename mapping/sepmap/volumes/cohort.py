@@ -238,8 +238,8 @@ def per_unit(num: np.ndarray, ref: np.ndarray, tissue: np.ndarray) -> np.ndarray
     normalised by `tissue`, so tissue at the edge is not divided by the black
     outside it. The ratio is clipped to +-readings.ratio_clip. Off tissue, and where
     the smoothed reference is not positive, there is no ratio: NaN, which the cohort
-    volumes and the region tables (young_vs_adult.region_plot and region_groups,
-    adult.arms) leave out of their sums and counts.
+    volumes and the region tables (young_vs_adult.region_plot and region_groups)
+    leave out of their sums and counts.
     """
     sigma = READINGS["ref_sigma"]
     ref_s = gaussian_filter(np.where(tissue, ref, 0), sigma) / np.maximum(

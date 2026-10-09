@@ -24,7 +24,7 @@ ratio_clip = 20.0          # ratio and sepratio clipped to +-this, so a near-emp
 ref_sigma = 1.0            # Gaussian sigma of a reference channel before it divides, in 20 um voxels
 
 # the per-structure tables of each brain (young_vs_adult.region_plot and region_groups,
-# volumes.cohort's range match, adult.arms, sep_channel_check and beyond_density)
+# volumes.cohort's range match, sep_channel_check and beyond_density)
 [region_tables]
 min_vox20 = 250            # smallest structure (or group of structures) kept, in 20 um voxels: 2 nl, the volume of the earlier tables
 
@@ -83,7 +83,7 @@ min_voxels = 10            # 200 um voxels a structure's gene value needs to be 
 adult_groups = ["naive", "rws"]  # the adult groups, pooled
 reading = "zref"           # the reading the tests and the figures use
 control_gene = "Gria1"     # the gene that encodes the stained protein, GluA1, whose mRNA the green channel is compared with (adult.sep_channel_check)
-min_structures = 50        # structures a gene must share with the map (or the arms) to be correlated
+min_structures = 50        # structures a gene must share with the map to be correlated
 min_genes_ranking = 20     # genes the old and the new ranking must share to be compared
 min_structures_pair = 50   # structures two experiments of one gene must share to be compared
 
@@ -221,7 +221,7 @@ jackknife_share = 0.2      # share of the structures each subsample leaves out (
 jackknife_draws = 4        # draws of animals per known map and direction on each subsample; the mean over 8 is steady to about a point
 jackknife_splits = 20      # half-cohort splits behind the ceiling on each subsample
 
-# the guided figures of analysis 4 (adult.beyond_figures): figures 03 and 04; their
+# the guided figures of part 1 (adult.beyond_figures): figures 03, 03s and 04; their
 # intervals come from the jackknife of [beyond_calibration]
 [beyond_figures]
 n_perm = 10000             # shuffles of one half's leftover, what two unrelated leftovers agree at (for scale)

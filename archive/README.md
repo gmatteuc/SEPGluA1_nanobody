@@ -13,6 +13,8 @@ keeps every file, so deleting one loses nothing.
 | `scratch.m` | working fragments of the plasticity comparison, run by hand in a workspace that held its stacks: mask smoothing, normalisation checks, region quantification, left-right videos; not called | `group_comparison/` (`run_normalise_groups`, `run_group_differences`) | with the rest of the folder |
 | `compare_young_vs_adult_lrsum.py`, `replot_young_vs_adult_lrsum.py`, `region_means_raw_per_mouse.py`, `region_ratio_young_vs_adult.py`, `plot_region_ratio_young_vs_adult.py` | the first young-against-adult comparison (September 2026, three P20 brains), whose outputs are in `<data>\comparisons\young_P20_vs_adult_nano\` | the Python route, `mapping/` (`sepmap/volumes/` and `sepmap/young_vs_adult/`) | with the rest of the folder |
 | `extractAxioscanImages.m` | an image extractor that came with BioformatsImage, not called | `preprocessing/run_extract_and_center` | with the rest of the folder |
+| `adult_arms.py`, `run_adult_arms.py` (were `mapping/sepmap/adult/arms.py` and `mapping/run_adult_arms.py`) | the three channel ratios per adult and structure (nano/autofluorescence, nano/SEP, SEP/autofluorescence), written to `<data>\adult_v2\arms\region_means_arms.csv`, the input of the tests below | nothing: the green channel is mostly autofluorescence, so the ratios with SEP have no premise; what the channels show is `mapping/sepmap/adult/sep_channel_check.py` (figure 15 of the ISH line) | now; retired on 9 October 2026 |
+| `ish_arms.py`, `run_ish_arms.py` (were `mapping/sepmap/ish/arms.py` and `mapping/run_ish_arms.py`) | the channel ratios against the genes, the test of surface against total receptor, and `arms_vs_genes.png` | nothing, for the same reason (decision 5 of [history/ISH_DISCUSSION.md](../docs/history/ISH_DISCUSSION.md)); a total-GluA1 stain would answer the question | now; retired on 9 October 2026 |
 
 The rest of the folder goes once Giulio has checked the Python route against
 the old code, run from the tag `refactor-start` in a check tree of its own
@@ -35,3 +37,6 @@ Deleted on 5 October, and still at the tag `refactor-start`:
   creates that folder as soon as it is imported.
 - `extractAxioscanImages.m` writes an `extracted_cy3\` folder next to the
   `.czi` files it reads: run on a raw folder, it writes beside the raw data.
+- The four arms files import `sepmap.adult.arms` and `sepmap.ish.arms`, which
+  are no longer in the package, so they fail at once; restored, they would
+  overwrite `<data>\adult_v2\arms\`, the frozen run of 5 October.
