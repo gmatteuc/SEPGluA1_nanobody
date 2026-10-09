@@ -36,22 +36,25 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                10s1, 10s2
     21. run_synaptome          the measured synapse density (network,
                                once): PSD95 puncta per structure,
-                               its coverage of the fit; figure 14s
-    22. run_beyond_density     analysis 4: what Gria1 and synapse
+                               its coverage of the fit; figure 14s1
+    22. run_density_markers    the synapse-density genes, chosen by
+                               PSD95 without the map (network,
+                               once); figure 14s2
+    23. run_beyond_density     analysis 4: what Gria1 and synapse
                                density leave; the leftover
-    23. run_beyond_controls    seven attempts to break it
-    24. run_beyond_calibration the same model on maps whose answer
+    24. run_beyond_controls    seven attempts to break it
+    25. run_beyond_calibration the same model on maps whose answer
                                is known
-    25. run_beyond_regression  the regression, per structure
-    26. run_beyond_figures     figures 03, 03s1, 03s2, 04, 11s1, 14
-    27. run_ish_top_genes      the genes that follow the map most,
+    26. run_beyond_regression  the regression, per structure
+    27. run_beyond_figures     figures 03, 03s1, 03s2, 04, 11s1, 14
+    28. run_ish_top_genes      the genes that follow the map most,
                                characterised; Cacng8 and the AMPA
                                receptor complex family against the
                                leftover; figures 07, 08, 11, 11s2,
                                sheets
-    28. run_sep_channel_check  analysis 5: what the green channel
+    29. run_sep_channel_check  analysis 5: what the green channel
                                reports; figures 15, 15s
-    29. run_ish_overview       figures 00, 16 and 16s, the figure
+    30. run_ish_overview       figures 00, 16 and 16s, the figure
                                index; the numbers for the text
 
 A change to the figures does not need the comparison again: this reads the

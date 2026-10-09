@@ -46,7 +46,7 @@ from sepmap.config import DATA, SETTINGS
 STRUCTURES = SETTINGS["structures"]
 REGION_TABLES = SETTINGS["region_tables"]
 
-# every output of the ISH line, steps 13 to 29: tables, figures, and a folder per
+# every output of the ISH line, steps 13 to 30: tables, figures, and a folder per
 # analysis that writes more than its tables
 ISH_OUT = DATA / "adult_v2" / "ish_analysis"
 TABLES = ISH_OUT / "tables"

@@ -49,7 +49,7 @@ def gather_numbers(tables: Path | None = None) -> pd.DataFrame:
         part.insert(0, "step", path.stem.removeprefix("numbers_"))
         parts.append(part)
     if not parts:
-        raise FileNotFoundError(f"no numbers_*.csv in {tables}: run steps 13 to 29 first")
+        raise FileNotFoundError(f"no numbers_*.csv in {tables}: run steps 13 to 30 first")
     return pd.concat(parts, ignore_index=True)
 
 

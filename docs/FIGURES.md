@@ -291,7 +291,8 @@ story and every number: [ISH_ANALYSIS.md](ISH_ANALYSIS.md).
 | `12_autofluorescence.png`, `12s_autofluorescence_detail.png` | `run_ish_gene_ranking.py` | Gria1 and Cacng8 with nano and with autofluorescence adult by adult and against each map's null, every gene against both maps; in 12s the two distributions of rho, how many genes each map passes at three thresholds, the genes past each null |
 | `13_robustness.png`, `13s_robustness_detail.png` | `mapping/run_ish_robustness.py` | the ranking under eleven variants: gene order, Cacng8's and Gria1's ranks, the gap against its null; in 13s every gene under four of the variants |
 | `14_synaptome.png` | `run_beyond_figures.py` | the measured PSD95 density, a control of part 1: the structures of the fit it covers per division, against the marker mRNA composite, and what each density measure predicts alone and leaves in the main model, with the paired differences between them |
-| `14s_synaptome_detail.png` | `mapping/run_synaptome.py` | the same coverage and comparison, the two hemispheres of the one mouse, and each density's agreement with the mRNA density terms, Gria1 and the maps |
+| `14s1_synaptome_detail.png` | `mapping/run_synaptome.py` | the same coverage and comparison, the two hemispheres of the one mouse, and each density's agreement with the mRNA density terms, Gria1 and the maps |
+| `14s2_density_markers.png` | `mapping/run_density_markers.py` | the synapse-density genes of part 1, chosen without the map: PSD95 punctum density against their mean rank, the eligible genes ranked by agreement with PSD95 with the AMPA-linked ones marked, how often each gene is chosen on random halves of the structures, and each composite's agreement on the other half |
 | `15_green_channel.png`, `15s_green_channel_detail.png` | `mapping/run_sep_channel_check.py` | what the green channel reports: three channels and which follows which, adult by adult, their ranges; in 15s one adult's raw planes and each channel against Gria1 |
 | `16_april_headline.png`, `16s_april_headline_detail.png` | `run_ish_overview.py` | April's gene order then and now, the ANOVA p under each choice, today's groups against the null; in 16s April's category violins beside today's |
 | `qc\00_flagged.png`, `qc\<gene>_<experiment>.png` | `mapping/run_ish_section_qc.py --sheets` | every experiment with a section set missing, kept as a true absence or kept at a step; one sheet per experiment: the section profile with its flags, the orientation check |
@@ -300,8 +301,8 @@ story and every number: [ISH_ANALYSIS.md](ISH_ANALYSIS.md).
 
 Working figures beside the tables, at 200 dpi, for checking a step rather than
 for a reader: `beyond\fig0_structures` to `fig6_readings`, `E_regression`,
-`F_maps` (steps 22, 23 and 25) and `green_channel\sep_channel_check.png`
-(step 28). The run scripts of those steps draw them with the functions of
+`F_maps` (steps 23, 24 and 26) and `green_channel\sep_channel_check.png`
+(step 29). The run scripts of those steps draw them with the functions of
 `mapping/sepmap/adult/plotting.py`.
 
 **Inputs.** The per-brain files and `region_means_per_mouse.csv` of the route's
@@ -310,7 +311,7 @@ and its grids of steps 11 and 12 (`adult_v2\panel\`, `<data>\atlas_ish\`),
 `mapping/gene_targets.csv` and `mapping/ish_section_exceptions.csv`, the
 frozen P9 table `<data>\comparisons\merged_naive_rws_vs_ish_summary_nosmooth\gene_panel_summary.csv`
 (figure 16), and the caches under `ish_analysis\cache\` (Allen experiment
-lists, mygene records, `go-basic.obo`). Steps 13 to 29 run in order.
+lists, mygene records, `go-basic.obo`). Steps 13 to 30 run in order.
 
 **Settings that matter.** `[structures] min_adults` (10) and `grey`;
 `[ish_qc]` (three neighbours each side; a section below 0.2 of the median of

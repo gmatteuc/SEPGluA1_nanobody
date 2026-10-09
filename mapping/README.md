@@ -68,8 +68,9 @@ mapping/
   the figures, `--panel targets|ontology` for the two ISH passes. Analysis
   parameters are in `settings.toml` only.
 - `run_panel_build`, `run_panel_fetch`, `run_ish_section_qc`,
-  `run_ish_gene_table` and `run_synaptome` call the network for what their
-  caches lack; `--offline` makes the last three stop instead.
+  `run_ish_gene_table`, `run_synaptome` and `run_density_markers` call the
+  network for what their caches lack; `--offline` makes the last four stop
+  instead.
 
 | stage | steps | what |
 |---|---|---|
@@ -79,20 +80,21 @@ mapping/
 | ontology panel | 11 `run_panel_build`, 12 `run_panel_fetch` | a 390-gene panel from Gene Ontology terms, and its ISH grids (network, once; not rerun for an analysis) |
 | ISH inputs | 13 `run_structure_set`, 14 `run_ish_section_qc`, 15 `run_ish_gene_table`, 16 `run_ish_spatial_null` | the declared structures and the adult profiles (A1); section QC of every experiment (A2); one gene table, merged profiles, gene sets, documentation (A9); surrogate maps with the map's smoothness (A7) |
 | the genes against the map | 17 `run_ish_gene_ranking`, 18 `run_ish_robustness`, 19 `run_ish_divisions`, 20 `run_ish_gene_sets` | each gene against the map and the autofluorescence map, with the null (A8); the ranking under other choices (A3); between or within divisions (A6); gene sets and localisation against matched controls |
-| the measured synapse density | 21 `run_synaptome` | fetches the PSD95 and SAP102 punctum densities of Zhu et al. 2018 as Hansen et al. share them, from their repository at a pinned commit (network, once; `--offline` stops instead), into `<data>\reference\synaptome\`; places the samples in the CCF structures; how much of the declared set and of analysis 4's fit the PSD95 density covers, and how it agrees with the mRNA density terms, Gria1 and the map |
-| beyond Gria1 expression and synapse density | 22 `run_beyond_density`, 23 `run_beyond_controls`, 24 `run_beyond_calibration`, 25 `run_beyond_regression`, 26 `run_beyond_figures` | how much of the map the main model (Gria1, synapse density, autofluorescence; `[beyond]`) predicts, and the genes against what it leaves; seven controls, and the leftover under other folds, structures and the check rows of `[beyond.variants]` (PSD95 or SAP102 puncta, the four subunits); the same model on maps whose answer is known, and the nano map against them on the same structures; the regression per structure; the figures of part 1 |
-| the genes that follow the map | 27 `run_ish_top_genes` | the genes past the map's null, Gria1, Cacng8 and the AMPA receptor complex family described on every axis of the ISH line, each added to the main model against maps of its smoothness; the tests named in advance for the leftover (Cacng8, then the family as a group and gene by gene; `ish/gene_sets.py`); per-gene sheets |
-| the green channel, the overview | 28 `run_sep_channel_check`, 29 `run_ish_overview` | what the green channel reports; April's headline, the numbers for the text, the overview and the index of the figures |
+| the measured synapse density | 21 `run_synaptome`, 22 `run_density_markers` | fetches the PSD95 and SAP102 punctum densities of Zhu et al. 2018 as Hansen et al. share them, from their repository at a pinned commit (network, once; `--offline` stops instead), into `<data>\reference\synaptome\`; places the samples in the CCF structures; how much of the declared set and of analysis 4's fit the PSD95 density covers, and how it agrees with the mRNA density terms, Gria1 and the map; then the synapse-density genes of analysis 4 (`[density_markers]`): postsynaptic genes of mouse GO, one release fetched once into `<data>\reference\go\<release>\` (`--offline` stops instead), the AMPA-linked genes left out, the three highest with PSD95 density chosen without reading the map, and the choice on random halves of the structures |
+| beyond Gria1 expression and synapse density | 23 `run_beyond_density`, 24 `run_beyond_controls`, 25 `run_beyond_calibration`, 26 `run_beyond_regression`, 27 `run_beyond_figures` | how much of the map the main model (Gria1, synapse density, autofluorescence; `[beyond]`) predicts, and the genes against what it leaves; seven controls, and the leftover under other folds, structures and the check rows of `[beyond.variants]` (PSD95 or SAP102 puncta, the four subunits); the same model on maps whose answer is known, and the nano map against them on the same structures; the regression per structure; the figures of part 1 |
+| the genes that follow the map | 28 `run_ish_top_genes` | the genes past the map's null, Gria1, Cacng8 and the AMPA receptor complex family described on every axis of the ISH line, each added to the main model against maps of its smoothness; the tests named in advance for the leftover (Cacng8, then the family as a group and gene by gene; `ish/gene_sets.py`); per-gene sheets |
+| the green channel, the overview | 29 `run_sep_channel_check`, 30 `run_ish_overview` | what the green channel reports; April's headline, the numbers for the text, the overview and the index of the figures |
 
 What fixes the order: step 5's `region_means_per_mouse.csv` is read by steps
 13 (the stored `cref` and `zref`, to measure what the declared reference
-moves), 18 (the stored `zref` and `ratio` rows) and 23 (the readings of
+moves), 18 (the stored `zref` and `ratio` rows) and 24 (the readings of
 control G); step 13's structure set, profiles and centroids by every later
-step; step 14's flags by 15; step 15's gene table and profiles by 17 to 28;
+step; step 14's flags by 15; step 15's gene table and profiles by 17 to 29;
 step 16's surrogates by 17, 19 and 20; step 17's `gene_ranking.csv` and
-`null_rho.npz` by 18 to 20, 27 and 29; steps 18 and 19's tables by 27; step
-21's synapse density by 22 to 27; step 22's tables by 23 to 27, and steps 23 to
-25's by 26; step 29 reads every step's numbers, so it comes last. Sheet 07
+`null_rho.npz` by 18 to 20, 28 and 30; steps 18 and 19's tables by 28; step
+21's synapse density by 22 to 28; step 22's genes, written into `settings.toml`,
+by 23 to 28; step 23's tables by 24 to 28, and steps 24 to 26's by 27; step 30
+reads every step's numbers, so it comes last. Sheet 07
 of step 10 reads the tables of steps 4 and 5, and sheet 08 the background
 masks of `../group_comparison/run_normalise_groups` (naive and P20), so in a
 full run the plasticity chain comes first. The scripts of the ISH run of 5
@@ -135,7 +137,7 @@ against the genes have no premise.
   tests with their Benjamini-Hochberg q, the P20-only and naive-RWS contrasts
   beside them (`region_stats.csv`); the same by system, division and layer
   (`group_stats.csv`).
-- **The ISH analysis** (steps 13 to 29), on the declared structures (grey
+- **The ISH analysis** (steps 13 to 30), on the declared structures (grey
   matter measured in all ten adults) and one gene table: how much of the adult
   map Gria1 expression and synapse density predict, against the map's own
   reliability and a calibration floor, with seven controls (part 1); each
@@ -169,10 +171,11 @@ Under `<data>\comparisons_v2\`:
 Under `<data>\adult_v2\`:
 
 - `ish_analysis\`: the ISH analysis. `tables\` (every table of steps 13 to
-  29, the surrogates, `numbers_<step>.csv` and `numbers_for_the_text.csv`),
+  30, the surrogates, `numbers_<step>.csv` and `numbers_for_the_text.csv`),
   `synaptome\` (the measured synapse density per sample and per structure,
-  its coverage and agreement), `beyond\` (part 1's tables and working
-  figures), `green_channel\`, `figures\` (the guided figures
+  its coverage and agreement), `density_markers\` (the pool, the exclusions,
+  the agreement with PSD95, the random halves), `beyond\` (part 1's tables
+  and working figures), `green_channel\`, `figures\` (the guided figures
   `00_overview.png` to `16_april_headline.png`, each main figure with its
   detailed versions, `03s1_beyond_budget.png` and so on, the index `README.md`,
   `qc\`, `genes\` and `top_genes\`), `cache\` (Allen
@@ -185,7 +188,8 @@ Under `<data>\adult_v2\`:
 
 Under `<data>\reference\`: third-party data, each folder with a
 `fetch_log.txt` (source, version, citation, checksums); `synaptome\` is
-written by `run_synaptome` (step 21).
+written by `run_synaptome` (step 21), `go\<release>\` (the mouse GAF and
+`go-basic.obo` of one GO release) by `run_density_markers` (step 22).
 
 Figures are PNG with an EPS beside most of them. Caches are reused when
 present: `per_mouse\*_scalars.npz` when its recorded date matches its source,
@@ -230,7 +234,7 @@ the ISH tables, the API answers and the grids.
   call, proposed and not yet reviewed.
 - The ISH outputs quoted in the documents were made on a full copy of the
   production inputs (`SEP_DATA_ROOT`); the production data root has them once
-  steps 13 to 29 run there after the merge.
+  steps 13 to 30 run there after the merge.
 - The young cohort holds P16, P20 and P22 brains. A brain of another age
   (`mapping_cohort` `young_P28` and so on) goes through the per-brain steps,
   but no cohort takes it until one is added (see `../docs/ADDING_DATA.md`,

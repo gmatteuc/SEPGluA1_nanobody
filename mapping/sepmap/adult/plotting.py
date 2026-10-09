@@ -1,7 +1,7 @@
 """The figures of the adult map's analyses: part 1 of the ISH line and the green channel.
 
 The guided figures of part 1, how much of the map Gria1 and synapse density leave
-(03, 03s1, 03s2, 04, 11s1, 14, 14s), and of analysis 5, what the green channel
+(03, 03s1, 03s2, 04, 11s1, 14, 14s1, 14s2), and of analysis 5, what the green channel
 reports (15, 15s), drawn as the ISH line's: number and question at the top, one
 line to take from a main figure, grey notes on how to read it at the foot, a
 takeaway that follows its numbers; their shared pieces (heading, footer, panel
@@ -12,7 +12,7 @@ sep_channel_check.png), PNG only at 200 dpi, which show each step's numbers as i
 runs. The modules that compute draw nothing: every function here takes tables and
 returns the figure.
 
-Called by the run scripts of steps 21 to 28 and by adult.beyond_figures.
+Called by the run scripts of steps 21 to 29 and by adult.beyond_figures.
 """
 
 import textwrap
@@ -86,7 +86,7 @@ def saved_working(fig: plt.Figure, path: Path | None) -> plt.Figure:
     return fig
 
 
-# ===== 14 and 14s The measured synapse density (adult.synaptome) =====
+# ===== 14 and 14s1 The measured synapse density (adult.synaptome) =====
 
 
 # how each density is drawn in the agreement panel: the one the model uses filled, in
@@ -366,7 +366,7 @@ def plot_synaptome(
 def coverage_takeaway(
     n_fit: int, n_measured: int, needed: int, min_coverage: float
 ) -> str:
-    """Figure 14s's line under its title: the coverage against the rule.
+    """Figure 14s1's line under its title: the coverage against the rule.
 
     The rule says whether PSD95 enters the model.
     """
@@ -393,7 +393,7 @@ def plot_synaptome_detail(
     min_coverage: float,
     save: Path | None = None,
 ) -> plt.Figure:
-    """Figure 14s: the measured synapse density, its coverage of the fit, how it compares.
+    """Figure 14s1: the measured synapse density, its coverage, how it compares.
 
     A: per division, the structures of analysis 4's fit with a measured PSD95 density.
     B: that density against the marker mRNA composite it would replace, as ranks.
@@ -470,6 +470,227 @@ def plot_synaptome_detail(
             "of its parts was sampled; a region above several structures is never spread "
             "onto",
             "them. Every rho is Spearman over the structures both maps have.",
+        ],
+    )
+    return saved(fig, save)
+
+
+# ===== 14s2 The synapse-density genes (adult.density_markers) =====
+
+# the eligible genes figure 14s2 B draws, highest agreement first, and the genes whose
+# share of the half-split choices C draws
+N_RANKED = 30
+N_SELECTED = 10
+
+# the composites of figure 14s2 D, top to bottom, and how they are named
+COMPOSITE_LABELS = {
+    "chosen": "the genes chosen",
+    "first_proposal": "Dlg4, Homer1, Camk2a",
+    "marker_panel": "the 11 synaptic markers",
+    "psd_pc1": "psd_pc1",
+}
+
+
+def gene_ranking_dots(ax: plt.Axes, agreement: pd.DataFrame, n_shown: int) -> None:
+    """B: the eligible genes highest with PSD95: chosen, in the pool, or excluded."""
+    top = agreement.head(n_shown)
+    y = np.arange(len(top))
+    chosen = top["chosen"].to_numpy(bool)
+    excluded = top["excluded"].to_numpy(bool)
+    pool = ~chosen & ~excluded
+    rho = top["rho"].to_numpy(float)
+    for k in y:
+        ax.axhline(k, color="0.94", lw=0.6, zorder=0)
+    ax.scatter(rho[pool], y[pool], s=30, color=MID_GREY, linewidths=0, zorder=2)
+    ax.scatter(rho[chosen], y[chosen], s=46, color=DENSITY_BLUE, linewidths=0, zorder=3)
+    ax.scatter(
+        rho[excluded],
+        y[excluded],
+        s=30,
+        facecolors="none",
+        edgecolors=RED,
+        linewidths=1.0,
+        zorder=2,
+    )
+    ax.set_yticks(y)
+    ax.set_yticklabels(top["symbol"], fontsize=7)
+    for label, out in zip(ax.get_yticklabels(), excluded):
+        if out:
+            label.set_color(RED)
+    ax.set_ylim(len(top) - 0.4, -0.6)
+    ax.set_xlabel("Spearman rho with PSD95 punctum density", fontsize=8)
+    handles = [
+        plt.Line2D([], [], ls="", marker="o", ms=7, mfc=DENSITY_BLUE, mec="none"),
+        plt.Line2D([], [], ls="", marker="o", ms=5.5, mfc=MID_GREY, mec="none"),
+        plt.Line2D([], [], ls="", marker="o", ms=5.5, mfc="none", mec=RED),
+    ]
+    ax.legend(
+        handles,
+        ["chosen", "in the pool", "excluded: AMPA-linked"],
+        fontsize=7,
+        frameon=False,
+        loc="lower right",
+    )
+    tidy(ax)
+
+
+def selection_bars(
+    ax: plt.Axes, selection: pd.DataFrame, chosen: list[str], n_shown: int
+) -> None:
+    """C: the share of the random halves on which each gene is chosen."""
+    top = selection.head(n_shown)
+    y = np.arange(len(top))
+    colours = [DENSITY_BLUE if g in chosen else LIGHT_GREY for g in top["symbol"]]
+    share = top["share"].to_numpy(float)
+    ax.barh(y, share, color=colours, height=0.7)
+    for k in y:
+        ax.text(share[k] + 0.01, k, f"{share[k]:.0%}", va="center", fontsize=7)
+    ax.set_yticks(y)
+    ax.set_yticklabels(top["symbol"], fontsize=7)
+    ax.invert_yaxis()
+    ax.set_xlim(0, 1.08)
+    ticks = np.arange(0, 1.01, 0.25)
+    ax.set_xticks(ticks)
+    ax.set_xticklabels([f"{t:.0%}" for t in ticks])
+    ax.set_xlabel("share of the halves on which it is chosen", fontsize=8)
+    tidy(ax)
+
+
+def held_out_panel(ax: plt.Axes, comparison: pd.DataFrame) -> None:
+    """D: each composite's agreement with PSD95 on held-out halves and the full set."""
+    rows = comparison.set_index("composite")
+    names = [c for c in COMPOSITE_LABELS if c in rows.index]
+    for k, name in enumerate(names):
+        r = rows.loc[name]
+        colour = DENSITY_BLUE if name == "chosen" else DARK_GREY
+        ax.plot([r["rho_held_out_lo"], r["rho_held_out_hi"]], [k, k], color=colour, lw=2)
+        ax.scatter(r["rho_held_out_median"], k, s=46, color=colour, zorder=3)
+        ax.scatter(
+            r["rho_full_set"],
+            k,
+            s=34,
+            marker="D",
+            facecolors="none",
+            edgecolors=colour,
+            linewidths=1.0,
+            zorder=3,
+        )
+    labels = []
+    for name in names:
+        genes = rows.loc[name, "genes"] if name == "chosen" else ""
+        labels.append(f"{COMPOSITE_LABELS[name]}\n{genes}".strip())
+    ax.set_yticks(range(len(names)))
+    ax.set_yticklabels(labels, fontsize=7)
+
+    # room under the last row for the legend
+    ax.set_ylim(len(names) + 0.4, -0.5)
+    ax.set_xlabel("Spearman rho with PSD95 punctum density", fontsize=8)
+    handles = [
+        plt.Line2D([], [], color=DARK_GREY, lw=2, marker="o", ms=6),
+        plt.Line2D([], [], ls="", marker="D", ms=5.5, mfc="none", mec=DARK_GREY),
+    ]
+    ax.legend(
+        handles,
+        ["held-out halves: median and 95% range", "full set (optimistic for the chosen)"],
+        fontsize=7,
+        frameon=False,
+        loc="lower left",
+    )
+    tidy(ax)
+
+
+def plot_density_markers(
+    agreement: pd.DataFrame,
+    composite: pd.Series,
+    psd95: pd.Series,
+    groups: dict[str, str],
+    selection: pd.DataFrame,
+    comparison: pd.DataFrame,
+    n_halves: int,
+    go_release: str,
+    save: Path | None = None,
+) -> plt.Figure:
+    """Figure 14s2: the synapse-density genes, chosen by PSD95 without the map.
+
+    A: PSD95 punctum density against the chosen genes' mean rank, over the declared
+    structures both have. B: the eligible genes highest with PSD95, the AMPA-linked
+    ones marked. C: how often each gene is chosen on a random half of the structures.
+    D: each composite's agreement with PSD95 on the held-out halves and on the full
+    set. The tables are those of run_density_markers; `composite` is the chosen genes'
+    mean rank per structure, `groups` each structure's group of divisions.
+    """
+    chosen = list(agreement.loc[agreement["chosen"], "symbol"])
+    rows = comparison.set_index("composite")
+    mine = rows.loc["chosen"]
+    first = rows.loc["first_proposal"]
+    fig = plt.figure(figsize=(11.5, 9.4))
+    grid = fig.add_gridspec(
+        2, 2, hspace=0.42, wspace=0.42, left=0.12, right=0.97, top=0.86, bottom=0.13
+    )
+
+    ax = fig.add_subplot(grid[0, 0])
+    n, rho = rank_scatter(
+        ax,
+        psd95,
+        composite,
+        groups,
+        ("PSD95 punctum density (rank)", "mean rank of the genes chosen (rank)"),
+    )
+    ax.legend(handles=group_handles(), fontsize=7, frameon=False, loc="upper left")
+    panel_title(
+        ax,
+        "A",
+        "PSD95 puncta against the genes chosen",
+        f"rho {rho:+.2f}, n = {n} (full set, optimistic)",
+    )
+
+    ax = fig.add_subplot(grid[0, 1])
+    gene_ranking_dots(ax, agreement, N_RANKED)
+    n_pool = int(agreement["in_pool"].sum())
+    n_out = int(agreement["excluded"].sum())
+    panel_title(
+        ax,
+        "B",
+        "The genes highest with PSD95",
+        f"the top {N_RANKED} of {len(agreement)}: {n_pool} in the pool, {n_out} excluded",
+    )
+
+    ax = fig.add_subplot(grid[1, 0])
+    selection_bars(ax, selection, chosen, N_SELECTED)
+    panel_title(
+        ax,
+        "C",
+        "How often each gene is chosen",
+        f"the rule on {n_halves} random halves of the structures",
+    )
+
+    ax = fig.add_subplot(grid[1, 1])
+    held_out_panel(ax, comparison)
+    panel_title(
+        ax,
+        "D",
+        "Agreement with PSD95 on the other half",
+        f"n = {int(mine['n_held_out'])} structures per half",
+    )
+
+    # the title, the numbers and how to read it
+    heading(
+        fig,
+        "density_markers",
+        f"Chosen without the map: {', '.join(chosen[:-1])} and {chosen[-1]}; their mean "
+        f"follows PSD95 at rho {mine['rho_held_out_median']:+.2f} on held-out halves "
+        f"({mine['rho_held_out_lo']:+.2f} to {mine['rho_held_out_hi']:+.2f}), against "
+        f"{first['rho_held_out_median']:+.2f} for Dlg4, Homer1 and Camk2a",
+    )
+    footer(
+        fig,
+        [
+            f"The pool: genes annotated in mouse GO (release {go_release}) to the "
+            "postsynaptic density or specialization, with two or more usable Allen",
+            "experiments, measured in 90% of the structures where Gria1 is; the genes "
+            "that place or regulate AMPA receptors are excluded (red).",
+            "PSD95: punctum density of one adult mouse (Zhu et al. 2018). No nano value "
+            "is read.",
         ],
     )
     return saved(fig, save)

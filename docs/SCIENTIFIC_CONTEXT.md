@@ -24,7 +24,7 @@ number, the earlier value is given beside it. Line of work 3, and the
 reproducibility of line 2, quote the ISH analysis built on 8 October 2026 on
 branch `post-ish` (`adult_v2\ish_analysis\`, [ISH_ANALYSIS.md](ISH_ANALYSIS.md)),
 run on a full copy of the production inputs: the production data root does not
-hold those outputs yet; it does once the branch is merged and steps 13 to 29
+hold those outputs yet; it does once the branch is merged and steps 13 to 30
 of the Python route run there.
 
 ## The question

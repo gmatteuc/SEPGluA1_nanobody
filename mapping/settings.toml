@@ -145,6 +145,16 @@ n_perm = 20000             # label permutations per test
 min_sensitivity_genes = 10 # genes on each side that the sensitivity run needs
 min_control_genes = 30     # control genes with a reliability that the positive control needs
 
+# the synapse-density term of analysis 4 (adult.density_markers): postsynaptic genes
+# chosen by their agreement with the measured PSD95 punctum density, by a rule that reads
+# no nano value; the GO terms of the rule are in the module, beside their reasons
+[density_markers]
+min_experiments = 2        # usable Allen experiments a gene needs to enter the pool: its map then has a reliability, and each half of the calibration's experiments holds one of its own
+min_coverage = 0.9         # share of the declared structures where Gria1 is measured that a gene must be measured in (ish.min_voxels), so the density term costs the fit few structures
+n_markers = 3              # genes averaged into the term: more than one, so no single Allen map's quirks carry it
+n_halves = 500             # random halves of the structures on which the choice is repeated: a gene's share of the choices is then placed within about 2 points
+chosen = ["Rock2", "Cap2", "Slc8a2"]  # the genes the rule chose, highest agreement with PSD95 first; run_density_markers stops if the rule gives others
+
 # analysis 4 (adult.beyond_density): what Gria1 expression and synapse density leave of
 # the adult map, the map being the zref of the adult profile (adult.profiles). The main
 # model (docs/ISH_ANALYSIS.md, section 4.1, says when it was fixed and what was known):

@@ -48,7 +48,8 @@ FIGURE_NUMBERS = {
     "robustness": "13",
     "robustness_detail": "13s",
     "synaptome": "14",
-    "synaptome_detail": "14s",
+    "synaptome_detail": "14s1",
+    "density_markers": "14s2",
     "green_channel": "15",
     "green_channel_detail": "15s",
     "april_headline": "16",
@@ -99,6 +100,7 @@ QUESTIONS = {
     "synaptome": "Does a measured synapse density change part 1?",
     "synaptome_detail": "The measured synapse density in detail: coverage, the two "
     "hemispheres, agreement with every map",
+    "density_markers": "Which genes stand for synapse density, chosen without the map?",
     "green_channel": "Does the green channel report the tagged receptor, or the tissue?",
     "green_channel_detail": "The three channels in detail: one adult's raw planes, each "
     "channel against Gria1",
@@ -226,6 +228,12 @@ SUPPLEMENTS = {
             "the two hemispheres of the one mouse, and each density's agreement with "
             "the mRNA terms, Gria1 and the maps",
         ),
+        (
+            "density_markers",
+            "the postsynaptic genes of the density term, chosen by their agreement with "
+            "PSD95 puncta without the map, the AMPA-linked genes left out, and the "
+            "choice on random halves of the structures",
+        ),
     ),
     "green_channel": (
         (
@@ -270,6 +278,7 @@ DRAWN_BY = {
     "robustness_detail": "run_ish_robustness.py",
     "synaptome": "run_beyond_figures.py",
     "synaptome_detail": "run_synaptome.py",
+    "density_markers": "run_density_markers.py",
     "green_channel": "run_sep_channel_check.py",
     "green_channel_detail": "run_sep_channel_check.py",
     "april_headline": "run_ish_overview.py",

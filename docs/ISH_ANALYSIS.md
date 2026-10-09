@@ -15,13 +15,13 @@ both fixed on 8 October before they were run (section 8.1 says what was known by
 then).
 
 - Code: `mapping/sepmap/structures.py`, `mapping/sepmap/adult/` and
-  `mapping/sepmap/ish/`, run by steps 13 to 29 of the Python route
+  `mapping/sepmap/ish/`, run by steps 13 to 30 of the Python route
   ([mapping/README.md](../mapping/README.md)), on branch `post-ish`, not merged
   yet.
 - Outputs: `<data>\adult_v2\ish_analysis\`. The numbers below are those of the
   run of 9 October 2026 on a full copy of the production inputs (the data root
   set by `SEP_DATA_ROOT`); the production data root holds the same once steps
-  13 to 29 run there after the merge. Every number is in
+  13 to 30 run there after the merge. Every number is in
   `tables\numbers_for_the_text.csv` there (a `.txt` beside it reads more
   easily), written by `run_ish_overview.py` from the numbers each step writes;
   each section names the step and the table its numbers come from.
@@ -108,7 +108,7 @@ page):
 | the inputs | 01 which structures enter every comparison; 02 which genes, and how good one Allen map is | 02s |
 | part 1 | 03 do Gria1 expression and synapse density explain the map; 04 where the map sits above or below what they predict | 03s1, 03s2 |
 | part 2 | 05 what a gene's rho with the map is; 06 how large a rho unrelated smooth maps give; 07 which genes follow the map, and what kind of maps they are; 08 whether the map follows Cacng8 more closely than Gria1; 09 inside divisions or only between them; 10 whether the genes that set surface receptor follow the map better; 11 whether any gene follows what Gria1 and synapse density leave | 05s, 06s, 07s, 09s, 10s1, 10s2, 11s1, 11s2 |
-| controls | 12 the label or the tissue and 13 the choices made, of part 2; 14 a measured synapse density, of part 1 | 12s, 13s, 14s |
+| controls | 12 the label or the tissue and 13 the choices made, of part 2; 14 a measured synapse density, of part 1 | 12s, 13s, 14s1, 14s2 |
 | the limit | 15 the green channel | 15s |
 | April | 16 what is left of April's headline | 16s |
 
@@ -205,7 +205,7 @@ of the synapse and the rule keeps a gene on one side only (section 8).
 
 ## 4. Part 1: not fully explained by Gria1 expression and synapse density
 
-`run_beyond_density.py` to `run_beyond_figures.py` (steps 22 to 26);
+`run_beyond_density.py` to `run_beyond_figures.py` (steps 23 to 27);
 `figures\03_beyond.png`, `03s1_beyond_budget.png`, `03s2_beyond_controls.png`
 and `04_beyond_where.png`.
 Numbers: step `beyond` of `numbers_for_the_text.csv`, and the tables of
@@ -243,7 +243,7 @@ nano map  ~  Gria1 + synapse density + autofluorescence
 ### 4.2 Synapse density, measured
 
 `run_synaptome.py` (step 21), `mapping/sepmap/adult/synaptome.py`;
-`figures\14_synaptome.png` and `14s_synaptome_detail.png`. Numbers: step
+`figures\14_synaptome.png` and `14s1_synaptome_detail.png`. Numbers: step
 `synaptome`; `synaptome\density.csv`, `coverage.csv`, `agreement.csv`.
 
 **Why.** The density terms of the panel are Allen mRNA, which sits in cell
@@ -916,7 +916,7 @@ single experiment and P9's divisions above it.
 
 ### 6.3 A measured synapse density
 
-`figures\14_synaptome.png` and `14s_synaptome_detail.png`; section 4.2. The
+`figures\14_synaptome.png` and `14s1_synaptome_detail.png`; section 4.2. The
 measured PSD95 density covers 61% of the fit, below the 80% the rule asks; on
 the 77 structures it covers it predicts the map less well alone than the mRNA
 panel (22% against 45%; -23 points, 95% -41 to -5), and the model leaves about
@@ -1056,6 +1056,35 @@ asks it again on sets fixed in advance.
   family passes against the surrogates only at the edge (p 0.047, 0.050 without
   Cacng8), not against matched controls (p 0.55).
 
+- **The density term of the second version of part 1, chosen without the map
+  (9 October).** Giulio fixed the rule after seeing the first version's
+  numbers, and it was written, run and committed with the genes it gave before
+  any nano number of the second version was computed (step 22,
+  `mapping/sepmap/adult/density_markers.py`, `[density_markers]` of
+  `mapping/settings.toml`; the run reads only the gene table, the declared set
+  and the synaptome's density table, and a test holds it to that):
+  - the pool: genes of the gene table with two or more usable Allen
+    experiments after section QC, measured (`ish.min_voxels`) in 90% of the
+    declared structures where Gria1 is, and annotated in mouse GO (GO release
+    2026-08-05) to the postsynaptic density (GO:0014069) or the postsynaptic
+    specialization (GO:0099572) or a term below either by is_a or part_of;
+  - excluded, as the surface side rather than density: Gria1 to Gria4, the
+    localisation set, the AMPA receptor complex family, and every gene
+    annotated (any evidence) to one of ten terms of AMPA receptors and receptor
+    placement (`EXCLUSION_TERMS`) or below it. Broad plasticity terms do not
+    exclude; the pool genes carrying them are listed in `candidates.csv`.
+    Checked by hand before the run: Dlg4 and Camk2a fall to this rule, Homer1
+    passes (its receptor terms are metabotropic; the indirect role of Homer1a in
+    homeostatic scaling is not annotated);
+  - the choice: the three pool genes highest in Spearman with the measured PSD95
+    punctum density over the declared structures where both exist, their mean
+    rank the term; repeated on 500 random halves of those structures, the
+    agreement of the chosen genes' mean with PSD95 on the other half is the one
+    quoted.
+
+  The rule chose Rock2, Cap2 and Slc8a2 (figure 14s2; numbers: step
+  `density_markers`).
+
 ### 8.2 To settle
 
 - **What a gene takes of the leftover.** Two nulls (section 5.3): plain
@@ -1093,7 +1122,7 @@ asks it again on sets fixed in advance.
   and works with that of 5 October. Both are shown, with the power check;
   neither turns the localisation result positive.
 - **The production run.** The outputs quoted here were made on a full copy of
-  the production inputs; steps 13 to 29 run on the production data root after
+  the production inputs; steps 13 to 30 run on the production data root after
   the merge.
 
 ## 9. How to rerun
@@ -1118,23 +1147,24 @@ tools\venv_atlas\Scripts\python.exe mapping\run_ish_overview.py
 | 18 | `run_ish_robustness` | | 13, 13s | 1 minute |
 | 19 | `run_ish_divisions --sheets` | | 09, 09s, gene sheets | 3 minutes |
 | 20 | `run_ish_gene_sets` | | 10, 10s1, 10s2 | 1 minute |
-| 21 | `run_synaptome` | the synaptome of Zhu et al. 2018, downloaded once into `<data>\reference\synaptome\`; `--offline` stops instead | 14s | 10 s |
-| 22 to 25 | `run_beyond_density` to `run_beyond_regression` | | | under 1 minute each; the calibration 2 minutes |
-| 26 | `run_beyond_figures` | the tables of steps 21 to 25 | 03, 03s1, 03s2, 04, 11s1, 14 | 1 minute |
-| 27 | `run_ish_top_genes --sheets` | the tables of steps 15 to 22 | 07, 08, 11, 11s2, top-gene sheets | 8 minutes, the nulls of the share taken |
-| 28 | `run_sep_channel_check` | | 15, 15s | under 1 minute |
-| 29 | `run_ish_overview` | every step's numbers | 00, 16, 16s, `figures\README.md` | 10 s |
+| 21 | `run_synaptome` | the synaptome of Zhu et al. 2018, downloaded once into `<data>\reference\synaptome\`; `--offline` stops instead | 14s1 | 10 s |
+| 22 | `run_density_markers` | the mouse GAF and `go-basic.obo` of GO release 2026-08-05, downloaded once into `<data>\reference\go\2026-08-05\`; `--offline` stops instead; reads no nano value, and stops if the rule chooses other genes than `[density_markers] chosen` | 14s2 | 1 minute |
+| 23 to 26 | `run_beyond_density` to `run_beyond_regression` | | | under 1 minute each; the calibration 2 minutes |
+| 27 | `run_beyond_figures` | the tables of steps 21 to 26 | 03, 03s1, 03s2, 04, 11s1, 14 | 1 minute |
+| 28 | `run_ish_top_genes --sheets` | the tables of steps 15 to 23 | 07, 08, 11, 11s2, top-gene sheets | 8 minutes, the nulls of the share taken |
+| 29 | `run_sep_channel_check` | | 15, 15s | under 1 minute |
+| 30 | `run_ish_overview` | every step's numbers | 00, 16, 16s, `figures\README.md` | 10 s |
 
-A full run of steps 13 to 29 takes about 40 minutes, and a second run gives
+A full run of steps 13 to 30 takes about 40 minutes, and a second run gives
 the same tables.
 
 Every run prints the data root and the settings in force. `SEP_DATA_ROOT`
 moves the data root, for a copy. The settings are `[structures]`, `[ish]`,
 `[ish_qc]`, `[ish_analysis]`, `[ish_panel_test]` (the label permutations, and the
 structures and reliability a gene needs, which `gene_sets` and `top_genes`
-read), `[spatial_null]`, `[beyond]`, `[beyond_controls]`, `[beyond_calibration]`,
-`[beyond_figures]`, `[beyond_regression]`, `[top_genes]` and `[ish_figures]` of
-`mapping/settings.toml`. The tests: `cd mapping`,
+read), `[spatial_null]`, `[density_markers]`, `[beyond]`, `[beyond_controls]`,
+`[beyond_calibration]`, `[beyond_figures]`, `[beyond_regression]`, `[top_genes]`
+and `[ish_figures]` of `mapping/settings.toml`. The tests: `cd mapping`,
 `..\tools\venv_dev\Scripts\python -m pytest tests`
 ([mapping/tests/README.md](../mapping/tests/README.md)).
 
@@ -1159,12 +1189,13 @@ Under `<data>\adult_v2\ish_analysis\`:
 | `tables\within_division.csv`, `within_division_detail.csv`, `within_calibration.csv` | 19 | per gene, division-only and within rho with both nulls; per gene and division; the two nulls on random maps |
 | `tables\gene_sets.csv`, `set_tests.csv`, `contrasts.csv`, `localisation_test.csv`, `localisation_summary.csv`, `localisation_power.csv` | 20 | set members; set tests; contrasts; partial rho per gene and pool; every test of the localisation design; its power by effect size |
 | `synaptome\samples.csv`, `density.csv`, `coverage.csv`, `agreement.csv` | 21 | per sample of the synaptome, its ids, densities and structure or why none; per structure of the adult table, measured or why not, its units, weights and densities; per division, how many declared and fitted structures are measured; each density's Spearman with the mRNA density terms, Gria1 and the maps |
-| `beyond\` | 22 to 26 | `structures_used.csv` (with whether PSD95 is measured), `variance_partition.csv`, `calibration.csv`, `calibration_jackknife.csv`, `jackknife.csv`, `jackknife_density_rows.csv` (the density check rows on the same subsamples), `controls.csv`, `gene_space.csv`, `gene_space_calibration.csv`, `gene_space_summary.csv`, `variants.csv` (the main model, its other folds, its check rows and its wider structures: structures, terms, budget, density alone, left), `regression_table.csv`, `residual_by_structure.csv`, `replication.csv`, `leftover_genes.csv`, `leftover_sets.csv`, `numbers_for_the_caption.txt`, working figures |
-| `tables\top_genes.csv` | 27 | per gene characterised (past the map's null, Gria1, Cacng8, the family): why it is there and its tier, its GO terms and gene sets, its rho, p, q and rank with the map, inside divisions, over the robustness variants, its reliability, its rho with each term of the main model, its prediction and PSD95, its rho and p with the leftover (q over all genes and within the family), its matched control, and what it takes of the leftover with both nulls |
-| `tables\named_tests.csv`, `family_members.csv`, `leftover_null_check.csv` | 27 | the tests named for the leftover, tier 1 and the two group tests of tier 2, on the leftover and on the map, and the two check rows of tier 2; every member of the family with its sources, tested or why not; the named tests and the count of genes below p 0.05 against smoother nulls, with each null's smoothness |
-| `green_channel\sep_channel_check.csv` | 28 | per adult, each channel's range and correlations |
-| `tables\april_headline.csv`, `april_anova.csv`, `april_groups.csv` | 29 | P9's genes then and now; the ANOVA under each choice; today's groups against the null |
-| `tables\numbers_<step>.csv`, `numbers_for_the_text.csv` and `.txt` | 13 to 29 | the numbers of each step, and all of them |
+| `density_markers\candidates.csv`, `excluded.csv`, `agreement.csv`, `structures.csv`, `halves.csv`, `selection.csv`, `comparison.csv` | 22 | every gene of the gene table against the rule of the density term, in the pool or why not, with its postsynaptic and plasticity terms; every reason a gene is excluded, with the term, the gene's own term below it and the evidence; the eligible genes by Spearman with PSD95 density, the pool's ranks, the genes chosen; the declared structures, measured for the model or why not; per random half, the genes chosen and each composite's agreement on the other half; how often each gene is chosen; each composite's agreement with PSD95, held out and on the full set |
+| `beyond\` | 23 to 27 | `structures_used.csv` (with whether PSD95 is measured), `variance_partition.csv`, `calibration.csv`, `calibration_jackknife.csv`, `jackknife.csv`, `jackknife_density_rows.csv` (the density check rows on the same subsamples), `controls.csv`, `gene_space.csv`, `gene_space_calibration.csv`, `gene_space_summary.csv`, `variants.csv` (the main model, its other folds, its check rows and its wider structures: structures, terms, budget, density alone, left), `regression_table.csv`, `residual_by_structure.csv`, `replication.csv`, `leftover_genes.csv`, `leftover_sets.csv`, `numbers_for_the_caption.txt`, working figures |
+| `tables\top_genes.csv` | 28 | per gene characterised (past the map's null, Gria1, Cacng8, the family): why it is there and its tier, its GO terms and gene sets, its rho, p, q and rank with the map, inside divisions, over the robustness variants, its reliability, its rho with each term of the main model, its prediction and PSD95, its rho and p with the leftover (q over all genes and within the family), its matched control, and what it takes of the leftover with both nulls |
+| `tables\named_tests.csv`, `family_members.csv`, `leftover_null_check.csv` | 28 | the tests named for the leftover, tier 1 and the two group tests of tier 2, on the leftover and on the map, and the two check rows of tier 2; every member of the family with its sources, tested or why not; the named tests and the count of genes below p 0.05 against smoother nulls, with each null's smoothness |
+| `green_channel\sep_channel_check.csv` | 29 | per adult, each channel's range and correlations |
+| `tables\april_headline.csv`, `april_anova.csv`, `april_groups.csv` | 30 | P9's genes then and now; the ANOVA under each choice; today's groups against the null |
+| `tables\numbers_<step>.csv`, `numbers_for_the_text.csv` and `.txt` | 13 to 30 | the numbers of each step, and all of them |
 | `cache\` | 14, 15 | Allen experiment lists, mygene records, `go-basic.obo` |
 
 | figure | drawn by |
@@ -1178,7 +1209,8 @@ Under `<data>\adult_v2\ish_analysis\`:
 | `figures\09_between_within.png`, `09s_between_within_detail.png`, `genes\<gene>.png` | `run_ish_divisions.py` (`--sheets`) |
 | `figures\10_gene_kinds.png`, `10s1_gene_sets.png`, `10s2_localisation.png` | `run_ish_gene_sets.py` |
 | `figures\13_robustness.png`, `13s_robustness_detail.png` | `run_ish_robustness.py` |
-| `figures\14s_synaptome_detail.png` | `run_synaptome.py` |
+| `figures\14s1_synaptome_detail.png` | `run_synaptome.py` |
+| `figures\14s2_density_markers.png` | `run_density_markers.py` |
 | `figures\15_green_channel.png`, `15s_green_channel_detail.png` | `run_sep_channel_check.py` |
 | `figures\qc\00_flagged.png`, `qc\<gene>_<experiment>.png` | `run_ish_section_qc.py` (`--sheets`) |
 
@@ -1189,6 +1221,7 @@ Reference data, under `<data>\reference\`, each folder with a `fetch_log.txt`
 |---|---|---|
 | `synaptome\` | PSD95 and SAP102 punctum density, 37 subtypes in 775 samples (a region of one hemisphere in one section), each subtype divided by its largest value as shared (Zhu et al. 2018); written by `run_synaptome.py` | github.com/netneurolab/hansen_synaptome, `data/synaptome/mouse_liu2018/` at commit `0399525412b6f50cfdeb5904b96da7fa8e4b507c`; archived as Zenodo doi 10.5281/zenodo.18201390 |
 | `go\` | the GO Consortium's mouse annotation, and its lines for GO:0032281 | `current.geneontology.org/annotations/mgi.gaf.gz`, release 2026-08-05 |
+| `go\2026-08-05\` | the mouse annotation (MGI's GAF, `MOUSE-mod.gaf.gz`, its header dated 2026-08-04) and `go-basic.obo` (data-version 2026-07-26) of GO release 2026-08-05, read by `run_density_markers.py`, each checked against its SHA-256 | `release.geneontology.org/2026-08-05/` (`annotations/gaf/`, `ontology/`) |
 | `ampar_complex\` | Schwenk et al. 2012: Figures 1 to 6 and the supplement (Tables S1 to S4) | the publisher's file server, `ars.els-cdn.com` |
 
 References: Burt JB, Helmer M, Shinn M, Anticevic A, Murray JD (2020).

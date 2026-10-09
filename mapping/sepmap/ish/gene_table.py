@@ -43,6 +43,7 @@ import time
 import urllib.parse
 import urllib.request
 from collections import defaultdict
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -444,6 +445,15 @@ def load_obo(offline: bool) -> tuple[dict[str, set[str]], dict[str, str], str]:
         request = urllib.request.Request(GO_OBO, headers={"User-Agent": USER_AGENT})
         with urllib.request.urlopen(request, timeout=300) as fh:
             path.write_bytes(fh.read())
+    return read_obo(path)
+
+
+def read_obo(path: Path) -> tuple[dict[str, set[str]], dict[str, str], str]:
+    """GO's parents by is_a and part_of, term names, and the release, from an obo file.
+
+    An alt id's parent is its primary term, so an annotation to an alt id has the
+    primary term's ancestry.
+    """
     parents, names, release = defaultdict(set), {}, ""
     term = None
     with open(path, encoding="utf-8") as fh:

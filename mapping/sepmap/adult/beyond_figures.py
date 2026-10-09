@@ -452,7 +452,7 @@ def gene_space_row(summary: pd.DataFrame, calibration: pd.DataFrame) -> dict:
 
 
 def load_tables() -> dict:
-    """The tables of steps 22 to 25 that the numbers and the figures read."""
+    """The tables of steps 23 to 26 that the numbers and the figures read."""
     sets = pd.read_csv(
         beyond_density.LEFTOVER_SETS, keep_default_na=False, na_values=[""]
     )
