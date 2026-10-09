@@ -39,7 +39,11 @@ function per_mouse_region_values(run_settings)
 %   before it: mean |L - R| times the slope, mean (L + R) times the slope plus
 %   twice the intercept, both over the common factor, which cancels in every
 %   ratio. Its intercept enters the experimental mice's L + R, and so their ai
-%   and sum_rel: the raw values have no such term.
+%   and sum_rel: the raw values have no such term. The zero of the test's maps
+%   is the normalisation's, not the absence of signal: a mouse's off-tissue
+%   level lands between about -2,400 and +500 on the control group's scale
+%   (before the common factor), so the raw ai is the one to read as a ratio;
+%   an ai over a mean L + R not above 0 is NaN.
 %
 %   Leave-one-out: each mouse in turn is left out, and the comparison is done
 %   again on the others as the test does it (the alignment refitted on their
@@ -511,11 +515,11 @@ for g = 1:2
             row.(['coverage_' tag]) = t.n(r) / t.n_region(r);
             row.(['abs_diff_' tag]) = abs_diff;
             row.(['sum_' tag]) = lr_sum;
-            row.(['ai_' tag]) = abs_diff / lr_sum;
+            row.(['ai_' tag]) = asymmetry_index(abs_diff, lr_sum);
             row.(['sum_rel_' tag]) = lr_sum / iso_sum;
             row.(['abs_diff_raw_' tag]) = abs_diff_raw;
             row.(['sum_raw_' tag]) = lr_sum_raw;
-            row.(['ai_raw_' tag]) = abs_diff_raw / lr_sum_raw;
+            row.(['ai_raw_' tag]) = asymmetry_index(abs_diff_raw, lr_sum_raw);
             row.(['sum_rel_raw_' tag]) = lr_sum_raw / iso_sum_raw;
         end
         rows{end + 1, 1} = row; %#ok<AGROW>
@@ -610,6 +614,10 @@ for f = 0:n_folds
     end
     if f >= 1 && isempty(cluster_lin)
         fprintf('  no positive cluster in %s without %s.\n', loo_region, left_out);
+    end
+    if f >= 1 && ~isempty(cluster_lin) && isnan(ai)
+        fprintf(['  %s has no AI on the fold''s maps in its cluster: its mean L + R ' ...
+                 'there is not above 0.\n'], left_out);
     end
     loo.cluster_voxels{f + 1} = cluster_lin;
 
@@ -714,7 +722,20 @@ d = lr_diff(cluster_lin);
 s = lr_sum(cluster_lin);
 has_value = ~isnan(d);
 coverage = nnz(has_value) / numel(cluster_lin);
-ai = mean(abs(d(has_value)), 'double') / mean(s(has_value), 'double');
+ai = asymmetry_index(mean(abs(d(has_value)), 'double'), mean(s(has_value), 'double'));
+end
+
+function ai = asymmetry_index(mean_abs_diff, mean_sum)
+% Mean |L - R| over mean (L + R); NaN where the mean L + R is not above 0. On
+% the test's maps the zero is the normalisation's, not the absence of signal (a
+% mouse's off-tissue level lands between about -2,400 and +500 on the control
+% group's scale), so a dim spot of a mouse can have a sum at or below 0.
+
+if mean_sum > 0
+    ai = mean_abs_diff / mean_sum;
+else
+    ai = NaN;
+end
 end
 
 function check_against_step3(cluster, step3_table, loo_region)
@@ -907,9 +928,10 @@ text(0, 1, notes_lines(T_mice, T_loo, regions, exp_type, slope), 'Units', ...
 % the title: the comparison, its alignment and its test
 title_line = sprintf('Per-mouse values in the regions named in advance - %s', ...
     strrep(file_tag, '_', ' '));
-align_line = sprintf(['%s aligned onto %s by the line %.3f x %+.1f; p: the ' ...
-                      'difference of the group means over all %d splits of the mice'], ...
-                      exp_type, ctrl_type, slope, intercept, n_splits);
+align_line = sprintf(['%s aligned onto %s by the line %.3f x %+.1f; p: exact ' ...
+                      'permutation of the difference of the group means, over every ' ...
+                      'split of the mice with a value (%d for all of them)'], exp_type, ...
+                      ctrl_type, slope, intercept, n_splits);
 sgtitle({title_line, ['\rm\fontsize{11}' align_line]}, 'FontSize', 14, ...
     'FontWeight', 'bold');
 
@@ -927,18 +949,26 @@ hold on;
 box on;
 grid on;
 
-% the gap between two names, a twentieth of the values' range
+% the values' range with a margin on each side, so no dot or name sits on the
+% frame; the gap between two names a fifteenth of it, about a line of 7 points
+% in a panel of the grid
 all_values = [x_ctrl(:); x_exp(:)];
+all_values = all_values(~isnan(all_values));
+if isempty(all_values)
+    all_values = 0;
+end
 value_range = max(all_values) - min(all_values);
 if ~(value_range > 0)
     value_range = 1;
 end
-label_gap = value_range / 20;
+y_limits = [min(all_values) - 0.12 * value_range, max(all_values) + 0.12 * value_range];
+label_gap = diff(y_limits) / 15;
 
 draw_group(1, x_ctrl, names_ctrl, sep_palette('control'), ...
     sep_palette('control_mean'), label_gap);
 draw_group(2, x_exp, names_exp, sep_palette('experimental'), ...
     sep_palette('experimental_mean'), label_gap);
+ylim(y_limits);
 xlim([0.5 2.8]);
 xticks([1 2]);
 xticklabels({ctrl_type, exp_type});
@@ -1007,7 +1037,9 @@ lines = {
     'Test maps: the folded, smoothed maps of run_group_differences, the experimental'
     '  group through the alignment line (its intercept enters L + R).'
     'Raw stack: the collected stack less the mouse''s off-tissue level (median of its'
-    '  background voxels outside the atlas brain), smoothed the same way.'
+    '  background voxels outside the atlas brain), smoothed the same way. Its zero is'
+    '  no signal; on the test maps it is the normalisation''s, so read the AI there'
+    '  as the test sees it, and the raw AI as the ratio.'
     'L + R / isocortex: the region''s mean L + R over the isocortex''s.'
     'No signed value: left and right are not certain for every brain, so the'
     '  stimulated side is unknown mouse by mouse (the test too takes |L - R|).'
@@ -1015,12 +1047,17 @@ lines = {
     '  rolling median, 18-connected) of the comparison redone without it.'
     };
 
-% the folds without a cluster
+% the folds without a cluster, and the mice without an AI in theirs
 no_cluster = T_loo.fold > 0 & T_loo.cluster_n == 0;
 if any(no_cluster)
     lines{end + 1} = ['No cluster without: ' strjoin(T_loo.left_out(no_cluster), ', ')];
 else
     lines{end + 1} = 'Every fold has a cluster.';
+end
+no_ai = T_loo.fold > 0 & T_loo.cluster_n > 0 & isnan(T_loo.left_out_ai);
+if any(no_ai)
+    lines{end + 1} = ['No AI on the test maps (mean L + R not above 0) in its fold''s ' ...
+        'cluster: ' strjoin(T_loo.left_out(no_ai), ', ')];
 end
 
 % the mice with less than half of a region
