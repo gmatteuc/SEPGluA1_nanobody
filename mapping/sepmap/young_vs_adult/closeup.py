@@ -136,6 +136,17 @@ def cohort_size(cohort: str) -> int:
         return sum(1 for line in fh if line.strip())
 
 
+def smooth_within(v: np.ndarray, m: np.ndarray, sigma: float | list[float]) -> np.ndarray:
+    """`v` smoothed inside the mask `m` with Gaussian `sigma`, 0 outside it.
+
+    Mask normalised: tissue is never averaged with the zeros around it. Also used by
+    adult.layers, which prepares each adult the way a cohort is prepared here.
+    """
+    num = gaussian_filter(v, sigma)
+    den = gaussian_filter(m, sigma)
+    return np.where(m > 0, num / np.maximum(den, 1e-6), 0).astype(np.float32)
+
+
 def prepare(
     reading: str, sigma: float | list[float]
 ) -> dict[str, tuple[np.ndarray, np.ndarray]]:
@@ -158,9 +169,7 @@ def prepare(
 
         # mask-normalised smoothing: tissue is never averaged with the zeros around it
         if np.any(sigma):
-            num = gaussian_filter(v, sigma)
-            den = gaussian_filter(m, sigma)
-            v = np.where(m > 0, num / np.maximum(den, 1e-6), 0).astype(np.float32)
+            v = smooth_within(v, m, sigma)
         out[cohort] = (v, m)
     return out
 
@@ -483,6 +492,25 @@ def to_10um(half: np.ndarray) -> np.ndarray:
     return np.repeat(np.repeat(np.repeat(full, 2, 0), 2, 1), 2, 2)
 
 
+def project_slab(v10: np.ndarray, m10: np.ndarray, p3) -> tuple[np.ndarray, np.ndarray]:
+    """The value and mask slabs of a volume at 10 um, as [row, col, depth bin].
+
+    Projected apart, so that their ratio averages over tissue only. project_volume
+    indexes [x, y], and imshow wants [row, col] = [y, x]: swapped once, here.
+    """
+    return p3.project_volume(v10).swapaxes(0, 1), p3.project_volume(m10).swapaxes(0, 1)
+
+
+def band_average(sv: np.ndarray, sm: np.ndarray, lo: int, hi: int) -> np.ndarray:
+    """The mean of a value slab over depth bins `lo` to `hi`, over tissue only.
+
+    `sm` is the mask slab; NaN where the band holds no tissue.
+    """
+    num = sv[:, :, lo:hi].sum(axis=2)
+    den = sm[:, :, lo:hi].sum(axis=2)
+    return np.where(den > 0, num / np.maximum(den, 1e-6), np.nan)
+
+
 def project_cohorts(
     vals: dict[str, tuple[np.ndarray, np.ndarray]], p2, p3
 ) -> tuple[dict[str, np.ndarray], dict[str, tuple[np.ndarray, np.ndarray]]]:
@@ -500,10 +528,7 @@ def project_cohorts(
         s_v = p2.project_volume(v10, kind="sum").T
         s_m = p2.project_volume(m10, kind="sum").T
         flat[cohort] = np.where(s_m > 0, s_v / np.maximum(s_m, 1e-6), np.nan)
-        slab[cohort] = (
-            p3.project_volume(v10).swapaxes(0, 1),
-            p3.project_volume(m10).swapaxes(0, 1),
-        )
+        slab[cohort] = project_slab(v10, m10, p3)
         del v10, m10
     return flat, slab
 
@@ -583,9 +608,7 @@ def draw_bands(
         band = {}
         for cohort in (YOUNG, ADULT):
             sv, sm = slab[cohort]
-            num = sv[:, :, lo:hi].sum(axis=2)
-            den = sm[:, :, lo:hi].sum(axis=2)
-            band[cohort] = np.where(den > 0, num / np.maximum(den, 1e-6), np.nan)
+            band[cohort] = band_average(sv, sm, lo, hi)
         panels = (
             (band[YOUNG], cmap_mean, lim_mean[0], f"young   {bname}"),
             (band[ADULT], cmap_mean, lim_mean[0], f"adult   {bname}"),
