@@ -43,7 +43,7 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     24. run_beyond_calibration the same model on maps whose answer
                                is known
     25. run_beyond_regression  the regression, per structure
-    26. run_beyond_figures     figures 03, 03s, 04, 11s1 and 14
+    26. run_beyond_figures     figures 03, 03s1, 03s2, 04, 11s1, 14
     27. run_ish_top_genes      the genes that follow the map most,
                                characterised; Cacng8 and the AMPA
                                receptor complex family against the
@@ -176,11 +176,95 @@ def numbers_table(within, detail, calibration):
     return pd.DataFrame(rows, columns=["name", "value", "what"], dtype=object)
 
 
+def within_calibration(map_values, division, surr, declared):
+    """The two nulls of the within rho on random smooth maps with the map's
+    smoothness (the spatial null's calibration fields)."""
+    d = spatial_null.distance_matrix(structures.load_centroids().loc[declared])
+    params = spatial_null.fit_exponential(map_values.to_numpy(float), d)
+    fields = spatial_null.random_fields(
+        d, params, ISH_ANALYSIS["n_calibration_within"], np.random.default_rng(1)
+    )
+    return divisions.calibration(map_values.to_numpy(float), division, surr, fields)
+
+
+def draw_figures(within, detail, map_values, division, merged, calibration, subunits):
+    """Figure 09 and its detailed version."""
+    figures = OUT / "figures"
+    set_table = structures.load_structure_set()
+    q = ISH_ANALYSIS["q"]
+    coarse = pd.Series(
+        divisions.division_only(map_values.to_numpy(float), division),
+        index=map_values.index,
+    )
+    min_structures = ISH_ANALYSIS["min_division_structures"]
+    fig = ish_plotting.plot_between_within(
+        within,
+        map_values,
+        coarse,
+        merged["Cacng8"],
+        "Cacng8",
+        set_table,
+        subunits,
+        divisions.DETAIL_GENES,
+        q,
+        min_structures,
+        save=figures / ish_plotting.figure_file("between_within"),
+    )
+    plt.close(fig)
+    fig = ish_plotting.plot_between_within_detail(
+        within,
+        detail,
+        map_values,
+        coarse,
+        merged["Cacng8"],
+        "Cacng8",
+        set_table,
+        calibration,
+        subunits,
+        divisions.DETAIL_GENES,
+        q,
+        min_structures,
+        save=figures / ish_plotting.figure_file("between_within_detail"),
+    )
+    plt.close(fig)
+    keys = ("between_within", "between_within_detail")
+    drawn = [ish_plotting.figure_file(k) for k in keys]
+    print(f"figures: {', '.join(drawn)} in {figures}")
+
+
+def draw_sheets(within, detail, map_values, merged, ranking, n_surrogates):
+    """One sheet per gene of divisions.DETAIL_GENES, in figures/genes/."""
+    set_table = structures.load_structure_set()
+    plane = ISH_FIGURES["plane"]
+    names, _, _ = structure_terms()
+    lab = planes.label_plane(plane)
+    folder = OUT / "figures" / "genes"
+    folder.mkdir(parents=True, exist_ok=True)
+    by_gene = within.set_index("symbol")
+    nano_rows = ranking[ranking["map"] == "nano"].set_index("symbol")
+    for gene in divisions.DETAIL_GENES:
+        fig = ish_plotting.plot_gene_sheet(
+            gene,
+            map_values,
+            merged[gene],
+            set_table,
+            nano_rows.loc[gene],
+            by_gene.loc[gene],
+            detail[detail["symbol"] == gene],
+            lab,
+            names,
+            plane,
+            n_surrogates,
+            save=folder / f"{gene}.png",
+        )
+        plt.close(fig)
+    print(f"gene sheets: {len(divisions.DETAIL_GENES)} in {folder}")
+
+
 def main(sheets):
     """Print the settings, split every gene's rho; tables, figures, gene sheets."""
     config.print_settings({"sheets": sheets})
     tables = OUT / "tables"
-    figures = OUT / "figures"
 
     # the declared structures, their divisions, the map and its surrogates
     declared = structures.declared_structures()
@@ -228,14 +312,7 @@ def main(sheets):
     )
 
     # the two nulls on random smooth maps with the map's smoothness
-    d = spatial_null.distance_matrix(structures.load_centroids().loc[declared])
-    params = spatial_null.fit_exponential(map_values.to_numpy(float), d)
-    fields = spatial_null.random_fields(
-        d, params, ISH_ANALYSIS["n_calibration_within"], np.random.default_rng(1)
-    )
-    calibration = divisions.calibration(
-        map_values.to_numpy(float), division, surr, fields
-    )
+    calibration = within_calibration(map_values, division, surr, declared)
     calibration.to_csv(tables / "within_calibration.csv", index=False)
     rates = ", ".join(
         f"{null} {float((calibration[f'p_{null}'] < 0.05).mean()):.1%}"
@@ -247,72 +324,10 @@ def main(sheets):
     numbers = numbers_table(within, detail, calibration)
     numbers.to_csv(tables / "numbers_divisions.csv", index=False)
 
-    # figure 09 and its detailed version
-    coarse = pd.Series(
-        divisions.division_only(map_values.to_numpy(float), division), index=declared
-    )
-    min_structures = ISH_ANALYSIS["min_division_structures"]
-    fig = ish_plotting.plot_between_within(
-        within,
-        map_values,
-        coarse,
-        merged["Cacng8"],
-        "Cacng8",
-        set_table,
-        subunits,
-        divisions.DETAIL_GENES,
-        q,
-        min_structures,
-        save=figures / ish_plotting.figure_file("between_within"),
-    )
-    plt.close(fig)
-    fig = ish_plotting.plot_between_within_detail(
-        within,
-        detail,
-        map_values,
-        coarse,
-        merged["Cacng8"],
-        "Cacng8",
-        set_table,
-        calibration,
-        subunits,
-        divisions.DETAIL_GENES,
-        q,
-        min_structures,
-        save=figures / ish_plotting.figure_file("between_within_detail"),
-    )
-    plt.close(fig)
-    keys = ("between_within", "between_within_detail")
-    drawn = [ish_plotting.figure_file(k) for k in keys]
-    print(f"figures: {', '.join(drawn)} in {figures}")
-
-    # the gene sheets
-    if not sheets:
-        return
-    plane = ISH_FIGURES["plane"]
-    names, _, _ = structure_terms()
-    lab = planes.label_plane(plane)
-    folder = figures / "genes"
-    folder.mkdir(parents=True, exist_ok=True)
-    by_gene = within.set_index("symbol")
-    nano_rows = ranking[ranking["map"] == "nano"].set_index("symbol")
-    for gene in divisions.DETAIL_GENES:
-        fig = ish_plotting.plot_gene_sheet(
-            gene,
-            map_values,
-            merged[gene],
-            set_table,
-            nano_rows.loc[gene],
-            by_gene.loc[gene],
-            detail[detail["symbol"] == gene],
-            lab,
-            names,
-            plane,
-            surr.shape[0],
-            save=folder / f"{gene}.png",
-        )
-        plt.close(fig)
-    print(f"gene sheets: {len(divisions.DETAIL_GENES)} in {folder}")
+    # figure 09 and its detailed version, and the gene sheets
+    draw_figures(within, detail, map_values, division, merged, calibration, subunits)
+    if sheets:
+        draw_sheets(within, detail, map_values, merged, ranking, surr.shape[0])
 
 
 if __name__ == "__main__":

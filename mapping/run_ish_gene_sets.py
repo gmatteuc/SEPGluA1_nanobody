@@ -43,7 +43,7 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
     24. run_beyond_calibration the same model on maps whose answer
                                is known
     25. run_beyond_regression  the regression, per structure
-    26. run_beyond_figures     figures 03, 03s, 04, 11s1 and 14
+    26. run_beyond_figures     figures 03, 03s1, 03s2, 04, 11s1, 14
     27. run_ish_top_genes      the genes that follow the map most,
                                characterised; Cacng8 and the AMPA
                                receptor complex family against the
@@ -159,6 +159,7 @@ def named_terms(text, names):
     """`text` with each GO id followed by its name in brackets, unless named already."""
 
     def name(match):
+        """The GO id matched, with its name after it when the text lacks it."""
         term = match.group(0)
         after = text[match.end() : match.end() + 1 + len(names.get(term, ""))]
         if term not in names or after.strip() == names[term]:
@@ -168,11 +169,139 @@ def named_terms(text, names):
     return re.sub(r"GO:\d{7}", name, text)
 
 
+def localisation(members, genes, table):
+    """The localisation genes against expression-matched postsynaptic controls.
+
+    The design of 5 October on the new inputs, the same with its control pool (the
+    ontology panel's postsynaptic-density genes, which also hold genes GO puts on
+    both sides), the matched difference against maps whose remainder once the
+    composite is removed is a surrogate of the real one, and the test's power.
+    Returns the tables and nulls the step writes and draws, by name.
+    """
+    declared = structures.declared_structures()
+    profile = profiles.load_profile()
+    merged = gene_table.load_profiles()
+    common, composite, subunit_ranks = gene_sets.subunit_composite(
+        members["subunits"], merged, declared
+    )
+    reliability, level = gene_table.gene_levels(table)
+    map_common = profile.loc[common, "zref_nano"].to_numpy(float)
+    sides = {g: "localisation" for g in members["localisation"]}
+    sides.update({g: "control" for g in members["other postsynaptic"]})
+    loc_table = gene_sets.partial_rows(
+        sides, common, map_common, composite, merged, reliability, level, subunit_ranks
+    )
+    pairs = gene_sets.matched_controls(loc_table, level)
+    loc_table["matched_to"] = loc_table["symbol"].map(pairs).fillna("")
+    summary, label_nulls = gene_sets.localisation_tests(loc_table, pairs)
+
+    # the same design with the control pool of 5 October
+    panel_controls = genes.loc[genes["ontology_role"] == "control_psd", "symbol"]
+    panel_sides = {g: "localisation" for g in members["localisation"]}
+    panel_sides.update({g: "control" for g in panel_controls})
+    panel_table = gene_sets.partial_rows(
+        panel_sides, common, map_common, composite, merged, reliability, level
+    )
+    panel_pairs = gene_sets.matched_controls(panel_table, level)
+    panel_table["matched_to"] = panel_table["symbol"].map(panel_pairs).fillna("")
+    panel_summary, _ = gene_sets.localisation_tests(panel_table, panel_pairs)
+    panel_summary = panel_summary[
+        panel_summary["test"].isin(["matched controls", "positive control"])
+    ].copy()
+    panel_summary["test"] = "5 October's controls, " + panel_summary["test"]
+    summary["role"] = "check"
+    summary.loc[summary["test"] == "matched controls", "role"] = "the test"
+    summary.loc[summary["test"] == "positive control", "role"] = "positive control"
+    panel_summary["role"] = "secondary"
+    summary = pd.concat([summary, panel_summary], ignore_index=True)
+
+    # the matched difference against maps whose remainder is a surrogate of the
+    # real remainder; and the test's power
+    d = spatial_null.distance_matrix(load_centroids().loc[common])
+    rest = gene_sets.remainder(map_common, composite)
+    surr = spatial_null.surrogates(rest, d, seed=1)
+    p_spatial, _ = gene_sets.matched_spatial(
+        loc_table, pairs, surr, common, composite, merged
+    )
+    power = gene_sets.power_curve(
+        loc_table, pairs, surr, common, map_common, composite, merged
+    )
+    summary["p_spatial"] = np.where(
+        summary["test"] == "matched controls", p_spatial, np.nan
+    )
+    loc_table.insert(1, "pool", "other postsynaptic (GO)")
+    panel_table.insert(1, "pool", "5 October (control_psd)")
+    return dict(
+        common=common,
+        loc_table=loc_table,
+        panel_table=panel_table,
+        summary=summary,
+        label_nulls=label_nulls,
+        pairs=pairs,
+        p_spatial=p_spatial,
+        power=power,
+        n_surrogates=surr.shape[0],
+    )
+
+
+def draw_figures(member_rows, tests, contrasts, contrast_nulls, local):
+    """Figure 10, and its detailed versions: the gene sets, the localisation test.
+
+    `local` holds what localisation returns.
+    """
+    figures = OUT / "figures"
+    q = ISH_ANALYSIS["q"]
+    rules = dict(gene_sets.GENE_SETS)
+    rules[gene_sets.CONTEXT_SET] = gene_sets.CONTEXT_RULE
+    _, term_names, _ = gene_table.load_obo(offline=True)
+    rules = {k: named_terms(v, term_names) for k, v in rules.items()}
+    n_surrogates = local["n_surrogates"]
+    fig = ish_plotting.plot_gene_kinds(
+        member_rows,
+        tests,
+        list(gene_sets.SET_ORDER),
+        local["loc_table"],
+        local["summary"],
+        local["pairs"],
+        local["power"],
+        q,
+        n_surrogates,
+        save=figures / ish_plotting.figure_file("gene_kinds"),
+    )
+    plt.close(fig)
+    fig = ish_plotting.plot_gene_sets(
+        member_rows,
+        tests,
+        contrasts,
+        contrast_nulls,
+        list(gene_sets.SET_ORDER),
+        gene_sets.CONTEXT_SET,
+        rules,
+        q,
+        n_surrogates,
+        save=figures / ish_plotting.figure_file("gene_sets"),
+    )
+    plt.close(fig)
+    fig = ish_plotting.plot_localisation(
+        local["loc_table"],
+        local["summary"],
+        local["label_nulls"],
+        local["pairs"],
+        local["p_spatial"],
+        n_surrogates,
+        power=local["power"],
+        panel_table=local["panel_table"],
+        save=figures / ish_plotting.figure_file("localisation"),
+    )
+    plt.close(fig)
+    keys = ("gene_kinds", "gene_sets", "localisation")
+    drawn = [ish_plotting.figure_file(k) for k in keys]
+    print(f"figures: {', '.join(drawn)} in {figures}")
+
+
 def main():
     """Print the settings, then test the sets, the contrasts and localisation."""
     config.print_settings({})
-    tables = OUT / "tables"
-    figures = OUT / "figures"
     q = ISH_ANALYSIS["q"]
 
     # the sets, the context group, and every gene's rho and null with both maps
@@ -200,65 +329,18 @@ def main():
     )
     contrasts.to_csv(gene_sets.CONTRAST_TESTS, index=False)
     nano = tests[(tests["map"] == "nano") & tests["tested"]]
+    named = "; ".join(
+        f"{r['contrast']} {r['difference']:+.3f} (p {r['p_spatial']:.4f})"
+        for _, r in contrasts.iterrows()
+    )
     print(
         f"set tests: {int((nano['q'] < q).sum())} of {len(nano)} sets past the null at "
-        f"q < {q}; contrasts: "
-        + "; ".join(
-            f"{r['contrast']} {r['difference']:+.3f} (p {r['p_spatial']:.4f})"
-            for _, r in contrasts.iterrows()
-        )
+        f"q < {q}; contrasts: {named}"
     )
 
     # localisation against expression-matched postsynaptic controls
-    declared = structures.declared_structures()
-    profile = profiles.load_profile()
-    merged = gene_table.load_profiles()
-    common, composite, subunit_ranks = gene_sets.subunit_composite(
-        members["subunits"], merged, declared
-    )
-    reliability, level = gene_table.gene_levels(table)
-    map_common = profile.loc[common, "zref_nano"].to_numpy(float)
-    sides = {g: "localisation" for g in members["localisation"]}
-    sides.update({g: "control" for g in members["other postsynaptic"]})
-    loc_table = gene_sets.partial_rows(
-        sides, common, map_common, composite, merged, reliability, level, subunit_ranks
-    )
-    pairs = gene_sets.matched_controls(loc_table, level)
-    loc_table["matched_to"] = loc_table["symbol"].map(pairs).fillna("")
-    summary, label_nulls = gene_sets.localisation_tests(loc_table, pairs)
-
-    # the same design with the control pool of 5 October, the ontology panel's
-    # postsynaptic-density genes, which also hold genes GO puts on both sides
-    panel_controls = genes.loc[genes["ontology_role"] == "control_psd", "symbol"]
-    panel_sides = {g: "localisation" for g in members["localisation"]}
-    panel_sides.update({g: "control" for g in panel_controls})
-    panel_table = gene_sets.partial_rows(
-        panel_sides, common, map_common, composite, merged, reliability, level
-    )
-    panel_pairs = gene_sets.matched_controls(panel_table, level)
-    panel_table["matched_to"] = panel_table["symbol"].map(panel_pairs).fillna("")
-    panel_summary, _ = gene_sets.localisation_tests(panel_table, panel_pairs)
-    panel_summary = panel_summary[
-        panel_summary["test"].isin(["matched controls", "positive control"])
-    ].copy()
-    panel_summary["test"] = "5 October's controls, " + panel_summary["test"]
-    summary["role"] = "check"
-    summary.loc[summary["test"] == "matched controls", "role"] = "the test"
-    summary.loc[summary["test"] == "positive control", "role"] = "positive control"
-    panel_summary["role"] = "secondary"
-    summary = pd.concat([summary, panel_summary], ignore_index=True)
-
-    # the matched difference against maps whose remainder, once the composite is
-    # removed, is a surrogate of the real remainder; and the test's power
-    d = spatial_null.distance_matrix(load_centroids().loc[common])
-    rest = gene_sets.remainder(map_common, composite)
-    surr = spatial_null.surrogates(rest, d, seed=1)
-    p_spatial, _ = gene_sets.matched_spatial(
-        loc_table, pairs, surr, common, composite, merged
-    )
-    power = gene_sets.power_curve(
-        loc_table, pairs, surr, common, map_common, composite, merged
-    )
+    local = localisation(members, genes, table)
+    power = local["power"]
     power.to_csv(gene_sets.LOCALISATION_POWER, index=False)
     print(
         "power: label test p < 0.05 on "
@@ -266,76 +348,27 @@ def main():
         f"matched difference of {gene_sets.detectable(power, 'power_labels'):+.3f} "
         f"(labels), {gene_sets.detectable(power, 'power_spatial'):+.3f} (spatial)"
     )
-    summary["p_spatial"] = np.where(
-        summary["test"] == "matched controls", p_spatial, np.nan
-    )
-    loc_table.insert(1, "pool", "other postsynaptic (GO)")
-    panel_table.insert(1, "pool", "5 October (control_psd)")
-    pd.concat([loc_table, panel_table], ignore_index=True).to_csv(
+    pd.concat([local["loc_table"], local["panel_table"]], ignore_index=True).to_csv(
         gene_sets.LOCALISATION, index=False
     )
+    summary = local["summary"]
     summary.to_csv(gene_sets.LOCALISATION_SUMMARY, index=False)
     main_row = summary.iloc[0]
     positive = summary.set_index("test").loc["positive control"]
     print(
-        f"localisation: {len(common)} structures with every subunit; "
+        f"localisation: {len(local['common'])} structures with every subunit; "
         f"{int(main_row['n_first'])} against {int(main_row['n_second'])} matched, "
         f"difference {main_row['difference']:+.3f}, p {main_row['p_labels']:.4f}, "
-        f"spatial p {p_spatial:.4f}; positive control p "
+        f"spatial p {local['p_spatial']:.4f}; positive control p "
         f"{positive['p_labels']:.4f}"
     )
 
     # the numbers for the text
     numbers = numbers_table(shown, tests, contrasts, summary, power)
-    numbers.to_csv(tables / "numbers_gene_sets.csv", index=False)
+    numbers.to_csv(OUT / "tables" / "numbers_gene_sets.csv", index=False)
 
-    # figure 10, and its detailed versions: the gene sets, the localisation test
-    rules = dict(gene_sets.GENE_SETS)
-    rules[gene_sets.CONTEXT_SET] = gene_sets.CONTEXT_RULE
-    _, term_names, _ = gene_table.load_obo(offline=True)
-    rules = {k: named_terms(v, term_names) for k, v in rules.items()}
-    n_surrogates = surr.shape[0]
-    fig = ish_plotting.plot_gene_kinds(
-        member_rows,
-        tests,
-        list(gene_sets.SET_ORDER),
-        loc_table,
-        summary,
-        pairs,
-        power,
-        q,
-        n_surrogates,
-        save=figures / ish_plotting.figure_file("gene_kinds"),
-    )
-    plt.close(fig)
-    fig = ish_plotting.plot_gene_sets(
-        member_rows,
-        tests,
-        contrasts,
-        contrast_nulls,
-        list(gene_sets.SET_ORDER),
-        gene_sets.CONTEXT_SET,
-        rules,
-        q,
-        n_surrogates,
-        save=figures / ish_plotting.figure_file("gene_sets"),
-    )
-    plt.close(fig)
-    fig = ish_plotting.plot_localisation(
-        loc_table,
-        summary,
-        label_nulls,
-        pairs,
-        p_spatial,
-        n_surrogates,
-        power=power,
-        panel_table=panel_table,
-        save=figures / ish_plotting.figure_file("localisation"),
-    )
-    plt.close(fig)
-    keys = ("gene_kinds", "gene_sets", "localisation")
-    drawn = [ish_plotting.figure_file(k) for k in keys]
-    print(f"figures: {', '.join(drawn)} in {figures}")
+    # figure 10, and its detailed versions
+    draw_figures(member_rows, tests, contrasts, contrast_nulls, local)
 
 
 if __name__ == "__main__":
