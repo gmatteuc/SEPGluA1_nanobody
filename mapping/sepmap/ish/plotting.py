@@ -3821,8 +3821,8 @@ ROW_TINT = "0.93"
 # and marker; a column the main model does not have is skipped
 LIKENESS = (
     ("rho_Gria1", "Gria1", DARK_BLUE, "o"),
-    ("rho_markers", "markers", DENSITY_BLUE, "o"),
-    ("rho_psd_pc1", "psd_pc1", DENSITY_BLUE, "s"),
+    ("rho_density", "density term", DENSITY_BLUE, "o"),
+    ("rho_autofluo", "autofluorescence", AUTO, "s"),
     ("rho_prediction", "the model's prediction", "0.1", "|"),
 )
 
@@ -3879,8 +3879,8 @@ def own_term(rows: pd.DataFrame) -> np.ndarray:
     """Whether each gene is a term of the main model itself (Gria1, the abundance).
 
     Its rho with the leftover is then near zero by construction, and its null so
-    narrow that a p says nothing; a gene inside a composite term (a marker, a gene
-    of psd_pc1) is not.
+    narrow that a p says nothing; a gene inside the density term (one of the
+    genes averaged into it) is not.
     """
     return (rows["in_model"] == "abundance").to_numpy()
 
@@ -4013,7 +4013,9 @@ def taken_bars(ax: plt.Axes, rows: pd.DataFrame) -> None:
             color=DARK_GREY,
         )
     ax.axvline(0, color="0.3", lw=0.6, zorder=1)
-    ax.set_xlim(min(0.0, float(np.min(taken)) - 0.5), float(np.max(plain)) * 1.7)
+    # room right of the longest bar or band for its value and mark
+    right = max(float(np.max(plain)) * 1.7, float(np.max(taken)) * 1.45)
+    ax.set_xlim(min(0.0, float(np.min(taken)) - 0.5), right)
     ax.set_xlabel("points of the reproducible map")
     gene_rows_axis(ax, rows, labels=False)
     tidy(ax)
@@ -4075,10 +4077,9 @@ def plot_top_genes(
     footer(
         fig,
         [
-            "How to read: the leftover is what Gria1, synapse density and "
-            "autofluorescence leave; D adds the gene to that model and counts the "
-            "points of the reproducible map it takes, against maps of its smoothness "
-            "in its place.",
+            "How to read: the leftover is what Gria1 and synapse density leave; D adds "
+            "the gene to that model as one more straight term and counts the points of "
+            "the reproducible map it takes, against maps of its smoothness in its place.",
             "Maps alike to the model keep the gene's fit on the model's terms and put a "
             "surrogate of the rest in its place; that null was added on 9 October, after "
             "the plain one's numbers were seen.",
@@ -4132,13 +4133,13 @@ def gap_verdict(gap: pd.Series) -> str:
     """
     p = gap["p_equal"]
     if p < ALPHA:
-        return f"a lead past what maps that follow both alike give (p = {p:.3f})"
+        return f"past what maps that follow both alike give (p = {p:.3f})"
     if gap["gap"] > gap["equal_hi"]:
         return (
-            "a lead just past the 95% band of maps that follow both alike, inside the "
-            f"test fixed in advance (p = {p:.3f}, counting leads either way)"
+            "just past the 95% band of maps that follow both alike, inside the test "
+            f"fixed in advance (p = {p:.3f}, counting leads either way)"
         )
-    return f"a lead inside what maps that follow both alike give (p = {p:.3f})"
+    return f"inside what maps that follow both alike give (p = {p:.3f})"
 
 
 def lead_panel(
@@ -4191,8 +4192,9 @@ def plot_cacng8_gria1(
     heading(
         fig,
         "cacng8_gria1",
-        f"The map follows Cacng8 ({cacng8['rho']:+.2f}) more closely than Gria1 "
-        f"({gria1['rho']:+.2f}); {gap_verdict(gap)}",
+        f"The map follows Cacng8 ({cacng8['rho']:+.2f}) and Gria1 "
+        f"({gria1['rho']:+.2f}); Cacng8 leads by {gap['gap']:+.2f}, "
+        f"{gap_verdict(gap)}",
     )
     width, height, bottom = 0.22, 0.55, 0.22
 
@@ -4520,8 +4522,8 @@ def plot_leftover(
             "formation red, thalamus blue, other grey matter).",
             f"D: with {n_surrogates:,} surrogates the smallest p is "
             f"{1 / (n_surrogates + 1):.4f}, just under the line for the first gene "
-            f"({q} / {len(genes)}); the model's own terms (Gria1, the markers) stay in "
-            "the BH, as the rule set it.",
+            f"({q} / {len(genes)}); the model's own genes (Gria1, the density genes) "
+            "stay in the BH, as the rule set it.",
             f"Every gene and gene set: {figure_ref('leftover_genes')}; the family member "
             f"by member and on the map: {figure_ref('ampa_family')}.",
         ],

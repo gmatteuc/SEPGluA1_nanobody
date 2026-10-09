@@ -13,15 +13,17 @@ described on every axis the ISH line has, and a reader sees what kind of map it 
                        ish.robustness), and of its rank over the variants that hold
                        every gene (a variant of P9's genes alone ranks among fewer)
     its Allen map      how many experiments, and how well they agree (reliability)
-    Gria1 or density   rho with Gria1, each density term, autofluorescence and the
-                       main model's prediction on the structures of the fit, and
-                       with the PSD95 punctum density where it is measured: whether
-                       the gene is just a Gria1-like or density-like map
+    Gria1 or density   rho with Gria1, the density term and the main model's
+                       prediction on the structures of the fit, with autofluorescence
+                       there, and with the PSD95 punctum density where it is
+                       measured: whether the gene is just a Gria1-like or
+                       density-like map
     the leftover       rho with the main model's leftover and its spatial p, each
                        surrogate put through the same fit (leftover_genes.csv of
                        adult.beyond_density)
-    what it takes      the main model with the gene's ranks added (x, x^2, x^3),
-                       scored on held-out structures as the main model is: the share
+    what it takes      the main model with the gene's ranks added as one more
+                       straight term, as each of the model's is, scored on held-out
+                       structures as the main model is: the share
                        of the reproducible map it takes from the leftover, against
                        surrogate maps with the gene's own smoothness added instead
     annotation         its name, the GO terms that put it in the ontology panel, its
@@ -44,7 +46,7 @@ The tests against the leftover were named in advance, before the main model ran
                    (ish.panel_test.two_sample), one test each; then gene by gene,
                    BH within the family
     3  the rest    every other gene, exploratory, BH over every gene (q_all of
-                   leftover_genes.csv), the model's own terms (Gria1, the markers)
+                   leftover_genes.csv), the model's own genes (Gria1, the density genes)
                    among them as the rules set it
 
 The same three are read on the nano map itself, to describe the family, not as tests
@@ -52,8 +54,10 @@ of the leftover.
 
 What the tests rest on is set out in docs/ISH_ANALYSIS.md (section 5.7): Cacng8's
 p against the leftover of the four-subunit model was seen before it was named, so
-tier 1 re-tests a result already seen on a near-identical leftover; Dlg4 is a member
-and a marker of the main model, near zero by construction; and each surrogate of
+tier 1 re-tests a result already seen on a near-identical leftover; Dlg4 and
+Camk2a, which the first version's density markers held, are no terms of the main
+model (the rule of the density genes leaves them out as AMPA-receptor-linked); and
+each surrogate of
 the leftover, the model projected out of it, is rougher at short range than the
 leftover, so the tests are read again against smoother Gaussian fields projected
 the same way (smooth_null_check), and the family again against controls from
@@ -156,8 +160,8 @@ GENE_NUMBERS = (
     ("rank_variants_max", 0, "worst rank over the variants holding every gene"),
     ("reliability", 3, "agreement of its Allen experiments"),
     ("rho_Gria1", 3, "rho with Gria1, structures of the fit"),
-    ("rho_markers", 3, "rho with the marker composite"),
-    ("rho_psd_pc1", 3, "rho with psd_pc1"),
+    ("rho_density", 3, "rho with the density term"),
+    ("rho_autofluo", 3, "rho with autofluorescence, structures of the fit"),
     ("rho_prediction", 3, "rho with the main model's prediction"),
     ("rho_psd95", 3, "rho with PSD95 punctum density, where measured"),
     ("leftover_rho", 3, "rho with the main model's leftover"),
@@ -371,14 +375,18 @@ def gene_on_fit(
 
 
 def predictor_names(terms: dict[str, tuple[str, ...]]) -> list[str]:
-    """The main model's predictors by name, in the order of its budget."""
-    return [name for group in beyond_density.ORDER for name in terms[group]]
+    """The main model's predictors by name, in the order the model lists them.
+
+    Autofluorescence follows, a description: it is no term of the main model.
+    """
+    names = [name for group in beyond_density.ORDER for name in terms.get(group, ())]
+    return names + [n for n in ("autofluo",) if n not in names]
 
 
 def predictor_rhos(inputs: beyond_density.Inputs, symbols: list[str]) -> pd.DataFrame:
     """Per gene, rho with each term of the main model, its prediction, and PSD95.
 
-    On the structures of the fit the gene has (n_fit): rho with Gria1, each density
+    On the structures of the fit the gene has (n_fit): rho with Gria1, the density
     term, autofluorescence and the main model's in-sample prediction; and on those
     of them where the PSD95 punctum density is measured (n_psd95), rho with it.
     """
@@ -436,7 +444,7 @@ def added_share(
     """What the gene takes of the leftover when added to the main model, and its nulls.
 
     On the structures of the fit the gene has, the main model and the main model
-    with the gene's ranks bent (x, x^2, x^3) are scored on the same held-out folds
+    with the gene's ranks as one more straight term are scored on the same folds
     as a share of the ceiling there; taken is the main model's share left minus the
     share left with the gene. Two nulls, top_genes.n_added_surrogates maps each,
     put in the gene's place and ranked as it is:
@@ -466,8 +474,8 @@ def added_share(
     labels = beyond_density.fold_labels(len(y))
 
     def left_with(extra: np.ndarray | None) -> float:
-        """The share of the reproducible map left, with `extra` bent and added."""
-        used = xs if extra is None else xs + beyond_density.flexible([rankdata(extra)])
+        """The share of the reproducible map left, with `extra` ranked and added."""
+        used = xs if extra is None else xs + [rankdata(extra)]
         return 1 - beyond_density.cv_r2(y, used, labels) / explainable
 
     left_main = left_with(None)
@@ -645,8 +653,8 @@ def check_tests(
 
     The family without Cacng8 against the same surrogates, so a reader sees whether
     the group test says more than tier 1; and the family against controls matched
-    afresh from the pool's genes that are no term of the main model (in_model
-    empty), since a control inside psd_pc1 is projected out of the leftover with
+    afresh from the pool's genes that are not in the main model (in_model empty),
+    since a control inside the density term is projected out of the leftover with
     the model. `leftover` is leftover_genes.csv, `null` its genes x surrogates.
     """
     rho = leftover.set_index("symbol")["rho"]
@@ -990,6 +998,7 @@ def group_numbers(
     matched = tier2.loc[(map_name, MATCHED_TEST)]
     key = f"family_{map_name}"
     column = "leftover_q_family" if map_name == "leftover" else "q_family"
+    rho = "leftover_rho" if map_name == "leftover" else "rho"
     past = table[table["family"] & (table[column] < q)]
     return [
         (f"{key}_median", round(spatial["first"], 3), "the family's median rho"),
@@ -1015,6 +1024,11 @@ def group_numbers(
         (f"{key}_controls_p", round(matched["p"], 6), "label-permutation p"),
         (f"{key}_pass_within", len(past), f"members past BH within the family, q < {q}"),
         (f"{key}_pass_within_list", " ".join(past["symbol"]), "those members"),
+        (
+            f"{key}_pass_within_rho",
+            " ".join(f"{v:+.3f}" for v in past[rho]),
+            "their rho, in the same order",
+        ),
     ]
 
 

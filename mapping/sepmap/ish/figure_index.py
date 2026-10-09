@@ -65,8 +65,8 @@ QUESTIONS = {
     "genes_detail": "The genes in detail: experiments, section QC, reliability, what "
     "was left out",
     "beyond": "Do Gria1 expression and synapse density explain the map?",
-    "beyond_budget": "Part 1 in detail: each predictor, the budget, the calibration, "
-    "the check rows",
+    "beyond_budget": "Part 1 in detail: each term, the partition, the calibration, "
+    "the check rows with their floors",
     "beyond_controls": "Part 1's seven controls: could the leftover be an artefact?",
     "beyond_where": "Where does the map sit above or below what they predict?",
     "one_comparison": "What is a gene's rho with the map?",
@@ -151,9 +151,9 @@ SUPPLEMENTS = {
     "beyond": (
         (
             "beyond_budget",
-            "the map against each predictor, the budget beside its four-subunit check "
-            "row and control F, every draw of the calibration, and the leftover under "
-            "every check row, fold and structure set",
+            "the map against each term, every model's share, the four parts with "
+            "their intervals and the weights, every draw of the calibration, and the "
+            "main model under other folds and every check row, each with its own floor",
         ),
         (
             "beyond_controls",
@@ -226,7 +226,7 @@ SUPPLEMENTS = {
         (
             "synaptome_detail",
             "the two hemispheres of the one mouse, and each density's agreement with "
-            "the mRNA terms, Gria1 and the maps",
+            "the density term, Gria1 and the maps",
         ),
         (
             "density_markers",
