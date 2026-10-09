@@ -186,14 +186,17 @@ The analysis, its figures and every number are in
 [ISH_ANALYSIS.md](ISH_ANALYSIS.md) (built on 8 October 2026: A1 to A3 and A6
 to A9 for the ISH line; part 1 run again on 9 October with its main model). The
 outputs are in `adult_v2\ish_analysis\`, the numbers in its
-`tables\numbers_for_the_text.csv`.
+`tables\numbers_for_the_text.csv`. Its figures follow the argument,
+`figures\00_overview.png` (the line on one page) to `16_april_headline.png`,
+each main figure of two to four panels beside its detailed version (the same
+number with an s).
 
 **The map is not predicted by Gria1 expression or synapse density** (part 1
-of the argument). The main model was fixed on 8 October 2026 before any of its
-results: Gria1 mRNA as abundance (the stained protein is GluA1, which Gria1
-alone encodes; Gria2 to Gria4 make partners the nanobody does not see, whose
-availability sets GluA1's assembly and trafficking), synapse density, and the
-cohort's own autofluorescence. Synapse density was to be the measured PSD95
+of the argument; figures 03 and 04). The main model was fixed on 8 October
+2026 before any of its results: Gria1 mRNA as abundance (the stained protein
+is GluA1, which Gria1 alone encodes; Gria2 to Gria4 make partners the
+nanobody does not see, whose availability sets GluA1's assembly and
+trafficking), synapse density, and the cohort's own autofluorescence. Synapse density was to be the measured PSD95
 punctum density (Zhu et al. 2018) if it covered 80% of the structures; it
 covers 77 of 126, so the main model keeps the mRNA density terms (11 marker
 genes and the first principal component of 186 postsynaptic-density genes),
@@ -227,8 +230,8 @@ ten adults).
   its presynaptic markers 31%. On the 77 structures where PSD95 is measured,
   PSD95 puncta as the density leave 46%, the mRNA panel 39%, both 39%: the
   measured density predicts less of the map than the mRNA panel (22% against
-  45% alone), so it leaves more, not less. SAP102 puncta and every punctum
-  leave 48% and 47%.
+  45% alone), so it leaves more, not less (figure 14). SAP102 puncta and every
+  punctum leave 48% and 47%.
 - Under other folds: spatial blocks leave 38% (on the calibration's
   structures nano 30%, the floor 16%, the Gria1 map 37%); one shuffling of the
   folds, ten folds and leave one out 28%; the 159 structures kept without the
@@ -260,10 +263,10 @@ ten adults).
   them.
 
 **The gene analyses are consistent with that reading, and do not single it
-out** (part 2). Each gene's rho with the map is tested against 10,000
-surrogate maps with the map's smoothness (Burt et al. 2020; A7), which give a
-spatial p below 0.05 for 4.0% of random maps where the ordinary Spearman p
-gives 62%.
+out** (part 2; figures 05 to 11). Each gene's rho with the map is tested
+against 10,000 surrogate maps with the map's smoothness (Burt et al. 2020;
+A7), which give a spatial p below 0.05 for 4.0% of random maps where the
+ordinary Spearman p gives 62%.
 
 - 12 of 451 genes pass after BH. Cacng8 (TARP γ-8) is first, +0.807, and first
   of P9's genes in every robustness variant (statistic, borders, reading,
@@ -311,13 +314,13 @@ gives 62%.
 - The 12 genes past the null are maps much like Gria1 and synapse density (rho
   0.61 to 0.81 with the main model's prediction), so they describe the map
   rather than add evidence; six of them follow the leftover before correction,
-  Cacng8 the one named in advance (ISH_ANALYSIS.md, section 5.7).
+  Cacng8 the one named in advance (ISH_ANALYSIS.md, section 5.3; figure 07).
 - April's headline, P9's category violins with ANOVA p 0.032, rested on a
   split written after looking (p 0.20 without it) and on genes treated as
   independent draws: today's F across April's groups, against the F of the
-  surrogates, gives p 0.289. The gene order reproduces (0.959).
+  surrogates, gives p 0.289. The gene order reproduces (0.959; figure 16).
 
-**The green channel is not total receptor.**
+**The green channel is not total receptor** (figure 15).
 
 - **The plan.** The SEP tag fluoresces green, so the green channel was meant
   to report all SEP-GluA1, surface and internal, and nano divided by it a
@@ -330,7 +333,8 @@ gives 62%.
   1.967). Against Gria1: nano +0.619, the green channel +0.333.
 - **Consequences.** `sepratio` is not a surface fraction, and the three-way
   test of September cannot be run on these data; the tests of the channel
-  ratios against genes (`ish/arms.py`) are retired. What their partial
+  ratios against genes (`ish/arms.py`) and the ratio table behind them
+  (`adult/arms.py`) are retired to `archive/`. What their partial
   correlation hinted at, localisation genes predicting the map once Gria1 is
   removed, is the localisation test above, which is negative.
 - **What would settle it.** A measure of total receptor in the same brains: a
@@ -759,8 +763,8 @@ its parameters in `mapping/settings.toml`.
     which leaves the thalamus, hypothalamus, pallidum, midbrain, pons and
     medulla.
   - `zref`: below.
-  - `sepauto` (SEP per unit autofluorescence) appears only in the channel
-    arms of line 3.
+  - `sepauto` (SEP per unit autofluorescence) appeared only in the channel
+    arms of line 3, now in `archive/`.
 - **zref.** zref = [log2(nano / cortex mean) - m] / s, with m the median and
   s the p90 - p10 spread of log2(structure mean / cortex mean) across that
   brain's structures. Zero is the brain's median structure, mostly

@@ -218,7 +218,7 @@ applies).
 |---|---|---|---|---|---|
 | A1 | one declared structure set, written once to a table every analysis reads, and the `zref` reference taken from it | which structures enter, and a `zref` that depends only on the brain and a fixed list | `run_characterize_distribution`'s z-score and region set | every `zref` value, the young-against-adult differences of the grant figures included; the enrichment calls | ISH half built, 8 October (`d80119a`, `run_structure_set`: 204 structures, each adult's zero moved by 0.012 to 0.103); the young-against-adult tables and maps still read the 17-brain reference |
 | A2 | ISH quality control per section: failed sections flagged and set to missing, never interpolated; a reviewed list of genuine regional absence; the effect on the ranking reported | are the ISH structure means corrupted by failed or dim sections | `run_compare_with_allen_ish`'s section repair | the gene ranks (an unreviewed scan flags 14 of 95 genes; Gria1 is clean) | built, 8 October (`3bac2a5`, `run_ish_section_qc`): 196 sections set missing in 133 experiments; the true absences proposed, to review |
-| A3 | the gene ranking on A1's set and A2's tables, through one shared adult profile with a minimum-mice rule; ranking, roles, panel test, arms and words rerun; robustness to the statistic and to borders; a sensitivity table under three structure sets | which genes predict the adult map, on structures the cohort actually measures | `run_compare_with_allen_ish`'s region set, metric comparison and headline ranking | Gria1's rank and the ISH numbers held back under S5 | built, 8 October (`598b591`, `e4550d0`, `run_ish_gene_ranking`, `run_ish_robustness`); roles, arms and words retired by decision |
+| A3 | the gene ranking on A1's set and A2's tables, through one shared adult profile with a minimum-mice rule; ranking, roles, panel test, arms and words rerun; robustness to the statistic and to borders; a sensitivity table under three structure sets | which genes predict the adult map, on structures the cohort actually measures | `run_compare_with_allen_ish`'s region set, metric comparison and headline ranking | Gria1's rank and the ISH numbers held back under S5 | built, 8 October (`598b591`, `e4550d0`, `run_ish_gene_ranking`, `run_ish_robustness`); roles, arms and words retired by decision, the arms moved to `archive/` on 9 October |
 | A4 | the adult distribution: every structure by division, per-mouse mean and SEM, reliability, the enrichment call, an eroded mean beside the plain one; for the young cohort on its own too | how the signal is distributed across the adult brain, and how reproducibly | `run_characterize_distribution`'s bar charts, tables and enrichment | the enrichment list (zero becomes the brain's median structure) | open; reads A1's set and the per-adult table of `run_structure_set` |
 | A5 | autofluorescence as a parallel control per structure and division, and its own distribution | is the nano pattern its own signal, structure by structure | `run_compare_nano_with_autofluorescence`, and the `auto` run of `run_characterize_distribution` | the lists of `run_compare_nano_with_autofluorescence` (the question is kept, not the output) | open; the per-adult autofluorescence means are in `adult_per_mouse.csv` |
 
@@ -277,7 +277,7 @@ question, not necessarily with the same output. Once A1 to A5 are in:
   `merged_naive_rws_auto\`, the `merged_naive_rws_vs_ish_*` folders,
   `nano_vs_auto\`). The `gene_panel_summary.csv` of
   `run_compare_with_allen_ish` stays an input of `run_ish_overview` (April's
-  headline, then and now: figure 18 of the ISH line).
+  headline, then and now: figure 16 of the ISH line).
 - Giulio checks the Python route against the old code, run from the tag
   `refactor-start` in its own check tree; then `archive/` is deleted (L2), the
   tag keeping the files.
@@ -710,7 +710,10 @@ nanobody access would land there too, and only a total-receptor channel
 separates them.
 
 **The ISH comparison.** Rebuilt on 8 October with the spatial null and gene
-sets fixed before looking ([ISH_ANALYSIS.md](ISH_ANALYSIS.md)). Still open:
+sets fixed before looking, run again on 9 October with part 1's main model and
+the tests named for its leftover, and its figures renumbered the same day in
+the order of the argument, each a main figure of two to four panels beside its
+detailed version ([ISH_ANALYSIS.md](ISH_ANALYSIS.md)). Still open:
 what the leftover of the beyond-abundance analysis is (a total-receptor
 channel); a background panel of a few thousand Allen genes, to place the
 panel's genes among genes nobody chose; the true absences of the section QC,
@@ -766,6 +769,19 @@ For the reasons, see the plan and the documents named.
   they cover 80% of the structures, else the mRNA panel. They cover 77 of
   126, so the panel stays and PSD95 is a check row
   (`mapping/settings.toml` `[beyond]`).
+- **The tests of the leftover** (8 October, before the main model ran):
+  Cacng8 named in advance, its uncorrected p the test; the AMPA receptor
+  complex family (Schwenk et al. 2012 and GO:0032281, the partner subunits,
+  without Gria1) as a group against the surrogates and against matched
+  postsynaptic genes, then gene by gene within it; every other gene
+  exploratory (`mapping/sepmap/ish/gene_sets.py`). Run on 9 October: Cacng8
+  follows the leftover (p 0.0002), the family no more than matched
+  postsynaptic genes (p 0.55).
+- **The ISH figures** (9 October): numbered in the order of the argument,
+  `00_overview.png` to `16_april_headline.png`; each main figure two to four
+  panels with one line saying what to take from it, its detailed version the
+  same number with an s; the overview a one-page summary. The arm modules and
+  their run scripts moved to `archive/`.
 - **The ISH line** (the ISH discussion, [history/ISH_DISCUSSION.md](history/ISH_DISCUSSION.md),
   8 October; Giulio: "all as recommended"):
   1. the headline: April's category p (0.032) is not shown again but once, to

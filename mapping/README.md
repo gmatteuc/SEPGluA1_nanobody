@@ -29,12 +29,11 @@ mapping/
     adult/              profiles (per adult and structure, the channels and zref),
                         synaptome (the measured synapse density, Zhu 2018),
                         beyond_density, beyond_controls, beyond_calibration,
-                        beyond_regression, beyond_figures, sep_channel_check, arms
+                        beyond_regression, beyond_figures, sep_channel_check
     ish/                panel_build, panel_fetch, regions, reliability (the inputs);
                         section_qc, gene_table, spatial_null, gene_ranking, robustness,
                         divisions, gene_sets, top_genes, overview (the ISH analysis);
-                        plotting
-                        (its figures); compare, words, roles, arms, panel_test
+                        plotting (its figures); compare, words, roles, panel_test
                         (the run of 5 October, retiring)
 ```
 
@@ -72,8 +71,8 @@ mapping/
 | ontology panel | 11 `run_panel_build`, 12 `run_panel_fetch` | a 390-gene panel from Gene Ontology terms, and its ISH grids (network, once; not rerun for an analysis) |
 | ISH inputs | 13 `run_structure_set`, 14 `run_ish_section_qc`, 15 `run_ish_gene_table`, 16 `run_ish_spatial_null` | the declared structures and the adult profiles (A1); section QC of every experiment (A2); one gene table, merged profiles, gene sets, documentation (A9); surrogate maps with the map's smoothness (A7) |
 | the genes against the map | 17 `run_ish_gene_ranking`, 18 `run_ish_robustness`, 19 `run_ish_divisions`, 20 `run_ish_gene_sets` | each gene against the map and the autofluorescence map, with the null (A8); the ranking under other choices (A3); between or within divisions (A6); gene sets and localisation against matched controls |
-| the measured synapse density | 21 `run_synaptome` | PSD95 punctum density per structure (Zhu et al. 2018, as Hansen et al. share it; network, once), how much of the declared set and of analysis 4's fit it covers, and how it agrees with the mRNA density terms, Gria1 and the map |
-| beyond abundance and density | 22 `run_beyond_density`, 23 `run_beyond_controls`, 24 `run_beyond_calibration`, 25 `run_beyond_regression`, 26 `run_beyond_figures` | how much of the map the main model of 8 October (Gria1, synapse density, autofluorescence) predicts, and the genes against what it leaves; seven controls, and the leftover under other folds, structures and the check rows of `[beyond.variants]` (PSD95 or SAP102 puncta, the four subunits); the same model on maps whose answer is known, and the nano map against them on the same structures; the regression per structure; the figures |
+| the measured synapse density | 21 `run_synaptome` | fetches the PSD95 and SAP102 punctum densities of Zhu et al. 2018 as Hansen et al. share them, from their repository at a pinned commit (network, once; `--offline` stops instead), into `<data>\reference\synaptome\`; places the samples in the CCF structures; how much of the declared set and of analysis 4's fit the PSD95 density covers, and how it agrees with the mRNA density terms, Gria1 and the map |
+| beyond Gria1 expression and synapse density | 22 `run_beyond_density`, 23 `run_beyond_controls`, 24 `run_beyond_calibration`, 25 `run_beyond_regression`, 26 `run_beyond_figures` | how much of the map the main model of 8 October (Gria1, synapse density, autofluorescence) predicts, and the genes against what it leaves; seven controls, and the leftover under other folds, structures and the check rows of `[beyond.variants]` (PSD95 or SAP102 puncta, the four subunits); the same model on maps whose answer is known, and the nano map against them on the same structures; the regression per structure; the figures of part 1 |
 | the genes that follow the map | 27 `run_ish_top_genes` | the genes past the map's null, Gria1, Cacng8 and the AMPA receptor complex family described on every axis of the ISH line, each added to the main model against maps of its smoothness; the tests named on 8 October for the leftover (Cacng8, then the family as a group and gene by gene); per-gene sheets |
 | the green channel, the overview | 28 `run_sep_channel_check`, 29 `run_ish_overview` | what the green channel reports; April's headline, the numbers for the text, the overview and the index of the figures |
 
@@ -90,9 +89,11 @@ of step 10 reads the tables of steps 4 and 5, and sheet 08 the background
 masks of `../group_comparison/run_normalise_groups` (naive and P20), so in a
 full run the plasticity chain comes first. The scripts of the ISH run of 5
 October (`run_ish_regions`, `run_ish_compare`, `run_ish_words`,
-`run_ish_roles`, `run_ish_arms`, `run_ish_reliability`, `run_ish_panel_test`,
-`run_adult_arms`) are out of the run order: they write the frozen folders
-`adult_v2\ish\` and `arms\`, and move to `archive/` next.
+`run_ish_roles`, `run_ish_reliability`, `run_ish_panel_test`) are out of the run
+order: they write the frozen folder `adult_v2\ish\`, and move to `archive/`
+next. `run_ish_arms` and `run_adult_arms` are in `../archive/` already (9
+October): the green channel is mostly autofluorescence, so the channel ratios
+they tested against the genes have no premise.
 
 ## Assumptions and preprocessing
 
@@ -163,10 +164,11 @@ Under `<data>\adult_v2\`:
 - `ish_analysis\`: the ISH analysis. `tables\` (every table of steps 13 to
   29, the surrogates, `numbers_<step>.csv` and `numbers_for_the_text.csv`),
   `synaptome\` (the measured synapse density per sample and per structure,
-  its coverage and agreement, `feasibility.png`), `beyond\` (part 1's tables
-  and working figures), `green_channel\`,
-  `figures\` (the guided figures `00_overview.png` to `18_april_headline.png`
-  with the index `README.md`, `qc\`, `genes\` and `top_genes\`), `cache\` (Allen
+  its coverage and agreement), `beyond\` (part 1's tables and working
+  figures), `green_channel\`, `figures\` (the guided figures
+  `00_overview.png` to `16_april_headline.png`, each main figure with its
+  detailed versions, `03s_beyond_budget.png` and so on, the index `README.md`,
+  `qc\`, `genes\` and `top_genes\`), `cache\` (Allen
   experiment lists, mygene records, `go-basic.obo`). The table of every file:
   `../docs/ISH_ANALYSIS.md`, section 10.
 - `panel\`: `panel_v2.csv`, `panel_genes.csv`, `fetch_failures.csv`, the API
