@@ -5,7 +5,7 @@ function perm = region_permutation_test(stacks, n_ctrl, geom, perm_settings)
 %   pooled mice into two groups of the original sizes, and gives each score its
 %   permutation p, uncorrected and corrected over the regions. Called by
 %   group_differences (run_group_differences), by per_mouse_region_values
-%   (run_per_mouse_values) for the observed split alone, and by
+%   (run_per_mouse_values) for the split it is given alone, and by
 %   tests\test_region_permutation on synthetic stacks.
 %
 %   stacks         a cell, one array per map (L - R, L + R): n_cand x n_mice
@@ -17,9 +17,11 @@ function perm = region_permutation_test(stacks, n_ctrl, geom, perm_settings)
 %                  bars, 0 for none), n_regions, voxel_mm (the voxel's side)
 %   perm_settings  min_mice_per_group, slab_range and p_thresh (the bars'),
 %                  cluster_p, cluster_connectivity, topvol_mm3, region_quantile,
-%                  n_permutations ('all' or a number), n_workers, seed, and
+%                  n_permutations ('all' or a number), n_workers, seed,
 %                  keep_cluster_voxels (optional, false when missing: true
 %                  keeps the voxels of the observed split's heaviest clusters)
+%                  and quiet (optional, false when missing: true prints
+%                  nothing, for a caller that runs it thousands of times)
 %
 %   For each split everything that feeds the bars is computed again, as
 %   group_differences computes it for the groups as they are: the Welch t of
@@ -65,6 +67,10 @@ seed = perm_settings.seed;
 keep_cluster_voxels = isfield(perm_settings, 'keep_cluster_voxels') && ...
     perm_settings.keep_cluster_voxels;
 
+% no progress lines when asked: the leave-one-out of run_per_mouse_values calls
+% this once per fold and split
+quiet = isfield(perm_settings, 'quiet') && perm_settings.quiet;
+
 % the measures, the quantile's named after it
 quantile_name = sprintf('q%g', 100 * perm_settings.region_quantile);
 measure_names = {'share', 'sum', quantile_name, 'topvol', 'cluster'};
@@ -86,18 +92,22 @@ end
 splits = enumerate_splits(n_mice, n_ctrl, n_permutations, seed);
 n_splits = size(splits.in_ctrl, 1);
 n_computed = numel(splits.computed);
-fprintf(['  %d splits of %d mice into %d and %d (%d in all), %d computed, %d as ' ...
-         'their mirror image.\n'], n_splits, n_mice, n_ctrl, n_exp, ...
-        nchoosek(n_mice, n_ctrl), n_computed, n_splits - n_computed);
+if ~quiet
+    fprintf(['  %d splits of %d mice into %d and %d (%d in all), %d computed, %d ' ...
+             'as their mirror image.\n'], n_splits, n_mice, n_ctrl, n_exp, ...
+            nchoosek(n_mice, n_ctrl), n_computed, n_splits - n_computed);
+end
 
 %% Candidate voxels
 
 % the blocks of AP columns the maps are computed in, and the voxels of each
 % region
 geom = prepare_geometry(geom, perm_settings);
-fprintf(['  %d candidate voxels in %d AP columns, %d blocks; top volume %d voxels ' ...
-         '(%g mm^3).\n'], numel(geom.cand_lin), geom.n_cols, geom.n_blocks, topvol_k, ...
-        perm_settings.topvol_mm3);
+if ~quiet
+    fprintf(['  %d candidate voxels in %d AP columns, %d blocks; top volume %d ' ...
+             'voxels (%g mm^3).\n'], numel(geom.cand_lin), geom.n_cols, ...
+            geom.n_blocks, topvol_k, perm_settings.topvol_mm3);
+end
 
 %% Observed split
 
@@ -107,7 +117,9 @@ t_observed = tic;
 observed = split_scores(stacks, splits.in_ctrl(splits.observed, :), geom, ...
     perm_settings, topvol_k, true, keep_cluster_voxels);
 observed_s = toc(t_observed);
-fprintf('  observed split: %.1f s.\n', observed_s);
+if ~quiet
+    fprintf('  observed split: %.1f s.\n', observed_s);
+end
 
 %% Every other split
 
@@ -129,7 +141,9 @@ if n_workers > 0
     end
     n_workers = pool.NumWorkers;
 end
-fprintf('  %d splits to compute on %d workers.\n', n_other, max(n_workers, 1));
+if ~quiet
+    fprintf('  %d splits to compute on %d workers.\n', n_other, max(n_workers, 1));
+end
 
 % progress: a line every twentieth of the splits, with the time left
 queue = parallel.pool.DataQueue;
