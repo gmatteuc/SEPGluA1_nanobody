@@ -37,7 +37,9 @@ P20 stack and its background masks, which sheet 08 of
 ## Outputs
 
 - `<data>\<group>\nano_4d<tag>.mat` and `collected_mice<tag>.mat` (step 1;
-  `<tag>` is empty for a whole group, `_P20` for `age_filter = [20]`)
+  `<tag>` is empty for a whole group, `_P20` for `age_filter = [20]`), and
+  `auto_4d<tag>.mat` with `channels = {'auto'}`; each stack with its mice and
+  the registered files they were read from
 - `<data>\<group>\nano_4d_normalized<tag>.mat`,
   `nano_4d_normalized_bkgmask<tag>.mat`,
   `Background_mask_diagnostics_trace_<group>_nano.fig/.png` and
@@ -75,12 +77,39 @@ section 2).
 
 ## Per-mouse values
 
+In short (9 October 2026). Giulio asked for a per-mouse measure and test that
+is step 3's barrel-field test seen from the mice, as permissive as it. The
+selection-matched test below is that as far as the choice goes: the same
+cluster search, with the same ten mice, under the same 252 splits. It does
+not agree with step 3: after RWS its p is 0.35, one-sided (step 3's cluster
+mass over the same splits: 0.040 with either sign, the p quoted; 0.020 with
+the positive sign alone). It is not harsher on the mice. Step 3 scores each
+split's cluster by its mass, which grows with the cluster's extent, and the
+extent is what is rare under relabelling (5 of the 252 splits as heavy in
+the positive direction). A mean over the cluster cannot carry the extent, and
+every split's cluster separates its own groups by construction: the observed
+difference, +0.084, is about the null's median, +0.080. No per-mouse view of
+the asymmetry separates the groups:
+
+| view | chosen, with which mice | null | how strict | p after RWS |
+|---|---|---|---|---|
+| selection-matched (`sm_ai_raw`) | step 3's cluster, all ten mice; every mouse read in it | the search redone in each of the 252 splits | as step 3 about the selection; every mouse in sample | 0.35 one-sided, 0.60 either direction |
+| leave-one-out (`loo_ai_raw`) | a cluster of the other nine mice; each mouse read out of sample | the leave-one-out redone in each split | stricter about circularity by design | 0.13 one-sided |
+| whole region (`ai_raw_ssp_bfd`) | nothing chosen | the values permuted | no selection | 0.25 one-sided |
+| step 3's cluster mass, for reference | step 3's cluster, all ten mice | the same 252 splits | the test quoted | 0.020 positive sign, 0.040 either sign |
+
+After behavior none separates the groups either (selection-matched 0.53
+either direction, 0.36 behavior higher; step 3's mass 0.15 either sign). In
+the RWS cluster the autofluorescence is higher after RWS too, by about half
+the nano channel's difference (results below).
+
 `run_per_mouse_values`, after step 3, gives one value per mouse in regions
 named in advance, the barrel field (SSp-bfd) and, as a cortical control, the
 primary visual area (VISp), to show which mice carry an effect. Each mouse is
 taken as step 3 takes it. Its first values are read in the barrel-field
-cluster of step 3's test, under the selection-matched test below, which is
-that test seen mouse by mouse; the others over a whole region, over the
+cluster of step 3's test, under the selection-matched test below, which has
+the same selection and splits as that test, with the mice's mean asymmetry
+in place of the cluster's mass; the others over a whole region, over the
 mouse's own voxels:
 
 | value | what it is |
@@ -161,6 +190,16 @@ variant is tried.
   agree), less its off-tissue level (the same voxels as the nano channel's)
   and smoothed in the nano channel's tissue, as the raw stack is.
 
+Added after the results (9 October 2026, evening), the design above left as
+it was written. In the event the leave-one-out gave the lower p (results
+below): stricter about circularity by design, not in its p. The region
+test's p 0.040 is that of either sign, the larger of the two signs' masses;
+with the positive sign alone, the like of this test's one-sided p, it is
+0.020 over the same splits (not a test of step 3, whose p stays 0.040). The
+test maps' AI (`sm_ai`) carries the alignment's intercept, which stays with
+the true experimental mice under every split, so it is less exchangeable
+under relabelling than the raw AI, which is the value to read.
+
 - The off-tissue level is the median of the raw stack over the mouse's
   background voxels (step 2's mask) outside the atlas brain: the slide around
   the section, about 500 raw where tissue is 1,200 to 2,700. Each mouse's
@@ -203,8 +242,12 @@ variant is tried.
   those values. A split under which no fold of a group finds a cluster gives
   no difference and is left out (9 of 252 after RWS, 15 of 126 after
   behavior). This p is the leave-one-out's test, in the table and in the
-  leave-one-out's figure. The plain permutation of the values, kept in the
-  table only and named anti-conservative, holds each fold's cluster as the
+  leave-one-out's figure; its two-sided p is the share of the splits whose
+  \|difference\| reaches the observed one, every fold's cluster on the split's
+  experimental-higher side (not the selection-matched test's either
+  direction, which searches both sides). The plain permutation of the
+  values, kept in `Per_Mouse_Stats_<tag>.csv` only and named
+  anti-conservative, holds each fold's cluster as the
   true groups gave it: free of circularity, since no value comes from a
   cluster its own mouse helped define (leave-one-subject-out; Esterman et al.
   2010), but it treats the ten values as exchangeable, which they are not:
@@ -214,10 +257,14 @@ variant is tried.
   0.13.
 - Outputs, in the comparison's folder, `<tag>` the comparison and the
   smoothing (`naive_vs_rws_nano_smooth5`): `Per_Mouse_Values_<tag>` (.csv,
-  one row per mouse, and the figure: the selection-matched values, the null
-  of the raw one, then the regions), `Per_Mouse_Stats_<tag>.csv` (per value
-  the p of its test, the column `test` saying which; for the cluster values
-  the shuffled p in columns named anti-conservative), `Per_Mouse_LOO_<tag>`
+  one row per mouse, and the figure: the selection-matched values, the
+  test's splits under both its statistic and step 3's, then the regions),
+  `Per_Mouse_Stats_<tag>.csv` (per value the p of its test, the column
+  `test` saying which, and for the selection-matched values the null's
+  median difference and the cluster the either-direction difference comes
+  from; for the cluster values the shuffled p, the Welch p and Hedges' g,
+  which ignore the selection, in columns named anti-conservative and
+  inflated, the plain columns empty), `Per_Mouse_LOO_<tag>`
   (the leave-one-out's figure; .csv, one row per fold, with where its cluster
   sits; .mat, the folds' clusters, voxel by voxel), and the caches of the
   mice's maps, `Per_Mouse_Maps_<tag>.mat`, of their autofluorescence,
@@ -234,23 +281,31 @@ variant is tried.
 
 Results, 9 October 2026, on copies of the stacks of the production run of
 7 October. The cluster of all the mice is step 3's barrel-field cluster (its
-voxels and mass), and the cluster mass over the selection-matched test's
-splits gives step 3's p in both comparisons (0.040 after RWS, 0.15 after
-behavior); every split's positive cluster is its mirror image's negative one.
-The leave-one-out's and the regions' values are those of the earlier run of
-the day, to the bit.
+voxel count and mass, which is what step 3's table holds; step 3 keeps no
+voxel lists), and every split's cluster mass, both signs, is that of step
+3's saved null (`Region_Permutation_Null_<comp>.mat`, production's, read
+only), to the bit, in both comparisons: the selection-matched test's splits
+are step 3's, and the cluster mass over them gives step 3's p (0.040 after
+RWS, 0.15 after behavior). After RWS (5 and 5) every split's positive
+cluster is its mirror image's negative one; 5 against 4 has no mirror
+splits. The leave-one-out's and the regions' values are those of the
+earlier run of the day, to the bit.
 
 The selection-matched test: the difference of the group means, experimental
-minus control, then the p named first and the other; in brackets the same
+minus control, with the null's median over the splits that find a cluster
+in brackets; then the p named first and the other, and in brackets the same
 two with the splits that find no cluster left out. The anti-conservative
-shuffle of the values is in the table only.
+shuffle of the values, the Welch p and Hedges' g are in
+`Per_Mouse_Stats_<tag>.csv` only. Last row, for reference: step 3's
+statistic, the cluster's mass, over the same splits.
 
 | value | after RWS (one-sided, either direction) | after behavior (either direction, one-sided) |
 |---|---|---|
-| `sm_ai_raw` | +0.084: 0.35, 0.60 (0.46, 0.61) | +0.072: 0.53, 0.36 (0.56, 0.56) |
-| `sm_ai` | +0.131: 0.37, 0.63 (0.48, 0.65) | +0.054: 0.67, 0.52 (0.71, 0.81) |
-| `sm_ai_auto` | +0.048: 0.29, 0.50 (0.38, 0.52) | +0.047: 0.40, 0.18 (0.425, 0.29) |
+| `sm_ai_raw` | +0.084 (+0.080): 0.35, 0.60 (0.46, 0.61) | +0.072 (+0.080): 0.53, 0.36 (0.56, 0.56); either direction +0.090, in the naive-higher cluster |
+| `sm_ai` | +0.131 (+0.123): 0.37, 0.63 (0.48, 0.65) | +0.054 (+0.105): 0.67, 0.52 (0.71, 0.81); either direction +0.106, in the naive-higher cluster |
+| `sm_ai_auto` | +0.048 (+0.036): 0.29, 0.50 (0.38, 0.52) | +0.047 (+0.025): 0.40, 0.18 (0.43, 0.29) |
 | splits without a cluster | 60 of 252 (8 in neither direction) | 46 of 126 (6 in neither direction) |
+| step 3's cluster mass | 0.020, 0.040 (step 3's p) | 0.15 (step 3's p), 0.056 |
 
 - After RWS the cluster of all the mice is 3,662 voxels (0.0037 mm^3, mass
   8,775), planes 554 to 570 (CCF 733 to 749, the posterior barrel field),
@@ -258,37 +313,53 @@ shuffle of the values is in the table only.
   stack every RWS mouse but MG693 is above every naive mouse in it (MG736
   0.173, MG691 0.154, MG737 0.145, MG692 0.122, MG693 0.077; naive 0.028 to
   0.080, CGF035 the highest). The difference, +0.084, is reached by 89 of
-  the 252 splits: one-sided p 0.35. The per-mouse view does not hold what
-  the region test holds (p 0.040), and the null shows why: what is rare
-  under relabelling is the cluster's extent, not the asymmetry of its mice.
-  Only 6 of the 252 splits, the observed one among them, give a cluster as
-  large (5 as heavy), but the other splits' clusters, smaller (median 188
-  voxels, quartiles 36 and 658), separate their labelled groups as much: the
-  89 splits that reach the observed difference have clusters of 111 voxels
-  at the median, and of the 30 splits with a cluster of 1,000 voxels or
-  more, 10 reach it. A mean over
-  the cluster does not grow with its size; the cluster's mass does. The
-  cluster where naive is the more asymmetric (2,194 voxels, layer 2/3,
-  planes 451 to 470) gives naive minus RWS +0.082, as large.
+  the 252 splits: one-sided p 0.35. It is about the null's median, +0.080,
+  over the 192 splits that find a cluster. The per-mouse view does not hold
+  what the region test holds (p 0.020 with the positive sign alone, 0.040
+  with either sign, step 3's p), and the null shows why: what is rare under
+  relabelling is the cluster's extent, not the asymmetry of its mice. Only
+  6 of the 252 splits, the observed one among them, give a cluster as large
+  in the positive direction (5 as heavy; with either sign 10 as heavy,
+  step 3's p 0.040), but the other splits' clusters, smaller (median 188
+  voxels, quartiles 36 and 658), separate their labelled groups as much:
+  the 89 splits that reach the observed difference have clusters of 111
+  voxels at the median, and of the 30 splits with a cluster of 1,000 voxels
+  or more, 10 reach it; of the 5 as heavy, 2, the observed one among them.
+  Over the splits the smaller
+  clusters separate their groups the more (Spearman -0.25 between a split's
+  cluster size and its difference). A mean over the cluster does not grow
+  with its size; the cluster's mass does. The figure's top right panel
+  shows both statistics over the same splits. The cluster where naive is the
+  more asymmetric (2,194 voxels, layer 2/3, planes 451 to 470) gives naive
+  minus RWS +0.082, as large.
 - The autofluorescence in the same cluster is also higher after RWS, by
   about half the nano channel's difference (+0.048; RWS 0.122, naive 0.073,
   with CGF033 at 0.145, below MG692 alone), and is not separated by the
   same test (p 0.29). Mouse by mouse the two channels' AI correlate weakly
-  there (r 0.32). Since the nano channel itself shows no difference beyond the
-  selection, the control neither clears the cluster of a misregistration of
-  the surface nor points to one. The autofluorescence stacks reach the nano
-  stack's voxels (Dice of the voxels a section reached 0.99998 to 0.999997
-  in all 14 mice), and the nano tiffs beside them are the nano stack, voxel
-  for voxel, in all 17 adults.
+  there (r 0.32), and within the groups not at all (r -0.33, each group's
+  mean taken out): the pooled r is the groups' difference. Since the nano
+  channel itself shows no difference beyond the selection, the control
+  neither clears the cluster of a misregistration of the surface nor points
+  to one. Over the null's splits, though, a split's nano and
+  autofluorescence differences correlate (r 0.66; 0.52 after behavior): the
+  clusters of \|L - R\| in the nano channel pick up in part an asymmetry
+  that the autofluorescence shares. The autofluorescence stacks reach the
+  nano stack's voxels (Dice of the voxels a section reached 0.99998 to
+  0.999997 in all 14 mice), and the nano tiffs beside them are the nano
+  stack, voxel for voxel, in all 17 adults.
 - After behavior the cluster of all the mice is 1,489 voxels, planes 471 to
   486 (CCF 650 to 665), 3.0 mm from the midline, all in layer 6a. Every
   behavior mouse is above every naive mouse in it on the raw stack (0.080 to
-  0.146 against 0.010 to 0.061), yet the splits find clusters that separate
-  their own groups as much (either direction p 0.53). In the reverse
-  direction the cluster is 64 voxels in layer 1, where naive minus behavior
-  is +0.090. The autofluorescence is higher after behavior too (+0.047, p
-  0.40 either direction), and there it follows the nano channel mouse by
-  mouse (r 0.75; MG705 and MG716 high in both).
+  0.146 against 0.010 to 0.061), +0.072, yet the splits' own clusters
+  separate their groups as much: behavior higher, the direction carried
+  over from RWS, p 0.36, the null's median +0.080. The either-direction p,
+  0.53, is that of the reverse cluster, 64 voxels in layer 1, where naive
+  minus behavior is +0.090, the larger of the two differences here; step 3's
+  score takes the behavior-higher cluster (mass 3,454 against 143). The
+  autofluorescence is higher after behavior too (+0.047, p 0.40 either
+  direction), and there it follows the nano channel mouse by mouse (r 0.75,
+  and 0.74 within the groups; MG705 and MG716 high in both): in this
+  cluster part of the nano asymmetry goes with the autofluorescence's.
 - The leave-one-out (below) gives the lower p after RWS, 0.13 against 0.35,
   though each mouse is read out of sample. A reading of why: a cluster chosen
   on noise separates the mice that chose it as well as a real one does, but
@@ -297,10 +368,12 @@ shuffle of the values is in the table only.
   sample, they lose more of them than a real cluster would.
 
 The whole regions and the leave-one-out. Each cell: the p named first (after
-RWS one-sided, RWS higher; after behavior two-sided), then Hedges' g; for the
-leave-one-out values the p of the leave-one-out redone under every split, the
-anti-conservative shuffle of the values in brackets. After behavior VISp has
-five and three mice; no p is corrected across the values:
+RWS one-sided, RWS higher; after behavior two-sided), then, for a whole
+region, Hedges' g; for the leave-one-out values the p of the leave-one-out
+redone under every split alone (their g, which ignores the selection as the
+shuffle of the values does, is in `Per_Mouse_Stats_<tag>.csv` only, named
+inflated). After behavior VISp has five and three mice; no p is corrected
+across the values:
 
 | value | RWS, SSp-bfd | RWS, VISp | behavior, SSp-bfd | behavior, VISp |
 |---|---|---|---|---|
@@ -308,8 +381,8 @@ five and three mice; no p is corrected across the values:
 | `ai` | 0.14, 0.69 | 0.31, 0.30 | 0.98, 0.02 | 0.57, 0.49 |
 | `sum_rel_raw` | 0.048, 1.09 | 0.044, 1.03 | 0.040, 1.65 | 0.036, 1.54 |
 | `sum_rel` | 0.12, 0.74 | 0.044, 1.11 | 0.024, 2.02 | 0.089, 1.38 |
-| `loo_ai_raw` | 0.13 (0.020), 1.55 | | 0.56 (0.49), 0.51 | |
-| `loo_ai` | 0.19 (0.012), 1.86 | | 0.68 (0.66), 0.27 | |
+| `loo_ai_raw` | 0.13 | | 0.56 | |
+| `loo_ai` | 0.19 | | 0.68 | |
 
 - After RWS the asymmetry of the whole barrel field does not separate the
   groups. In the leave-one-out cluster four of the five RWS mice are above
