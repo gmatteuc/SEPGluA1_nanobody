@@ -89,6 +89,21 @@ def test_numbers_keep_their_step_and_their_text(tmp_path):
     assert len(numbers.text_lines(gathered)) == 3 + 2 + 2
 
 
+def test_the_gap_in_words_follows_the_two_sided_test():
+    """The index reads the Cacng8 - Gria1 gap by its two-sided p, the shares after."""
+    n = {
+        "gene_ranking.gap_p": "0.105",
+        "gene_ranking.gap_equal_first_as_large": "0.0232",
+        "gene_ranking.gap_equal_second_as_large": "0.0815",
+    }
+    words = overview.gap_words(n)
+    assert words.startswith("inside the two-sided test fixed in advance")
+    assert "p 0.105; 2.3% of those maps give a Cacng8 lead as large, 8.2%" in words
+    assert "band" not in words
+    n["gene_ranking.gap_p"] = "0.01"
+    assert overview.gap_words(n).startswith("past the two-sided test")
+
+
 def test_ordinal_words():
     """1st, 2nd, 3rd, 4th, 11th, 12th, 13th, 21st, 22nd."""
     words = [numbers.ordinal(k) for k in (1, 2, 3, 4, 11, 12, 13, 21, 22)]

@@ -8,6 +8,7 @@ from scipy.stats import false_discovery_control
 from sepmap.adult import beyond_density
 from sepmap.adult.profiles import ADULTS
 from sepmap.ish import gene_sets, spatial_null, top_genes
+from sepmap.ish import plotting as ish_plotting
 
 
 def test_the_genes_and_their_tiers():
@@ -261,6 +262,37 @@ def test_neighbour_agreement_tells_a_smooth_map_from_a_shuffled_one():
     assert smooth > 0.99
     # 200 structures: a shuffled map's agreement has an SD of about 1 / sqrt(200)
     assert abs(rough) < 0.25
+
+
+def test_figure_08s_line_says_only_what_the_two_sided_test_says():
+    """A gap just past the 95% band, inside the test fixed in advance, is inside it.
+
+    The line under figure 08's title reads the gap by its two-sided p alone: no
+    lead, no band, no "more closely".
+    """
+    gap = pd.Series(dict(gap=0.167, p_equal=0.105, equal_lo=-0.224, equal_hi=0.166))
+    line = ish_plotting.gap_verdict(gap)
+    assert "+0.17, is inside the two-sided test" in line
+    for word in ("lead", "band", "closely"):
+        assert word not in line
+    gap["p_equal"] = 0.01
+    assert "is past the two-sided test" in ish_plotting.gap_verdict(gap)
+
+
+def test_figure_11s2s_line_names_the_members_past_bh_and_their_sign():
+    """Members past BH within the family are named, with their sign when they agree."""
+    t = {
+        name: pd.Series(dict(p=p))
+        for name, p in (("first", 0.0066), ("spatial", 0.92), ("matched", 0.29))
+    }
+    past = pd.DataFrame(dict(symbol=["Olfm1", "Gria4"], leftover_rho=[-0.2, -0.5]))
+    line = ish_plotting.family_takeaway(t, past, 10000)
+    assert line.endswith("past BH within it: Olfm1, Gria4, each below zero")
+    assert "does not pass the surrogates" in line
+    mixed = past.assign(leftover_rho=[0.2, -0.5])
+    assert ish_plotting.family_takeaway(t, mixed, 10000).endswith("Olfm1, Gria4")
+    none = ish_plotting.family_takeaway(t, past.iloc[:0], 10000)
+    assert none.endswith("no member passes BH within it")
 
 
 @pytest.mark.skipif(not top_genes.TOP_TABLE.is_file(), reason="data not connected")

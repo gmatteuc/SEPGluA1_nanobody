@@ -190,24 +190,18 @@ def points_with_interval(n: dict[str, str], key: str) -> str:
 def gap_words(n: dict[str, str]) -> str:
     """The Cacng8 - Gria1 gap against maps that follow both alike, in words.
 
-    The words follow its p (the test fixed in advance, a lead as large either way)
-    and its band.
+    Its p, the test fixed in advance (two-sided: a gap as large either way), decides
+    the words; the shares each way of the skewed null follow as a description.
     """
     p = num(n, "gene_ranking.gap_p")
     first = num(n, "gene_ranking.gap_equal_first_as_large")
     second = num(n, "gene_ranking.gap_equal_second_as_large")
-    shares = (
-        f"{first:.1%} of those maps give a Cacng8 lead as large, {second:.1%} a Gria1 "
-        f"lead; p {p:.3f} counts both"
+    where = "past" if p < ALPHA else "inside"
+    return (
+        f"{where} the two-sided test fixed in advance, against maps that follow both "
+        f"alike (p {p:.3f}; {first:.1%} of those maps give a Cacng8 lead as large, "
+        f"{second:.1%} a Gria1 lead)"
     )
-    if p < ALPHA:
-        return f"a lead past what maps that follow both alike give ({shares})"
-    if num(n, "gene_ranking.gap") > num(n, "gene_ranking.gap_equal_hi"):
-        return (
-            "a lead just past the 95% band of maps that follow both alike, inside the "
-            f"test fixed in advance ({shares})"
-        )
-    return f"a lead inside what maps that follow both alike give ({shares})"
 
 
 def upper_first(text: str) -> str:
@@ -389,17 +383,17 @@ def map_walk(n: dict[str, str]) -> dict[str, tuple[str, str]]:
         ),
         "cacng8_gria1": (
             "A and B, the map against Gria1 and against Cacng8, one dot per structure; "
-            "C, Cacng8's lead over Gria1 against maps that follow both alike.",
+            "C, the Cacng8 - Gria1 gap against maps that follow both alike.",
             f"The map follows Cacng8 at {num(n, 'top_genes.rho_Cacng8'):+.2f} and "
             f"Gria1 at {num(n, 'top_genes.rho_Gria1'):+.2f} (inside divisions "
             f"{num(n, 'top_genes.rho_within_Cacng8'):+.2f} and "
             f"{num(n, 'top_genes.rho_within_Gria1'):+.2f}); the two genes agree at "
-            f"{num(n, 'top_genes.rho_Gria1_Cacng8'):+.2f}. Cacng8 leads in "
-            f"{n['overview.adults_cacng8_above_gria1']} of {len(ADULTS)} adults, by "
-            f"{num(n, 'gene_ranking.gap'):+.2f} "
+            f"{num(n, 'top_genes.rho_Gria1_Cacng8'):+.2f}. The gap, Cacng8 minus "
+            f"Gria1, is {num(n, 'gene_ranking.gap'):+.2f} "
             f"({num(n, 'gene_ranking.gap_boot_lo'):+.2f} to "
-            f"{num(n, 'gene_ranking.gap_boot_hi'):+.2f} over resampled adults): "
-            f"{gap_words(n)}; against unrelated maps p "
+            f"{num(n, 'gene_ranking.gap_boot_hi'):+.2f} over resampled adults; above "
+            f"zero in {n['overview.adults_cacng8_above_gria1']} of {len(ADULTS)} "
+            f"adults), {gap_words(n)}; against unrelated maps p "
             f"{num(n, 'gene_ranking.gap_p_unrelated'):.2f}.",
         ),
         "between_within": (
@@ -681,8 +675,8 @@ def part2_verdict(n: dict[str, str]) -> str:
     return (
         "Where it stands: consistent with the surface-fraction reading, not singling "
         "it out: the genes that follow the map most are maps much like Gria1 and "
-        "synapse density, Cacng8's lead over Gria1 sits at the edge of its null, and "
-        "the localisation genes do no better than matched controls."
+        "synapse density, the Cacng8 - Gria1 gap is inside the test fixed in advance, "
+        "and the localisation genes do no better than matched controls."
     )
 
 

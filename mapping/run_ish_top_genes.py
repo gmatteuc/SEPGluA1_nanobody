@@ -248,9 +248,10 @@ def main(sheets):
     columns = beyond_density.model_columns(covariates, inputs.terms)
     residual = beyond_density.residual(y, columns)
     print(
-        f"main model: {len(inputs.structures)} structures, density "
-        f"{', '.join(inputs.terms['density'])}; {len(leftover)} genes against its "
-        "leftover"
+        f"main model: {len(inputs.structures)} structures, "
+        f"{' + '.join(inputs.terms['abundance'])} + the mean rank of "
+        f"{', '.join(beyond_density.DENSITY_GENES)}; {len(leftover)} genes against "
+        "its leftover"
     )
 
     # the genes, and the family with its matched controls

@@ -4126,26 +4126,23 @@ def against_gene(
 
 
 def gap_verdict(gap: pd.Series) -> str:
-    """Figure 08's takeaway on the gap, against the test fixed in advance.
+    """Figure 08's takeaway on the gap: the test fixed in advance, two-sided.
 
-    The test counts a lead as large either way; beside it, the 95% band of the same null,
-    which is skewed.
+    Only its p decides the words. The band and the shares each way of the skewed null
+    are read in panel C, never in the line under the title.
     """
     p = gap["p_equal"]
-    if p < ALPHA:
-        return f"past what maps that follow both alike give (p = {p:.3f})"
-    if gap["gap"] > gap["equal_hi"]:
-        return (
-            "just past the 95% band of maps that follow both alike, inside the test "
-            f"fixed in advance (p = {p:.3f}, counting leads either way)"
-        )
-    return f"inside what maps that follow both alike give (p = {p:.3f})"
+    where = "past" if p < ALPHA else "inside"
+    return (
+        f"their gap, {gap['gap']:+.2f}, is {where} the two-sided test fixed in advance "
+        f"(maps that follow both alike, p = {p:.3f})"
+    )
 
 
 def lead_panel(
     ax: plt.Axes, gap: pd.Series, gap_null: np.ndarray, n_map_surrogates: int
 ) -> None:
-    """C of figure 08: Cacng8's lead over Gria1 against maps that follow both alike.
+    """C of figure 08: the Cacng8 - Gria1 gap against maps that follow both alike.
 
     With the band of 95% of them and the share that lead as much each way.
     """
@@ -4158,7 +4155,7 @@ def lead_panel(
     panel_title(
         ax,
         "C",
-        "Cacng8's lead over Gria1",
+        "The Cacng8 - Gria1 gap",
         f"{gap['gap']:+.3f} on {int(gap['n_structures'])} structures (red); 95% of "
         f"these maps\n{gap['equal_lo']:+.3f} to {gap['equal_hi']:+.3f}; as large a "
         f"lead: Cacng8's in {gap['equal_first_as_large']:.1%},\nGria1's in "
@@ -4178,9 +4175,9 @@ def plot_cacng8_gria1(
     n_map_surrogates: int,
     save: Path | None = None,
 ) -> plt.Figure:
-    """Figure 08: the map against Gria1 and Cacng8, and Cacng8's lead over Gria1.
+    """Figure 08: the map against Gria1 and Cacng8, and the gap between them.
 
-    The lead is set against maps that follow both genes alike.
+    The gap is set against maps that follow both genes alike.
 
     `table` is top_genes.csv indexed by symbol, `map_values` the map on the declared
     structures, `gap` the merged row of gap.csv and `gap_null` the gaps of maps that
@@ -4193,8 +4190,7 @@ def plot_cacng8_gria1(
         fig,
         "cacng8_gria1",
         f"The map follows Cacng8 ({cacng8['rho']:+.2f}) and Gria1 "
-        f"({gria1['rho']:+.2f}); Cacng8 leads by {gap['gap']:+.2f}, "
-        f"{gap_verdict(gap)}",
+        f"({gria1['rho']:+.2f}); {gap_verdict(gap)}",
     )
     width, height, bottom = 0.22, 0.55, 0.22
 
@@ -4531,16 +4527,28 @@ def plot_leftover(
     return saved(fig, save)
 
 
-def family_takeaway(t: dict[str, pd.Series], n_surrogates: int) -> str:
-    """The line under figure 11s2's title, each verdict following its p."""
+def family_takeaway(
+    t: dict[str, pd.Series], past: pd.DataFrame, n_surrogates: int
+) -> str:
+    """The line under figure 11s2's title, each verdict following its p.
+
+    `past` holds the members past BH within the family, whose sign the line says.
+    """
     cacng8 = "follows" if t["first"]["p"] < ALPHA else "does not follow"
     beyond = "follows it beyond" if t["spatial"]["p"] < ALPHA else "does not pass"
     than = "more" if t["matched"]["p"] < ALPHA else "no more"
+    within = "no member passes BH within it"
+    if len(past):
+        within = f"past BH within it: {', '.join(past['symbol'])}"
+        if (past["leftover_rho"] < 0).all():
+            within += ", each below zero"
+        elif (past["leftover_rho"] > 0).all():
+            within += ", each above zero"
     return (
         f"Cacng8 {cacng8} the leftover ({p_text(t['first']['p'], n_surrogates)}, a "
         f"re-test of what was seen on 8 October); the family {beyond} the surrogates "
         f"(p = {t['spatial']['p']:.3f}), {than} than postsynaptic genes of its "
-        f"expression (p = {t['matched']['p']:.3f})"
+        f"expression (p = {t['matched']['p']:.3f}); {within}"
     )
 
 
@@ -4597,13 +4605,14 @@ def plot_ampa_family(
     """
     rows = rows.sort_values("leftover_rho", ascending=False).reset_index(drop=True)
     t = named_rows(tests)
-    past = rows.loc[rows["leftover_q_family"] < q, "symbol"]
+    passing = rows[rows["leftover_q_family"] < q]
+    past = passing["symbol"]
     untested = members.loc[~members["tested"], "symbol"]
     in_model = ", ".join(rows.loc[rows["in_model"] != "", "symbol"]) or "none"
     shaky = rows["reliability"] < LOW_RELIABILITY
     unreliable = ", ".join(rows.loc[shaky, "symbol"]) or "none"
     fig = plt.figure(figsize=(16, 11.5))
-    heading(fig, "ampa_family", family_takeaway(t, n_surrogates))
+    heading(fig, "ampa_family", family_takeaway(t, passing, n_surrogates))
 
     # A: every member against the leftover
     ax = fig.add_axes([0.14, 0.12, 0.27, 0.74])
