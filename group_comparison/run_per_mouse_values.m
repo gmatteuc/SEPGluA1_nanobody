@@ -36,9 +36,9 @@
 % the barrel field and the primary visual area, the cluster settings of step
 % 3. For naive against behavior set exp_type = 'behavior'. Run sep_setup_paths
 % first, once per MATLAB session; the code is in
-% pipeline\per_mouse_region_values.m (for ten mice, about 30 minutes for the
-% maps and about an hour for the leave-one-out under every split; two from the
-% caches).
+% pipeline\per_mouse_region_values.m (for ten mice, about 25 minutes for the
+% maps and an hour for the leave-one-out under every split, 25 minutes for 5
+% against 4; a few minutes from the caches).
 
 clear; clc; close all;
 

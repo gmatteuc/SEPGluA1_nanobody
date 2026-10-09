@@ -1260,8 +1260,8 @@ rest = sprintf('Welch p %.3f, Hedges g %.2f, n %d and %d', stat.welch_p, ...
 if stat.n_splits_relabelled > 0
     redone = p_pair(stat.p_relabelled_exp_higher, stat.p_relabelled_two_sided, ...
         comparison);
-    lines = {sprintf('p %s, leave-one-out redone per split', redone), ...
-        sprintf('values shuffled: p %s; %s', shuffled, rest)};
+    lines = {sprintf('p %s, folds redone per split', redone), ...
+        sprintf('values shuffled: p %s', shuffled), rest};
 else
     lines = {sprintf('perm p %s', shuffled), rest};
 end
@@ -1293,14 +1293,13 @@ perm_settings = comparison.perm_settings;
 short_name = @(names) cellfun(@(n) strtok(n, '_'), names, 'UniformOutput', false);
 
 lines = {
-    'AI: mean |L - R| over mean (L + R) in the region, each mouse over its own voxels.'
+    'AI: mean |L - R| over mean (L + R) in the region, each mouse over its own voxels;'
+    '  L + R / isocortex: the region''s mean L + R over the isocortex''s.'
     'Raw stack: the collected stack less the mouse''s off-tissue level (median of its'
-    '  background voxels outside the atlas brain), smoothed as step 3. Its zero is no'
-    '  signal, so the raw AI is the ratio to read.'
-    'Test maps: the folded, smoothed maps of run_group_differences, the experimental'
-    '  group through the alignment line (its intercept enters L + R); their zero is'
-    '  the normalisation''s, so the AI there is the index as the test sees it.'
-    'L + R / isocortex: the region''s mean L + R over the isocortex''s.'
+    '  background voxels outside the atlas brain), smoothed as step 3: its zero is no'
+    '  signal, so the raw AI is the ratio to read. Test maps: the maps of step 3, the'
+    '  experimental group through the alignment line; their zero is the'
+    '  normalisation''s, so the AI there is the index as the test sees it.'
     'No signed value: left and right are not certain for every brain, so the'
     '  stimulated side is unknown mouse by mouse (the test too takes |L - R|).'
     sprintf(['Leave-one-out: each mouse read in the heaviest cluster where |L - R| ' ...
@@ -1322,12 +1321,21 @@ else
         'is carried over'], exp_type, ctrl_type);
     lines{end + 1} = '  from RWS, not named for this comparison before any number.';
 end
-n_splits_relabelled = max(T_stats.n_splits_relabelled);
-if n_splits_relabelled > 0
-    lines{end + 1} = sprintf(['Leave-one-out p: the leave-one-out redone under each ' ...
-        'of %d splits of the'], n_splits_relabelled);
-    lines{end + 1} = ['  mice; "values shuffled" keeps each fold''s cluster as the ' ...
-        'true groups gave it.'];
+% the leave-one-out redone under every split: how many splits, and how many of
+% them leave each group a mouse with a value
+n_with_value = T_stats.n_splits_relabelled(T_stats.n_splits_relabelled > 0);
+if ~isempty(n_with_value)
+    n_splits_all = nchoosek(height(T_mice), nnz(strcmp(T_mice.group, ctrl_type)));
+    if min(n_with_value) == max(n_with_value)
+        with_value = sprintf('%d', min(n_with_value));
+    else
+        with_value = sprintf('%d to %d', min(n_with_value), max(n_with_value));
+    end
+    lines{end + 1} = sprintf(['Leave-one-out p: every fold redone under each of the %d ' ...
+        'splits of the mice'], n_splits_all);
+    lines{end + 1} = sprintf(['  (%s with a value in both groups); "values shuffled" ' ...
+        'keeps each fold''s'], with_value);
+    lines{end + 1} = '  cluster as the true groups gave it.';
 end
 lines{end + 1} = sprintf(['%d values per comparison; their p are not corrected ' ...
     'across them.'], n_values);
