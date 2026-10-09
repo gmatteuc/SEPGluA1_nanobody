@@ -5,17 +5,19 @@
     03  laminar profiles of the areas the argument is about, a line per adult
 
 The flatmaps reuse the close-up's drawing (young_vs_adult.closeup.draw_flat: the
-area borders, the names, the highlighted areas, black ground), so they read as the
-adult column of the young against adult figure. Both rows use hot, cut at 0.82 of
-its range, as every intensity map of the route: the means from adult_layers.mean_lim,
-whose floor sits below the lowest band means so the darkest cortex stays dark red
-rather than the black of the ground, and the SD from 0 to adult_layers.sd_max.
+area borders, the names, the highlighted areas, black ground) and its colours for
+zref, PuOr_r from -closeup.vmax.zref to +closeup.vmax.zref, so the mean row reads as
+the adult column of the young against adult figure; the grant's VISli is outlined
+and named too. The SD row is a spread, never negative, in hot cut at 0.82 of its
+range, from 0 to adult_layers.sd_max.
 
-In the bar figure a bar is the mean over the adults with a value, its whisker the
-SEM, and its grey the reliability of that mean, |t| = |mean| / SEM clamped at
-adult_layers.t_max, darker for more reliable and never white, as the project's bars
-are (sep_palette('bars')). The dots are the adults, in the nano channel's dot colour,
-circles naive and triangles RWS.
+In the bar figure a bar is the mean over the adults that count, its whisker the
+SEM, and its grey how precisely the adults fix that mean: its SEM, black at 0 and
+lightest from adult_layers.sem_max, never white. The project's bars grey by t =
+mean / SEM (sep_palette('bars')), but zref's zero is the brain's median structure,
+so t would measure the distance from it rather than the agreement between adults.
+The dots are the adults, in the nano channel's dot colour, circles naive and
+triangles RWS, hollow for a cell under adult_layers.min_coverage of its area.
 
 Run by run_adult_layers.py.
 """
@@ -28,10 +30,11 @@ import pandas as pd
 from matplotlib.lines import Line2D
 
 from sepmap.config import SETTINGS
-from sepmap.plotting import RED, hot_cut, save_figure, tidy
+from sepmap.plotting import RED, hot_cut, save_figure, tidy, transparent_bad
 from sepmap.young_vs_adult import closeup
 
 ADULT_LAYERS = SETTINGS["adult_layers"]
+CLOSEUP = SETTINGS["closeup"]
 
 # the nano channel and its per-mouse dots, as sep_palette('nano') and ('nano_dot');
 # plotting.py holds no channel colours yet
@@ -71,15 +74,22 @@ PROFILE_AREAS = [
 # the grant's areas, named in red
 GRANT_AREAS = ("VISrl", "VISal", "VISli")
 
+# the areas named on the flatmaps: the close-up's and the grant's; TEa's centroid is
+# 75 flatmap pixels from AUDp's, so its name moves down into TEa, in flatmap pixels
+FLAT_LABELS = list(closeup.LABEL_AREAS) + [
+    a for a in GRANT_AREAS if a not in closeup.LABEL_AREAS
+]
+FLAT_LABEL_SHIFT = {"TEa": (-20, 70)}
 
-def bars_grey(t: np.ndarray, t_max: float) -> np.ndarray:
-    """The grey of a bar of reliability `t`: 0.78 at 0, black at `t_max`, (n, 3) RGB.
 
-    t is clamped to 0..t_max and NaN reads as 0, as sep_palette('bars') in MATLAB.
+def bars_grey(sem: np.ndarray, sem_max: float) -> np.ndarray:
+    """The grey of a bar whose mean has SEM `sem`: black at 0, 0.78 from `sem_max`.
+
+    Returns (n, 3) RGB; a NaN SEM reads as the lightest grey.
     """
-    t = np.atleast_1d(np.asarray(t, dtype=float))
-    share = np.clip(np.nan_to_num(t, nan=0.0) / t_max, 0.0, 1.0)
-    level = 0.78 * (1.0 - share)
+    sem = np.atleast_1d(np.asarray(sem, dtype=float))
+    share = np.clip(np.nan_to_num(sem, nan=sem_max) / sem_max, 0.0, 1.0)
+    level = 0.78 * share
     return np.repeat(level[:, None], 3, axis=1)
 
 
@@ -96,37 +106,63 @@ def smoothing_text(sigma: float | list[float]) -> str:
     )
 
 
+def flat_labels(left: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
+    """Where each of FLAT_LABELS is named: its centroid on the left hemisphere, moved."""
+    label_xy = {}
+    for acro in FLAT_LABELS:
+        if acro in left:
+            dx, dy = FLAT_LABEL_SHIFT.get(acro, (0, 0))
+            label_xy[acro] = left[acro].mean(axis=0) + np.array([dx, dy])
+    return label_xy
+
+
+def outline(ax: plt.Axes, border_sets: tuple[dict, ...], areas: list[str]) -> None:
+    """Outline `areas` as closeup.draw_flat outlines its highlighted ones."""
+    for borders in border_sets:
+        for acro in areas:
+            if acro in borders:
+                coords = borders[acro]
+                ax.plot(coords[:, 0], coords[:, 1], c="#e6e6e6", lw=0.7, alpha=0.9)
+
+
 def plot_band_flatmaps(
     mean: np.ndarray,
     sd: np.ndarray,
     n_adults: int,
     min_n: int,
     sigma: float | list[float],
+    cmap_name: str | None = None,
     save: Path | None = None,
 ) -> plt.Figure:
     """Figure 01: the mean (top) and between-mouse SD (bottom) of each depth band.
 
     `mean` and `sd` are (band, row, col) in the order of closeup.BANDS; `min_n` is
-    the adults a pixel needed.
+    the adults a pixel needed. `cmap_name` replaces PuOr_r in the mean row, as
+    run_closeup's --cmap does.
     """
-    left, right, label_xy = closeup.flatmap_borders()
-    hot = hot_cut()
+    left, right, _ = closeup.flatmap_borders()
+    label_xy = flat_labels(left)
+    extra = [a for a in GRANT_AREAS if a not in closeup.HIGHLIGHT]
+    vm = CLOSEUP["vmax"]["zref"]
+    cmap_mean = transparent_bad("PuOr_r" if cmap_name is None else cmap_name)
     fig, axes = plt.subplots(2, 3, figsize=(19, 9), facecolor="k")
     rows = (
-        (mean, tuple(ADULT_LAYERS["mean_lim"]), "mean"),
-        (sd, (0.0, ADULT_LAYERS["sd_max"]), "SD between adults"),
+        (mean, cmap_mean, (-vm, vm), "mean"),
+        (sd, hot_cut(), (0.0, ADULT_LAYERS["sd_max"]), "SD between adults"),
     )
-    for ax_row, (maps, lim, what) in zip(axes, rows):
+    for ax_row, (maps, cmap, lim, what) in zip(axes, rows):
         for ax, img, (bname, _) in zip(ax_row, maps, closeup.BANDS):
             h = closeup.draw_flat(
-                ax, img, hot, lim, f"{what}   {bname}", (left, right), label_xy
+                ax, img, cmap, lim, f"{what}   {bname}", (left, right), label_xy
             )
+            outline(ax, (left, right), extra)
             cb = fig.colorbar(h, ax=ax, fraction=0.03, pad=0.01)
             cb.ax.yaxis.set_tick_params(color="w", labelcolor="w")
+    cmap_txt = "" if cmap_name is None else f", {cmap_name} colormap"
     fig.suptitle(
         f"Adult isocortex by depth band, the {n_adults} adults: the mean of their band "
-        f"maps and the SD between them  -  zref, {smoothing_text(sigma)}, pixels with "
-        f"at least {min_n} adults",
+        f"maps and the SD between them  -  zref, {smoothing_text(sigma)}{cmap_txt}, "
+        f"pixels with at least {min_n} adults",
         color="w",
         fontsize=12,
     )
@@ -143,52 +179,31 @@ def area_positions(hier: pd.DataFrame) -> dict[str, float]:
     return dict(zip(hier["acronym"], x.astype(float)))
 
 
-def grey_key(ax: plt.Axes, t_max: float) -> None:
+def grey_key(ax: plt.Axes, sem_max: float) -> None:
     """A small key to the grey of the bars, inside the panel at its upper right."""
     key = ax.inset_axes([0.80, 0.86, 0.16, 0.045])
-    steps = np.linspace(0, t_max, 6)
+    steps = np.linspace(0, sem_max, 6)
     key.imshow(
-        bars_grey(steps, t_max)[None, :, :], aspect="auto", extent=(0, t_max, 0, 1)
+        bars_grey(steps, sem_max)[None, :, :], aspect="auto", extent=(0, sem_max, 0, 1)
     )
     key.set_yticks([])
-    key.set_xticks([0, t_max])
-    key.set_xticklabels(["0", f"{t_max:g}"], fontsize=6.5)
+    key.set_xticks([0, sem_max])
+    key.set_xticklabels(["0", f"{sem_max:g} or more"], fontsize=6.5)
     key.tick_params(length=2, pad=1)
-    key.set_title("|mean| / SEM across the adults", fontsize=6.5, pad=2)
+    key.set_title("SEM across the adults (zref)", fontsize=6.5, pad=2)
 
 
-def draw_area_band(
-    ax: plt.Axes,
-    cells: pd.DataFrame,
-    stats: pd.DataFrame,
-    x_of: dict[str, float],
-    t_max: float,
-    rng: np.random.Generator,
-) -> None:
-    """One band's panel: a bar per area with its SEM, and a dot per adult."""
-    # the bars: the mean, grey by its |t|, with the SEM
-    s = stats[stats["mean"].notna()]
-    xs = s["area"].map(x_of).to_numpy()
-    ax.bar(
-        xs,
-        s["mean"],
-        width=0.72,
-        color=bars_grey(s["t"].abs().to_numpy(), t_max),
-        edgecolor="none",
-        zorder=1,
-    )
-    ax.errorbar(
-        xs, s["mean"], yerr=s["sem"], fmt="none", ecolor="k", elinewidth=0.9, zorder=3
-    )
-
-    # the adults, jittered across the bar, by group
-    kept = cells[~cells["excluded"]]
+def draw_adult_dots(ax: plt.Axes, cells: pd.DataFrame, x_of: dict, rng) -> None:
+    """The adults of one band, jittered across their bar: filled when they count,
+    hollow when their cell covers too little of the area."""
+    with_value = cells[cells["zref"].notna()]
     for group, marker in GROUP_MARKERS.items():
-        g = kept[kept["group"] == group]
-        jitter = rng.uniform(-0.22, 0.22, len(g))
+        g = with_value[with_value["group"] == group]
+        x = g["area"].map(x_of).to_numpy() + rng.uniform(-0.22, 0.22, len(g))
+        counted = ~g["excluded"].to_numpy(dtype=bool)
         ax.scatter(
-            g["area"].map(x_of).to_numpy() + jitter,
-            g["zref"],
+            x[counted],
+            g["zref"].to_numpy()[counted],
             s=10,
             marker=marker,
             color=NANO_DOT,
@@ -196,6 +211,42 @@ def draw_area_band(
             linewidths=0,
             zorder=4,
         )
+        ax.scatter(
+            x[~counted],
+            g["zref"].to_numpy()[~counted],
+            s=12,
+            marker=marker,
+            facecolors="none",
+            edgecolors=NANO_DOT,
+            linewidths=0.7,
+            zorder=4,
+        )
+
+
+def draw_area_band(
+    ax: plt.Axes,
+    cells: pd.DataFrame,
+    stats: pd.DataFrame,
+    x_of: dict[str, float],
+    sem_max: float,
+    rng: np.random.Generator,
+) -> None:
+    """One band's panel: a bar per area with its SEM, and a dot per adult."""
+    # the bars: the mean, grey by its SEM, with the SEM as whisker
+    s = stats[stats["mean"].notna()]
+    xs = s["area"].map(x_of).to_numpy()
+    ax.bar(
+        xs,
+        s["mean"],
+        width=0.72,
+        color=bars_grey(s["sem"].to_numpy(), sem_max),
+        edgecolor="none",
+        zorder=1,
+    )
+    ax.errorbar(
+        xs, s["mean"], yerr=s["sem"], fmt="none", ecolor="k", elinewidth=0.9, zorder=3
+    )
+    draw_adult_dots(ax, cells, x_of, rng)
     ax.axhline(0, color="k", lw=0.6, zorder=2)
     ax.grid(axis="y", lw=0.3, alpha=0.6)
     tidy(ax)
@@ -230,13 +281,13 @@ def plot_area_bands(
     """
     x_of = area_positions(hier)
     n_scored = int(hier["hierarchy_score"].notna().sum())
-    t_max = ADULT_LAYERS["t_max"]
+    sem_max = ADULT_LAYERS["sem_max"]
     rng = np.random.default_rng(0)
     fig, axes = plt.subplots(3, 1, figsize=(17, 11.5), sharex=True)
     for ax, band in zip(axes, BAND_ORDER):
         cells = table[(table["depth_kind"] == "band") & (table["depth"] == band)]
         stats = summary[(summary["depth_kind"] == "band") & (summary["depth"] == band)]
-        draw_area_band(ax, cells, stats, x_of, t_max, rng)
+        draw_area_band(ax, cells, stats, x_of, sem_max, rng)
         row = depths[(depths["depth_kind"] == "band") & (depths["depth"] == band)].iloc[0]
         n_without = len(hier) - cells["area"].nunique()
         ax.set_title(band_title(band, row, n_without), fontsize=9, loc="left")
@@ -244,7 +295,7 @@ def plot_area_bands(
 
         # the divide between the areas the hierarchy scores and those it does not
         ax.axvline(n_scored, color="k", lw=0.6, ls=":")
-    grey_key(axes[0], t_max)
+    grey_key(axes[0], sem_max)
 
     # the areas named under the bottom panel, the grant's in red
     names = sorted(x_of, key=x_of.get)
@@ -261,15 +312,27 @@ def plot_area_bands(
     )
 
     # the legend of the dots and the bars, once, on the top panel
+    min_cov = ADULT_LAYERS["min_coverage"]
     handles = [
         Line2D([], [], marker=m, ls="none", color=NANO_DOT, label=f"adult {g}")
         for g, m in GROUP_MARKERS.items()
     ]
+    handles.append(
+        Line2D(
+            [],
+            [],
+            marker="o",
+            ls="none",
+            markerfacecolor="none",
+            markeredgecolor=NANO_DOT,
+            label=f"under {min_cov:.0%} of the area's voxels, left out",
+        )
+    )
     handles.append(Line2D([], [], color="k", lw=0.9, label="mean and SEM"))
-    axes[0].legend(handles=handles, loc="upper left", fontsize=8, frameon=False, ncol=3)
+    axes[0].legend(handles=handles, loc="upper left", fontsize=8, frameon=False, ncol=4)
     fig.suptitle(
         f"The adult isocortex by depth band, area by area: one dot per adult (n = "
-        f"{n_adults}), the bar their mean, grey by how reliable it is\n"
+        f"{n_adults}), the bar their mean, grey by its SEM\n"
         "zref: 0 is the brain's median structure, 1 its p90 - p10 spread across "
         "structures",
         fontsize=11,
@@ -283,15 +346,19 @@ def plot_area_bands(
 def draw_profile(
     ax: plt.Axes, cells: pd.DataFrame, stats: pd.DataFrame, title: str, colour: str
 ) -> None:
-    """One area's laminar profile: a line per adult, the mean with its SEM on top."""
-    # the layers the area has, top to bottom; the others are skipped by the lines
-    present = [lay for lay in PROFILE_LAYERS if lay in set(stats["depth"])]
-    y_of = {lay: PROFILE_LAYERS.index(lay) for lay in PROFILE_LAYERS}
+    """One area's laminar profile: a line per adult, the mean with its SEM on top.
+
+    A layer the area lacks, or an adult's cell left out, breaks the line; a cell
+    left out for its coverage is a hollow marker.
+    """
+    y = np.arange(len(PROFILE_LAYERS))
     for (mouse, group), part in cells.groupby(["mouse", "group"], sort=False):
-        part = part.set_index("depth").reindex(present)
+        part = part.set_index("depth").reindex(PROFILE_LAYERS)
+        counted = part["zref"].where(part["excluded"].eq(False))
+        left_out = part["zref"].where(part["excluded"].eq(True))
         ax.plot(
-            part["zref"],
-            [y_of[lay] for lay in present],
+            counted,
+            y,
             color=NANO_DOT,
             lw=0.8,
             alpha=0.55,
@@ -299,15 +366,22 @@ def draw_profile(
             marker=GROUP_MARKERS[group],
             ms=2.5,
         )
-    s = stats.set_index("depth").reindex(present)
-    ys = [y_of[lay] for lay in present]
-    ax.errorbar(
-        s["mean"], ys, xerr=s["sem"], color=NANO, lw=2.2, elinewidth=1.2, zorder=5
-    )
-    if "L4" not in present:
+        ax.plot(
+            left_out,
+            y,
+            ls="none",
+            marker=GROUP_MARKERS[group],
+            ms=3.5,
+            markerfacecolor="none",
+            markeredgecolor=NANO_DOT,
+            markeredgewidth=0.7,
+        )
+    s = stats.set_index("depth").reindex(PROFILE_LAYERS)
+    ax.errorbar(s["mean"], y, xerr=s["sem"], color=NANO, lw=2.2, elinewidth=1.2, zorder=5)
+    if "L4" not in set(stats["depth"]):
         ax.text(
             0.03,
-            y_of["L4"],
+            PROFILE_LAYERS.index("L4"),
             "no layer 4",
             ha="left",
             va="center",
@@ -316,7 +390,7 @@ def draw_profile(
             transform=ax.get_yaxis_transform(),
         )
     ax.axvline(0, color="k", lw=0.6)
-    ax.set_yticks(range(len(PROFILE_LAYERS)))
+    ax.set_yticks(y)
     ax.set_yticklabels(PROFILE_LAYERS)
     ax.set_ylim(len(PROFILE_LAYERS) - 0.5, -0.5)
     ax.set_title(title, fontsize=9, color=colour)
@@ -331,7 +405,7 @@ def profile_title(area: str, hier: pd.DataFrame) -> str:
     if np.isnan(row["hierarchy_rank"]):
         rank = "not scored"
     else:
-        rank = f"{int(row['hierarchy_rank'])} of {n_scored}"
+        rank = f"rank {int(row['hierarchy_rank'])} of {n_scored}"
     return f"{area}   {row['module'].lower()}, hierarchy {rank}"
 
 
@@ -343,19 +417,18 @@ def plot_laminar_profiles(
     save: Path | None = None,
 ) -> plt.Figure:
     """Figure 03: the five-layer profile of each of PROFILE_AREAS, a line per adult."""
-    cells = table[table["depth_kind"] == "layer"]
+    cells = table[(table["depth_kind"] == "layer") & table["area"].isin(PROFILE_AREAS)]
     stats = summary[summary["depth_kind"] == "layer"]
-    shown = cells[cells["area"].isin(PROFILE_AREAS) & ~cells["excluded"]]
 
     # one x range for every panel, so the areas compare by eye
-    lo, hi = np.nanmin(shown["zref"]), np.nanmax(shown["zref"])
+    lo, hi = np.nanmin(cells["zref"]), np.nanmax(cells["zref"])
     pad = 0.05 * (hi - lo)
     fig, axes = plt.subplots(3, 4, figsize=(14, 10), sharex=True)
     for ax, area in zip(axes.flat, PROFILE_AREAS):
         colour = RED if area in GRANT_AREAS else "k"
         draw_profile(
             ax,
-            shown[shown["area"] == area],
+            cells[cells["area"] == area],
             stats[stats["area"] == area],
             profile_title(area, hier),
             colour,
@@ -365,6 +438,7 @@ def plot_laminar_profiles(
     # the last cell holds the legend
     key = axes.flat[-1]
     key.axis("off")
+    min_cov = ADULT_LAYERS["min_coverage"]
     handles = [
         Line2D(
             [],
@@ -379,6 +453,16 @@ def plot_laminar_profiles(
         Line2D(
             [], [], color=NANO_DOT, lw=0.8, ls="--", marker="^", ms=2.5, label="adult rws"
         ),
+        Line2D(
+            [],
+            [],
+            ls="none",
+            marker="o",
+            ms=3.5,
+            markerfacecolor="none",
+            markeredgecolor=NANO_DOT,
+            label=f"under {min_cov:.0%} of the\narea's voxels, left out",
+        ),
         Line2D([], [], color=NANO, lw=2.2, label="mean and SEM"),
     ]
     key.legend(handles=handles, loc="center", fontsize=9, frameon=False)
@@ -389,10 +473,12 @@ def plot_laminar_profiles(
         lowest = max(i for i in range(len(PROFILE_AREAS)) if i % n_cols == col)
         axes.flat[lowest].tick_params(labelbottom=True)
         axes.flat[lowest].set_xlabel("zref")
+    n_scored = int(hier["hierarchy_score"].notna().sum())
     fig.suptitle(
         f"Laminar profiles of the adult map, one line per adult (n = {n_adults}); "
-        "L6 pools 6a and 6b\nzref: 0 is the brain's median structure, 1 its p90 - p10 "
-        "spread across structures",
+        f"L6 pools 6a and 6b; hierarchy rank 1 to {n_scored}, lowest to highest "
+        "(Harris et al. 2019)\nzref: 0 is the brain's median structure, 1 its "
+        "p90 - p10 spread across structures",
         fontsize=11,
     )
     fig.tight_layout(rect=(0, 0, 1, 0.95))

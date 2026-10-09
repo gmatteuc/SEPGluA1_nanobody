@@ -40,10 +40,12 @@ need ccf_streamlines, so this runs in tools\\venv_flat; with --no-flatmap the
 tables and figures 02 and 03 also run in tools\\venv_atlas. Writes, in
 adult_v2/layers/ under the data root:
 
-    area_layers_per_mouse.csv        one row per adult, area and depth, kept or
-                                     missing with the reason
+    area_layers_per_mouse.csv        one row per adult, area and depth, with its
+                                     value and why it is left out, if it is
     area_layers_summary.csv          per area and depth: n, mean, SD, SEM, t
     depth_summary.csv                per depth: reliability, rho with the hierarchy
+    zref_scaling.csv                 per adult, the flatmaps' zref scaling beside
+                                     the tables'
     01_flatmaps_by_band_<smooth>.png mean and between-mouse SD per depth band
     02_areas_by_band.png             every area per band, a dot per adult
     03_laminar_profiles.png          eleven areas, five layers, a line per adult
@@ -51,16 +53,19 @@ adult_v2/layers/ under the data root:
 
 and an .eps beside each PNG.
 
-    python run_adult_layers.py [--no-flatmap] [--reproject]
+    python run_adult_layers.py [--no-flatmap] [--reproject] [--cmap NAME]
 
 --no-flatmap leaves the flatmaps out; --reproject projects every adult again
-instead of reading the cached band maps.
+instead of reading the cached band maps; --cmap draws the mean flatmaps with the
+matplotlib colormap NAME instead of PuOr_r, into a subfolder of that name, as
+run_closeup's --cmap does.
 """
 
 import argparse
 
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 
 from sepmap import config
 from sepmap.adult import layers, layers_plotting
@@ -79,7 +84,7 @@ def smoothing_tag(sigma):
     return "_smooth" + "x".join(f"{s:g}" for s in sigma)
 
 
-def main(want_flatmap, reproject):
+def main(want_flatmap, reproject, cmap_name=None):
     """Print the settings in force, then measure, write and draw the map by depth."""
     # settings in force
     config.print_settings(
@@ -87,8 +92,10 @@ def main(want_flatmap, reproject):
             "reading": "zref",
             "adults": len(layers.ADULTS),
             "hierarchy": ADULT_LAYERS["hierarchy"],
+            "min_coverage": ADULT_LAYERS["min_coverage"],
             "flatmap": "yes" if want_flatmap else "no",
             "reproject": "yes" if reproject else "no",
+            "cmap": cmap_name or "PuOr_r",
         }
     )
     layers.OUT.mkdir(parents=True, exist_ok=True)
@@ -114,9 +121,22 @@ def main(want_flatmap, reproject):
 
     # the per-mouse table, checked against the region table
     table = layers.per_mouse_table(groups, cells, n_vox, norm, refs, hier, atlas_n)
-    table = layers.with_contrast(table)
+    table = layers.with_contrasts(table)
     n_checked = layers.check_against_region_table(table)
-    print(f"whole-area zref equals region_means_per_mouse.csv in all {n_checked} cells")
+    print(
+        f"whole-area zref equals region_means_per_mouse.csv in all {n_checked} cells, "
+        "and every adult isocortex row there has its cell here"
+    )
+
+    # how far the flatmaps' zref scaling lies from the tables'
+    scaling = layers.scaling_table(norm)
+    scaling.round(4).to_csv(layers.OUT / "zref_scaling.csv", index=False)
+    offset = scaling["offset_at_cortex"]
+    print(
+        f"flatmap minus table zref at the cortex mean: {offset.min():+.2f} to "
+        f"{offset.max():+.2f} (mean {offset.mean():+.2f}); spread ratio "
+        f"{scaling['spread_ratio'].min():.2f} to {scaling['spread_ratio'].max():.2f}"
+    )
 
     # group statistics, and per depth the reliability and the hierarchy rho
     summary = layers.summary_table(table)
@@ -128,11 +148,15 @@ def main(want_flatmap, reproject):
         layers.OUT / "area_layers_summary.csv", index=False
     )
     depths.round(4).to_csv(layers.OUT / "depth_summary.csv", index=False)
-    missing = table[table["excluded"] & (table["depth_kind"] != "whole")]
+    left_out = table[table["excluded"]]
+    low = left_out["zref"].notna()
     print(
-        f"{len(table)} cells written, {len(missing)} of them missing (whole-area cells "
-        f"aside), in {missing['area'].nunique()} areas: "
-        + ", ".join(f"{a} {n}" for a, n in missing.groupby("area").size().items())
+        f"{len(table)} cells written, {len(left_out)} of them left out, in "
+        f"{left_out['area'].nunique()} areas: {int((~low).sum())} without a value, "
+        f"{int(low.sum())} under min_coverage"
+    )
+    print(
+        "  " + ", ".join(f"{a} {n}" for a, n in left_out.groupby("area").size().items())
     )
     for _, r in depths.iterrows():
         print(
@@ -161,13 +185,19 @@ def main(want_flatmap, reproject):
     maps = layers.band_maps(sigma, recompute=reproject)
     min_n = YOUNG_VS_ADULT["min_n_adult"]
     mean, sd, n = layers.band_stats(maps, min_n)
+    out_dir = layers.OUT if cmap_name is None else layers.OUT / cmap_name
+    out_dir.mkdir(exist_ok=True)
     name = f"01_flatmaps_by_band{smoothing_tag(sigma)}.png"
     fig = layers_plotting.plot_band_flatmaps(
-        mean, sd, n_adults, min_n, sigma, save=layers.OUT / name
+        mean, sd, n_adults, min_n, sigma, cmap_name, save=out_dir / name
     )
     plt.close(fig)
     n_pixels = [int((nb >= min_n).sum()) for nb in n]
-    print(f"wrote {name}; pixels with at least {min_n} adults per band: {n_pixels}")
+    median_sd = np.round(np.nanmedian(sd, axis=(1, 2)), 3).tolist()
+    print(
+        f"wrote {name}; pixels with at least {min_n} adults per band: {n_pixels}; "
+        f"median SD between adults per band: {median_sd}"
+    )
 
 
 if __name__ == "__main__":
@@ -181,9 +211,14 @@ if __name__ == "__main__":
         action="store_true",
         help="project every adult again instead of reading the cached band maps",
     )
+    parser.add_argument(
+        "--cmap",
+        default=None,
+        help="colormap of the mean flatmaps instead of PuOr_r, into a subfolder",
+    )
     args = parser.parse_args()
 
     # the reading this step draws must be among those in force
     if "zref" not in cohort.MODES:
         parser.error("this step reads zref, which V2_READINGS leaves out")
-    main(want_flatmap=not args.no_flatmap, reproject=args.reproject)
+    main(want_flatmap=not args.no_flatmap, reproject=args.reproject, cmap_name=args.cmap)
