@@ -73,10 +73,54 @@ normalised months apart: a clean final version reruns step 2 on the three
 groups together, then step 3 ([`../docs/ROADMAP.md`](../docs/ROADMAP.md),
 section 2).
 
+## Per-mouse values
+
+`run_per_mouse_values`, after step 3, gives one value per mouse in regions
+named in advance, the barrel field (SSp-bfd) and, as a cortical control, the
+primary visual area (VISp), to show which mice carry an effect. Each mouse is
+taken as step 3 takes it, and in each region, over its own voxels:
+
+| value | what it is |
+|---|---|
+| `ai` | asymmetry index, mean \|L - R\| over mean (L + R), on the maps of step 3 (folded, smoothed, the experimental group aligned) |
+| `ai_raw` | the same on the collected stack (`nano_4d.mat`) less the mouse's off-tissue level, smoothed the same way: no normalisation, no alignment |
+| `signed`, `signed_raw` | mean (L - R) over mean (L + R): above 0, the left hemisphere higher |
+| `sum_rel`, `sum_rel_raw` | mean L + R in the region over the mouse's own mean over the isocortex |
+| `loo_ai`, `loo_ai_raw` | the AI in the heaviest positive L - R cluster of SSp-bfd that the comparison finds without the mouse |
+
+- The off-tissue level is the median of the raw stack over the mouse's
+  background voxels (step 2's mask) outside the atlas brain: the slide around
+  the section, about 500 raw where tissue is 1,200 to 2,700. Each mouse's
+  normalised volume is checked to be its raw volume through its line of step
+  2, to the bit.
+- The alignment's intercept enters the experimental mice's L + R on the maps
+  of step 3, and so their `ai`, `signed` and `sum_rel`; the raw values do not
+  have it.
+- Leave-one-out: without each mouse in turn, the comparison is redone as step
+  3 does it (the alignment refitted on the others, the t with three mice per
+  group, the surprise, the rolling median, p < 0.01, 18-connected, within
+  SSp-bfd), by `region_permutation_test` on the observed split alone, and the
+  mouse is read in the cluster the others give: no mouse is read in a cluster
+  its own data helped define. The one thing not redone is step 2, which fits
+  each mouse onto its group's median cortex: a scale per mouse, which cannot
+  move a cluster. Fold 0 keeps every mouse and must give step 3's cluster; it
+  is checked against step 3's table.
+- Each value is compared between the groups by the exact permutation of the
+  difference of the group means (252 splits for 5 and 5, 126 for 5 and 4),
+  two-sided and one-sided for the experimental group higher (not for the
+  signed values, whose side the experiment does not name), with the Welch t
+  and Hedges' g beside it.
+- Outputs, in the comparison's folder, `<tag>` the comparison and the
+  smoothing (`naive_vs_rws_nano_smooth5`): `Per_Mouse_Values_<tag>` (.csv,
+  one row per mouse, and the figure), `Per_Mouse_Stats_<tag>.csv`,
+  `Per_Mouse_LOO_<tag>.csv` (one row per fold) and the cache of the mice's
+  maps, `Per_Mouse_Maps_<tag>.mat` (`force_recompute_mice` redoes it).
+
 ## Where the code is
 
 Each driver sets its settings and calls one function in `pipeline/`
-(`collect_by_group`, `normalise_groups`, `group_differences`); the video
+(`collect_by_group`, `normalise_groups`, `group_differences`,
+`per_mouse_region_values`); the video
 writers (`write_lr_*`, `open_lr_video`, `set_lr_colormap`) and the atlas
 outlines (`lr_atlas_boundaries`) sit beside them, and so do the parts of
 step 3 that other code reuses: each mouse's tissue and its smoothing
