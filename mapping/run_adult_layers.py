@@ -193,7 +193,7 @@ def main(want_flatmap, reproject, cmap_name=None):
     )
     plt.close(fig)
     n_pixels = [int((nb >= min_n).sum()) for nb in n]
-    median_sd = np.round(np.nanmedian(sd, axis=(1, 2)), 3).tolist()
+    median_sd = np.round(np.nanmedian(sd, axis=(1, 2)).astype(float), 3).tolist()
     print(
         f"wrote {name}; pixels with at least {min_n} adults per band: {n_pixels}; "
         f"median SD between adults per band: {median_sd}"
