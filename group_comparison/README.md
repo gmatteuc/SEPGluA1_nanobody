@@ -711,11 +711,72 @@ barrel it is over is not known; the whisker stimulated was C2 (possibly B2).
   for the held folds, the slopes and the counts; a few minutes from the
   cache. Not run after behavior.
 
+## The scale-free test
+
+The design below was fixed on 10 October 2026, before any of its numbers
+(`run_scale_free_test`). Its p are reported whatever they are; no other
+variant is tried.
+
+Why. Step 3's barrel-field result after RWS depends on the alignment of the
+RWS group onto the naive group (the section above). The fitted slope, 1.49,
+set mostly by CGF033, multiplies every RWS mouse's |L - R| on the test's maps.
+At slope 1 the RWS-higher cluster is small (p 0.23) and the naive-higher one
+is the heavier (p 0.004); the signs cross between 1.3 and 1.4, inside the
+slope's own spread (jackknife standard error 0.45). The decisive check is the
+same test on a reading no scale can change.
+
+- The reading. Per mouse and voxel, the asymmetry index
+  AI = |L - R| / (L + R) on the collected stack, the mouse's off-tissue level
+  subtracted, as `run_per_mouse_values` reads its raw stack. Each mouse's
+  tissue is smoothed before the ratio exactly as step 3 smooths it
+  (`tissue_only`: NaN-aware, the same Gaussian), then folded
+  (`compute_lr_stats`). A voxel is missing where L + R is not above 0 or
+  outside the mouse's tissue. No normalisation of step 2 and no alignment of
+  the groups: a factor on a mouse or on a group divides out of the ratio. The
+  folded grid, the regions and the masks are step 3's.
+- The statistics. Step 3's region test on these maps, run by step 3's own
+  code (`permutation_stacks`, `region_permutation_test`, `plot_measure_bars`):
+  the Welch t per voxel, RWS against naive, a t only where each group has at
+  least three mice with a value; its surprise -log10 p; the median over +/- 10
+  planes; clusters at p < 0.01, 18-connected, within each region's own voxels
+  of the left hemisphere. Each region is scored by its heaviest cluster's mass
+  with its sign, RWS higher positive, the heavier of the two signs. The exact
+  permutation over all 252 splits of the ten mice, everything recomputed in
+  each; a region's p is the share of the splits reaching its |score|, its
+  corrected p the share whose largest |score| over the regions reaches it.
+- The test named in advance. SSp-bfd, one-sided, RWS higher (Gambino et al.
+  2014): the mass of its heaviest RWS-higher cluster against the RWS-higher
+  masses of all 252 splits, the observed split included. The p of either sign
+  beside it. Also where SSp-bfd's heaviest RWS-higher and naive-higher
+  clusters sit (voxels, planes as Allen's CCF index) and how they overlap
+  step 3's cluster (3,662 voxels, CCF 732 to 748).
+- After behavior. The same over the 126 splits of the four behavior mice of
+  step 3, the p of either sign first, the direction carried over from RWS
+  beside it; the overlap with step 3's behavior cluster (1,489 voxels).
+- What it can say. An RWS-higher cluster that holds on the index does not come
+  from the slope. One that does not leaves step 3's p 0.040 resting on the
+  alignment.
+- Checks in the run. Every mouse's index in the box around SSp-bfd is that of
+  `run_per_mouse_values`' raw stack, to the bit, with the same off-tissue
+  level. Step 3's cluster is the leave-one-out's fold 0 of
+  `run_per_mouse_values` (step 3 keeps no voxels), checked against step 3's
+  table.
+- Outputs, in the comparison's folder, `<tag>` the comparison and the
+  smoothing: `Scale_Free_Regions_<tag>.csv` (one row per region: each sign's
+  heaviest cluster, its mass, voxels, peak, own p and planes; the score, p
+  and corrected p), `Scale_Free_Clusters_<tag>.csv` (SSp-bfd's two clusters
+  and step 3's: where each sits, the overlap), `Scale_Free_Bars_<tag>` (the
+  bars in step 3's style, the test named in advance under the title),
+  `Scale_Free_TMap_<tag>` (the index's t in SSp-bfd at each cluster's planes
+  and from above, the clusters outlined), and the cache of the test,
+  `Scale_Free_<tag>.mat` (read when made from the same stacks and settings;
+  `force_recompute` redoes it).
+
 ## Where the code is
 
 Each driver sets its settings and calls one function in `pipeline/`
 (`collect_by_group`, `normalise_groups`, `group_differences`,
-`per_mouse_region_values`, `mouse_influence`); the video
+`per_mouse_region_values`, `mouse_influence`, `scale_free_test`); the video
 writers (`write_lr_*`, `open_lr_video`, `set_lr_colormap`) and the atlas
 outlines (`lr_atlas_boundaries`) sit beside them, and so do the parts of
 step 3 that other code reuses: each mouse's tissue and its smoothing
