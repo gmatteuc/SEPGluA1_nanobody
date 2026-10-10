@@ -700,7 +700,13 @@ it convincing:
   behaviour, L + R 0.0079 and 0.016. The result quoted for RWS (Giulio,
   8 October) is the production test of the barrel field alone, the
   experiment's prediction from the start; it does not hold as a search over
-  all regions, and more animals, the first point above, would settle it. The
+  all regions, and more animals, the first point above, would settle it.
+  Since 10 October three checks qualify it (group_comparison/README.md): per
+  mouse the groups do not separate (p 0.35); the cluster depends on the slope
+  aligning RWS onto naive (1.49, set mostly by CGF033; at slope 1, p 0.23);
+  and on the scale-free ratio |L - R| / (L + R) the barrel field gives p 0.32.
+  With these ten mice there is no robust evidence of an RWS-specific change;
+  whether p 0.040 stays the result to quote is open. The
   share's p is the chance level of the share bars asked for in April (Sami
   El-Boustani);
 - the comparison repeated in new animals;
@@ -709,7 +715,8 @@ it convincing:
   MG709 (no tissue at the slab), it shows a broad increase of the hemisphere
   sum over about a quarter of the slab, the barrel field included
   (section 1). It may be an effect of the normalisation: the line that aligns
-  the behaviour group onto the naive one has a slope of 2.93.
+  the behaviour group onto the naive one has a slope of 3.12 in the
+  production run of 7 October.
 
 Also open, from the measurements of decisions 1 and 2 (section 1):
 

@@ -965,6 +965,19 @@ collected stack (`collected_index`). Shared: `../common/`
   under neither. The two runs differ slightly because production's naive
   stack was normalised again in September 2026.
 
+  Three checks of 10 October 2026 qualify it (the sections on the per-mouse
+  values, each mouse's influence and the scale-free test, below). Per mouse
+  the groups do not separate in the cluster, even with the voxelwise test's
+  own selection (p 0.35). The cluster's extent depends on the line that
+  aligns the RWS group onto the naive one: its slope, 1.49, is set mostly by
+  one bright naive mouse (CGF033; 1.11 without it), and at slope 1 the
+  RWS-higher cluster has p 0.23 while the naive-higher one is the heavier.
+  On the asymmetry ratio |L - R| / (L + R), which no scale changes, the
+  barrel field's RWS-higher cluster has p 0.32, and no region passes
+  correction. With these ten mice there is no robust evidence of an
+  RWS-specific change. Whether p 0.040 stays the result to quote is open
+  (Giulio).
+
 - The headline of the approved comparison is a small increase of the
   nanobody signal in S1 after RWS, in the hemisphere-sum t map of the slab
   around plane 565, masked at p < 0.01, uncorrected, with five mice per
