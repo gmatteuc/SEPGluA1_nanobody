@@ -7,6 +7,8 @@
 %   3. run_group_differences   left-right differences, control against experimental group
 %   4. run_per_mouse_values    each mouse's values in regions named in advance
 %   5. run_mouse_influence     each mouse's part in the barrel-field cluster  <- this script
+%   6. run_scale_free_test     step 3's region test on a reading no scale changes
+%   7. run_rescaling_figure    a figure of step 3's test at each rescaling
 %
 % Which mice the barrel-field cluster of step 3's test rests on, and why a few
 % mice are enough for its test while their means over the cluster do not

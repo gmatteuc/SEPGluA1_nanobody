@@ -458,6 +458,18 @@ the raw stack is the reading to look at.
   (p 0.004, either sign 0.008). The slope's spread without one mouse (1.11 to
   1.67, jackknife standard error 0.45) spans that crossing, so step 3's p
   0.040 holds at the fitted slope, not across the slope's own uncertainty.
+  Step 3's p itself, of either sign, is 0.079 at slope 1.4 and under 0.05
+  for the RWS-higher cluster from a slope between 1.4 and the fitted 1.49 on
+  (`Influence_Slopes_<tag>.csv`; the figure gives it at the fitted slope
+  only). The figure:
+  `<data>\comparisons\naive_vs_rws_nano\Rescaling_Test_naive_vs_rws_nano_smooth5.png`,
+  so far on the development root (`G:\sep_refactor\check_rws\data`), drawn by
+  `run_rescaling_figure` from this step's tables and the scale-free test's.
+  Against the slope, each sign's one-sided p and cluster size, red where the
+  RWS mice are the higher, dark grey where the naive mice are; the fitted
+  slope with its standard error, the slope without CGF033. Under the title,
+  the RWS-higher cluster's p at the fitted slope (0.020 one-sided, 0.040 of
+  either sign, the one quoted) and on the scale-free ratio (0.32 one-sided).
 - Whether the RWS mice agree on the place more than relabelled groups do: no.
   On the raw stack, which has no slope, the largest patch where four of the
   five RWS mice are above every naive mouse is as large as under relabelling
@@ -884,15 +896,15 @@ no change after behavior either, where step 3's own test did not pass.
 
 Each driver sets its settings and calls one function in `pipeline/`
 (`collect_by_group`, `normalise_groups`, `group_differences`,
-`per_mouse_region_values`, `mouse_influence`, `scale_free_test`); the video
-writers (`write_lr_*`, `open_lr_video`, `set_lr_colormap`) and the atlas
-outlines (`lr_atlas_boundaries`) sit beside them, and so do the parts of
-step 3 that other code reuses: each mouse's tissue and its smoothing
-(`tissue_only`), its plane profile (`plane_tissue_means`), the alignment of
-the two groups (`align_exp_to_ctrl`), the regions of the bars
-(`surprise_regions`, `surprise_region_acronyms`), the mice's maps on the
-voxels a split can give a t (`permutation_stacks`), their permutation test
-(`region_permutation_test`) and the bars of a region measure
+`per_mouse_region_values`, `mouse_influence`, `scale_free_test`,
+`plot_rescaling_test`); the video writers (`write_lr_*`, `open_lr_video`,
+`set_lr_colormap`) and the atlas outlines (`lr_atlas_boundaries`) sit beside
+them, and so do the parts of step 3 that other code reuses: each mouse's
+tissue and its smoothing (`tissue_only`), its plane profile
+(`plane_tissue_means`), the alignment of the two groups (`align_exp_to_ctrl`),
+the regions of the bars (`surprise_regions`, `surprise_region_acronyms`), the
+mice's maps on the voxels a split can give a t (`permutation_stacks`), their
+permutation test (`region_permutation_test`) and the bars of a region measure
 (`plot_measure_bars`, with `p_shade_index`, `add_p_colorbar`,
 `highlight_surprise_regions` and `expected_regions`); and the parts the
 per-mouse steps share: a mouse's off-tissue level (`off_tissue_level`), the
@@ -900,9 +912,9 @@ box around the clusters' region (`region_box_masks`), a mouse's box on the
 test's scale (`aligned_box_lr`), the mice's |L - R| on the band and its
 candidate voxels (`band_stack`, `band_geometry`), the check of the maps' cache
 against the normalised stacks (`check_maps_cache`) and the mice's places in a
-collected stack (`collected_index`). Shared: `../common/`
-(`get_cohort`, `get_cohort_spec`, `compute_lr_stats`, `sep_palette`) and
-`../atlas/` (`get_atlas_crop`, `get_allen_region_mask`).
+collected stack (`collected_index`). Shared: `../common/` (`get_cohort`,
+`get_cohort_spec`, `compute_lr_stats`, `sep_palette`) and `../atlas/`
+(`get_atlas_crop`, `get_allen_region_mask`).
 
 ## Notes
 
@@ -971,7 +983,10 @@ collected stack (`collected_index`). Shared: `../common/`
   set mostly by one bright naive mouse (CGF033). Without the rescaling the
   barrel field gives p 0.23, and on the asymmetry ratio |L - R| / (L + R),
   which no scale changes, p 0.32. Giulio (10 October) keeps p 0.040 as the
-  result to quote, with this dependence stated beside it.
+  result to quote, with this dependence stated beside it. The figure that
+  shows it:
+  `<data>\comparisons\naive_vs_rws_nano\Rescaling_Test_naive_vs_rws_nano_smooth5.png`
+  (the section on each mouse's influence).
 
 - The headline of the approved comparison is a small increase of the
   nanobody signal in S1 after RWS, in the hemisphere-sum t map of the slab

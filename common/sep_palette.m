@@ -24,10 +24,19 @@ function c = sep_palette(name)
 %                                            groups (MATLAB's default blue and
 %                                            orange)
 %     'control_mean', 'experimental_mean'    their group means, darker
+%     'control_higher', 'experimental_higher'
+%                                            a cluster where that group's
+%                                            |L - R| is the higher, dark grey
+%                                            #4d4d4d and red #c0392b
 %     'no_data'                              flat grey #bfbfbf where a map has no
 %                                            value, which no data colormap gives
 %     'outline'                              blue #3a6db5, a cluster's outline
 %                                            over an intensity map
+%     'mid_grey', 'note_grey'                a mark and a note drawn on a figure,
+%                                            #9a9a9a and 0.4 (plotting.py's
+%                                            MID_GREY and NOTE_GREY)
+%     'shading_grey'                         #eeeeee, a band shaded behind the
+%                                            data
 
 switch name
 
@@ -89,11 +98,26 @@ switch name
     case 'experimental_mean'
         c = [0.64 0.08 0.18];
 
+    % a cluster where one group is the higher, apart from the groups' blue and
+    % orange (#4d4d4d, #c0392b)
+    case 'control_higher'
+        c = [77 77 77] / 255;
+    case 'experimental_higher'
+        c = [192 57 43] / 255;
+
     % maps: no value, and an outline over them (#bfbfbf, #3a6db5)
     case 'no_data'
         c = [191 191 191] / 255;
     case 'outline'
         c = [58 109 181] / 255;
+
+    % greys for what a figure marks, notes or shades (#9a9a9a, 0.4 and #eeeeee)
+    case 'mid_grey'
+        c = [154 154 154] / 255;
+    case 'note_grey'
+        c = [0.4 0.4 0.4];
+    case 'shading_grey'
+        c = [238 238 238] / 255;
 
     otherwise
         error('sep_palette: unknown name ''%s''; help sep_palette lists the names', ...
