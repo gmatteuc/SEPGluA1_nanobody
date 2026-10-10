@@ -11,6 +11,7 @@ function c = sep_palette(name)
 %                    or a t map drawn with symmetric limits, so zero is white
 %     'bars'         200 greys from light (0.78) to black, for bars coloured
 %                    by their value, darker for more; never white
+%     'counts'       magma, 256 levels, for counts of brains (n maps)
 %   hot and gray take the length of the current figure's colormap, as they do
 %   when called directly.
 %
@@ -23,6 +24,10 @@ function c = sep_palette(name)
 %                                            groups (MATLAB's default blue and
 %                                            orange)
 %     'control_mean', 'experimental_mean'    their group means, darker
+%     'no_data'                              flat grey #bfbfbf where a map has no
+%                                            value, which no data colormap gives
+%     'outline'                              blue #3a6db5, a cluster's outline
+%                                            over an intensity map
 
 switch name
 
@@ -38,6 +43,21 @@ switch name
         % the darkest 200 of 256 grey levels, lightest first
         levels = gray(256);
         c = flipud(levels(1:200, :));
+    case 'counts'
+
+        % matplotlib's magma at nine even steps, interpolated to 256 levels
+        anchors = [
+            0.0015 0.0005 0.0139
+            0.1131 0.0655 0.2768
+            0.3167 0.0717 0.4854
+            0.5128 0.1482 0.5076
+            0.7164 0.2150 0.4753
+            0.9043 0.3196 0.3881
+            0.9867 0.5356 0.3822
+            0.9969 0.7696 0.5349
+            0.9871 0.9914 0.7495
+            ];
+        c = interp1(linspace(0, 1, 9), anchors, linspace(0, 1, 256));
 
     % the two channels
     case 'nano'
@@ -68,6 +88,12 @@ switch name
         c = [0 0.2 0.5];
     case 'experimental_mean'
         c = [0.64 0.08 0.18];
+
+    % maps: no value, and an outline over them (#bfbfbf, #3a6db5)
+    case 'no_data'
+        c = [191 191 191] / 255;
+    case 'outline'
+        c = [58 109 181] / 255;
 
     otherwise
         error('sep_palette: unknown name ''%s''; help sep_palette lists the names', ...
