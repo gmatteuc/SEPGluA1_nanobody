@@ -9,10 +9,12 @@ function scale_free_test(run_settings)
 %   at a time; from comp_out_dir, step 3's table
 %   (Region_Surprise_DiffSum_<comp_tag>.csv), the leave-one-out's clusters of
 %   run_per_mouse_values (Per_Mouse_LOO_<tag>.mat), whose fold 0, all the
-%   mice, is step 3's cluster in the region named in advance, and, to check
-%   the reading against, the mice's maps of run_per_mouse_values
-%   (Per_Mouse_Maps_<tag>.mat) when they are there. Writes into comp_out_dir,
-%   with <tag> = <comp_tag>_smooth<sigma>:
+%   mice, is step 3's cluster in the region named in advance, the
+%   selection-matched test's splits of run_per_mouse_values
+%   (Per_Mouse_Selection_<tag>.mat), the same cluster's mass under every split
+%   of step 3's region test, and, to check the reading against, the mice's
+%   maps of run_per_mouse_values (Per_Mouse_Maps_<tag>.mat) when they are
+%   there. Writes into comp_out_dir, with <tag> = <comp_tag>_smooth<sigma>:
 %     Scale_Free_Regions_<tag>.csv   one row per region of the bars: each
 %                                    sign's heaviest cluster (mass, voxels,
 %                                    peak, planes) with its own p; the score,
@@ -20,7 +22,11 @@ function scale_free_test(run_settings)
 %                                    p and corrected p
 %     Scale_Free_Clusters_<tag>.csv  the region named in advance: its heaviest
 %                                    cluster of each sign and step 3's cluster,
-%                                    where each sits and how they overlap
+%                                    where each sits and how they overlap; for
+%                                    each, the one-sided p of its sign and,
+%                                    for the heavier sign, the p of either sign
+%                                    (a sign without a cluster has mass 0, and
+%                                    every split reaches it: p 1)
 %     Scale_Free_Bars_<tag>          the bars of the cluster mass, .fig and .png
 %     Scale_Free_TMap_<tag>          the t map of the index in the region named
 %                                    in advance, at each cluster's planes and
@@ -118,6 +124,7 @@ perm_settings.keep_t = true;
 % what is read besides the stacks
 step3_table = fullfile(comp_out_dir, ['Region_Surprise_DiffSum_' comp_tag '.csv']);
 loo_file = fullfile(comp_out_dir, ['Per_Mouse_LOO_' file_tag '.mat']);
+selection_file = fullfile(comp_out_dir, ['Per_Mouse_Selection_' file_tag '.mat']);
 maps_file = fullfile(comp_out_dir, ['Per_Mouse_Maps_' file_tag '.mat']);
 
 %% Atlas and regions
@@ -141,8 +148,9 @@ masks = region_box_masks(T_regions, valid_pixels, region_of_voxel, {a_priori_reg
     a_priori_region, slab_range);
 
 % step 3's cluster in the region named in advance, from the leave-one-out's
-% fold 0, checked against step 3's table
-step3 = step3_cluster(loo_file, step3_table, a_priori_region, masks);
+% fold 0, its mass and p from the selection-matched test's splits, checked
+% against step 3's table
+step3 = step3_cluster(loo_file, selection_file, step3_table, a_priori_region, masks);
 
 %% The test, from its cache or computed
 
@@ -229,10 +237,18 @@ print_summary(result, T_out, T_clusters, named, comparison_line(ctrl_type, exp_t
 %% Figures
 
 % the bars of the cluster mass in step 3's style, the test named in advance
-% under the title
+% under the title; beside the region named in advance, the p of that test (with
+% its direction named, the one-sided p, not the p of either sign)
+if direction_named
+    a_priori_test = struct('p', nan(height(T_regions), 1), 'label', ...
+        sprintf('%s higher, one-sided', exp_type));
+    a_priori_test.p(apriori_row) = named.p_one;
+else
+    a_priori_test = [];
+end
 fig_bars = plot_measure_bars(result.perm, T_regions, 'cluster', exp_type, ...
     ['scale_free_' file_tag], {'asymmetry index |L - R| / (L + R), raw stack'}, ...
-    named.lines);
+    named.lines, a_priori_test);
 saveas(fig_bars, fullfile(comp_out_dir, ['Scale_Free_Bars_' file_tag '.fig']));
 exportgraphics(fig_bars, fullfile(comp_out_dir, ['Scale_Free_Bars_' file_tag '.png']), ...
     'Resolution', 300);
@@ -240,7 +256,7 @@ exportgraphics(fig_bars, fullfile(comp_out_dir, ['Scale_Free_Bars_' file_tag '.p
 % the t map of the region named in advance, at each cluster's planes
 comparison = struct('ctrl_type', ctrl_type, 'exp_type', exp_type, 'region', ...
     a_priori_region, 'ccf_first_index', ccf_first_index, 't_limit', t_limit, ...
-    'cluster_p', cluster_p);
+    'cluster_p', cluster_p, 'slab_range', slab_range);
 plot_t_map(result, step3, masks, comparison, file_tag, comp_out_dir);
 fprintf('Scale-free test saved to: %s\n', comp_out_dir);
 
@@ -374,21 +390,34 @@ end
 
 % ===== Local functions: step 3's cluster and the test's results =====
 
-function step3 = step3_cluster(loo_file, step3_table, region, masks)
+function step3 = step3_cluster(loo_file, selection_file, step3_table, region, masks)
 % Step 3's cluster in the region named in advance, as linear indices into the
 % folded grid: the leave-one-out's fold 0 (all the mice) of run_per_mouse_values,
-% which keeps it voxel for voxel (step 3 keeps no voxels), checked against
-% step 3's table; its mass and p from the table.
+% which keeps it voxel for voxel (step 3 keeps no voxels). Its mass and its p,
+% of either sign and of the experimental group higher alone, from the
+% selection-matched test's splits (the splits of step 3's region test, its
+% first the observed one, whose cluster must be fold 0's); its voxel count,
+% mass and p of either sign checked against step 3's table.
 
-if ~exist(loo_file, 'file')
-    error(['run_scale_free_test: %s not found; it holds step 3''s cluster voxel for ' ...
-           'voxel. Run run_per_mouse_values with the same comparison and smoothing.'], ...
-           loo_file);
+if ~exist(loo_file, 'file') || ~exist(selection_file, 'file')
+    error(['run_scale_free_test: %s or %s not found; they hold step 3''s cluster ' ...
+           'voxel for voxel and its mass under every split. Run run_per_mouse_values ' ...
+           'with the same comparison and smoothing.'], loo_file, selection_file);
 end
 S_loo = load(loo_file, 'loo_clusters', 'loo_box', 'loo_region');
 if ~strcmp(S_loo.loo_region, region)
     error(['run_scale_free_test: the leave-one-out''s clusters in %s are of %s, not ' ...
            '%s.'], loo_file, S_loo.loo_region, region);
+end
+S_sel = load(selection_file, 'sm');
+sm = S_sel.sm;
+
+% fold 0's voxels, which must be the selection-matched test's observed cluster
+% (both on the leave-one-out's box)
+if ~isequal(sort(double(sm.cluster_voxels{1}(:))), ...
+        sort(double(S_loo.loo_clusters{1}(:))))
+    error(['run_scale_free_test: the selection-matched test''s cluster (%s) is not ' ...
+           'the leave-one-out''s fold 0 (%s).'], selection_file, loo_file);
 end
 
 % fold 0's voxels, from the leave-one-out's box to the folded grid
@@ -397,23 +426,34 @@ box = S_loo.loo_box(1);
 lin = sub2ind(masks.folded_size, box.box_ap(ap)', box.box_dv(dv)', ...
     box.box_ml_left(ml)');
 
+% its mass and p over the splits: of either sign, the larger of the two signs'
+% masses, as step 3's region test takes it; and of the experimental group
+% higher alone
+step3 = struct();
+step3.lin = uint32(sort(lin(:)));
+step3.n = numel(step3.lin);
+step3.mass = sm.cluster_mass(1, 1);
+larger = max(sm.cluster_mass, [], 2);
+step3.p = mean(larger >= larger(1));
+step3.p_one = mean(sm.cluster_mass(:, 1) >= sm.cluster_mass(1, 1));
+
 % step 3's table: its heaviest cluster of L - R in the region, which is fold 0's
 % when it is the experimental group's
 T_step3 = readtable(step3_table, 'Delimiter', ',');
 row = strcmp(T_step3.acronym, region);
-step3 = struct();
-step3.lin = uint32(sort(lin(:)));
-step3.n = T_step3.lr_diff_cluster_n(row);
-step3.mass = T_step3.lr_diff_cluster_score(row);
-step3.p = T_step3.lr_diff_cluster_p_perm(row);
-step3.p_corrected = T_step3.lr_diff_cluster_p_perm_fwer(row);
-if step3.mass <= 0 || numel(step3.lin) ~= step3.n
-    error(['run_scale_free_test: the leave-one-out''s fold 0 in %s has %d voxels; ' ...
-           'step 3''s table gives the cluster of %s %d voxels and a score of %.1f.'], ...
-           loo_file, numel(step3.lin), region, step3.n, step3.mass);
+table_n = T_step3.lr_diff_cluster_n(row);
+table_mass = T_step3.lr_diff_cluster_score(row);
+table_p = T_step3.lr_diff_cluster_p_perm(row);
+if table_mass <= 0 || step3.n ~= table_n || ...
+        abs(step3.mass - table_mass) > 1e-6 * table_mass || abs(step3.p - table_p) > 1e-9
+    error(['run_scale_free_test: the cluster of %s, %d voxels, mass %.2f, p %.4g ' ...
+           '(%s, %s); step 3''s table gives %d voxels, a score of %.2f, p %.4g.'], ...
+           region, step3.n, step3.mass, step3.p, loo_file, selection_file, table_n, ...
+           table_mass, table_p);
 end
-fprintf('  step 3''s cluster in %s: %d voxels, mass %.2f, p %.3g (its table)\n', ...
-    region, step3.n, step3.mass, step3.p);
+fprintf(['  step 3''s cluster in %s: %d voxels, mass %.2f, p %.3g (either sign, as ' ...
+         'its table), %.3g (one-sided)\n'], region, step3.n, step3.mass, step3.p, ...
+         step3.p_one);
 end
 
 function result = test_result(perm, geom, masks, apriori_row, ctrl_mice, exp_mice)
@@ -510,23 +550,37 @@ end
 function T_clusters = cluster_table(result, step3, masks, apriori_row, ctrl_type, ...
     exp_type, ccf_first_index)
 % The region named in advance: its heaviest cluster of each sign on the index
-% and step 3's cluster on the test's maps; for each, its voxels, mass and p,
-% its planes, centre and distance from the midline, and its overlap with step
-% 3's cluster.
+% and step 3's cluster on the test's maps; for each, its voxels and mass, its
+% one-sided p (the share of the splits whose heaviest cluster of its sign is as
+% heavy; 1 for a sign without a cluster, whose mass of 0 every split reaches),
+% the p of either sign for the heavier sign (the region's p, step 3's for its
+% cluster), its planes, centre and distance from the midline, and its overlap
+% with step 3's cluster.
 
 perm = result.perm;
+map = perm.maps{1};
 k = strcmp(perm.measure_names, 'cluster');
 observed = perm.splits.observed;
 n_splits = size(perm.splits.in_ctrl, 1);
-null_pos = perm.maps{1}.null_pos(:, apriori_row, k);
-null_neg = perm.maps{1}.null_neg(:, apriori_row, k);
+null_pos = map.null_pos(:, apriori_row, k);
+null_neg = map.null_neg(:, apriori_row, k);
+
+% the p of either sign belongs to the heavier sign's cluster, the score's
+score_sign = sign(map.score(apriori_row, k));
+p_either = [NaN; NaN];
+if score_sign > 0
+    p_either(1) = map.p_perm(apriori_row, k);
+elseif score_sign < 0
+    p_either(2) = map.p_perm(apriori_row, k);
+end
 
 rows = {
     [exp_type ' higher, index'], result.apriori_clusters{1}, null_pos(observed), ...
-        nnz(null_pos >= null_pos(observed)) / n_splits
+        nnz(null_pos >= null_pos(observed)) / n_splits, p_either(1)
     [ctrl_type ' higher, index'], result.apriori_clusters{2}, null_neg(observed), ...
-        nnz(null_neg >= null_neg(observed)) / n_splits
-    [exp_type ' higher, step 3 (test maps)'], step3.lin, step3.mass, step3.p
+        nnz(null_neg >= null_neg(observed)) / n_splits, p_either(2)
+    [exp_type ' higher, step 3 (test maps)'], step3.lin, step3.mass, step3.p_one, ...
+        step3.p
     };
 n_rows = size(rows, 1);
 T_clusters = table();
@@ -534,7 +588,8 @@ T_clusters.cluster = rows(:, 1);
 T_clusters.voxels = zeros(n_rows, 1);
 T_clusters.volume_mm3 = zeros(n_rows, 1);
 T_clusters.mass = cell2mat(rows(:, 3));
-T_clusters.p = cell2mat(rows(:, 4));
+T_clusters.p_one_sided = cell2mat(rows(:, 4));
+T_clusters.p_either_sign = cell2mat(rows(:, 5));
 T_clusters.ccf_first = nan(n_rows, 1);
 T_clusters.ccf_last = nan(n_rows, 1);
 T_clusters.centre_ccf = nan(n_rows, 1);
@@ -635,12 +690,13 @@ for line = named.lines
     fprintf('  %s\n', line{1});
 end
 for i = 1:height(T_clusters)
-    fprintf(['  %s: %d voxels, mass %.1f, p %.3g, CCF %g to %g, %.2f mm from the ' ...
-             'midline; %d voxels in step 3''s cluster (%.2f of it, %.2f of step 3''s)\n'], ...
-             T_clusters.cluster{i}, T_clusters.voxels(i), T_clusters.mass(i), ...
-             T_clusters.p(i), T_clusters.ccf_first(i), T_clusters.ccf_last(i), ...
-             T_clusters.midline_mm(i), T_clusters.overlap_step3(i), ...
-             T_clusters.share_in_step3(i), T_clusters.share_of_step3(i));
+    fprintf(['  %s: %d voxels, mass %.1f, p %.3g one-sided, %.3g either sign, CCF %g ' ...
+             'to %g, %.2f mm from the midline; %d voxels in step 3''s cluster (%.2f of ' ...
+             'it, %.2f of step 3''s)\n'], T_clusters.cluster{i}, T_clusters.voxels(i), ...
+             T_clusters.mass(i), T_clusters.p_one_sided(i), T_clusters.p_either_sign(i), ...
+             T_clusters.ccf_first(i), T_clusters.ccf_last(i), T_clusters.midline_mm(i), ...
+             T_clusters.overlap_step3(i), T_clusters.share_in_step3(i), ...
+             T_clusters.share_of_step3(i));
 end
 passing = T_out.p_corrected < 0.05;
 if any(passing)
@@ -704,8 +760,10 @@ for c = 1:3
     subplot(2, 2, c);
     [planes, ~, ~] = ind2sub(masks.box_size, find(is_cluster{c}));
     if isempty(planes)
-        text(0.5, 0.5, {sprintf('%s:', names{c}), sprintf(['none in %s (no voxel ' ...
-            'of that sign at p < %g)'], comparison.region, comparison.cluster_p)}, ...
+        text(0.5, 0.5, {sprintf('%s:', names{c}), sprintf(['none in %s: nowhere does ' ...
+            'the surprise''s median over +/- %d planes'], comparison.region, ...
+            comparison.slab_range), sprintf(['reach p < %g with that sign (the ' ...
+            'colours are each voxel''s own t)'], comparison.cluster_p)}, ...
             'HorizontalAlignment', 'center', 'Interpreter', 'none', 'FontSize', 10);
         axis off;
         continue

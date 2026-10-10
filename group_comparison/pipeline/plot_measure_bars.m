@@ -1,5 +1,5 @@
 function fig_bars = plot_measure_bars(perm, T_regions, bar_measure, exp_type, ...
-    file_tag, map_titles, notes)
+    file_tag, map_titles, notes, a_priori_test)
 %PLOT_MEASURE_BARS  The bars of one region measure, with the p of its permutation test.
 %   fig_bars = PLOT_MEASURE_BARS(perm, T_regions, bar_measure, exp_type,
 %   file_tag, map_titles, notes) draws the bars of one region measure of
@@ -13,6 +13,18 @@ function fig_bars = plot_measure_bars(perm, T_regions, bar_measure, exp_type, ..
 %   says which p tests what; notes, a cell of lines (empty for none), go
 %   under it. Returns the figure, which the caller saves. Used by
 %   group_differences and scale_free_test.
+%
+%   fig_bars = PLOT_MEASURE_BARS(..., a_priori_test) gives the regions named
+%   in advance the p of a test other than the score's of either sign, such as
+%   a one-sided one: a struct with p (regions x maps, NaN for a region not
+%   named in advance) and label (what that p is, e.g. 'rws higher,
+%   one-sided'). Their bold p and their dagger are then that p, with its label.
+
+% the regions named in advance carry the uncorrected p of either sign, unless
+% the test named in advance is another
+if nargin < 8
+    a_priori_test = [];
+end
 
 k = find(strcmp(perm.measure_names, bar_measure));
 n_splits = size(perm.splits.in_ctrl, 1);
@@ -29,6 +41,16 @@ for m = 1:n_maps
     p_perm = perm.maps{m}.p_perm(:, k);
     p_fwer = perm.maps{m}.p_fwer(:, k);
 
+    % the p of the regions named in advance: their uncorrected p, or that of the
+    % test named in advance when it is another
+    if isempty(a_priori_test)
+        p_named = p_perm;
+        named_label = '';
+    else
+        p_named = a_priori_test.p(:, m);
+        named_label = a_priori_test.label;
+    end
+
     % the regions with a score, the largest |score| last, which barh draws at the top
     drawn = find(~isnan(score) & score ~= 0);
     [~, order] = sort(abs(score(drawn)), 'ascend');
@@ -38,7 +60,8 @@ for m = 1:n_maps
     % bold magenta
     subplot(1, n_maps, m);
     mark_texts{m} = draw_measure_bars(score(drawn), p_perm(drawn), p_fwer(drawn), ...
-        T_regions.label(drawn), T_regions.a_priori(drawn), n_splits);
+        T_regions.label(drawn), T_regions.a_priori(drawn), n_splits, p_named(drawn), ...
+        named_label);
     xlabel(measure_label(bar_measure, perm));
     title(sprintf('%s: %d of %d regions with a score', map_titles{m}, numel(drawn), ...
         height(T_regions)));
@@ -58,12 +81,20 @@ if isempty(a_priori_acronyms)
     marks_line = sprintf(['* corrected p < 0.05: the test of a search over all %d ' ...
                           'regions;   %s uncorrected p < 0.05: not a test, no region ' ...
                           'was named in advance'], height(T_regions), dagger);
-else
+elseif isempty(a_priori_test)
     marks_line = sprintf(['* corrected p < 0.05: the test of a search over all %d ' ...
                           'regions;   %s uncorrected p < 0.05: the test of a region ' ...
                           'named in advance, %s (its p in bold beside its bar)'], ...
                           height(T_regions), dagger, strjoin(a_priori_acronyms, ', '));
     other_notes{end + 1} = sprintf('a %s on any other region is not a test', dagger);
+else
+    marks_line = sprintf(['* corrected p < 0.05: the test of a search over all %d ' ...
+                          'regions;   %s uncorrected p < 0.05: the test of a region ' ...
+                          'named in advance, %s (its p, %s, in bold beside its bar)'], ...
+                          height(T_regions), dagger, strjoin(a_priori_acronyms, ', '), ...
+                          a_priori_test.label);
+    other_notes{end + 1} = sprintf(['a %s on any other region is not a test (its p ' ...
+                                    'of either sign)'], dagger);
 end
 if ~isempty(expected_regions(exp_type))
     other_notes{end + 1} = 'names in magenta: the regions expected to change';
@@ -92,12 +123,14 @@ end
 % ===== Local functions =====
 
 function mark_texts = draw_measure_bars(values, p_perm, p_fwer, labels, ...
-    is_a_priori, n_splits)
+    is_a_priori, n_splits, p_named, named_label)
 % One panel of signed bars, grey by their corrected p, starred below 0.05, a
 % dagger where only the uncorrected p is below 0.05, the uncorrected p in bold
 % beside the bars of the regions named in advance, with the colour bar of the
 % corrected p; returns the texts beside the bars, whose font size is the
-% dagger's (the star and the p have their own).
+% dagger's (the star and the p have their own). For the regions named in
+% advance the uncorrected p is p_named, that of the test named in advance,
+% written with named_label when it has one.
 
 c_map = sep_palette('bars');
 mark_texts = gobjects(0);
@@ -118,16 +151,21 @@ ax.XAxis.Exponent = 0;
 % dagger at an uncorrected p < 0.05; for a region named in advance, its
 % uncorrected p in bold beside the mark (the braces keep each size to its part)
 hold on;
+p_uncorrected = p_perm;
+p_uncorrected(logical(is_a_priori)) = p_named(logical(is_a_priori));
 for i = 1:numel(values)
     mark = '';
     if p_fwer(i) < 0.05
         mark = '{\fontsize{12}*}';
-    elseif p_perm(i) < 0.05
+    elseif p_uncorrected(i) < 0.05
         mark = char(8224);
     end
     note = '';
-    if is_a_priori(i)
-        note = sprintf('{\\fontsize{10}\\bf a priori: p = %.2g}', p_perm(i));
+    if is_a_priori(i) && isempty(named_label)
+        note = sprintf('{\\fontsize{10}\\bf a priori: p = %.2g}', p_uncorrected(i));
+    elseif is_a_priori(i)
+        note = sprintf('{\\fontsize{10}\\bf a priori, %s: p = %.2g}', named_label, ...
+            p_uncorrected(i));
     end
     if isempty(mark) && isempty(note)
         continue
