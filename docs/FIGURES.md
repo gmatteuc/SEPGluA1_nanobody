@@ -188,6 +188,39 @@ voxels with a t of their own, and each regional bar is the share of one of 71
 atlas regions' voxels at p < 0.01, no voxel in two bars (decisions 1 and 2,
 [ROADMAP.md](ROADMAP.md), section 1).
 
+### Each mouse, the rescaling and the scale-free test (October 2026)
+
+After step 3, the barrel-field result seen mouse by mouse and against the
+alignment of the groups ([../group_comparison/README.md](../group_comparison/README.md):
+per-mouse values, each mouse's part in the barrel-field cluster, the
+scale-free test). So far only on the development root,
+`G:\sep_refactor\check_rws\data`, from copies of the stacks of the production
+run of 7 October 2026. `<tag>` is the comparison and the smoothing: the RWS
+figures are in `<data>\comparisons\naive_vs_rws_nano\` with
+`naive_vs_rws_nano_smooth5`, the behavior ones in
+`<data>\comparisons\naive_vs_behavior_nano\` with
+`naive_vs_behavior_nano_smooth5`.
+
+| figure | what it shows |
+|---|---|
+| `Per_Mouse_Values_<tag>.png/.fig` (RWS, behavior) | each mouse's asymmetry index in step 3's barrel-field cluster, the selection-matched test's splits under its statistic and step 3's, then each mouse's values over the barrel field and VISp |
+| `Per_Mouse_LOO_<tag>.png/.fig` (RWS, behavior) | each mouse's asymmetry index in the cluster the comparison finds without it, on the raw stack and on the test maps, with the p of the leave-one-out redone under every split |
+| `Influence_Folds_<tag>.png/.fig` (RWS) | the cluster's voxels, mass and p with each mouse left out, the alignment refitted and held, and each sign's cluster at each slope of the alignment |
+| `Influence_Maps_<tag>_raw`, `_test`, `_auto` (`.png/.fig`, RWS) | each mouse's asymmetry around the cluster, coronal and from above, the cluster outlined: raw stack, test maps, autofluorescence |
+| `Influence_Profiles_<tag>.png/.fig` (RWS) | each mouse's asymmetry along AP through the cluster, with its section edges and where it has no tissue |
+| `Influence_Consistency_<tag>.png/.fig` (RWS) | where k of the five RWS mice are above every naive mouse, those patches against every split, and each mouse's share of the region and of the cluster |
+| `Scale_Free_Bars_<tag>.png/.fig` (RWS, behavior) | step 3's region test on the raw asymmetry index \|L - R\| / (L + R), which no scale changes, in step 3's bars, the barrel field's p of the test named in advance beside its bar |
+| `Scale_Free_TMap_<tag>.png/.fig` (RWS, behavior) | the index's t in the barrel field at each cluster's planes and from above, the clusters outlined |
+| `Rescaling_Test_<tag>.png/.fig` (RWS) | the one-sided p and the size of the barrel field's RWS-higher (red) and naive-higher (dark grey) cluster against the slope aligning RWS onto naive, with the fitted slope 1.49, its standard error and the slope without CGF033; under the title the p at the fitted slope and on the index |
+
+**Made by** `group_comparison/run_per_mouse_values.m`,
+`run_mouse_influence.m` (after RWS only), `run_scale_free_test.m` and
+`run_rescaling_figure.m`, in that order, after `run_group_differences.m`, with
+step 3's comparison, channel and smoothing (nano, sigma 5). The rescaling
+figure computes nothing: it reads `Influence_Slopes_<tag>.csv`,
+`Influence_Folds_<tag>.csv` and `Scale_Free_Clusters_<tag>.csv`, and stops if
+the two steps did not read the same step 3.
+
 ## The adult map
 
 How the nanobody signal is distributed across the adult brain (line 2): the
