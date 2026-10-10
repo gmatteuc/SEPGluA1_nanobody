@@ -701,12 +701,11 @@ it convincing:
   8 October) is the production test of the barrel field alone, the
   experiment's prediction from the start; it does not hold as a search over
   all regions, and more animals, the first point above, would settle it.
-  Since 10 October three checks qualify it (group_comparison/README.md): per
-  mouse the groups do not separate (p 0.35); the cluster depends on the slope
-  aligning RWS onto naive (1.49, set mostly by CGF033; at slope 1, p 0.23);
-  and on the scale-free ratio |L - R| / (L + R) the barrel field gives p 0.32.
-  With these ten mice there is no robust evidence of an RWS-specific change;
-  whether p 0.040 stays the result to quote is open. The
+  A test of the rescaling (10 October, group_comparison/README.md) shows that
+  this p depends on the slope aligning RWS onto naive (1.49, set mostly by
+  CGF033): without the rescaling p 0.23, on the scale-free ratio
+  |L - R| / (L + R) p 0.32. Giulio keeps p 0.040 as the result to quote, with
+  this dependence stated beside it. The
   share's p is the chance level of the share bars asked for in April (Sami
   El-Boustani);
 - the comparison repeated in new animals;
