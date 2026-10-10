@@ -13,12 +13,13 @@
 % Step 3 puts the experimental mice on the control mice's scale with a line
 % whose slope multiplies every experimental mouse's |L - R|, and its splits
 % keep that slope. One figure of what steps 5 and 6 found about it, read from
-% their tables, nothing computed again: the p of the barrel field's heaviest
-% cluster of each sign against the slope (the experimental-higher one,
-% one-sided, the test named in advance), and each cluster's size; the fitted
-% slope with its jackknife standard error, the slope refitted without the
-% mouse that moves it most, and beside them the same clusters on the
-% asymmetry index |L - R| / (L + R), where no scale enters. Saves, in
+% their tables, nothing computed again: against the slope, step 3's p of the
+% barrel field (either sign, the p quoted) and the one-sided p of its heaviest
+% cluster of each sign (the experimental-higher one the test the scale-free
+% test named in advance), and each cluster's size; the fitted slope with its
+% jackknife standard error, the slope refitted without the mouse that moves it
+% most, and beside them the same p and clusters on the asymmetry index
+% |L - R| / (L + R), where no scale enters. Saves, in
 % data\comparisons\<ctrl>_vs_<exp>_<channel>\, Rescaling_Test_<tag> (.fig
 % and .png), <tag> being the comparison and the smoothing.
 %

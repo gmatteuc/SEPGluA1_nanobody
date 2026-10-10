@@ -458,10 +458,16 @@ the raw stack is the reading to look at.
   (p 0.004, either sign 0.008). The slope's spread without one mouse (1.11 to
   1.67, jackknife standard error 0.45) spans that crossing, so step 3's p
   0.040 holds at the fitted slope, not across the slope's own uncertainty.
-  One figure shows it, `Rescaling_Test_<tag>` (`run_rescaling_figure`, from
-  this step's tables and the scale-free test's): each sign's p and cluster
-  size against the slope, the fitted slope with its standard error, the slope
-  without CGF033, and beside them the scale-free test's p (0.32).
+  Step 3's p itself, of either sign, is 0.079 at slope 1.4 and under 0.05
+  for the RWS-higher cluster from a slope between 1.4 and the fitted 1.49 on.
+  The figure:
+  `<data>\comparisons\naive_vs_rws_nano\Rescaling_Test_naive_vs_rws_nano_smooth5.png`,
+  so far on the development root (`G:\sep_refactor\check_rws\data`), drawn by
+  `run_rescaling_figure` from this step's tables and the scale-free test's.
+  Against the slope, step 3's p (the one quoted), each sign's one-sided p and
+  cluster size; the fitted slope with its standard error, the slope without
+  CGF033; beside them the same on the scale-free index (one-sided p 0.32,
+  either sign 0.56).
 - Whether the RWS mice agree on the place more than relabelled groups do: no.
   On the raw stack, which has no slope, the largest patch where four of the
   five RWS mice are above every naive mouse is as large as under relabelling
@@ -976,7 +982,10 @@ collected stack (`collected_index`). Shared: `../common/`
   set mostly by one bright naive mouse (CGF033). Without the rescaling the
   barrel field gives p 0.23, and on the asymmetry ratio |L - R| / (L + R),
   which no scale changes, p 0.32. Giulio (10 October) keeps p 0.040 as the
-  result to quote, with this dependence stated beside it.
+  result to quote, with this dependence stated beside it. The figure that
+  shows it:
+  `<data>\comparisons\naive_vs_rws_nano\Rescaling_Test_naive_vs_rws_nano_smooth5.png`
+  (the section on each mouse's influence).
 
 - The headline of the approved comparison is a small increase of the
   nanobody signal in S1 after RWS, in the hemisphere-sum t map of the slab

@@ -705,7 +705,9 @@ it convincing:
   this p depends on the slope aligning RWS onto naive (1.49, set mostly by
   CGF033): without the rescaling p 0.23, on the scale-free ratio
   |L - R| / (L + R) p 0.32. Giulio keeps p 0.040 as the result to quote, with
-  this dependence stated beside it. The
+  this dependence stated beside it. The figure:
+  `<data>\comparisons\naive_vs_rws_nano\Rescaling_Test_naive_vs_rws_nano_smooth5.png`
+  (so far on the development root, `G:\sep_refactor\check_rws\data`). The
   share's p is the chance level of the share bars asked for in April (Sami
   El-Boustani);
 - the comparison repeated in new animals;
