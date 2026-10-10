@@ -18,12 +18,14 @@ version that evening changed how it is reported, not what it computes.
 
 - Code: `mapping/sepmap/structures.py`, `mapping/sepmap/adult/` and
   `mapping/sepmap/ish/`, run by steps 13 to 30 of the Python route
-  ([mapping/README.md](../mapping/README.md)), on branch `post-ish`, not merged
-  yet.
+  ([mapping/README.md](../mapping/README.md)), built on branch `post-ish` and
+  merged into `main` on 10 October.
 - Outputs: `<data>\adult_v2\ish_analysis\`. The numbers below are those of the
   run of 9 October 2026 with part 1's second version, on a full copy of the
-  production inputs (the data root set by `SEP_DATA_ROOT`); the production data
-  root holds the same once steps 13 to 30 run there after the merge. Every number is in
+  production inputs (the data root set by `SEP_DATA_ROOT`); control F's come
+  from steps 24, 27 and 30, rerun there on 10 October with its wider range
+  (section 8.1). The production data root holds the same once steps 13 to 30
+  run there. Every number is in
   `tables\numbers_for_the_text.csv` there (a `.txt` beside it reads more
   easily), written by `run_ish_overview.py` from the numbers each step writes;
   each section names the step and the table its numbers come from.
@@ -474,7 +476,9 @@ density. Tables: `beyond\variance_partition.csv`, `partition.csv`, `weights.csv`
 `jackknife.csv`, `jackknife_blocks.csv`, `calibration.csv`,
 `calibration_jackknife.csv`, `calibration_jackknife_blocks.csv`,
 `replication.csv`, `controls.csv`, `folds.csv`, `check_rows.csv`,
-`residual_by_division.csv`.
+`residual_by_division.csv`, and control F's `gene_space.csv` (its held-out R²
+per number of components), `gene_space_summary.csv` and
+`gene_space_calibration.csv`.
 
 | held out, on 163 structures | share of the reproducible map (95% over structures; over spatial blocks) |
 |---|---|
@@ -541,16 +545,22 @@ density. Tables: `beyond\variance_partition.csv`, `partition.csv`, `weights.csv`
   structure volume is +0.038; single adults' leftovers agree at a median of
   +0.762 (lowest pair +0.578); the naive and RWS groups' at +0.895; every reading
   gives a leftover that replicates at 0.93 to 0.94. Control F: the components of
-  the 209 genes measured in every structure (most often 20, picked inside each
-  training fold) predict 81%; on its own calibration nano leaves 22% to 24%,
-  against 3% to 5% for a map made of those genes; its held-out R² is within 0.01
-  of its highest from 30 components on, and highest at 40, the most
-  `[beyond_controls] max_pcs` allows. **Control E does not pass**: held out, the
-  straight model reaches R² 0.551, the model curved 0.615 and fifth powers 0.636
-  (36% left), so curving buys more than the 0.05 the control allows. Part of the
-  straight model's leftover is curvature; the curved check row shows how much,
-  and it stays above its own floor (+20 points, +8 to +32; over spatial blocks +5
-  to +35).
+  the 209 genes measured in every structure (1 to 60, `[beyond_controls]
+  max_pcs`; picked inside each training fold, 20 to 48, most often 47) predict
+  85%, and the leftover of 47 components still replicates at 0.83; on its own
+  calibration nano leaves 22% to 24%, against 3% to 5% for a map made of those
+  genes. Its held-out R² is highest at 47 components (87% of the ceiling),
+  within 0.01 of that from 45 to 51, and lower beyond (83% at 60), so the range
+  holds its peak. The peak comes from a step, not a steady climb: the held-out
+  R² stays at 81% to 83% of the ceiling from 28 to 42 components and steps to
+  85% at 43 (`gene_space.csv`), so the 85% predicted rests on that step. Up to
+  40, the range first allowed, the curve was flat from 30 and highest at 40,
+  with 20 components picked most often and 81% predicted. **Control E does not pass**:
+  held out, the straight model reaches R² 0.551, the model curved 0.615 and
+  fifth powers 0.636 (36% left), so curving buys more than the 0.05 the control
+  allows. Part of the straight model's leftover is curvature; the curved check
+  row shows how much, and it stays above its own floor (+20 points, +8 to +32;
+  over spatial blocks +5 to +35).
 
 **Where it sits** (`figures\04_beyond_where.png`; `beyond\regression_table.csv`,
 `residual_by_structure.csv`, `residual_by_division.csv`). In large part it is a
@@ -591,7 +601,7 @@ divisions the density term is weak; the first proposal, which follows PSD95
 inside divisions too, leaves more (52%). Its replication follows from the map's
 reliability (0.938 expected), so it is not separate evidence. It is "not
 predicted by Gria1 expression or synapse density", not "beyond gene expression":
-the components of many genes predict 81% of the map. And a leftover says what the
+the components of many genes predict 85% of the map. And a leftover says what the
 predictors miss, not what it is; a claim about one structure needs its own null.
 
 ### 4.6 The first version, kept for the record
@@ -1352,6 +1362,43 @@ asks it again on sets fixed in advance.
   - figure 14 repeated 03 D and two rows of 03s1, so it is retired; its detailed
     version is 03s4, and the green channel and April's headline are 14 and 15.
 
+- **The reporting choices the reviews left (decided by Giulio on 9 October, as
+  recommended).** Seven questions, each settled as proposed after every number of
+  the second version and of the reviews had been seen; none changes the model,
+  the density genes, the structures or the tests named in advance, and only the
+  sixth changes a number:
+  1. the floor's error is stated both ways, as section 4.3 has it, not "low" as
+     decision 4 had said;
+  2. the curved model stays a check row with its own floor, not a bound, and no
+     spline row is added: terms bent to fifth powers are quoted instead (36%
+     left);
+  3. every interval of part 1 is quoted twice, the one over structures first and
+     the one over spatial blocks beside it;
+  4. the density term keeps the committed rule and its three genes, although
+     they follow PSD95 mostly between divisions (0.08 inside them); no rule that
+     also asks for agreement inside divisions, and the first proposal (Dlg4,
+     Homer1, Camk2a; 0.40 inside divisions) stays a check row (52% left);
+  5. tier 3 stays exploratory, with no named test now. The 53 genes past BH
+     against the leftover, 50 of them negative and mostly expressed in every
+     neuron, leave two readings open (section 5.7): neuronal mRNA in general
+     (mRNA in somata against receptor at synapses, which the floor cannot hold,
+     since both Allen halves share it) and the tissue, whose autofluorescence
+     follows the same genes. A test of either, such as a neuronal-density
+     composite against the leftover, is named before anyone looks further;
+  6. control F's range of components is widened from 40 to 60
+     (`[beyond_controls] max_pcs`), since its held-out R² was highest at 40, the
+     edge. Steps 24, 27 and 30 were rerun on 10 October: the curve now peaks
+     inside the range, at 47 components (87% of the ceiling), after a step at
+     43, and is lower beyond; picked inside each training fold (20 to 48 components, most often
+     47) the components predict 85% (81% up to 40, most often 20), and their
+     leftover replicates at 0.83 (0.90); on its own calibration nano still
+     leaves 22% to 24% against 3% to 5%, so the control passes as before. Every
+     other table of the three steps is unchanged byte for byte; figures 03s1 and
+     03s2 show the new numbers (section 4.4);
+  7. version 1's benchmark sentence (nano was not above a map of one Allen Gria1
+     experiment, -8 points) stays in the record (sections 4.6 and 8.1), with the
+     reason version 2 dropped the benchmark.
+
 ### 8.2 To settle
 
 - **The exceptions list.** Glra1 section 61 is kept as true absence, status
@@ -1359,27 +1406,6 @@ asks it again on sets fixed in advance.
   at a step in expression by the rule. To review on `figures\qc\00_flagged.png`
   (red, hatched, dots) and the gene's sheets; the numbers are final once
   reviewed.
-- **The genes that follow the straight model's leftover.** 53 genes pass BH
-  over all 451 (45 to 59 under smoother nulls), 50 of them with a negative rho,
-  most expressed in every neuron (vesicle, ribosomal, cytoskeletal genes;
-  section 5.7). They are also the genes the autofluorescence map follows: all 53
-  have a positive rho with it, and over every gene the two rhos agree at -0.36.
-  Two readings, neuronal mRNA in general (mRNA in somata against receptor at
-  synapses, which the floor cannot hold, since both Allen halves share it) and
-  the tissue. Tier 3 is exploratory; whether either is worth a named test, for
-  example a neuronal-density composite against the leftover, is a decision to
-  take before looking further, not after.
-- **Control F's range of components.** Its held-out R² is within 0.01 of its
-  highest from 30 components on and highest at 40, the edge of the range
-  `[beyond_controls] max_pcs` allows (in the first version, on 126 structures, it
-  peaked at 21). The control passes either way; a wider range is a choice for
-  Giulio.
-- **The density term inside divisions.** The rule's genes follow PSD95 mostly
-  between divisions (0.08 inside them, held out), the first proposal better
-  inside them (0.40). The rule stands as committed and the first proposal is a
-  check row (52% left); whether a rule that also asks for agreement inside
-  divisions is wanted is a decision for Giulio, to be taken before any nano
-  number of it.
 - **The glia lead.** The glia set followed the leftover of the four-subunit
   model (q 0.04), a test not named in advance; against the first version's
   leftover it did not pass (q 0.19), against the second's neither (q 0.45). An
@@ -1393,8 +1419,8 @@ asks it again on sets fixed in advance.
   and works with that of 5 October. Both are shown, with the power check;
   neither turns the localisation result positive.
 - **The production run.** The outputs quoted here were made on a full copy of
-  the production inputs; steps 13 to 30 run on the production data root after
-  the merge.
+  the production inputs; steps 13 to 30 run on the production data root now
+  that the line is merged.
 
 ## 9. How to rerun
 

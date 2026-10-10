@@ -30,16 +30,19 @@ import pandas as pd
 from matplotlib.lines import Line2D
 
 from sepmap.config import SETTINGS
-from sepmap.plotting import RED, hot_cut, save_figure, tidy, transparent_bad
+from sepmap.plotting import (
+    NANO,
+    NANO_DOT,
+    RED,
+    hot_cut,
+    save_figure,
+    tidy,
+    transparent_bad,
+)
 from sepmap.young_vs_adult import closeup
 
 ADULT_LAYERS = SETTINGS["adult_layers"]
 CLOSEUP = SETTINGS["closeup"]
-
-# the nano channel and its per-mouse dots, as sep_palette('nano') and ('nano_dot');
-# plotting.py holds no channel colours yet
-NANO = (0.95, 0.55, 0.10)
-NANO_DOT = (0.65, 0.30, 0.00)
 
 # the marker of each adult group
 GROUP_MARKERS = {"naive": "o", "rws": "^"}
@@ -82,10 +85,11 @@ FLAT_LABELS = list(closeup.LABEL_AREAS) + [
 FLAT_LABEL_SHIFT = {"TEa": (-20, 70)}
 
 
-def bars_grey(sem: np.ndarray, sem_max: float) -> np.ndarray:
+def sem_grey(sem: np.ndarray, sem_max: float) -> np.ndarray:
     """The grey of a bar whose mean has SEM `sem`: black at 0, 0.78 from `sem_max`.
 
-    Returns (n, 3) RGB; a NaN SEM reads as the lightest grey.
+    The zref counterpart of plotting.bars_grey, which reads t and so runs the other
+    way. Returns (n, 3) RGB; a NaN SEM reads as the lightest grey.
     """
     sem = np.atleast_1d(np.asarray(sem, dtype=float))
     share = np.clip(np.nan_to_num(sem, nan=sem_max) / sem_max, 0.0, 1.0)
@@ -184,7 +188,7 @@ def grey_key(ax: plt.Axes, sem_max: float) -> None:
     key = ax.inset_axes([0.80, 0.86, 0.16, 0.045])
     steps = np.linspace(0, sem_max, 6)
     key.imshow(
-        bars_grey(steps, sem_max)[None, :, :], aspect="auto", extent=(0, sem_max, 0, 1)
+        sem_grey(steps, sem_max)[None, :, :], aspect="auto", extent=(0, sem_max, 0, 1)
     )
     key.set_yticks([])
     key.set_xticks([0, sem_max])
@@ -239,7 +243,7 @@ def draw_area_band(
         xs,
         s["mean"],
         width=0.72,
-        color=bars_grey(s["sem"].to_numpy(), sem_max),
+        color=sem_grey(s["sem"].to_numpy(), sem_max),
         edgecolor="none",
         zorder=1,
     )

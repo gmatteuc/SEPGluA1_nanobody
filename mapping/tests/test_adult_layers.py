@@ -325,9 +325,9 @@ def test_band_average_is_over_tissue_only():
     assert np.isnan(out[0, 1])
 
 
-def test_bars_grey_runs_from_black_to_light_grey_with_the_sem():
+def test_sem_grey_runs_from_black_to_light_grey_with_the_sem():
     """An SEM of 0 gives black; sem_max and beyond, or NaN, the lightest grey."""
-    grey = layers_plotting.bars_grey(np.array([0.0, 0.05, 0.1, 0.3, np.nan]), 0.1)
+    grey = layers_plotting.sem_grey(np.array([0.0, 0.05, 0.1, 0.3, np.nan]), 0.1)
     assert grey[:, 0] == pytest.approx([0.0, 0.39, 0.78, 0.78, 0.78])
 
 

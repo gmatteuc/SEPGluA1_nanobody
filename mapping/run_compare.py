@@ -1,6 +1,7 @@
 """Young against adult in the adult CCF: maps and the per-structure table.
 
-Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
+Python route, in run order (tools\\venv_atlas; run_closeup and run_adult_layers in
+tools\\venv_flat):
      1. run_per_mouse          per brain: tissue mask, backgrounds
      2. run_to_ccf             every brain on the adult CCF grid
      3. run_cohort             cohort mean, SD and n per voxel
@@ -57,6 +58,7 @@ Python route, in run order (tools\\venv_atlas; run_closeup in tools\\venv_flat):
                                reports; figures 14, 14s
     30. run_ish_overview       figures 00, 15 and 15s, the figure
                                index; the numbers for the text
+    31. run_adult_layers       the adult map by depth (venv_flat)
 
 Folds the hemispheres of the cohort volumes and compares the young cohort with
 the adults reading by reading (the method is in sepmap/young_vs_adult/compare.py).

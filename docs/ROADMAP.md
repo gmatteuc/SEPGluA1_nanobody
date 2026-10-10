@@ -21,14 +21,16 @@ data root, for checks on a copy only.
 1.  Merge the refactor (step 11)                       [done, 4 October]
 2.  Rerun the production outputs with the merged code  [done, 5 October; one follow-up]
 3.  A1 to A5 in the Python route (step 9)              [A1 (ISH half), A2, A3 built on branch
-                                                        post-ish, 8 October, not merged yet;
-                                                        A1's young-against-adult half, A4, A5 next]
+                                                        post-ish, 8 October, merged 10 October;
+                                                        the adult cortex by depth merged 10 October;
+                                                        A1's young-against-adult half, A4's
+                                                        per-structure figures, A5 next]
 4.  adult_matlab/ to archive/                          [once A4 and A5 answer its questions; P9's are answered]
 5.  The remaining young brains                         [beside 3; into the Python route after A1]
       MG914's SEP channel, then MG896, MG906, MG895, then MG907, MG908
 6.  Young against adult across ages, P16 to P36        [once 5 is done]
 7.  A6 to A10                                          [A6 to A9 built for the ISH line on branch
-                                                        post-ish, 8 October, not merged yet (brought
+                                                        post-ish, 8 October, merged 10 October (brought
                                                         forward, decision 4 of the ISH discussion); A10 open]
 8.  Code questions held for later                      [any time]
 9.  LightSuite: pull requests upstream (Z2), then the swap (Z1)
@@ -36,13 +38,22 @@ data root, for checks on a copy only.
 Open throughout: comparable normalisation of the two routes; the open scientific questions
 ```
 
-The ISH line was rebuilt on 8 October 2026 on branch `post-ish`, not merged
-yet, from the five decisions of the ISH discussion
+The ISH line was rebuilt on 8 October 2026 on branch `post-ish`, merged into
+`main` on 10 October (`19da923`), from the five decisions of the ISH discussion
 ([history/ISH_DISCUSSION.md](history/ISH_DISCUSSION.md), section 8; below,
 Decisions taken): A1's ISH half,
 A2, A3 and A6 to A9, with the spatial null (A7) brought forward so no ISH p
 goes out without it. What it found, and how to rerun it:
-[ISH_ANALYSIS.md](ISH_ANALYSIS.md).
+[ISH_ANALYSIS.md](ISH_ANALYSIS.md). Its outputs exist on a full copy of the
+production inputs; the production run of steps 13 to 31 comes next.
+
+The adult map by cortical depth (step 31, `run_adult_layers`) was merged the
+same day (`9d4e79f`): every isocortex area of the ten adults per mouse in three
+depth bands and five layers, along the cortical hierarchy of Harris et al. 2019,
+with flatmaps of the mean and of the SD between adults. It is the cortical part
+of A4; what A4 still needs is the per-structure figures of the whole brain
+(section 3). What it found: [SCIENTIFIC_CONTEXT.md](SCIENTIFIC_CONTEXT.md), line
+of work 2.
 
 Rationale: A1 is load-bearing. It fixes the reference of `zref`, which today
 is the set of structures shared by every brain in the run, young brains
@@ -219,7 +230,7 @@ applies).
 | A1 | one declared structure set, written once to a table every analysis reads, and the `zref` reference taken from it | which structures enter, and a `zref` that depends only on the brain and a fixed list | `run_characterize_distribution`'s z-score and region set | every `zref` value, the young-against-adult differences of the grant figures included; the enrichment calls | ISH half built, 8 October (`d80119a`, `run_structure_set`: 204 structures, each adult's zero moved by 0.012 to 0.103); the young-against-adult tables and maps still read the 17-brain reference |
 | A2 | ISH quality control per section: failed sections flagged and set to missing, never interpolated; a reviewed list of genuine regional absence; the effect on the ranking reported | are the ISH structure means corrupted by failed or dim sections | `run_compare_with_allen_ish`'s section repair | the gene ranks (an unreviewed scan flags 14 of 95 genes; Gria1 is clean) | built, 8 October (`3bac2a5`, `run_ish_section_qc`): 120 sections set missing in 96 experiments; the true absences proposed, to review |
 | A3 | the gene ranking on A1's set and A2's tables, through one shared adult profile with a minimum-mice rule; ranking, roles, panel test, arms and words rerun; robustness to the statistic and to borders; a sensitivity table under three structure sets | which genes predict the adult map, on structures the cohort actually measures | `run_compare_with_allen_ish`'s region set, metric comparison and headline ranking | Gria1's rank and the ISH numbers held back under S5 | built, 8 October (`598b591`, `e4550d0`, `run_ish_gene_ranking`, `run_ish_robustness`); roles, arms and words retired by decision, the arms moved to `archive/` on 9 October |
-| A4 | the adult distribution: every structure by division, per-mouse mean and SEM, reliability, the enrichment call, an eroded mean beside the plain one; for the young cohort on its own too | how the signal is distributed across the adult brain, and how reproducibly | `run_characterize_distribution`'s bar charts, tables and enrichment | the enrichment list (zero becomes the brain's median structure) | open; reads A1's set and the per-adult table of `run_structure_set` |
+| A4 | the adult distribution: every structure by division, per-mouse mean and SEM, reliability, the enrichment call, an eroded mean beside the plain one; for the young cohort on its own too | how the signal is distributed across the adult brain, and how reproducibly | `run_characterize_distribution`'s bar charts, tables and enrichment | the enrichment list (zero becomes the brain's median structure) | the isocortex by depth band and layer done (step 31, `run_adult_layers`, merged 10 October: per adult and area, mean, SEM and t, bars grey by SEM, the half-against-half reliability per depth); open: the per-structure figures of the whole brain by division, with the enrichment call and the eroded mean, reading A1's set and the per-adult table of `run_structure_set` |
 | A5 | autofluorescence as a parallel control per structure and division, and its own distribution | is the nano pattern its own signal, structure by structure | `run_compare_nano_with_autofluorescence`, and the `auto` run of `run_characterize_distribution` | the lists of `run_compare_nano_with_autofluorescence` (the question is kept, not the output) | open; the per-adult autofluorescence means are in `adult_per_mouse.csv` |
 
 The decisions they rest on (S1 to S5 in the plan):
@@ -254,7 +265,9 @@ Also in step 9, because no output holds the numbers yet: the per-mouse
 supragranular-minus-infragranular contrast of each cortical system goes into
 `run_region_groups`' outputs. SCIENTIFIC_CONTEXT states the result from a
 read-only check of 1 October and quotes no value until `run_region_groups`
-writes it.
+writes it. For the ten adults alone, step 31 writes it per area and mouse
+(`adult_v2\layers\area_layers_per_mouse.csv`, with L2/3 - L5 beside it); the
+young-against-adult systems still wait for it.
 
 Each addition is committed with its before and after written down, and the
 numbers marked provisional in [SCIENTIFIC_CONTEXT.md](SCIENTIFIC_CONTEXT.md)
@@ -535,6 +548,14 @@ engine has its self-test. Still to write, where a mistake would be silent
 - zref's median and spread count "brain, unassigned" as one structure among
   several hundred (`mouse_scalars`, `region_plot`); A1's declared set settles
   it.
+- Found with the adult map by depth, none changing its outputs:
+  `region_groups.layer_of` does not read ACAv 6a and 6b, named without the word
+  layer, so the young-against-adult route's frontal infragranular group leaves
+  them out; `cohort.mouse_scalars`' cache is keyed on the per-mouse file's date
+  only, not on `region_tables.min_vox20`; and the figures of the map by depth
+  are in a plotting module of their own, `adult/layers_plotting.py`, until
+  `adult/plotting.py`, near three thousand lines, becomes a package with them
+  as one of its parts ([STYLE.md](STYLE.md), Pipelines and run scripts).
 - The `log2_zref` and `log2_zref_P20only` columns of `region_table.csv`
   (`run_compare`) hold a difference, young minus adult, not a log2 ratio:
   zref is already a position on a log scale. The names stay unless the table
@@ -717,8 +738,8 @@ detailed version, and part 1 run once more the same day in its second version
 ([ISH_ANALYSIS.md](ISH_ANALYSIS.md)). Still open: what the leftover of the
 beyond-abundance analysis is (a total-receptor channel); the broad negative
 pattern of genes expressed in every neuron against the second version's leftover,
-which are also the genes the tissue's autofluorescence follows, exploratory so far
-(ISH_ANALYSIS.md, section 8.2); a background panel of a few
+which are also the genes the tissue's autofluorescence follows, exploratory, with
+no named test for now (ISH_ANALYSIS.md, sections 5.7 and 8.1); a background panel of a few
 thousand Allen genes, to place the panel's genes among genes nobody chose; and
 the true absences of the section QC, proposed and not yet reviewed.
 
@@ -805,6 +826,20 @@ For the reasons, see the plan and the documents named.
   panels with one line saying what to take from it, its detailed version the
   same number with an s; the overview a one-page summary. The arm modules and
   their run scripts moved to `archive/`.
+- **The ISH line's reporting choices** (Giulio, 9 October, as recommended after
+  the reviews; [ISH_ANALYSIS.md](ISH_ANALYSIS.md), section 8.1): the floor errs
+  both ways; the curved model stays a check, with no spline row; both intervals
+  of part 1 are quoted, the one over structures first; the density term keeps
+  its committed rule; tier 3 stays exploratory, with no named test now; control
+  F's range goes from 40 to 60 components (it now peaks inside it, at 47, and
+  predicts 85%; the control passes as before); version 1's benchmark sentence
+  stays in the record.
+- **The adult map by depth** (Giulio, 9 October): the mean flatmaps in
+  `PuOr_r` at ±0.9 zref, as the adult column of the young-against-adult
+  flatmaps, with a hot version (`run_adult_layers --cmap hot`); the bars grey by
+  SEM rather than t, since zref's zero is the brain's median structure
+  ([STYLE.md](STYLE.md), Figures); a cell counted when it covers a quarter of
+  its area at that depth; the order of the areas that of Harris et al. 2019.
 - **The ISH line** (the ISH discussion, [history/ISH_DISCUSSION.md](history/ISH_DISCUSSION.md),
   8 October; Giulio: "all as recommended"):
   1. the headline: April's category p (0.032) is not shown again but once, to

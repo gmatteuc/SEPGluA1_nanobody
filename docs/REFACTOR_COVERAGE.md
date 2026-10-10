@@ -21,7 +21,7 @@ Where a specification differs from the plan, the plan applies: the minimum numbe
 
 ### A1. Declared structure set and zref reference (required)
 
-**Status, 8 October 2026: the ISH half built, on branch `post-ish`, not merged yet** (`d80119a`;
+**Status, 8 October 2026: the ISH half built, on branch `post-ish`, merged into `main` on 10 October** (`d80119a`;
 `mapping/sepmap/structures.py`, `adult/profiles.py`, `run_structure_set.py`).
 204 structures, grey matter measured in all 10 adults; each adult's zero
 moves by 0.012 to 0.103 and the cohort map's order not at all (0.99995).
@@ -39,7 +39,7 @@ section 3).
 
 ### A2. ISH per-section quality control (required)
 
-**Status, 8 October 2026: built on branch `post-ish`, not merged yet** (`3bac2a5`; `mapping/sepmap/ish/section_qc.py`,
+**Status, 8 October 2026: built on branch `post-ish`, merged into `main` on 10 October** (`3bac2a5`; `mapping/sepmap/ish/section_qc.py`,
 `run_ish_section_qc.py`, `mapping/ish_section_exceptions.csv`). Along each
 experiment's own section axis, coronal and sagittal: a section dim against
 the sections on both sides is set missing, never filled in; one dim against
@@ -59,7 +59,7 @@ agrees at 0.9996 and above (`robustness_summary.csv`).
 
 ### A3. Gene ranking on the declared set, and its robustness (required)
 
-**Status, 8 October 2026: built on branch `post-ish`, not merged yet** (`598b591`, `e4550d0`;
+**Status, 8 October 2026: built on branch `post-ish`, merged into `main` on 10 October** (`598b591`, `e4550d0`;
 `mapping/sepmap/ish/gene_ranking.py`, `robustness.py`). One adult profile
 on the declared set, one gene table, the spatial null. The roles, arms and
 words tests are retired rather than rerun (decision 5 of the ISH
@@ -84,6 +84,16 @@ structure; Cacng8 first of P9's genes in all ([ISH_ANALYSIS.md](ISH_ANALYSIS.md)
 
 ### A4. Adult regional distribution (required)
 
+**Status, 10 October 2026: the isocortex done by depth, the whole brain open**
+(branch `post-adult-layers`, merged into `main` on 10 October; `daa34b3`;
+`mapping/sepmap/adult/layers.py`, `layers_plotting.py`, `run_adult_layers.py`,
+step 31). Per adult and isocortex area, in three depth bands, the five layers
+and over the whole depth: mean, SD, SEM and t across adults, bars grey by SEM,
+and the half-against-half reliability of each depth's profile with its
+Spearman against the Harris 2019 hierarchy. Still open: the per-structure
+figures of the whole brain by division, with the enrichment call and the
+eroded mean, reading A1's set ([ROADMAP.md](ROADMAP.md), A4).
+
 **Adult regional distribution: every structure by division, per-mouse mean +/- SEM, per-structure reliability and an enrichment call (with a cohort argument)**
 
 - **Replaces:** P8 Region_MeanSum/Zscore_BarByMacro (P8-18, P8-19), the _withSEM BarByMacro and BarAcrossDivi figures (P8-23, P8-24), Region_MeanSum_Table (P8-15), per-region reliability shading (P8-17), the enrichment classification with orange labels (P8-21), the division bars (P8-20), the map-vs-table check (P8-25), and the young_P20 characterisation run (P8-05, merged_young_P20_nano).
@@ -102,7 +112,7 @@ structure; Cacng8 first of P9's genes in all ([ISH_ANALYSIS.md](ISH_ANALYSIS.md)
 
 ### A6. Within-division gene agreement, per-gene scatters (recommended)
 
-**Status, 8 October 2026: built on branch `post-ish`, not merged yet** (`d82bb4c`; `mapping/sepmap/ish/divisions.py`,
+**Status, 8 October 2026: built on branch `post-ish`, merged into `main` on 10 October** (`d82bb4c`; `mapping/sepmap/ish/divisions.py`,
 `run_ish_divisions.py`). Within-division rho against the spatial null and
 a shuffle inside divisions (the shuffle gives 32.2% false positives on
 random smooth maps, so it is shown, not used); gene sheets for Cacng8,
@@ -117,7 +127,7 @@ Gria1, Grm5, Dlg2 and Aqp4. The paired bar strip was not built.
 
 ### A7. Spatial null (recommended)
 
-**Status, 8 October 2026: built for the ISH line, on branch `post-ish`, not merged yet** (`25b6a56`;
+**Status, 8 October 2026: built for the ISH line, on branch `post-ish`, merged into `main` on 10 October** (`25b6a56`;
 `mapping/sepmap/ish/spatial_null.py`, `run_ish_spatial_null.py`).
 Variogram-matched surrogates (Burt 2020) written in numpy and scipy, since
 brainsmash imports scikit-learn and joblib, which `venv_atlas` lacks;
@@ -135,7 +145,7 @@ enrichment side waits for A4.
 
 ### A8. Gene panel against the autofluorescence map (recommended)
 
-**Status, 8 October 2026: built on branch `post-ish`, not merged yet** (`598b591`; `mapping/sepmap/ish/gene_ranking.py`).
+**Status, 8 October 2026: built on branch `post-ish`, merged into `main` on 10 October** (`598b591`; `mapping/sepmap/ish/gene_ranking.py`).
 The autofluorescence map, read as nano and tested with its own surrogates:
 Gria1 +0.176 (p 0.447), 38 genes past its null after BH against 12 for
 nano (94 against 128 before correction), the two gene orders agreeing at
@@ -150,7 +160,7 @@ nano (94 against 128 before correction), the two gene orders agreeing at
 
 ### A9. Gene documentation table (recommended)
 
-**Status, 8 October 2026: built on branch `post-ish`, not merged yet** (`b831849`; `mapping/sepmap/ish/gene_table.py`,
+**Status, 8 October 2026: built on branch `post-ish`, merged into `main` on 10 October** (`b831849`; `mapping/sepmap/ish/gene_table.py`,
 `gene_documentation.csv`, 451 genes). A CSV written UTF-8 with a
 byte-order mark, so Excel opens it; no .xlsx, since openpyxl is not in
 `venv_atlas`. The reference column is left for hand curation.

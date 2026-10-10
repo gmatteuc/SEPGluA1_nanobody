@@ -23,9 +23,10 @@ provisional. Where a fix of step 8 or a decision of 4 October moved a quoted
 number, the earlier value is given beside it. Line of work 3, and the
 reproducibility of line 2, quote the ISH analysis built on 8 October 2026 on
 branch `post-ish` (`adult_v2\ish_analysis\`, [ISH_ANALYSIS.md](ISH_ANALYSIS.md)),
-run on a full copy of the production inputs: the production data root does not
-hold those outputs yet; it does once the branch is merged and steps 13 to 30
-of the Python route run there.
+and line 2 the adult map by depth (`adult_v2\layers\`), both merged on 10 October
+and run on a full copy of the production inputs: the production data root does
+not hold those outputs yet; it does once steps 13 to 31 of the Python route run
+there.
 
 ## The question
 
@@ -167,6 +168,45 @@ questions of the map:
   grey-matter structures measured in all ten adults (A1, S1;
   `adult_v2\ish_analysis\tables\structure_set.csv`), with `zref` taken over
   them ([ISH_ANALYSIS.md](ISH_ANALYSIS.md), section 3).
+- **By cortical depth** (step 31, `mapping/run_adult_layers.py`;
+  `adult_v2\layers\`). Every isocortex area of the ten adults is measured per
+  mouse in three depth bands (supragranular L1 + L2/3, granular L4,
+  infragranular L5 + L6) and five layers, as `zref` of the region tables, a cell
+  counted when it covers a quarter of its area at that depth, and ordered along
+  the cortical hierarchy of Harris et al. 2019 (below, Related literature).
+  - The profile over areas is reproducible at every depth: two halves of five
+    adults agree at rho 0.89 supragranular (35 areas with every adult), 0.89
+    granular (20) and 0.95 infragranular (37), over the 126 splits; 0.94, 0.94
+    and 0.97 for all ten (Spearman-Brown), 0.91 (L1) to 0.97 (L6) layer by layer
+    (`depth_summary.csv`).
+  - Every band rises along the hierarchy: Spearman with Harris's score +0.43
+    (p 0.010), +0.58 (p 0.007) and +0.38 (p 0.024), +0.46 (p 0.005) over the
+    whole depth; without the prefrontal module +0.44, +0.58 and +0.39. These p
+    are descriptive, since neighbouring areas are not independent. The
+    contrasts within a brain do not follow the hierarchy (supragranular -
+    infragranular +0.07, p 0.67; L2/3 - L5 -0.02, p 0.91), although they
+    replicate (0.96 and 0.93 for all ten); they differ by module instead
+    (L2/3 - L5 over each module's areas: auditory -0.11, visual and medial
+    -0.06, somatomotor +0.04).
+  - The rise with depth sits at the two ends. L1 is below L2/3 in 40 of 41
+    areas (median -0.24 zref) and L5 below L6 in 37 of 42 (median -0.09), while
+    L2/3 against L5 splits (21 of 41 lower, median -0.005): L2/3 is clearly
+    below L5 (t ≤ -3) in 13 areas, auditory, visual, retrosplenial and orbital
+    among them, and clearly above it only in PL. So supragranular is below
+    infragranular in 37 of 41 areas (median -0.15) mostly because L1 is low and
+    L6 high; it is clearly reversed (t ≥ 3) in PL, ILA and ACAv.
+  - Highest in the supragranular and infragranular bands: ILA (0.79 and 0.74),
+    PL, ACAv and VISpor (VISli too, infragranular); in layer 4 VISpor, TEa and
+    VISli. Lowest: RSPd, RSPv and ORBl in the supragranular band, SSp-n and
+    SSp-m in layer 4 and the infragranular band (`area_layers_summary.csv`).
+  - Between adults the median SD of an area's band is 0.13, 0.09 and 0.10 zref
+    (SEM 0.042, 0.030 and 0.031); VISpor, measured in 4 to 7 adults band by
+    band, varies most (SD 0.27 to 0.28). VISpl has no mean in any band or over
+    the whole depth (only in L6, from 3 adults), nor FRP in the supragranular
+    band: the sections cover too little of them. The flatmaps of
+    the mean and of the SD (`01_flatmaps_by_band_smooth3x1x1.png`) show the
+    pattern; the SD between adults is highest where the sections end and
+    carries their banding, so it is partly measurement.
 - **Being rebuilt.** Which structures stand out, and with what confidence, is
   being redone. The MATLAB route (`run_characterize_distribution`) called a
   structure enriched above a threshold on its own scale, and Sami El-Boustani
@@ -273,10 +313,11 @@ split between Gria1 and density is loosely fixed under it.
   six pass (figure 03s2; `adult_v2\ish_analysis\beyond\controls.csv`). Control E
   does not: curving the two terms raises the held-out R² from 0.551 to 0.615, so
   part of the straight leftover is curvature; the curved check row shows how much
-  (not a bound: fifth powers leave 36%). The components of the 209 genes measured in every structure predict
-  81%, and the nano map stands above that model's own floor (22% to 24% left
-  against 3% to 5%). So the claim is "not predicted by Gria1 expression or
-  synapse density", never "beyond gene expression".
+  (not a bound: fifth powers leave 36%). The components of the 209 genes
+  measured in every structure predict 85% (most often 47 components, picked
+  inside each training fold), and the nano map stands above that model's own
+  floor (22% to 24% left against 3% to 5%). So the claim is "not predicted by
+  Gria1 expression or synapse density", never "beyond gene expression".
 - The leftover is in good part a contrast between divisions (40% of its
   variance): the hippocampal formation, the striatum and olfactory areas sit
   above prediction as a whole, the isocortex and the hypothalamus below
@@ -654,6 +695,28 @@ neurodevelopment. *Trends Neurosci* 46(10):847-862. `Larsen_2023.pdf`
   areas have a delayed or prolonged window. Our frontal areas are lower in
   young brains (`cref` -0.43); with two ages this cannot be read as timing.
 
+### The cortical hierarchy
+
+**Harris JA, Mihalas S, Hirokawa KE, et al. (2019).** Hierarchical organization
+of cortical and thalamic connectivity. *Nature* 575:195-202.
+
+- From the laminar patterns of corticocortical, thalamocortical and
+  corticothalamic connections, each classed as feedforward or feedback, a
+  hierarchy score for 37 mouse cortical areas (Fig. 6d, Supplementary Table 9,
+  "Cre_conf CC+TC+CT"; VISp lowest, ORBvl highest), and 43 areas grouped into
+  six modules (prefrontal, lateral, somatomotor, visual, medial, auditory).
+- Here: the order of the areas in the adult map by depth (line 2), and the axis
+  its bands rise along. `mapping/harris2019_hierarchy.csv` holds the scores and
+  modules. The table is Supplementary Table 9 (`41586_2019_1716_MOESM10_ESM.xlsx`,
+  MD5 55b69aeba95468559ff025e3c08b24b6 as PubMed Central lists it, fetched 9
+  October 2026), tab "all area hr scores_Cre + WT", column "Cre_conf CC+TC+CT".
+  Its 37 scores equal those of the authors' code (`AllenInstitute/MouseBrainHierarchy`
+  at commit 8e4e0dd, `Results/hierarchy_summary_CreConf.xlsx`) to 1e-9; the
+  modules come from its `Input/CC_TC_CT_clusters.xlsx` (PFC named Prefrontal).
+  The six areas without a score (AUDv, SSp-un, ECT, GU, PERI, VISC) come last, in
+  Harris's module order. The tests hold four scores to the published ones (VISp
+  -0.421, ORBvl 0.386, VISrl -0.055, SSp-bfd -0.157).
+
 ### Comparing a brain map with gene expression
 
 **Lein ES, Hawrylycz MJ, Ao N, et al. (2007).** Genome-wide atlas of gene
@@ -762,6 +825,7 @@ anatomical labeling for a common mouse brain atlas. *Nat Commun* 10:5067.
 | where an experience changes the map (line 1) | `group_comparison/run_collect_by_group.m`, `run_normalise_groups.m`, `run_group_differences.m` | `comparisons\<ctrl>_vs_<exp>_<channel>\` |
 | per-brain volumes and the readings (lines 2 to 4) | `mapping/run_per_mouse.py`, `run_to_ccf.py`, `run_cohort.py` (`sepmap/volumes/`) | `comparisons_v2\per_mouse\`, `per_mouse_ccf\`, `ccf\<cohort>\` |
 | the adult distribution (line 2) | `mapping/run_region_plot.py` (the per-mouse region table); `adult_matlab/run_characterize_distribution.m` and `run_compare_nano_with_autofluorescence.m` until A4 and A5 replace them | `comparisons_v2\young_vs_adult\region_means_per_mouse.csv` |
+| the adult map by cortical depth (line 2) | `mapping/run_adult_layers.py` (`sepmap/adult/layers.py`; flatmaps in `tools\venv_flat`) | `adult_v2\layers\` |
 | the inputs of the ISH line (line 3) | `mapping/run_panel_build.py`, `run_panel_fetch.py` (the ontology panel), `run_structure_set.py`, `run_ish_section_qc.py`, `run_ish_gene_table.py`, `run_ish_spatial_null.py` (`sepmap/structures.py`, `sepmap/adult/profiles.py`, `sepmap/ish/`) | `adult_v2\panel\`, `adult_v2\ish_analysis\tables\` |
 | more than Gria1 expression or synapse density (line 3) | `mapping/run_beyond_density.py`, `run_beyond_controls.py`, `run_beyond_calibration.py`, `run_beyond_regression.py`, `run_beyond_figures.py` (`sepmap/adult/`) | `adult_v2\ish_analysis\beyond\` |
 | the genes against the map (line 3) | `mapping/run_ish_gene_ranking.py`, `run_ish_robustness.py`, `run_ish_divisions.py`, `run_ish_gene_sets.py`, `run_ish_overview.py` (`sepmap/ish/`); [ISH_ANALYSIS.md](ISH_ANALYSIS.md) | `adult_v2\ish_analysis\` |

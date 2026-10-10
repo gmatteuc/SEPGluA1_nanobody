@@ -211,8 +211,8 @@ large = "only structures of at least 0.4 mm3 (50 Allen voxels)"
 allen_grid = "nano on the Allen 200 um grid, structures assigned as the ISH values"
 
 [beyond_controls]
-max_pcs = 40               # the largest gene-space model of control F, in components: twice the 20 its nested cross-validation picks most often, and past where its held-out R2 flattens (plateau_r2)
-plateau_r2 = 0.01          # F: the fewest components whose held-out R2 is within this of the curve's highest, which the text quotes as where the curve flattens
+max_pcs = 60               # the largest gene-space model of control F, in components: up to 40 its held-out R2 was highest at the edge of the range; up to 60 it peaks inside it (47) and falls after
+plateau_r2 = 0.01          # F: the band of components whose held-out R2 is within this of the curve's highest, the fewest and the most of them, which the text quotes beside the peak
 nested_repeats = 5         # shufflings of the outer and of the inner folds of control F's nested cross-validation, which picks the number of components inside each training fold
 f_draws = 5                # draws of made-up animals per direction in control F's own calibration
 n_single = 200             # single shufflings of the folds whose leftovers give the spread one shuffling alone would have (folds.csv)
