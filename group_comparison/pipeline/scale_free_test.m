@@ -239,7 +239,8 @@ exportgraphics(fig_bars, fullfile(comp_out_dir, ['Scale_Free_Bars_' file_tag '.p
 
 % the t map of the region named in advance, at each cluster's planes
 comparison = struct('ctrl_type', ctrl_type, 'exp_type', exp_type, 'region', ...
-    a_priori_region, 'ccf_first_index', ccf_first_index, 't_limit', t_limit);
+    a_priori_region, 'ccf_first_index', ccf_first_index, 't_limit', t_limit, ...
+    'cluster_p', cluster_p);
 plot_t_map(result, step3, masks, comparison, file_tag, comp_out_dir);
 fprintf('Scale-free test saved to: %s\n', comp_out_dir);
 
@@ -482,7 +483,12 @@ for s = 1:2
     mass = null_sign(observed, :)';
     T_out.([prefix 'mass']) = mass;
     T_out.([prefix 'voxels']) = map.detail.cluster_n(:, signs{s, 3});
-    T_out.([prefix 'peak']) = map.detail.cluster_peak(:, signs{s, 3});
+    peak = map.detail.cluster_peak(:, signs{s, 3});
+
+    % a region without a cluster of the sign has a peak of 0, not the -0 the
+    % negative sign gives it
+    peak(peak == 0) = 0;
+    T_out.([prefix 'peak']) = peak;
     p_sign = nan(size(mass));
     for r = 1:numel(mass)
         if ~isnan(mass(r))
@@ -654,17 +660,25 @@ end
 function plot_t_map(result, step3, masks, comparison, file_tag, comp_out_dir)
 % The observed Welch t of the index in the box around the region named in
 % advance: a coronal view at each cluster's planes (the mean t over them), the
-% index's heaviest cluster of each sign and step 3's, and a view from above
-% (the mean over DV of the t in the region); every cluster outlined where it
-% is in the view, the region in grey.
+% index's heaviest cluster of each sign and step 3's, within window_um of the
+% clusters there; and a view from above of the whole region (the mean over DV
+% of the t in it); every cluster outlined where it is in the view, the region
+% in grey.
+
+% the coronal views reach this far beyond the clusters they show: about two
+% barrel columns of 300 um (Lefort et al. 2009), as run_mouse_influence's maps
+window_um = 600;
 
 % the clusters on the box's grid: the index's two, then step 3's
-names = {sprintf('index, %s higher', comparison.exp_type), ...
-    sprintf('index, %s higher', comparison.ctrl_type), ...
-    sprintf('step 3''s, %s higher (test maps)', comparison.exp_type)};
+names = {sprintf('the index''s %s-higher cluster', comparison.exp_type), ...
+    sprintf('the index''s %s-higher cluster', comparison.ctrl_type), ...
+    sprintf('step 3''s %s-higher cluster (test maps)', comparison.exp_type)};
 voxel_lists = {result.apriori_clusters{1}, result.apriori_clusters{2}, step3.lin};
+
+% the index's clusters drawn thicker than step 3's, so that they show where
+% they lie on its edge
 line_styles = {'--', ':', '-'};
-line_widths = [1.2, 1.4, 1.6];
+line_widths = [2, 2, 1.2];
 is_cluster = cell(1, 3);
 for c = 1:3
     is_cluster{c} = box_mask(voxel_lists{c}, masks);
@@ -690,25 +704,40 @@ for c = 1:3
     subplot(2, 2, c);
     [planes, ~, ~] = ind2sub(masks.box_size, find(is_cluster{c}));
     if isempty(planes)
-        text(0.5, 0.5, sprintf('no %s cluster', names{c}), 'HorizontalAlignment', ...
-            'center', 'Interpreter', 'none');
+        text(0.5, 0.5, {sprintf('%s:', names{c}), sprintf(['none in %s (no voxel ' ...
+            'of that sign at p < %g)'], comparison.region, comparison.cluster_p)}, ...
+            'HorizontalAlignment', 'center', 'Interpreter', 'none', 'FontSize', 10);
         axis off;
         continue
     end
     planes = min(planes):max(planes);
-    view_t = squeeze(mean(result.t_box(planes, :, :), 1, 'omitnan'));
-    draw_t_view(view_t, x_mm, y_dv_mm, c_map, limits);
-    draw_outline(x_mm, y_dv_mm, squeeze(any(is_region(planes, :, :), 1)), ...
+
+    % the window: every cluster's footprint over these planes and window_um
+    % around it, within the box
+    footprints = cell(1, 3);
+    for d = 1:3
+        footprints{d} = squeeze(any(is_cluster{d}(planes, :, :), 1));
+    end
+    [rows, cols] = find(footprints{1} | footprints{2} | footprints{3});
+    margin = round(window_um / 10);
+    dv_win = max(1, min(rows) - margin):min(masks.box_size(2), max(rows) + margin);
+    ml_win = max(1, min(cols) - margin):min(masks.box_size(3), max(cols) + margin);
+
+    % the mean t over the planes, the region and the clusters outlined
+    view_t = squeeze(mean(result.t_box(planes, dv_win, ml_win), 1, 'omitnan'));
+    draw_t_view(view_t, x_mm(ml_win), y_dv_mm(dv_win), c_map, limits);
+    region_view = squeeze(any(is_region(planes, dv_win, ml_win), 1));
+    draw_outline(x_mm(ml_win), y_dv_mm(dv_win), region_view, ...
         sep_palette('paired_lines'), 0.8, '-');
     for d = 1:3
-        draw_outline(x_mm, y_dv_mm, squeeze(any(is_cluster{d}(planes, :, :), 1)), ...
+        draw_outline(x_mm(ml_win), y_dv_mm(dv_win), footprints{d}(dv_win, ml_win), ...
             [0 0 0], line_widths(d), line_styles{d});
     end
     xlabel('ML from the midline (mm), medial >');
     ylabel('DV (mm from the top of the volume)');
-    title(sprintf('%s: %d voxels; mean t over CCF %d to %d', names{c}, ...
-        numel(voxel_lists{c}), y_ccf(planes(1)), y_ccf(planes(end))), ...
-        'Interpreter', 'none', 'FontSize', 10);
+    title({sprintf('%s: %d voxels', names{c}, numel(voxel_lists{c})), ...
+        sprintf('the mean t over its planes, CCF %d to %d', y_ccf(planes(1)), ...
+        y_ccf(planes(end)))}, 'Interpreter', 'none', 'FontSize', 10);
 end
 
 % from above: the mean over DV of the t in the region, in each AP and ML column
@@ -737,10 +766,13 @@ title_line = sprintf(['Welch t of the asymmetry index |L - R| / (L + R) on the r
     comparison.region, strrep(file_tag, '_', ' '));
 outline_line = sprintf(['Outlines (each where it is in the view): dashed, the ' ...
     'index''s heaviest %s-higher cluster; dotted, its heaviest %s-higher cluster; ' ...
-    'solid black, step 3''s cluster; grey, %s. Colour: %g to %g; grey: no t.'], ...
+    'thin solid black, step 3''s cluster; grey, %s. Colour: %g to %g; grey: no t.'], ...
     comparison.exp_type, comparison.ctrl_type, comparison.region, limits);
-sgtitle({title_line, ['\rm\fontsize{10}' outline_line]}, 'FontSize', 13, ...
-    'FontWeight', 'bold', 'Interpreter', 'tex');
+view_line = sprintf(['Coronal views: the mean t over the cluster''s planes, within ' ...
+    '%d um of the clusters; from above: the mean over DV of the t in the region.'], ...
+    window_um);
+sgtitle({title_line, ['\rm\fontsize{10}' outline_line], ['\rm\fontsize{10}' ...
+    view_line]}, 'FontSize', 13, 'FontWeight', 'bold', 'Interpreter', 'tex');
 saveas(fig, fullfile(comp_out_dir, ['Scale_Free_TMap_' file_tag '.fig']));
 exportgraphics(fig, fullfile(comp_out_dir, ['Scale_Free_TMap_' file_tag '.png']), ...
     'Resolution', 300);
