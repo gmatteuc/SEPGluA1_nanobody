@@ -14,7 +14,8 @@
 % of one sign), also on (c) a map whose clusters cross a region border and
 % touch the other sign, and whose heaviest cluster differs at 6, 18 and 26
 % connectivity, where the voxels it keeps of each heaviest cluster on request
-% (keep_cluster_voxels) must be that cluster's, that a split's mirror image is
+% (keep_cluster_voxels) must be that cluster's and the t it keeps on request
+% (keep_t) the t written out, that a split's mirror image is
 % its negative, that the cluster
 % and top-volume measures put the large region first at a corrected p < 0.05
 % in (a), and that in (b) no measure reaches a corrected p < 0.05 more often
@@ -194,10 +195,11 @@ vol_cut_noise = missing_tissue(noisy_mice(grid_size, n_mice, noise_sigma), brain
 observed_only = perm_settings;
 observed_only.n_permutations = 1;
 observed_only.keep_cluster_voxels = true;
+observed_only.keep_t = true;
 perm_cut = region_permutation_test(stacks_cut, n_ctrl, geom_cut, observed_only);
 
 % the clusters of all the significant voxels that hold two regions or both signs
-[~, signed_cut] = bars_rolled_surprise(vol_cut, n_ctrl, brain, ...
+[~, signed_cut, t_cut] = bars_rolled_surprise(vol_cut, n_ctrl, brain, ...
     perm_settings.min_mice_per_group, perm_settings.slab_range);
 n_crossing = crossing_clusters(signed_cut, region_vol, perm_settings);
 [n_pass, n_fail] = check(n_crossing > 0, sprintf(['(c) %d clusters of the ' ...
@@ -212,6 +214,11 @@ n_crossing = crossing_clusters(signed_cut, region_vol, perm_settings);
 [n_pass, n_fail] = check_cluster_voxels(perm_cut.maps{1}, perm_cut.splits.observed, ...
     strcmp(perm_cut.measure_names, 'cluster'), signed_cut, region_vol, n_regions, ...
     '(c) map 1', n_pass, n_fail);
+
+% the t kept on request, which scale_free_test draws
+[n_pass, n_fail] = check(isequaln(perm_cut.maps{1}.detail.t, t_cut(geom_cut.cand_lin)), ...
+    sprintf('(c) map 1: the t kept on request equals the t written out on all %d voxels', ...
+    numel(geom_cut.cand_lin)), n_pass, n_fail);
 
 % the heaviest positive cluster of the large region at 6, 18 and 26: three
 % different masses, so the check above tells 18 from the other two
@@ -384,12 +391,12 @@ for m = 1:numel(vols)
 end
 end
 
-function [rolled, rolled_signed] = bars_rolled_surprise(vol, n_ctrl, brain, ...
+function [rolled, rolled_signed, t] = bars_rolled_surprise(vol, n_ctrl, brain, ...
     min_mice_per_group, slab_range)
 % The surprise median the bars take, written out as group_differences computes
 % it (group_welch_t, welch_surprise, rolling_surprise_median) on the 4D maps;
-% and the same median of the surprise signed by the t, which the region
-% measures other than the share take.
+% the same median of the surprise signed by the t, which the region measures
+% other than the share take; and the t, NaN without one.
 
 x_ctrl = abs(vol(:, :, :, 1:n_ctrl));
 x_exp = abs(vol(:, :, :, n_ctrl + 1:end));

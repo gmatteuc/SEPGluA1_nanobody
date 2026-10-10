@@ -19,9 +19,12 @@ function perm = region_permutation_test(stacks, n_ctrl, geom, perm_settings)
 %                  cluster_p, cluster_connectivity, topvol_mm3, region_quantile,
 %                  n_permutations ('all' or a number), n_workers, seed,
 %                  keep_cluster_voxels (optional, false when missing: true
-%                  keeps the voxels of the observed split's heaviest clusters)
-%                  and quiet (optional, false when missing: true prints
-%                  nothing, for a caller that runs it thousands of times)
+%                  keeps the voxels of the observed split's heaviest clusters),
+%                  keep_t (optional, false when missing: true keeps the
+%                  observed split's Welch t at every candidate voxel, for a
+%                  figure of the t map) and quiet (optional, false when
+%                  missing: true prints nothing, for a caller that runs it
+%                  thousands of times)
 %
 %   For each split everything that feeds the bars is computed again, as
 %   group_differences computes it for the groups as they are: the Welch t of
@@ -54,7 +57,9 @@ function perm = region_permutation_test(stacks, n_ctrl, geom, perm_settings)
 %   voxels and peaks, and the observed rolling median of the unsigned surprise
 %   on the candidate voxels (to check it against the bars'); with
 %   keep_cluster_voxels, also the heaviest clusters' voxels, as linear indices
-%   into the grid (detail.cluster_voxels, regions x positive and negative).
+%   into the grid (detail.cluster_voxels, regions x positive and negative); with
+%   keep_t, the observed split's t on the candidate voxels (detail.t, NaN
+%   without a t).
 
 % settings, under the names the code below uses
 min_mice_per_group = perm_settings.min_mice_per_group;
@@ -66,6 +71,10 @@ seed = perm_settings.seed;
 % do not need them, and their null file would carry every cluster's voxels
 keep_cluster_voxels = isfield(perm_settings, 'keep_cluster_voxels') && ...
     perm_settings.keep_cluster_voxels;
+
+% the observed split's t at every candidate voxel, only when asked: a value per
+% voxel, which only a figure of the t map needs
+keep_t = isfield(perm_settings, 'keep_t') && perm_settings.keep_t;
 
 % no progress lines when asked: the leave-one-out of run_per_mouse_values calls
 % this once per fold and split
@@ -115,7 +124,7 @@ end
 % median the bars use; timed, for the estimate of the rest
 t_observed = tic;
 observed = split_scores(stacks, splits.in_ctrl(splits.observed, :), geom, ...
-    perm_settings, topvol_k, true, keep_cluster_voxels);
+    perm_settings, topvol_k, true, keep_cluster_voxels, keep_t);
 observed_s = toc(t_observed);
 if ~quiet
     fprintf('  observed split: %.1f s.\n', observed_s);
@@ -153,7 +162,7 @@ progress_report({'start', n_other});
 null_other = cell(n_other, 1);
 parfor (k = 1:n_other, n_workers)
     null_other{k} = split_scores(stacks, in_ctrl_other(k, :), geom, perm_settings, ...
-        topvol_k, false, false);
+        topvol_k, false, false, false);
     send(queue, k);
 end
 
@@ -293,12 +302,13 @@ end
 % ===== Local functions: one split =====
 
 function scores = split_scores(stacks, in_ctrl, geom, perm_settings, topvol_k, ...
-    keep_detail, keep_cluster_voxels)
+    keep_detail, keep_cluster_voxels, keep_t)
 % The five measures of every region, for each map, positive and negative apart
 % (n_regions x 5 each, the share in both), for one split of the mice; with
 % keep_detail, also the heaviest clusters' voxels and peaks, the number of
 % voxels behind each top volume, and the rolling median of the unsigned surprise;
-% with keep_cluster_voxels too, the heaviest clusters' voxels themselves.
+% with keep_cluster_voxels too, the heaviest clusters' voxels themselves; with
+% keep_t too, the t at every candidate voxel.
 
 n_maps = numel(stacks);
 scores = struct();
@@ -308,8 +318,8 @@ scores.detail = cell(n_maps, 1);
 for m = 1:n_maps
 
     % the signed surprise, rolled over planes, and the share of each region
-    [rolled, share, n_with_t, rolled_unsigned] = rolled_surprise(stacks{m}, in_ctrl, ...
-        geom, perm_settings, keep_detail);
+    [rolled, share, n_with_t, rolled_unsigned, t_values] = rolled_surprise( ...
+        stacks{m}, in_ctrl, geom, perm_settings, keep_detail, keep_t);
 
     % the sum, quantile and top volume of each region, positive and negative
     [pos, neg, topvol_n] = region_measures(rolled, geom, perm_settings, topvol_k);
@@ -331,31 +341,39 @@ for m = 1:n_maps
         if keep_cluster_voxels
             detail.cluster_voxels = cluster_voxels;
         end
+        if keep_t
+            detail.t = t_values;
+        end
         scores.detail{m} = detail;
     end
 end
 end
 
-function [rolled, share, n_with_t, rolled_unsigned] = rolled_surprise(stack, in_ctrl, ...
-    geom, perm_settings, keep_unsigned)
+function [rolled, share, n_with_t, rolled_unsigned, t_values] = rolled_surprise( ...
+    stack, in_ctrl, geom, perm_settings, keep_unsigned, keep_t)
 % The signed surprise of the split's t on the candidate voxels, as its median over
 % +/- slab_range planes on the voxels with a t (NaN without a t), and each
 % region's share of voxels with a t at p < p_thresh, from the median of the
-% unsigned surprise, as the bars; block by block of AP columns.
+% unsigned surprise, as the bars; block by block of AP columns. With keep_t,
+% also the t itself at every candidate voxel (empty otherwise).
 
 slab_range = perm_settings.slab_range;
 n_ap = geom.grid_size(1);
 n_cand = numel(geom.cand_lin);
 rolled = nan(n_cand, 1, 'single');
 unsigned_blocks = cell(geom.n_blocks, 1);
+t_blocks = cell(geom.n_blocks, 1);
 n_with_t = zeros(geom.n_regions, 1);
 n_significant = zeros(geom.n_regions, 1);
 for b = 1:geom.n_blocks
     rows = geom.block_first(b):geom.block_last(b);
 
     % the signed surprise of the block's voxels, and those with a t
-    [surprise, has_t] = signed_surprise(stack(rows, in_ctrl), stack(rows, ~in_ctrl), ...
+    [surprise, has_t, t] = signed_surprise(stack(rows, in_ctrl), stack(rows, ~in_ctrl), ...
         perm_settings.min_mice_per_group);
+    if keep_t
+        t_blocks{b} = t;
+    end
 
     % the block as planes x columns, NaN off the voxels with a t (the surprise is
     % NaN there)
@@ -390,16 +408,18 @@ end
 % 0 / 0 is NaN, for a region without a voxel with a t
 share = n_significant ./ n_with_t;
 
-% the unsigned median of every block, in order (empty unless kept)
+% the unsigned median and the t of every block, in order (empty unless kept)
 rolled_unsigned = vertcat(unsigned_blocks{:});
+t_values = vertcat(t_blocks{:});
 end
 
-function [surprise, has_t] = signed_surprise(x_ctrl, x_exp, min_mice_per_group)
+function [surprise, has_t, t] = signed_surprise(x_ctrl, x_exp, min_mice_per_group)
 % The surprise -log10 p of the Welch t of experimental minus control, with the
 % sign of the t, at each voxel (a row: the mice of each group as columns, NaN
 % without a value), NaN where a group has fewer than min_mice_per_group mice;
 % the same arithmetic as group_differences' group_welch_t and welch_surprise,
-% so the observed split gives their surprise to the bit.
+% so the observed split gives their surprise to the bit. Also the t itself,
+% NaN where the surprise is.
 
 % each group's mice with a value, mean and SEM over them
 n_ctrl = single(sum(~isnan(x_ctrl), 2));

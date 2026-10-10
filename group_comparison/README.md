@@ -721,12 +721,16 @@ outlines (`lr_atlas_boundaries`) sit beside them, and so do the parts of
 step 3 that other code reuses: each mouse's tissue and its smoothing
 (`tissue_only`), its plane profile (`plane_tissue_means`), the alignment of
 the two groups (`align_exp_to_ctrl`), the regions of the bars
-(`surprise_regions`, `surprise_region_acronyms`) and their permutation test
-(`region_permutation_test`); and the parts the per-mouse steps share: the box
-around the clusters' region (`region_box_masks`), a mouse's box on the test's
-scale (`aligned_box_lr`), the mice's |L - R| on the band and its candidate
-voxels (`band_stack`, `band_geometry`), the check of the maps' cache against
-the normalised stacks (`check_maps_cache`) and the mice's places in a
+(`surprise_regions`, `surprise_region_acronyms`), the mice's maps on the
+voxels a split can give a t (`permutation_stacks`), their permutation test
+(`region_permutation_test`) and the bars of a region measure
+(`plot_measure_bars`, with `p_shade_index`, `add_p_colorbar`,
+`highlight_surprise_regions` and `expected_regions`); and the parts the
+per-mouse steps share: a mouse's off-tissue level (`off_tissue_level`), the
+box around the clusters' region (`region_box_masks`), a mouse's box on the
+test's scale (`aligned_box_lr`), the mice's |L - R| on the band and its
+candidate voxels (`band_stack`, `band_geometry`), the check of the maps' cache
+against the normalised stacks (`check_maps_cache`) and the mice's places in a
 collected stack (`collected_index`). Shared: `../common/`
 (`get_cohort`, `get_cohort_spec`, `compute_lr_stats`, `sep_palette`) and
 `../atlas/` (`get_atlas_crop`, `get_allen_region_mask`).
