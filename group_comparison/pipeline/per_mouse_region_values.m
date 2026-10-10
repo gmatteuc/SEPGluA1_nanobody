@@ -209,8 +209,8 @@ A = get_atlas_crop('ccf');
 brainMask = A.brainMask;
 [T_regions, valid_pixels, region_of_voxel] = surprise_regions(A.annot, paths.atlas);
 clear A
-masks = region_masks(T_regions, valid_pixels, region_of_voxel, regions, cluster_region, ...
-    slab_range);
+masks = region_box_masks(T_regions, valid_pixels, region_of_voxel, regions, ...
+    cluster_region, slab_range);
 clear valid_pixels region_of_voxel
 
 %% Each mouse of both groups
@@ -242,8 +242,8 @@ if exist(cache_file, 'file') && ~force_recompute_mice
     ctrl_mice = S_cache.ctrl_mice;
     exp_mice = S_cache.exp_mice;
     clear S_cache
-    check_cache_against_stack(ctrl_mice, ctrl_dir, channel, cache_file);
-    check_cache_against_stack(exp_mice, exp_dir, channel, cache_file);
+    check_maps_cache(ctrl_mice, ctrl_dir, channel, cache_file);
+    check_maps_cache(exp_mice, exp_dir, channel, cache_file);
     maps_recomputed = false;
 else
     ctrl_mice = group_mice(ctrl_type, ctrl_dir, channel, {}, brainMask, masks, ...
@@ -443,67 +443,6 @@ end
 
 % ===== Local functions: regions and mice =====
 
-function masks = region_masks(T_regions, valid_pixels, region_of_voxel, regions, ...
-    cluster_region, slab_range)
-% The voxels of each region named in advance and of the isocortex, as linear
-% indices into the folded grid, and the box around cluster_region the clusters
-% are read in: its planes and the slab_range planes on each side, which the
-% rolling median of a voxel in it reads.
-
-% the region of every voxel of the folded grid, 0 for none
-region_vol = zeros(size(valid_pixels), 'uint16');
-region_vol(valid_pixels) = region_of_voxel;
-
-% each region named in advance, by its row of the bars' table
-masks = struct();
-masks.folded_size = size(valid_pixels);
-masks.region_lin = cell(numel(regions), 1);
-for r = 1:numel(regions)
-    row = find(strcmp(T_regions.acronym, regions{r}));
-    if isempty(row)
-        error(['run_per_mouse_values: the region %s is not one of the bars'' ' ...
-               'regions. Use their atlas acronyms: %s.'], regions{r}, ...
-               strjoin(T_regions.acronym, ', '));
-    end
-    masks.region_lin{r} = uint32(find(region_vol == row));
-    fprintf('  %s: %d voxels in the left hemisphere.\n', regions{r}, ...
-        numel(masks.region_lin{r}));
-end
-
-% the isocortex: every isocortical area of the bars
-iso_rows = find(strcmp(T_regions.group, 'Isocortex'));
-masks.iso_lin = uint32(find(ismember(region_vol, iso_rows)));
-fprintf('  isocortex: %d areas, %d voxels in the left hemisphere.\n', ...
-    numel(iso_rows), numel(masks.iso_lin));
-
-% the band of the clusters: the region and slab_range planes on each side along
-% AP, within the atlas
-in_region = region_vol == find(strcmp(T_regions.acronym, cluster_region));
-band = imdilate(in_region, true(2 * slab_range + 1, 1)) & valid_pixels;
-clear region_vol
-
-% the band's bounding box: its planes and rows, its columns of the left
-% hemisphere and, after them, their mirror images in the right hemisphere, so
-% compute_lr_stats pairs each column of the box with its mirror image as it
-% pairs them across the whole width
-[ap, dv, ml] = ind2sub(size(band), find(band));
-masks.box_ap = min(ap):max(ap);
-masks.box_dv = min(dv):max(dv);
-masks.box_ml_left = min(ml):max(ml);
-masks.box_ml = [masks.box_ml_left, flip(2 * size(band, 3) + 1 - masks.box_ml_left)];
-clear ap dv ml
-
-% the band and the region in the box's folded grid
-band_box = band(masks.box_ap, masks.box_dv, masks.box_ml_left);
-region_box = in_region(masks.box_ap, masks.box_dv, masks.box_ml_left);
-masks.box_size = size(band_box);
-masks.band_lin = uint32(find(band_box));
-masks.band_in_region = region_box(masks.band_lin);
-fprintf(['  box of the clusters around %s: %d x %d x %d voxels, %d in the band, %d in ' ...
-         'the region.\n'], cluster_region, masks.box_size, numel(masks.band_lin), ...
-        nnz(masks.band_in_region));
-end
-
 function G = group_mice(group, group_dir, channel, named_mice, brainMask, masks, ...
     apply_smoothing, smooth_sigma)
 % One group's mice, one at a time from the stacks: each mouse's plane profile,
@@ -605,24 +544,6 @@ for k = 1:n_mice
 end
 end
 
-function raw_idx = collected_index(names, group, M_raw, raw_var_name, raw_file)
-% The mice's places in a group's collected nano stack, which run_collect_by_group
-% fills in the cohort table's order.
-
-cohort = get_cohort('groups', {group});
-raw_names = {cohort.name};
-raw_size = size(M_raw, raw_var_name);
-if numel(raw_size) < 4
-    raw_size(4) = 1;
-end
-if raw_size(4) ~= numel(raw_names)
-    error(['run_per_mouse_values: %s holds %d mice, the cohort table %d for %s. ' ...
-           'Rerun run_collect_by_group.'], raw_file, raw_size(4), numel(raw_names), ...
-           group);
-end
-[~, raw_idx] = ismember(names, raw_names);
-end
-
 function source_files = auto_stack_record(group_dir)
 % The registered volumes a group's auto stack was collected from, as
 % run_collect_by_group records them; an auto_4d.mat without that record is the
@@ -719,22 +640,6 @@ for k = 1:n_mice
     clear auto bg_mask
 
     fprintf('  done in %.1f min.\n', toc(t_mouse) / 60);
-end
-end
-
-function check_cache_against_stack(G, group_dir, channel, cache_file)
-% Stops unless the group's normalised stack still holds the mice and the lines
-% of run_normalise_groups the cached maps were made from: after step 2 is run
-% again, the cache would otherwise give the old maps without a word.
-
-norm_file = fullfile(group_dir, [channel '_4d_normalized.mat']);
-S_norm = load(norm_file, 'current_mice', 'norm_params');
-if ~isfield(G, 'stack_norm_params') || ~isequal(G.stack_mice, S_norm.current_mice) ...
-        || ~isequal(G.stack_norm_params, S_norm.norm_params)
-    error(['run_per_mouse_values: the maps of %s in %s were not made from the ' ...
-           'normalised stack now in %s (its mice or their lines differ, or the ' ...
-           'cache predates the check). Set force_recompute_mice = true.'], G.group, ...
-           cache_file, norm_file);
 end
 end
 
@@ -917,7 +822,7 @@ n_readings = numel(readings);
 lr_diff = cell(n_mice, n_readings);
 lr_sum = cell(n_mice, n_readings);
 for k = 1:n_mice
-    [lr_diff{k, 1}, lr_sum{k, 1}] = aligned_lr(boxes{k}, is_exp(k), slope, ...
+    [lr_diff{k, 1}, lr_sum{k, 1}] = aligned_box_lr(boxes{k}, is_exp(k), slope, ...
         intercept, common_factor);
     [lr_diff{k, 2}, lr_sum{k, 2}] = compute_lr_stats(boxes_raw{k});
     if n_readings == 3
@@ -1107,7 +1012,7 @@ for f = 0:n_folds
     coverage = NaN;
     if f >= 1 && ~isempty(cluster_lin)
         is_exp = f > n_ctrl;
-        [lr_diff, lr_sum] = aligned_lr(left_box, is_exp, slope, intercept, ...
+        [lr_diff, lr_sum] = aligned_box_lr(left_box, is_exp, slope, intercept, ...
             common_factor);
         [ai, coverage] = cluster_ai(lr_diff, lr_sum, cluster_lin);
         [lr_diff, lr_sum] = compute_lr_stats(left_box_raw);
@@ -1164,18 +1069,6 @@ place.plane_last = max(ap);
 place.centre = [mean(ap), mean(dv), mean(ml)];
 end
 
-function [lr_diff, lr_sum] = aligned_lr(box, is_exp, slope, intercept, common_factor)
-% A mouse's box on the common scale, as run_group_differences puts a whole
-% volume on it, the experimental group through the line first, then folded.
-
-if is_exp
-    vol = ((box .* slope) + intercept) ./ common_factor;
-else
-    vol = box ./ common_factor;
-end
-[lr_diff, lr_sum] = compute_lr_stats(vol);
-end
-
 function [cluster_lin, cluster] = fold_cluster(boxes_ctrl, boxes_exp, slope, ...
     intercept, common_factor, masks, perm_settings)
 % The heaviest cluster in the box's region where |L - R| is higher in the
@@ -1201,34 +1094,6 @@ cluster.mass = map.null_pos(perm.splits.observed, 1, is_cluster);
 cluster.peak = map.detail.cluster_peak(1, 1);
 fprintf('  heaviest cluster with a positive t: %d voxels, mass %.2f, peak %.2f\n', ...
     cluster.n, cluster.mass, cluster.peak);
-end
-
-function stack = band_stack(boxes, is_exp, slope, intercept, common_factor, masks)
-% The mice's |L - R| on the band, one column per mouse in the order given, each
-% on the common scale (the experimental mice through the line), as the test's
-% stacks.
-
-stack = zeros(numel(masks.band_lin), numel(boxes), 'single');
-for k = 1:numel(boxes)
-    lr_diff = aligned_lr(boxes{k}, is_exp(k), slope, intercept, common_factor);
-    stack(:, k) = abs(lr_diff(masks.band_lin));
-end
-end
-
-function [geom, is_cand] = band_geometry(stack, masks, perm_settings)
-% The candidates, as the test takes them: voxels where at least twice
-% min_mice_per_group mice have a value, the fewest with which a t is possible;
-% the region's voxels labelled 1, the band around it 0, which the rolling median
-% reads but no cluster takes. Which mice have a value does not depend on their
-% groups, so a fold's candidates serve every split of its mice.
-
-is_cand = sum(~isnan(stack), 2) >= 2 * perm_settings.min_mice_per_group;
-geom = struct();
-geom.grid_size = masks.box_size;
-geom.cand_lin = masks.band_lin(is_cand);
-geom.cand_region = uint16(masks.band_in_region(is_cand));
-geom.n_regions = 1;
-geom.voxel_mm = 0.01;
 end
 
 function relabelled = loo_relabelled(ctrl_mice, exp_mice, masks, perm_settings)
@@ -1282,7 +1147,7 @@ for f = 1:n_mice
     stack = stack(is_cand, :);
 
     % the left-out mouse on the fold's maps and on its raw stack
-    [lr_diff, lr_sum] = aligned_lr(boxes{f}, is_exp(f), slope, intercept, ...
+    [lr_diff, lr_sum] = aligned_box_lr(boxes{f}, is_exp(f), slope, intercept, ...
         common_factor);
     [lr_diff_raw, lr_sum_raw] = compute_lr_stats(boxes_raw{f});
 
