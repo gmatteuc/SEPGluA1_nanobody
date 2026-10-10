@@ -308,7 +308,7 @@ statistic, the cluster's mass, over the same splits.
 | step 3's cluster mass | 0.020, 0.040 (step 3's p) | 0.15 (step 3's p), 0.056 |
 
 - After RWS the cluster of all the mice is 3,662 voxels (0.0037 mm^3, mass
-  8,775), planes 554 to 570 (CCF 733 to 749, the posterior barrel field),
+  8,775), planes 554 to 570 (CCF index 732 to 748, the posterior barrel field),
   3.2 mm from the midline, 95% in layer 2/3 and 5% in layer 1. On the raw
   stack every RWS mouse but MG693 is above every naive mouse in it (MG736
   0.173, MG691 0.154, MG737 0.145, MG692 0.122, MG693 0.077; naive 0.028 to
@@ -348,7 +348,7 @@ statistic, the cluster's mass, over the same splits.
   0.999997 in all 14 mice), and the nano tiffs beside them are the nano
   stack, voxel for voxel, in all 17 adults.
 - After behavior the cluster of all the mice is 1,489 voxels, planes 471 to
-  486 (CCF 650 to 665), 3.0 mm from the midline, all in layer 6a. Every
+  486 (CCF index 649 to 664), 3.0 mm from the midline, all in layer 6a. Every
   behavior mouse is above every naive mouse in it on the raw stack (0.080 to
   0.146 against 0.010 to 0.061), +0.072, yet the splits' own clusters
   separate their groups as much: behavior higher, the direction carried
@@ -720,7 +720,10 @@ asymmetry index, step 3's test does not find the barrel-field result after
 RWS: SSp-bfd's heaviest RWS-higher cluster is 332 voxels on the edge of step
 3's patch, as heavy as in 80 of the 252 splits (one-sided p 0.32, the test
 named in advance; either sign 0.56). No region passes correction, after RWS
-or after behavior. Step 3's p 0.040 rests on the alignment's slope.
+or after behavior. This agrees with the slope sweep of the section above,
+which is what shows that step 3's p 0.040 rests on the alignment's slope; the
+index alone does not single out the slope, since it also leaves out each
+mouse's line of step 2 and divides each voxel by its own L + R.
 
 The design below was fixed on 10 October 2026, before any of its numbers
 (`run_scale_free_test`). Its p are reported whatever they are; no other
@@ -764,18 +767,31 @@ same test on a reading no scale can change.
   beside it; the overlap with step 3's behavior cluster (1,489 voxels).
 - What it can say. An RWS-higher cluster that holds on the index does not come
   from the slope. One that does not leaves step 3's p 0.040 resting on the
-  alignment.
+  alignment. (Added at the review, 10 October 2026: the index differs from
+  step 3's maps in more than the slope, since it also leaves out each mouse's
+  line of step 2, divides each voxel by its own L + R and takes its zero from
+  the off-tissue level. So a cluster that does not hold on the index agrees
+  with the slope sweep above, which isolates the slope, but does not itself
+  isolate it.)
 - Checks in the run. Every mouse's index in the box around SSp-bfd is that of
   `run_per_mouse_values`' raw stack, to the bit, with the same off-tissue
   level. Step 3's cluster is the leave-one-out's fold 0 of
   `run_per_mouse_values` (step 3 keeps no voxels), checked against step 3's
-  table.
+  table. Since the review, also the selection-matched test's observed
+  cluster (`Per_Mouse_Selection_<tag>.mat`), voxel for voxel; its mass and
+  its p of either sign over that test's splits, which are step 3's, are
+  checked against step 3's table, and give step 3's one-sided p.
 - Outputs, in the comparison's folder, `<tag>` the comparison and the
   smoothing: `Scale_Free_Regions_<tag>.csv` (one row per region: each sign's
-  heaviest cluster, its mass, voxels, peak, own p and planes; the score, p
-  and corrected p), `Scale_Free_Clusters_<tag>.csv` (SSp-bfd's two clusters
-  and step 3's: where each sits, the overlap), `Scale_Free_Bars_<tag>` (the
-  bars in step 3's style, the test named in advance under the title),
+  heaviest cluster, its mass, voxels, peak, own one-sided p and planes; the
+  score, p and corrected p), `Scale_Free_Clusters_<tag>.csv` (SSp-bfd's two
+  clusters and step 3's: where each sits, the overlap; `p_one_sided`, the
+  share of the splits whose cluster of the row's sign is as heavy, and
+  `p_either_sign`, the region's p, for the heavier sign only; a sign without
+  a cluster has mass 0, which every split reaches, so its p is 1),
+  `Scale_Free_Bars_<tag>` (the bars in step 3's style, the test named in
+  advance under the title, and in bold beside SSp-bfd's bar the p of that
+  test: one-sided after RWS, of either sign after behavior),
   `Scale_Free_TMap_<tag>` (the index's t in SSp-bfd at each cluster's planes
   and from above, the clusters outlined), and the cache of the test,
   `Scale_Free_<tag>.mat` (read when made from the same stacks and settings;
@@ -787,17 +803,23 @@ same test on a reading no scale can change.
 (the development root of the two sections above). Both checks held: every
 mouse's index was that of the raw stack, to the bit, and the leave-one-out's
 fold 0 was step 3's cluster (3,662 voxels, mass 8,774.95 after RWS; 1,489
-voxels after behavior). For ten mice the maps took 12 minutes and the 252
+voxels after behavior). At the review's rerun from the cache (10 October
+2026), fold 0 was also the selection-matched test's cluster, voxel for voxel,
+with step 3's mass and p of either sign (one-sided, 0.020 after RWS and 0.056
+after behavior); the index's clusters and every p were those of the first
+run. For ten mice the maps took 12 minutes and the 252
 splits 18 on 16 thread workers (14 and 16 minutes for behavior's 126); a
 couple of minutes from the cache.
 
-After RWS, SSp-bfd (252 splits; planes as Allen's CCF index):
+After RWS, SSp-bfd (252 splits; planes as Allen's CCF index; the one-sided p
+is that of the row's sign, the p of either sign the region's, given for the
+heavier sign):
 
-| cluster | voxels | mass | planes | p | in step 3's cluster |
-|---|---|---|---|---|---|
-| index, RWS higher | 332 | 727 | 735 to 747 | 0.32 one-sided (80 of 252 splits) | 74 voxels: 22% of it, 2% of step 3's |
-| index, naive higher | none | 0 | | 1 | |
-| step 3, RWS higher (test maps) | 3,662 | 8,775 | 732 to 748 | 0.020 one-sided, 0.040 either sign | |
+| cluster | voxels | mass | planes | one-sided p | p of either sign | in step 3's cluster |
+|---|---|---|---|---|---|---|
+| index, RWS higher | 332 | 727 | 735 to 747 | 0.32 (80 of 252 splits) | 0.56 | 74 voxels: 22% of it, 2% of step 3's |
+| index, naive higher | none | 0 | | 1 (no cluster) | | |
+| step 3, RWS higher (test maps) | 3,662 | 8,775 | 732 to 748 | 0.020 | 0.040 | |
 
 - The test named in advance does not hold: the RWS-higher cluster's mass is
   reached by 80 of the 252 splits (p 0.32; the splits' median 155, quartiles
@@ -812,8 +834,15 @@ After RWS, SSp-bfd (252 splits; planes as Allen's CCF index):
   in size and holds 74 of its voxels. The direction is kept, the extent that
   step 3's test rewards is not (`Scale_Free_TMap_<tag>`).
 - The naive-higher cluster that is the heavier at slope 1 on the test's maps
-  (p 0.004) is gone too: on the index, which divides each voxel by its own
-  L + R, no voxel of SSp-bfd is naive-higher at p < 0.01.
+  (p 0.004) has no counterpart on the index: nowhere in SSp-bfd does the
+  surprise's median over +/- 10 planes, on which the clusters are drawn,
+  reach p < 0.01 on the naive-higher side (its lowest, p 0.013). Single
+  voxels do: with their own Welch df, 8,490 of the region's 3.06 million
+  voxels with a t have a naive-higher t at p < 0.01 (4,803 RWS-higher), in
+  patches of up to 2,533 voxels, but not over the median's 21 planes. Which
+  of the index's differences from the test's maps removes the cluster (the
+  slope, each mouse's line of step 2, the division by each voxel's L + R) is
+  not tested here.
 - Every region: none at a corrected p < 0.05 (the smallest 0.83). The
   heaviest scores are naive-higher in MOp (8,841, p 0.17), SSp-tr (7,166,
   p 0.016) and GENd (6,975, p 0.040), RWS-higher in ACAv (4,375, p 0.024)
@@ -822,11 +851,11 @@ After RWS, SSp-bfd (252 splits; planes as Allen's CCF index):
 
 After behavior, SSp-bfd (126 splits):
 
-| cluster | voxels | mass | planes | p | in step 3's cluster |
-|---|---|---|---|---|---|
-| index, behavior higher | 1,271 | 2,761 | 663 to 676 | 0.17 one-sided (21 of 126 splits) | none |
-| index, naive higher | 254 | 574 | 617 to 624 | 0.37 | none |
-| step 3, behavior higher (test maps) | 1,489 | 3,454 | 649 to 664 | 0.15 either sign | |
+| cluster | voxels | mass | planes | one-sided p | p of either sign | in step 3's cluster |
+|---|---|---|---|---|---|---|
+| index, behavior higher | 1,271 | 2,761 | 663 to 676 | 0.17 (21 of 126 splits) | 0.24 | none |
+| index, naive higher | 254 | 574 | 617 to 624 | 0.37 | | none |
+| step 3, behavior higher (test maps) | 1,489 | 3,454 | 649 to 664 | 0.056 | 0.15 | |
 
 - The p named first, either sign: +2,761, p 0.24, corrected p 1. Behavior
   higher, the direction carried over from RWS: p 0.17.
@@ -838,14 +867,18 @@ After behavior, SSp-bfd (126 splits):
   advance.
 
 What it means for the RWS claim. Step 3's barrel-field cluster is rare under
-relabelling only through its extent, and that extent comes from the slope of
-the alignment: on a reading free of any scale, the RWS mice are still the
-more asymmetric over that patch (chosen with them), but the patch where the
-difference reaches p < 0.01 is no larger than relabelled groups give. With
-these ten mice the data do not show an RWS-specific change of the nanobody
-signal's asymmetry in the barrel field; step 3's p 0.040 holds only at the
-fitted slope, as the influence section found. The same goes for behavior,
-where step 3's own test did not pass either.
+relabelling only through its extent. On a reading free of any scale the RWS
+mice are still the more asymmetric over that patch (chosen with them), but
+the patch where the difference reaches p < 0.01 is no larger than relabelled
+groups give. With these ten mice the index shows no RWS-specific change of
+the nanobody signal's asymmetry in the barrel field: an absence of evidence,
+not evidence of no change. That the extent comes from the slope of the
+alignment is what the slope sweep of the influence section shows (at slope 1
+the RWS-higher cluster has 549 voxels, p 0.23; step 3's p 0.040 holds only at
+the fitted slope); the index agrees with it but does not isolate the slope,
+since it also leaves out each mouse's line of step 2, divides each voxel by
+its own L + R and takes its zero from the off-tissue level. The index shows
+no change after behavior either, where step 3's own test did not pass.
 
 ## Where the code is
 
