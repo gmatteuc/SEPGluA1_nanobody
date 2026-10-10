@@ -24,8 +24,8 @@ version that evening changed how it is reported, not what it computes.
   run of 9 October 2026 with part 1's second version, on a full copy of the
   production inputs (the data root set by `SEP_DATA_ROOT`); control F's come
   from steps 24, 27 and 30, rerun there on 10 October with its wider range
-  (section 8.1). The production data root holds the same once steps 13 to 30
-  run there. Every number is in
+  (section 8.1). The production run of 10 October gives the same tables and
+  figures, byte for byte. Every number is in
   `tables\numbers_for_the_text.csv` there (a `.txt` beside it reads more
   easily), written by `run_ish_overview.py` from the numbers each step writes;
   each section names the step and the table its numbers come from.
@@ -1419,8 +1419,8 @@ asks it again on sets fixed in advance.
   and works with that of 5 October. Both are shown, with the power check;
   neither turns the localisation result positive.
 - **The production run.** The outputs quoted here were made on a full copy of
-  the production inputs; steps 13 to 30 run on the production data root now
-  that the line is merged.
+  the production inputs. Steps 13 to 31 ran on the production data root on 10
+  October, and every table and figure is the same, byte for byte.
 
 ## 9. How to rerun
 

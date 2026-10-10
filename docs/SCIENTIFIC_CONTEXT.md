@@ -24,9 +24,8 @@ number, the earlier value is given beside it. Line of work 3, and the
 reproducibility of line 2, quote the ISH analysis built on 8 October 2026 on
 branch `post-ish` (`adult_v2\ish_analysis\`, [ISH_ANALYSIS.md](ISH_ANALYSIS.md)),
 and line 2 the adult map by depth (`adult_v2\layers\`), both merged on 10 October
-and run on a full copy of the production inputs: the production data root does
-not hold those outputs yet; it does once steps 13 to 31 of the Python route run
-there.
+and run on a full copy of the production inputs. The production run of steps
+13 to 31 (10 October) reproduces them byte for byte.
 
 ## The question
 

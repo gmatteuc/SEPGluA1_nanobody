@@ -44,8 +44,10 @@ The ISH line was rebuilt on 8 October 2026 on branch `post-ish`, merged into
 Decisions taken): A1's ISH half,
 A2, A3 and A6 to A9, with the spatial null (A7) brought forward so no ISH p
 goes out without it. What it found, and how to rerun it:
-[ISH_ANALYSIS.md](ISH_ANALYSIS.md). Its outputs exist on a full copy of the
-production inputs; the production run of steps 13 to 31 comes next.
+[ISH_ANALYSIS.md](ISH_ANALYSIS.md). Steps 13 to 31 ran on the production data
+root on 10 October (64 minutes, logs in `logs\python_2026-10-10_ish\`), and every
+table and figure equals the run on the full copy of the production inputs, byte
+for byte.
 
 The adult map by cortical depth (step 31, `run_adult_layers`) was merged the
 same day (`9d4e79f`): every isocortex area of the ten adults per mouse in three

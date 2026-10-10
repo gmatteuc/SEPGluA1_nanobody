@@ -270,8 +270,8 @@ the ISH tables, the API answers and the grids.
   section today) and the sections kept at a step in expression are a human
   call, proposed and not yet reviewed.
 - The ISH outputs and the map by depth quoted in the documents were made on a
-  full copy of the production inputs (`SEP_DATA_ROOT`); the production data
-  root has them once steps 13 to 31 run there.
+  full copy of the production inputs (`SEP_DATA_ROOT`). The production run of
+  steps 13 to 31 (10 October) reproduces them byte for byte.
 - The young cohort holds P16, P20 and P22 brains. A brain of another age
   (`mapping_cohort` `young_P28` and so on) goes through the per-brain steps,
   but no cohort takes it until one is added (see `../docs/ADDING_DATA.md`,
