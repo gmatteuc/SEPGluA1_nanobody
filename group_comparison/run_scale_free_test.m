@@ -8,6 +8,7 @@
 %   4. run_per_mouse_values    each mouse's values in regions named in advance
 %   5. run_mouse_influence     each mouse's part in the barrel-field cluster
 %   6. run_scale_free_test     step 3's region test on a reading no scale changes  <- this script
+%   7. run_rescaling_figure    a figure of step 3's test at each rescaling
 %
 % Step 3 puts the experimental group on the control group's scale by a line,
 % whose slope multiplies every experimental mouse's |L - R| on its maps, and

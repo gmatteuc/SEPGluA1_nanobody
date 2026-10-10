@@ -142,9 +142,11 @@ Each is defined in one place; never copy a value into a script.
   a cluster where one of them is the higher, dark grey `#4d4d4d` for the
   control group and red `#c0392b` for the experimental one
   (`'control_higher'`, `'experimental_higher'`); the receptor subunits dark
-  blue `#1f3b73` (`plotting.DARK_BLUE`). New colours
-  extend this orange, yellow, blue, red and grey family: no green, pink or
-  purple outside the colormaps above.
+  blue `#1f3b73` (`plotting.DARK_BLUE`); a mark and a note drawn on a
+  figure, `'mid_grey'` `#9a9a9a` and `'note_grey'` 0.4 (`plotting.MID_GREY`,
+  `NOTE_GREY`), and a band shaded behind the data, `'shading_grey'`
+  `#eeeeee`. New colours extend this orange, yellow, blue, red and grey
+  family: no green, pink or purple outside the colormaps above.
 - In Python the channels are `plotting.NANO`, `AUTO`, `NANO_DOT`, `AUTO_DOT`
   and `PAIR_LINE`. The ISH figures add the groups of divisions of a scatter of
   structures (`DIVISION_GROUP`, `DIVISION_GROUP_COLOURS`: cortex `#e07b00`,
@@ -264,8 +266,10 @@ Every file has one, local functions included: sentence case, short.
 - Progress with `fprintf`, a skipped case with `warning`:
   `fprintf('  %d mice paired across channels.\n', n_mice)`.
 - In code that runs unattended, `figure('Visible', 'off', 'Color', 'w',
-  'Units', 'Normalized', 'Position', [0 0 1 1])`; each figure saved as `.fig`
-  (`saveas`) and `.png` (`exportgraphics`, 300 dpi).
+  'Units', 'Normalized', 'Position', [0 0 1 1])`, or a fixed size in inches
+  where the fonts must keep their size against the panels on any screen
+  (`plot_rescaling_test`); each figure saved as `.fig` (`saveas`) and `.png`
+  (`exportgraphics`, 300 dpi).
 - An underscore in a title is a TeX subscript: `'Interpreter', 'none'`, or
   `strrep(tag, '_', ' ')`.
 - Grouped horizontal bars: `barh(Y, 'grouped')`, then `EdgeColor = 'none'` on

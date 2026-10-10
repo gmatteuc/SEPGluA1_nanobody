@@ -8,15 +8,15 @@
 %   4. run_per_mouse_values    each mouse's values in regions named in advance
 %   5. run_mouse_influence     each mouse's part in the barrel-field cluster
 %   6. run_scale_free_test     step 3's region test on a reading no scale changes
-%   7. run_rescaling_figure    a figure of the cluster test at each rescaling  <- this script
+%   7. run_rescaling_figure    a figure of step 3's test at each rescaling  <- this script
 %
 % Step 3 puts the experimental mice on the control mice's scale with a line
 % whose slope multiplies every experimental mouse's |L - R|, and its splits
 % keep that slope. One figure of what steps 5 and 6 found about it, read from
 % their tables, nothing computed again: against the slope, the one-sided p of
-% the region's heaviest cluster of each sign (the experimental-higher one the
-% test the scale-free test named in advance) and each cluster's size, with the
-% fitted slope, its jackknife standard error and the slope refitted without
+% the region's heaviest cluster of each sign (for the experimental-higher one,
+% the test run_scale_free_test named in advance) and each cluster's size, with
+% the fitted slope, its jackknife standard error and the slope refitted without
 % the mouse that moves it most; under the title, the experimental-higher
 % cluster's p at the fitted slope, one-sided and of either sign (step 3's p,
 % the one quoted), and on the asymmetry index |L - R| / (L + R), where no

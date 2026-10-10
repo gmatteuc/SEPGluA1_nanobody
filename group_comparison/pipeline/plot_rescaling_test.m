@@ -23,7 +23,7 @@ function plot_rescaling_test(run_settings)
 %   L - R, the common factor in the t); at 1 each group keeps its own scale of
 %   step 2. Two panels against it, at the slopes of the sweep and the fitted
 %   one: the one-sided p of the heaviest cluster of each sign over every split
-%   of the mice (for the experimental-higher sign the test the scale-free test
+%   of the mice (for the experimental-higher one, the test run_scale_free_test
 %   named in advance), and each cluster's voxels. A slope of the sweep within
 %   half its step of the fitted one is left out, so no two markers sit on each
 %   other. Both panels mark the fitted slope with its jackknife standard error,
@@ -35,7 +35,8 @@ function plot_rescaling_test(run_settings)
 %   the index |L - R| / (L + R) of run_scale_free_test, where no scale enters.
 %   Every number is read from the tables. The fitted slope must be fold 0's,
 %   and its cluster step 3's of the scale-free test's table, so the two steps
-%   read the same step 3.
+%   read the same step 3, and the heavier of the two signs, since step 3's p
+%   of either sign is the heavier cluster's.
 
 % settings of run_rescaling_figure, under the names the code below uses
 exp_type = run_settings.exp_type;
@@ -68,7 +69,7 @@ T_folds = read_step_table(folds_file, 'run_mouse_influence');
 T_free = read_step_table(free_file, 'run_scale_free_test');
 
 % the fitted slope must be fold 0's, and its cluster step 3's of the scale-free
-% test's table
+% test's table and the heavier sign
 fitted = T_slopes(T_slopes.is_fitted == 1, :);
 fold_zero = T_folds(T_folds.fold == 0, :);
 step3 = cluster_row(T_free, [exp_type ' higher, step 3 (test maps)'], free_file);
@@ -122,8 +123,8 @@ end
 
 function check_same_step3(fitted, fold_zero, step3, slopes_file, folds_file, free_file)
 % The fitted slope of the slopes' table is fold 0's, and its cluster is step
-% 3's of the scale-free test's table: voxels, mass, one-sided p and the p of
-% either sign.
+% 3's of the scale-free test's table (voxels, mass, one-sided p and the p of
+% either sign) and the heavier of the two signs.
 
 % the tables hold 15 significant digits
 tolerance = 1e-9;
@@ -149,6 +150,15 @@ if ~is_same
            'on the same data.'], slopes_file, fitted.cluster_n, fitted.cluster_mass, ...
            fitted.p_positive, fitted.p_either_sign, free_file, step3.voxels, ...
            step3.mass, step3.p_one_sided, step3.p_either_sign);
+end
+
+% the line under the title gives step 3's p of either sign as the
+% experimental-higher cluster's, which it is only when that cluster is the heavier
+if fitted.either_sign ~= 1
+    error(['plot_rescaling_test: at the fitted slope in %s the heavier cluster is ' ...
+           'the control-higher one (either_sign %d, expected 1), so step 3''s p of ' ...
+           'either sign is not the experimental-higher cluster''s, as the line ' ...
+           'under the title says.'], slopes_file, fitted.either_sign);
 end
 end
 
@@ -263,28 +273,33 @@ function handles = draw_p_panel(drawn, marks, colours, x_limits, names)
 % and 0.05 dotted; the marks named at the panel's foot. Returns the two series
 % the legend names.
 
-p_limits = [2e-3 2];
+% from half the smallest p a split can give (one in n_splits) to above 1, so no
+% point is cut off; a tick at each power of ten inside
+n_splits = drawn.n_splits(1);
+p_limits = [0.5 / n_splits, 2];
+p_ticks = 10 .^ (ceil(log10(p_limits(1))):0);
 hold on;
 draw_slope_marks(marks, x_limits, p_limits);
-yline(0.05, ':', '0.05', 'Color', [0.4 0.4 0.4], 'LineWidth', 1.2, ...
+yline(0.05, ':', '0.05', 'Color', sep_palette('note_grey'), 'LineWidth', 1.2, ...
     'FontSize', 12, 'LabelHorizontalAlignment', 'left');
 exp_line = draw_series(drawn.slope, drawn.p_positive, 'o', colours.exp);
 ctrl_line = draw_series(drawn.slope, drawn.p_negative, 's', colours.ctrl);
 
-% each mark named right of its line, at the foot, under the curves
+% each mark named right of its line, at the foot, under the curves (the
+% plus-minus as a character, so it keeps the labels' font)
 label_y = 1.2 * p_limits(1);
 text(marks.fitted + 0.012, label_y, {sprintf('fitted slope %.2f', marks.fitted), ...
-    sprintf('shading: \\pm1 SE (%.2f)', marks.se)}, 'VerticalAlignment', 'bottom', ...
-    'FontSize', 12);
+    sprintf('shading: %s1 SE (%.2f)', char(177), marks.se)}, ...
+    'VerticalAlignment', 'bottom', 'FontSize', 12);
 text(marks.without + 0.012, label_y, {'without', marks.without_mouse}, ...
-    'VerticalAlignment', 'bottom', 'FontSize', 12, 'Color', [0.4 0.4 0.4]);
+    'VerticalAlignment', 'bottom', 'FontSize', 12, 'Color', sep_palette('note_grey'));
 
 set(gca, 'YScale', 'log');
 ylim(p_limits);
-yticks([0.01 0.1 1]);
-yticklabels({'0.01', '0.1', '1'});
+yticks(p_ticks);
+yticklabels(compose('%g', p_ticks));
 finish_panel(x_limits, names, 'A. p against the rescaling');
-ylabel(sprintf('cluster-mass p (%d relabellings)', drawn.n_splits(1)));
+ylabel(sprintf('cluster-mass p (%d relabellings)', n_splits));
 handles = [exp_line, ctrl_line];
 end
 
@@ -309,10 +324,10 @@ function draw_slope_marks(marks, x_limits, y_limits)
 
 band_x = [max(marks.fitted - marks.se, x_limits(1)), ...
     min(marks.fitted + marks.se, x_limits(2))];
-patch(band_x([1 2 2 1]), y_limits([1 1 2 2]), [0.93 0.93 0.93], ...
+patch(band_x([1 2 2 1]), y_limits([1 1 2 2]), sep_palette('shading_grey'), ...
     'EdgeColor', 'none');
-plot([1 1] * marks.fitted, y_limits, '-', 'Color', [0 0 0], 'LineWidth', 1.2);
-plot([1 1] * marks.without, y_limits, '--', 'Color', [0.6 0.6 0.6], ...
+plot([1 1] * marks.fitted, y_limits, '-', 'Color', 'k', 'LineWidth', 1.2);
+plot([1 1] * marks.without, y_limits, '--', 'Color', sep_palette('mid_grey'), ...
     'LineWidth', 1.5);
 end
 

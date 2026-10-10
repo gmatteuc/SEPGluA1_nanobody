@@ -459,8 +459,9 @@ the raw stack is the reading to look at.
   1.67, jackknife standard error 0.45) spans that crossing, so step 3's p
   0.040 holds at the fitted slope, not across the slope's own uncertainty.
   Step 3's p itself, of either sign, is 0.079 at slope 1.4 and under 0.05
-  for the RWS-higher cluster from a slope between 1.4 and the fitted 1.49 on.
-  The figure:
+  for the RWS-higher cluster from a slope between 1.4 and the fitted 1.49 on
+  (`Influence_Slopes_<tag>.csv`; the figure gives it at the fitted slope
+  only). The figure:
   `<data>\comparisons\naive_vs_rws_nano\Rescaling_Test_naive_vs_rws_nano_smooth5.png`,
   so far on the development root (`G:\sep_refactor\check_rws\data`), drawn by
   `run_rescaling_figure` from this step's tables and the scale-free test's.
