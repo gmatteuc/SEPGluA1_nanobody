@@ -413,18 +413,239 @@ across the values:
   folds). VISp is missing in MG709 and covered at less than half in the
   other three behavior mice.
 
+## Each mouse's part in the barrel-field cluster
+
+In short (10 October 2026). Giulio asked whether the RWS result is driven by
+a bump in one mouse, which one, and why one mouse's bump would be enough for
+the test while the mice's means do not separate. `run_mouse_influence`, after
+`run_per_mouse_values`, answers from its caches, on copies of the stacks of the
+production run of 7 October. Nothing in it was chosen after seeing the values;
+the raw stack is the reading to look at.
+
+- It is not one mouse. The cluster of all ten mice (3,662 voxels) is where
+  several mice line up. Without MG691, MG692, MG736 or MG737 it keeps 28 to
+  38% of its voxels, without CGF033, the naive mouse lowest there, 24%; its p
+  over every split of the nine mice left (126) is then 0.056, 0.048, 0.10,
+  0.087 and 0.20. Without MG693, the RWS mouse lowest there, it grows to 5,508
+  voxels (p 0.008). Without CGF027, CGF028, CGF034 or CGF035 it keeps 67 to
+  90% (p 0.024 to 0.063).
+- Each of those mice is asymmetric there in its own way
+  (`Influence_Maps_<tag>_raw`, `Influence_Profiles_<tag>`). MG736 in one
+  section: the cluster's 17 planes are the planes between two of its section
+  edges, its asymmetry runs across the whole window along ML, and its
+  autofluorescence does not have it (0.082 in the cluster, nano 0.173). MG737
+  in a superficial patch over that section and the next behind it. MG691 over
+  a third of the barrel field (above every naive mouse at 34% of the region's
+  voxels, 17% by chance), most of all 200 to 450 um in front of the cluster,
+  and its autofluorescence is as asymmetric (0.139 in the cluster, nano
+  0.154). MG692 moderately along 500 um of AP, less than its autofluorescence
+  (0.122, autofluorescence 0.176). MG693's own bump is 400 um behind the
+  cluster. All five naive mice are low there: the highest of them reaches
+  0.089 in the cluster's planes, and 0.10 to 0.20 within 600 um of it. The
+  cluster is no mouse's peak: each mouse's highest asymmetry in the barrel
+  field is 600 to 1,290 um away, in nine of the ten at an edge of the region
+  (layer 6a or 6b by the white matter, layer 1 by the pia).
+- Why a few mice are enough for step 3's test while their means are not: the
+  cluster's mass sums the surprise of the contiguous voxels where the Welch t
+  passes p < 0.01, so it grows with the extent of the place where the RWS
+  mice are high and the naive mice low and alike. The same search in any
+  split of the mice finds the place where its labelled groups are most apart,
+  and they are apart there about as much (+0.080 at the null's median, +0.084
+  observed): what is rare under relabelling is the extent (5 of 252 splits
+  as heavy), and the extent is that of the overlap of four RWS mice over one
+  naive group that happens to be low. Take out any one of the mice that make
+  the overlap and two thirds or more of it go.
+- Whether the RWS mice agree on the place more than relabelled groups do: on
+  the raw stack, no. The largest patch where four of the five RWS mice are
+  above every naive mouse is 13,605 voxels (2,690 of them in the cluster), as
+  large as under relabelling (median 13,546, p 0.50); where all five are, 1,120
+  voxels away from the cluster (p 0.74). On the test's maps, where all five RWS
+  mice are above every naive mouse at 83 to 99% of the cluster's voxels, the
+  five-of-five patch is 5,400 voxels, 2,865 in the cluster, against a median
+  of 1,835 (p 0.079).
+- Its size: 0.0037 mm^3, 170 um along AP, 220 um along ML, 102 to 311 um
+  below the pia (95% layer 2/3, 5% layer 1), about two thirds of a barrel
+  column's width (300 um, the mouse's C2 column, Lefort et al. 2009) and a
+  fifth of the column's layer 2/3. Along AP it is about one section: the
+  sections of these brains are mostly 14 to 18 planes apart, the cluster's
+  17 planes are one section of MG736 and of MG737, and the rolling median of
+  step 3 (11 of 21 planes) is passed by one section of 15 planes.
+
+### How it is done
+
+- Folds. Fold 0 keeps every mouse; then each mouse is left out in turn and the
+  comparison is redone as step 3 does it (the alignment refitted on the mice
+  kept; a t where each group has three mice with a value; its surprise; the
+  median over +/- 10 planes; p < 0.01; 18-connected within SSp-bfd), by
+  `region_permutation_test` under every split of the mice kept into groups of
+  their sizes (252 for 5 and 5, 126 for 5 and 4). Per fold: the heaviest
+  cluster where |L - R| is higher after RWS, its voxels, mass and overlap with
+  the cluster of all the mice; its p, the share of the splits whose positive
+  cluster is as heavy; and step 3's p of either sign. Fold 0 gives step 3's
+  cluster and p (3,662 voxels, mass 8,774.95, p 0.0397), and every fold's
+  cluster is the leave-one-out's of `run_per_mouse_values`, voxel for voxel.
+  As there, step 2 is not redone without the mouse.
+- Readings. raw: |L - R| / (L + R) of the collected stack less the mouse's
+  off-tissue level, smoothed as step 3 (`run_per_mouse_values`' raw stack);
+  auto: the same on the autofluorescence; test: |L - R| on the test's maps,
+  what step 3's t compares (their L + R has the normalisation's zero, so no
+  ratio). Each mouse's value over the cluster is its selection-matched value
+  of `run_per_mouse_values`, checked to the bit.
+- Maps and profiles. In a window around the cluster (its bounding box and 600
+  um on each side): a coronal view, the ratio of the means over the cluster's
+  planes; a view from above, the ratio of the means over the cluster's depth
+  below the pia (102 to 311 um) in each column; a profile along AP, the ratio
+  of the means over the cluster's coronal footprint in each plane. One colour
+  scale for the raw and the autofluorescence asymmetry. The depth below the
+  pia is the distance to the atlas brain's outer edge, its unlabelled holes
+  filled. The sections: the registered volume holds each section over the
+  planes nearest it, so the collected stack, unsmoothed, changes from one plane
+  to the next only between two sections; the profiles draw that change.
+- Counts. At each of the 2,751,666 voxels of SSp-bfd where all ten mice have a
+  value (of 3,143,890; all of the cluster's), the number of RWS mice above
+  every naive mouse, 0 to 5; for each
+  level k, the largest connected patch with at least k; the same under each
+  of the 252 splits, its p the share reaching the observed patch. Every level
+  is given. On exchangeable mice a voxel has all five with probability 1/252,
+  four or more with 1/42, so the patch asks whether those voxels lie
+  together.
+- Size and peaks. The cluster's extent from the first voxel's edge to the
+  last's; its widths along the surface (whose normal is the depth's mean
+  gradient over the cluster) and its thickness through it; against a barrel
+  column of about 300 um, its layer 2/3 from 128 to 418 um below the pia
+  (Lefort et al. 2009, from slices; the CCF's layers need not have the same
+  depths). Each mouse's peak raw asymmetry over the complete voxels of the
+  region, and each RWS mouse's peak excess over the highest naive mouse.
+
+### Results
+
+Each mouse left out (`Influence_Folds_<tag>`): the cluster's voxels, the
+share of the cluster of all the mice it keeps, its mass, its p over every
+split of the mice kept, and step 3's p of either sign (the larger sign naive
+higher where marked).
+
+| left out | voxels | share kept | mass | p | either sign |
+|---|---|---|---|---|---|
+| none | 3,662 | 1.00 | 8,775 | 0.020 | 0.040 |
+| CGF027 | 3,031 | 0.82 | 7,166 | 0.040 | 0.079 |
+| CGF028 | 2,638 | 0.67 | 6,008 | 0.063 | 0.095 |
+| CGF033 | 959 | 0.24 | 2,226 | 0.20 | 0.024, naive higher |
+| CGF034 | 3,652 | 0.82 | 8,440 | 0.032 | 0.079 |
+| CGF035 | 3,908 | 0.90 | 9,315 | 0.024 | 0.032 |
+| MG691 | 1,133 | 0.28 | 2,615 | 0.056 | 0.12, naive higher |
+| MG692 | 1,878 | 0.38 | 4,102 | 0.048 | 0.087 |
+| MG693 | 5,508 | 0.66 | 14,565 | 0.008 | 0.016 |
+| MG736 | 1,216 | 0.33 | 2,731 | 0.10 | 0.079, naive higher |
+| MG737 | 1,132 | 0.31 | 2,524 | 0.087 | 0.17 |
+
+Every fold's cluster sits at planes 553 to 570, its centre within 85 um of
+that of the cluster of all the mice. Without CGF033, the naive mouse lowest in
+the RWS cluster (raw AI 0.028), the naive-higher cluster becomes the heavier
+one, and is itself as rare as step 3's cluster (mass 12,696, p 0.024).
+
+Each mouse in the cluster (`Influence_Mice_<tag>.csv`): its asymmetry, and the
+share of the cluster's voxels where it is above every mouse of the other group
+(chance 0.17 on exchangeable mice), on the raw stack, the test's maps and the
+autofluorescence; its asymmetry along AP through the cluster, over the
+cluster's planes (`Influence_Profiles_<tag>.csv`).
+
+| mouse | raw AI | auto AI | above, raw | above, test | above, auto | in the cluster's planes |
+|---|---|---|---|---|---|---|
+| CGF027 | 0.055 | 0.043 | 0.03 | 0 | 0 | 0.052 |
+| CGF028 | 0.030 | 0.070 | 0 | 0 | 0 | 0.031 |
+| CGF033 | 0.028 | 0.145 | 0 | 0 | 0.13 | 0.033 |
+| CGF034 | 0.057 | 0.074 | 0 | 0 | 0 | 0.058 |
+| CGF035 | 0.080 | 0.035 | 0 | 0 | 0 | 0.079 |
+| MG691 | 0.154 | 0.139 | 0.90 | 0.99 | 0.47 | 0.150 |
+| MG692 | 0.122 | 0.176 | 0.72 | 0.98 | 0.81 | 0.121 |
+| MG693 | 0.077 | 0.095 | 0.22 | 0.83 | 0.04 | 0.078 |
+| MG736 | 0.173 | 0.082 | 0.94 | 0.99 | 0 | 0.160 |
+| MG737 | 0.145 | 0.117 | 0.85 | 0.99 | 0.14 | 0.141 |
+
+Over the whole region the same share is near or below chance for every RWS
+mouse but MG691 (0.34; MG692 to MG737 0.08 to 0.16), and two naive mice are
+above every RWS mouse more often than chance (CGF027 0.29, CGF035 0.22).
+
+The counts (`Influence_Consistency_<tag>`): the largest patch where at least k
+RWS mice are above every naive mouse, its voxels in the cluster, the null's
+median and 95th percentile over the 252 splits, and the p.
+
+| reading | k | patch | in the cluster | null median | null 95% | p |
+|---|---|---|---|---|---|---|
+| raw | 3 | 130,480 | 3,110 | 110,330 | 327,550 | 0.41 |
+| raw | 4 | 13,605 | 2,690 | 13,546 | 52,920 | 0.50 |
+| raw | 5 | 1,120 | 0 | 1,794 | 6,294 | 0.74 |
+| test | 3 | 144,400 | 3,662 | 91,826 | 372,640 | 0.34 |
+| test | 4 | 32,753 | 3,632 | 12,600 | 57,989 | 0.13 |
+| test | 5 | 5,400 | 2,865 | 1,835 | 6,818 | 0.079 |
+| auto | 3 | 205,670 | 0 | 86,784 | 357,410 | 0.17 |
+| auto | 4 | 23,555 | 0 | 16,316 | 66,997 | 0.35 |
+| auto | 5 | 4,317 | 0 | 2,656 | 9,346 | 0.26 |
+
+At k = 1 and 2 the patches span about half and a fifth of the region in every
+split (raw p 0.41 and 0.58, test 0.27 and 0.26, auto 0.087 and 0.075). On the
+raw stack 482 of
+the cluster's voxels have all five RWS mice above every naive mouse, in
+pieces; the five-of-five patch of the raw stack lies elsewhere.
+
+The cluster (`Influence_Cluster_<tag>.csv`): 3,662 voxels, 0.0037 mm^3; planes
+554 to 570 (CCF 733 to 749), 3.2 mm from the midline; 170 um along AP, 180
+along DV, 220 along ML; along the surface 169 um (AP) by 186 um, 225 um thick
+through it (the surface faces up and 31 degrees laterally there); 102 to 311
+um below the pia, median 197; 95% layer 2/3, 5% layer 1. Against a barrel
+column: its widest is 0.62 of the column's 300 um, its volume 0.18 of the
+column's layer 2/3 (0.020 mm^3), its depth the bottom of layer 1, layer 2 and
+the top of layer 3 by Lefort et al.'s depths (L1 to 128 um, L2 to 269, L3 to
+418). The
+CCF has no barrels, so which barrel it is over is not known; the whisker
+stimulated was C2 (possibly B2).
+
+- The sections. In the collected stacks the sections are mostly 14 to 18
+  planes apart (140 to 180 um). The cluster's planes are one section of
+  MG736 (its edges at 556 and 570, its peak at plane 563, the section's
+  middle) and of MG737 (552 to 570); MG691's and MG692's elevation spans
+  several sections, MG693's is two sections behind. MG736's asymmetry has the
+  shape a difference between the two halves of one section would have (one
+  section, across the whole window); that its autofluorescence lacks it says
+  the difference is in the nano signal of that section, whether from the
+  receptor, the staining or the imaging.
+- Peaks. Each mouse's highest raw asymmetry over the region's complete voxels
+  is 0.43 to 0.86, 600 to 1,290 um from the cluster: in layer 6a or 6b, 850 to
+  1,130 um deep, in six mice; in layer 1 in three (MG692, MG693, CGF034); in
+  layer 2/3 in CGF028. The RWS mice's largest excess over the highest naive
+  mouse is in the same places (630 to 1,290 um away).
+- Outputs, in the comparison's folder, `<tag>` the comparison and the
+  smoothing: `Influence_Folds_<tag>` (.csv, one row per fold, and the figure:
+  voxels, mass and p with each mouse left out), `Influence_Maps_<tag>_raw`,
+  `_auto` and `_test` (each mouse's coronal view and view from above, the
+  cluster outlined), `Influence_Profiles_<tag>` (.csv, one row per plane, and
+  the figure: each mouse along AP with its section edges),
+  `Influence_Consistency_<tag>` (.csv, one row per reading and level, and the
+  figure: the counts' views, the patches against every split, each mouse's
+  share of the cluster), `Influence_Mice_<tag>.csv`,
+  `Influence_Cluster_<tag>.csv`, and the cache of the folds and the counts
+  under every split, `Influence_<tag>.mat` (read when made from the same maps,
+  autofluorescence and settings; `force_recompute` redoes it). For ten mice
+  about 25 minutes for the folds and 3 for the counts, a few minutes from the
+  cache. Not run after behavior.
+
 ## Where the code is
 
 Each driver sets its settings and calls one function in `pipeline/`
 (`collect_by_group`, `normalise_groups`, `group_differences`,
-`per_mouse_region_values`); the video
+`per_mouse_region_values`, `mouse_influence`); the video
 writers (`write_lr_*`, `open_lr_video`, `set_lr_colormap`) and the atlas
 outlines (`lr_atlas_boundaries`) sit beside them, and so do the parts of
 step 3 that other code reuses: each mouse's tissue and its smoothing
 (`tissue_only`), its plane profile (`plane_tissue_means`), the alignment of
 the two groups (`align_exp_to_ctrl`), the regions of the bars
 (`surprise_regions`, `surprise_region_acronyms`) and their permutation test
-(`region_permutation_test`). Shared: `../common/`
+(`region_permutation_test`); and the parts the per-mouse steps share: the box
+around the clusters' region (`region_box_masks`), a mouse's box on the test's
+scale (`aligned_box_lr`), the mice's |L - R| on the band and its candidate
+voxels (`band_stack`, `band_geometry`), the check of the maps' cache against
+the normalised stacks (`check_maps_cache`) and the mice's places in a
+collected stack (`collected_index`). Shared: `../common/`
 (`get_cohort`, `get_cohort_spec`, `compute_lr_stats`, `sep_palette`) and
 `../atlas/` (`get_atlas_crop`, `get_allen_region_mask`).
 
