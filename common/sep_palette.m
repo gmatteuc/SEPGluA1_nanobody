@@ -24,6 +24,10 @@ function c = sep_palette(name)
 %                                            groups (MATLAB's default blue and
 %                                            orange)
 %     'control_mean', 'experimental_mean'    their group means, darker
+%     'control_higher', 'experimental_higher'
+%                                            a cluster where that group's
+%                                            |L - R| is the higher, dark grey
+%                                            #4d4d4d and red #c0392b
 %     'no_data'                              flat grey #bfbfbf where a map has no
 %                                            value, which no data colormap gives
 %     'outline'                              blue #3a6db5, a cluster's outline
@@ -88,6 +92,13 @@ switch name
         c = [0 0.2 0.5];
     case 'experimental_mean'
         c = [0.64 0.08 0.18];
+
+    % a cluster where one group is the higher, apart from the groups' blue and
+    % orange (#4d4d4d, #c0392b)
+    case 'control_higher'
+        c = [77 77 77] / 255;
+    case 'experimental_higher'
+        c = [192 57 43] / 255;
 
     % maps: no value, and an outline over them (#bfbfbf, #3a6db5)
     case 'no_data'

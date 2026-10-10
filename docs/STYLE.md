@@ -138,8 +138,11 @@ Each is defined in one place; never copy a value into a script.
   `[0.65 0.30 0.00]` and `[0.70 0.60 0.00]`, lines joining paired mice
   `[0.6 0.6 0.6]`; groups young `#c0392b`, naive `#555555`, rws `#9a9a9a`; the
   plasticity comparison's control and experimental groups, MATLAB's default
-  blue and orange (`'control'`, `'experimental'`, darker for their means); the
-  receptor subunits dark blue `#1f3b73` (`plotting.DARK_BLUE`). New colours
+  blue and orange (`'control'`, `'experimental'`, darker for their means), and
+  a cluster where one of them is the higher, dark grey `#4d4d4d` for the
+  control group and red `#c0392b` for the experimental one
+  (`'control_higher'`, `'experimental_higher'`); the receptor subunits dark
+  blue `#1f3b73` (`plotting.DARK_BLUE`). New colours
   extend this orange, yellow, blue, red and grey family: no green, pink or
   purple outside the colormaps above.
 - In Python the channels are `plotting.NANO`, `AUTO`, `NANO_DOT`, `AUTO_DOT`

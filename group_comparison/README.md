@@ -464,10 +464,11 @@ the raw stack is the reading to look at.
   `<data>\comparisons\naive_vs_rws_nano\Rescaling_Test_naive_vs_rws_nano_smooth5.png`,
   so far on the development root (`G:\sep_refactor\check_rws\data`), drawn by
   `run_rescaling_figure` from this step's tables and the scale-free test's.
-  Against the slope, step 3's p (the one quoted), each sign's one-sided p and
-  cluster size; the fitted slope with its standard error, the slope without
-  CGF033; beside them the same on the scale-free index (one-sided p 0.32,
-  either sign 0.56).
+  Against the slope, each sign's one-sided p and cluster size, red where the
+  RWS mice are the higher, dark grey where the naive mice are; the fitted
+  slope with its standard error, the slope without CGF033. Under the title,
+  the RWS-higher cluster's p at the fitted slope (0.020 one-sided, 0.040 of
+  either sign, the one quoted) and on the scale-free ratio (0.32 one-sided).
 - Whether the RWS mice agree on the place more than relabelled groups do: no.
   On the raw stack, which has no slope, the largest patch where four of the
   five RWS mice are above every naive mouse is as large as under relabelling
@@ -895,15 +896,14 @@ no change after behavior either, where step 3's own test did not pass.
 Each driver sets its settings and calls one function in `pipeline/`
 (`collect_by_group`, `normalise_groups`, `group_differences`,
 `per_mouse_region_values`, `mouse_influence`, `scale_free_test`,
-`plot_rescaling_test`); the video
-writers (`write_lr_*`, `open_lr_video`, `set_lr_colormap`) and the atlas
-outlines (`lr_atlas_boundaries`) sit beside them, and so do the parts of
-step 3 that other code reuses: each mouse's tissue and its smoothing
-(`tissue_only`), its plane profile (`plane_tissue_means`), the alignment of
-the two groups (`align_exp_to_ctrl`), the regions of the bars
-(`surprise_regions`, `surprise_region_acronyms`), the mice's maps on the
-voxels a split can give a t (`permutation_stacks`), their permutation test
-(`region_permutation_test`) and the bars of a region measure
+`plot_rescaling_test`); the video writers (`write_lr_*`, `open_lr_video`,
+`set_lr_colormap`) and the atlas outlines (`lr_atlas_boundaries`) sit beside
+them, and so do the parts of step 3 that other code reuses: each mouse's
+tissue and its smoothing (`tissue_only`), its plane profile
+(`plane_tissue_means`), the alignment of the two groups (`align_exp_to_ctrl`),
+the regions of the bars (`surprise_regions`, `surprise_region_acronyms`), the
+mice's maps on the voxels a split can give a t (`permutation_stacks`), their
+permutation test (`region_permutation_test`) and the bars of a region measure
 (`plot_measure_bars`, with `p_shade_index`, `add_p_colorbar`,
 `highlight_surprise_regions` and `expected_regions`); and the parts the
 per-mouse steps share: a mouse's off-tissue level (`off_tissue_level`), the
@@ -911,9 +911,9 @@ box around the clusters' region (`region_box_masks`), a mouse's box on the
 test's scale (`aligned_box_lr`), the mice's |L - R| on the band and its
 candidate voxels (`band_stack`, `band_geometry`), the check of the maps' cache
 against the normalised stacks (`check_maps_cache`) and the mice's places in a
-collected stack (`collected_index`). Shared: `../common/`
-(`get_cohort`, `get_cohort_spec`, `compute_lr_stats`, `sep_palette`) and
-`../atlas/` (`get_atlas_crop`, `get_allen_region_mask`).
+collected stack (`collected_index`). Shared: `../common/` (`get_cohort`,
+`get_cohort_spec`, `compute_lr_stats`, `sep_palette`) and `../atlas/`
+(`get_atlas_crop`, `get_allen_region_mask`).
 
 ## Notes
 

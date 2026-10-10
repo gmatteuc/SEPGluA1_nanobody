@@ -13,15 +13,16 @@
 % Step 3 puts the experimental mice on the control mice's scale with a line
 % whose slope multiplies every experimental mouse's |L - R|, and its splits
 % keep that slope. One figure of what steps 5 and 6 found about it, read from
-% their tables, nothing computed again: against the slope, step 3's p of the
-% barrel field (either sign, the p quoted) and the one-sided p of its heaviest
-% cluster of each sign (the experimental-higher one the test the scale-free
-% test named in advance), and each cluster's size; the fitted slope with its
-% jackknife standard error, the slope refitted without the mouse that moves it
-% most, and beside them the same p and clusters on the asymmetry index
-% |L - R| / (L + R), where no scale enters. Saves, in
-% data\comparisons\<ctrl>_vs_<exp>_<channel>\, Rescaling_Test_<tag> (.fig
-% and .png), <tag> being the comparison and the smoothing.
+% their tables, nothing computed again: against the slope, the one-sided p of
+% the region's heaviest cluster of each sign (the experimental-higher one the
+% test the scale-free test named in advance) and each cluster's size, with the
+% fitted slope, its jackknife standard error and the slope refitted without
+% the mouse that moves it most; under the title, the experimental-higher
+% cluster's p at the fitted slope, one-sided and of either sign (step 3's p,
+% the one quoted), and on the asymmetry index |L - R| / (L + R), where no
+% scale enters. Saves, in data\comparisons\<ctrl>_vs_<exp>_<channel>\,
+% Rescaling_Test_<tag> (.fig and .png), <tag> being the comparison and the
+% smoothing.
 %
 % Setup: naive against rws, nano channel, smoothed with sigma 5, the barrel
 % field; run_mouse_influence and run_scale_free_test must have run with the
@@ -43,9 +44,12 @@ paths = get_paths();
 ctrl_type = 'naive';
 exp_type = 'rws';
 
-% the region of the clusters, run_mouse_influence's cluster_region and
-% run_scale_free_test's a_priori_region (for the figure's text)
-cluster_region = 'SSp-bfd';
+% the names the figure's text gives the two groups, and the region of the
+% clusters (run_mouse_influence's cluster_region and run_scale_free_test's
+% a_priori_region, SSp-bfd)
+ctrl_name = 'naive';
+exp_name = 'RWS';
+region_name = 'barrel field';
 
 % smoothing of the tables read, as in run_mouse_influence and run_scale_free_test
 apply_smoothing = true;
@@ -63,9 +67,10 @@ comp_out_dir = fullfile(paths.data, 'comparisons', comp_tag);
 
 % pass the settings to the code, under the same names
 run_settings = struct();
-run_settings.ctrl_type = ctrl_type;
 run_settings.exp_type = exp_type;
-run_settings.cluster_region = cluster_region;
+run_settings.ctrl_name = ctrl_name;
+run_settings.exp_name = exp_name;
+run_settings.region_name = region_name;
 run_settings.apply_smoothing = apply_smoothing;
 run_settings.smooth_sigma = smooth_sigma;
 run_settings.comp_tag = comp_tag;
