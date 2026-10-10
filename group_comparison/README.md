@@ -458,6 +458,10 @@ the raw stack is the reading to look at.
   (p 0.004, either sign 0.008). The slope's spread without one mouse (1.11 to
   1.67, jackknife standard error 0.45) spans that crossing, so step 3's p
   0.040 holds at the fitted slope, not across the slope's own uncertainty.
+  One figure shows it, `Rescaling_Test_<tag>` (`run_rescaling_figure`, from
+  this step's tables and the scale-free test's): each sign's p and cluster
+  size against the slope, the fitted slope with its standard error, the slope
+  without CGF033, and beside them the scale-free test's p (0.32).
 - Whether the RWS mice agree on the place more than relabelled groups do: no.
   On the raw stack, which has no slope, the largest patch where four of the
   five RWS mice are above every naive mouse is as large as under relabelling
@@ -884,7 +888,8 @@ no change after behavior either, where step 3's own test did not pass.
 
 Each driver sets its settings and calls one function in `pipeline/`
 (`collect_by_group`, `normalise_groups`, `group_differences`,
-`per_mouse_region_values`, `mouse_influence`, `scale_free_test`); the video
+`per_mouse_region_values`, `mouse_influence`, `scale_free_test`,
+`plot_rescaling_test`); the video
 writers (`write_lr_*`, `open_lr_video`, `set_lr_colormap`) and the atlas
 outlines (`lr_atlas_boundaries`) sit beside them, and so do the parts of
 step 3 that other code reuses: each mouse's tissue and its smoothing
