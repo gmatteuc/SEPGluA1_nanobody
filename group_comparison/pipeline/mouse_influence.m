@@ -13,7 +13,10 @@ function mouse_influence(run_settings)
 %   (Per_Mouse_Values_<tag>.csv) and the table of run_group_differences.
 %   Writes into comp_out_dir:
 %     Influence_Folds_<tag>        .csv, one row per fold (all the mice, then
-%                                  each mouse left out), and the figure
+%                                  each mouse left out), and the figure of the
+%                                  folds and the slopes
+%     Influence_Slopes_<tag>.csv   one row per slope of the alignment, the
+%                                  comparison of all the mice redone at it
 %     Influence_Maps_<tag>_<reading>  the mice's maps around the cluster, one
 %                                  figure per reading (raw, auto, test)
 %     Influence_Profiles_<tag>     each mouse's asymmetry along AP through the
@@ -34,15 +37,19 @@ function mouse_influence(run_settings)
 %   at. auto: the same on the autofluorescence. test: |L - R| on the test's
 %   maps (the experimental mice through the alignment of all the mice), what
 %   step 3's t compares; their L + R carries the normalisation's zero, so no
-%   ratio is taken there. In a view or over the cluster, the ratio is of the
-%   means, as run_per_mouse_values reads its asymmetry index. The views: a
+%   ratio is taken there. unscaled, for the counts only: the test's maps at
+%   slope 1, each group on its own scale of step 2 (the control mice as in
+%   test, each experimental mouse's |L - R| divided by the slope). In a view or
+%   over the cluster, the ratio is of the means, as run_per_mouse_values reads
+%   its asymmetry index. The views: a
 %   coronal one, the mean over the cluster's planes; one from above, the mean
 %   over the cluster's depth below the pia in each column of the window; a
 %   profile along AP, the mean over the cluster's coronal footprint in each
 %   plane. Each mouse's sections show in its collected stack, unsmoothed: the
 %   registered volume holds a section over the planes nearest it, so the
 %   change from one plane to the next is about 0 within a section and peaks
-%   between two.
+%   between two. Each mouse's coverage along AP: the share of the footprint's
+%   voxels where its raw stack has a value.
 %
 %   Folds. Fold 0 keeps every mouse; fold k leaves mouse k out, control mice
 %   first. Each is step 3's comparison of its mice: the alignment refitted on
@@ -55,18 +62,31 @@ function mouse_influence(run_settings)
 %   split's larger sign against the observed larger, whose sign is given).
 %   Fold 0 must be step 3's cluster and p, and each fold's cluster the
 %   leave-one-out's of run_per_mouse_values. As there, run_normalise_groups is
-%   not redone without the mouse.
+%   not redone without the mouse. The folds are then run again with the
+%   alignment held at fold 0's: on the test's maps an experimental mouse's
+%   |L - R| is its own times the alignment's slope (the intercept cancels in
+%   L - R, the common factor in the t), so a fold's slope moves every
+%   experimental mouse at once, and holding it shows what the mouse's own
+%   values do.
+%
+%   Slopes. The comparison of all the mice redone with the alignment's slope at
+%   each of sweep_slopes, its intercept and common factor at fold 0's: both
+%   signs' heaviest clusters, their p, and step 3's p of either sign. The
+%   splits of step 3 keep the fitted slope, so its p does not carry the
+%   slope's own uncertainty.
 %
 %   Counts. At every voxel of cluster_region where every mouse has a value
 %   (complete voxels), c, the number of experimental mice above every control
-%   mouse, from 0 to the experimental group's size. For each level k, the
-%   largest patch of voxels with c >= k, connected within the region
-%   (cluster_connectivity). Under every split of the mice the same, with the
-%   split's groups; a level's p is the share of the splits whose largest patch
-%   reaches the observed one, the observed split included. Every level is
-%   given, none chosen. On exchangeable mice a voxel reaches c >= k with
-%   probability C(n_exp, k) / C(n_mice, k), 1/252 for five of five, so the
-%   patch asks whether the voxels that reach it lie together.
+%   mouse, from 0 to the experimental group's size. On exchangeable mice a
+%   voxel reaches c >= k with probability C(n_exp, k) / C(n_mice, k), 1/252
+%   for five of five, which is also the mean share over every split. For each
+%   level k: the voxels with c >= k against that expectation, which a group
+%   that is more asymmetric everywhere exceeds; and the largest patch of voxels
+%   with c >= k, connected within the region (cluster_connectivity), which asks
+%   whether they lie together. Under every split of the mice the same, with the
+%   split's groups; a level's p is the share of the splits that reach the
+%   observed one, the observed split included. Every level is given, none
+%   chosen.
 %
 %   Size. The cluster of all the mice in micrometres: the extent of its voxels
 %   along AP, DV and ML, from the first voxel's edge to the last's; its depth
@@ -76,9 +96,14 @@ function mouse_influence(run_settings)
 %   normal being the depth's mean gradient over the cluster; its layers in the
 %   atlas; against one barrel column, about 300 um across with layer 2/3 from
 %   128 to 418 um below the pia (the C2 column of the mouse, Lefort et al.
-%   2009). Each mouse's peak asymmetry over the complete voxels (raw), and for
-%   the experimental mice the peak of their excess over the highest control
-%   mouse, with their distance from the cluster.
+%   2009). Its planes also as Allen's CCF index, counted from 0 (plane p of
+%   the 10 um annotation counted from 1 is index p - 1). Each mouse's peak
+%   asymmetry over the complete voxels (raw), and for the experimental mice the
+%   peak of their excess over the highest control mouse, with their distance
+%   from the cluster: one voxel's maximum of a ratio, which lands where L + R is
+%   low, at the region's edges, so it says only where the cluster is not. Each
+%   mouse's tissue profile over the planes the alignment is fitted on, its mean
+%   and its standard deviation along AP, which set the slope.
 
 % settings of run_mouse_influence, under the names the code below uses
 paths = run_settings.paths;
@@ -93,6 +118,7 @@ min_mice_per_group = run_settings.min_mice_per_group;
 slab_range = run_settings.slab_range;
 cluster_p = run_settings.cluster_p;
 cluster_connectivity = run_settings.cluster_connectivity;
+sweep_slopes = run_settings.sweep_slopes;
 window_um = run_settings.window_um;
 n_workers = run_settings.n_workers;
 force_recompute = run_settings.force_recompute;
@@ -188,30 +214,31 @@ names = [ctrl_mice.names(:); exp_mice.names(:)];
 n_ctrl = numel(ctrl_mice.names);
 n_mice = numel(names);
 
+% each mouse's tissue profile over the planes the alignment is fitted on: its
+% mean and its spread along AP, which set the slope
+profiles_all = [ctrl_mice.profiles, exp_mice.profiles];
+fit_planes = align_exp_to_ctrl(profiles_all(:, 1:n_ctrl), profiles_all(:, n_ctrl + 1:end));
+tissue = struct();
+tissue.mean = mean(profiles_all(fit_planes, :), 1, 'omitnan')';
+tissue.sd = std(profiles_all(fit_planes, :), 0, 1, 'omitnan')';
+clear profiles_all
+
 %% Each mouse left out
 
-% the folds and the counts under every split, from their cache when it was made
-% from these maps, autofluorescence and settings
+% the folds, the slopes and the counts under every split, from their cache when
+% it was made from these maps, autofluorescence and settings; a part missing
+% from it, or made at other slopes, is computed and added
 influence_file = fullfile(comp_out_dir, ['Influence_' file_tag '.mat']);
 influence_settings = struct('split_settings', split_settings, 'auto_settings', ...
     auto_settings);
-folds = [];
-counts = [];
-if exist(influence_file, 'file') && ~force_recompute
-    S_influence = load(influence_file, 'folds', 'counts', 'influence_settings');
-    if isequal(S_influence.influence_settings, influence_settings)
-        fprintf('Loading the folds and the counts under every split from %s...\n', ...
-            influence_file);
-        folds = S_influence.folds;
-        counts = S_influence.counts;
-    end
-    clear S_influence
+cached = load_influence(influence_file, influence_settings, force_recompute);
+
+% the folds with the alignment refitted, as step 3 would fit it on the mice kept
+if isempty(cached.folds)
+    cached.folds = fold_influence(ctrl_mice, exp_mice, masks, perm_settings, []);
+    save_influence(influence_file, cached, influence_settings);
 end
-if isempty(folds)
-    folds = fold_influence(ctrl_mice, exp_mice, masks, perm_settings);
-    fprintf('Saving the folds to %s...\n', influence_file);
-    save(influence_file, 'folds', 'counts', 'influence_settings', '-v7.3');
-end
+folds = cached.folds;
 
 % fold 0 must be step 3's cluster and p, each fold's cluster the leave-one-out's
 fprintf('Folds in %s:\n', cluster_region);
@@ -223,14 +250,36 @@ if isempty(cluster_lin)
            '|L - R| is higher in %s; nothing to describe.'], cluster_region, exp_type);
 end
 
+% the folds again with the alignment of all the mice held; fold 0 must be the
+% same as with it refitted
+alignment = struct('slope', folds.slope(1), 'intercept', folds.intercept(1), ...
+    'common_factor', folds.common_factor(1));
+if isempty(cached.folds_held)
+    fprintf('Each mouse left out, the alignment held at that of all the mice:\n');
+    cached.folds_held = fold_influence(ctrl_mice, exp_mice, masks, perm_settings, ...
+        alignment);
+    save_influence(influence_file, cached, influence_settings);
+end
+folds_held = cached.folds_held;
+check_held_fold_zero(folds, folds_held);
+
+%% The alignment's slope
+
+% the comparison of all the mice at each slope of sweep_slopes
+if isempty(cached.sweep) || ~isequal(cached.sweep.slope(:), sweep_slopes(:))
+    fprintf('All the mice at %d slopes of the alignment:\n', numel(sweep_slopes));
+    cached.sweep = slope_sweep(ctrl_mice, exp_mice, masks, perm_settings, ...
+        alignment, sweep_slopes);
+    save_influence(influence_file, cached, influence_settings);
+end
+sweep = cached.sweep;
+
 %% Each mouse's readings
 
 % the window of the maps around the cluster of all the mice, and every mouse's
-% three readings: its views in the window, its value at every voxel of the
-% region, its mean over the cluster
+% readings: its views in the window, its value at every voxel of the region,
+% its mean over the cluster
 win = map_window(cluster_lin, masks, anatomy, window_um);
-alignment = struct('slope', folds.slope(1), 'intercept', folds.intercept(1), ...
-    'common_factor', folds.common_factor(1));
 [views, values, cluster_values, profiles] = mouse_readings(ctrl_mice, exp_mice, ...
     ctrl_auto, exp_auto, alignment, anatomy.region_lin, cluster_lin, win);
 clear ctrl_mice exp_mice ctrl_auto exp_auto
@@ -244,18 +293,20 @@ plane_changes = [section_changes(ctrl_type, ctrl_dir, names(1:n_ctrl), win, mask
 %% Counts under every split
 
 % for each reading, the experimental mice above every control mouse at each
-% complete voxel, and the largest patch at each level under every split
-readings = {'raw', 'test', 'auto'};
-if isempty(counts)
-    counts = struct();
+% complete voxel, the voxels and the largest patch at each level under every
+% split
+readings = {'raw', 'test', 'unscaled', 'auto'};
+if ~has_counts(cached.counts, readings)
+    cached.counts = struct();
     for r = 1:numel(readings)
         fprintf('Counts of the %s reading under every split:\n', readings{r});
-        counts.(readings{r}) = count_splits(values.(readings{r}), n_ctrl, ...
+        cached.counts.(readings{r}) = count_splits(values.(readings{r}), n_ctrl, ...
             anatomy.region_lin, masks.box_size, cluster_connectivity, cluster_lin);
     end
-    fprintf('Saving the folds and the counts to %s...\n', influence_file);
-    save(influence_file, 'folds', 'counts', 'influence_settings', '-v7.3');
+    save_influence(influence_file, cached, influence_settings);
 end
+counts = cached.counts;
+clear cached
 
 %% Size and peaks
 
@@ -263,29 +314,31 @@ end
 % it is above every mouse of the other group, and its peak
 cluster = cluster_size(cluster_lin, masks, anatomy);
 T_mice = mouse_table(names, n_ctrl, ctrl_type, exp_type, values, cluster_values, ...
-    counts, anatomy, cluster_lin, win);
+    counts, readings, tissue, anatomy, cluster_lin, win);
 
 %% Tables and figures
 
 % the tables
-T_folds = fold_table(folds, names, n_ctrl, ctrl_type, exp_type, win);
+T_folds = fold_table(folds, folds_held, names, n_ctrl, ctrl_type, exp_type, win);
+T_slopes = slope_table(sweep, folds, win);
 T_counts = count_table(counts, readings);
 T_cluster = struct2table(cluster, 'AsArray', true);
 T_profiles = profile_table(profiles, plane_changes, win, names, ...
-    anatomy.ccf_first_plane);
+    anatomy.ccf_first_index);
 writetable(T_folds, fullfile(comp_out_dir, ['Influence_Folds_' file_tag '.csv']));
+writetable(T_slopes, fullfile(comp_out_dir, ['Influence_Slopes_' file_tag '.csv']));
 writetable(T_profiles, fullfile(comp_out_dir, ['Influence_Profiles_' file_tag '.csv']));
 writetable(T_counts, fullfile(comp_out_dir, ['Influence_Consistency_' file_tag '.csv']));
 writetable(T_mice, fullfile(comp_out_dir, ['Influence_Mice_' file_tag '.csv']));
 writetable(T_cluster, fullfile(comp_out_dir, ['Influence_Cluster_' file_tag '.csv']));
-print_summary(T_folds, T_counts, T_mice, cluster);
+print_summary(T_folds, T_slopes, T_counts, T_mice, cluster);
 
 % the figures, their text from the settings and the run
 comparison = struct('ctrl_type', ctrl_type, 'exp_type', exp_type, 'cluster_region', ...
     cluster_region, 'perm_settings', perm_settings, 'n_ctrl', n_ctrl, 'n_mice', ...
-    n_mice, 'names', {names}, 'ccf_first_plane', anatomy.ccf_first_plane, ...
+    n_mice, 'names', {names}, 'ccf_first_index', anatomy.ccf_first_index, ...
     'box_first_plane', masks.box_ap(1), 'window_um', window_um);
-plot_folds(T_folds, comparison, file_tag, comp_out_dir);
+plot_folds(T_folds, T_slopes, comparison, file_tag, comp_out_dir);
 plot_maps(views, cluster_values, win, comparison, file_tag, comp_out_dir);
 plot_consistency(counts, readings, T_mice, win, masks, comparison, file_tag, ...
     comp_out_dir);
@@ -341,10 +394,11 @@ is_layer = strcmp(T_members.parcellation_term_set_name, 'substructure');
 anatomy.layer_index = T_members.parcellation_index(is_layer);
 anatomy.layer_name = T_members.parcellation_term_acronym(is_layer);
 
-% the crop's first plane in the CCF's 10 um planes, and the midline in the
-% folded grid's columns (between the last column of the left hemisphere and
-% the first of the right)
-anatomy.ccf_first_plane = A.aplims(1);
+% the crop's first plane as Allen's CCF index, counted from 0 (aplims counts
+% the 10 um annotation's planes from 1), and the midline in the folded grid's
+% columns (between the last column of the left hemisphere and the first of the
+% right)
+anatomy.ccf_first_index = A.aplims(1) - 1;
 anatomy.midline_ml = masks.folded_size(3) + 0.5;
 end
 
@@ -395,14 +449,63 @@ exp_auto = S_auto.exp_auto;
 auto_settings = S_auto.auto_settings;
 end
 
+function cached = load_influence(influence_file, influence_settings, force_recompute)
+% The parts of the cache of the folds, the slopes and the counts: those it
+% holds when it was made from these maps, autofluorescence and settings, empty
+% otherwise.
+
+parts = {'folds', 'folds_held', 'sweep', 'counts'};
+cached = struct();
+for p = 1:numel(parts)
+    cached.(parts{p}) = [];
+end
+if ~exist(influence_file, 'file') || force_recompute
+    return
+end
+held = who('-file', influence_file);
+S_influence = load(influence_file, 'influence_settings');
+if ~isequal(S_influence.influence_settings, influence_settings)
+    return
+end
+for p = 1:numel(parts)
+    if ismember(parts{p}, held)
+        S_part = load(influence_file, parts{p});
+        cached.(parts{p}) = S_part.(parts{p});
+    end
+end
+fprintf('Loading %s from %s...\n', strjoin(parts(ismember(parts, held)), ', '), ...
+    influence_file);
+end
+
+function save_influence(influence_file, cached, influence_settings)
+% The cache of the folds, the slopes and the counts, with the settings it was
+% made with.
+
+folds = cached.folds;
+folds_held = cached.folds_held;
+sweep = cached.sweep;
+counts = cached.counts;
+fprintf('Saving the folds, the slopes and the counts to %s...\n', influence_file);
+save(influence_file, 'folds', 'folds_held', 'sweep', 'counts', 'influence_settings', ...
+    '-v7.3');
+end
+
+function is_there = has_counts(counts, readings)
+% Whether the cached counts hold every reading, with the voxels at each level.
+
+is_there = isstruct(counts) && all(isfield(counts, readings));
+for r = 1:numel(readings)
+    is_there = is_there && isfield(counts.(readings{r}), 'n_at_level');
+end
+end
+
 % ===== Local functions: folds =====
 
-function folds = fold_influence(ctrl_mice, exp_mice, masks, perm_settings)
+function folds = fold_influence(ctrl_mice, exp_mice, masks, perm_settings, held)
 % Fold 0, the comparison as it is, then each mouse left out in turn, control
-% mice first: the fold's alignment, and region_permutation_test under every
-% split of its mice: the heaviest cluster where |L - R| is higher in the
-% experimental group (voxels, mass, peak), that of the other sign, the p of the
-% positive cluster's mass and of either sign's, and every split's masses.
+% mice first: the fold's alignment, refitted on its mice or, when held is
+% given, held at held's slope, intercept and common factor; and
+% one_comparison under every split of its mice.
 
 n_ctrl = numel(ctrl_mice.names);
 n_mice = n_ctrl + numel(exp_mice.names);
@@ -433,53 +536,150 @@ folds.null_negative = cell(n_folds, 1);
 t_start = tic;
 for f = 0:n_mice
 
-    % the fold's mice, control mice first, and their alignment on their groups
+    % the fold's mice, control mice first, and their alignment: refitted on
+    % their groups, or held
     kept = setdiff(1:n_mice, f);
     kept_exp = is_exp(kept);
-    [~, ~, ~, slope, intercept, common_factor] = align_exp_to_ctrl( ...
-        profiles(:, kept(~kept_exp)), profiles(:, kept(kept_exp)));
+    if isempty(held)
+        [~, ~, ~, slope, intercept, common_factor] = align_exp_to_ctrl( ...
+            profiles(:, kept(~kept_exp)), profiles(:, kept(kept_exp)));
+        alignment = struct('slope', slope, 'intercept', intercept, ...
+            'common_factor', common_factor);
+    else
+        alignment = held;
+    end
 
-    % their |L - R| on the band, and the test under every split of them
-    stack = band_stack(boxes(kept), kept_exp, slope, intercept, common_factor, masks);
-    [geom, is_cand] = band_geometry(stack, masks, perm_settings);
-    stack = stack(is_cand, :);
-    perm = region_permutation_test({stack}, nnz(~kept_exp), geom, perm_settings);
-    clear stack
-
-    % the cluster's measure under every split, positive and negative
-    map = perm.maps{1};
-    is_cluster = strcmp(perm.measure_names, 'cluster');
-    observed = perm.splits.observed;
-    null_positive = map.null_pos(:, 1, is_cluster);
-    null_negative = map.null_neg(:, 1, is_cluster);
+    % the test under every split of them
+    result = one_comparison(boxes(kept), kept_exp, alignment, masks, perm_settings);
 
     row = f + 1;
     folds.n_ctrl(row) = nnz(~kept_exp);
     folds.n_exp(row) = nnz(kept_exp);
-    folds.slope(row) = slope;
-    folds.intercept(row) = intercept;
-    folds.common_factor(row) = common_factor;
-    folds.n_splits(row) = numel(null_positive);
-    folds.cluster_n(row) = map.detail.cluster_n(1, 1);
-    folds.cluster_mass(row) = null_positive(observed);
-    folds.cluster_peak(row) = map.detail.cluster_peak(1, 1);
-    folds.negative_n(row) = map.detail.cluster_n(1, 2);
-    folds.negative_mass(row) = null_negative(observed);
-
-    % the positive cluster's p, and step 3's of either sign
-    folds.p_positive(row) = mean(null_positive >= null_positive(observed));
-    folds.p_either(row) = map.p_perm(1, is_cluster);
-    folds.either_sign(row) = map.sign(1, is_cluster);
-    folds.cluster_voxels{row} = map.detail.cluster_voxels{1, 1};
-    folds.null_positive{row} = null_positive;
-    folds.null_negative{row} = null_negative;
+    folds.slope(row) = alignment.slope;
+    folds.intercept(row) = alignment.intercept;
+    folds.common_factor(row) = alignment.common_factor;
+    folds.n_splits(row) = result.n_splits;
+    folds.cluster_n(row) = result.cluster_n;
+    folds.cluster_mass(row) = result.cluster_mass;
+    folds.cluster_peak(row) = result.cluster_peak;
+    folds.negative_n(row) = result.negative_n;
+    folds.negative_mass(row) = result.negative_mass;
+    folds.p_positive(row) = result.p_positive;
+    folds.p_either(row) = result.p_either;
+    folds.either_sign(row) = result.either_sign;
+    folds.cluster_voxels{row} = result.cluster_voxels;
+    folds.null_positive{row} = result.null_positive;
+    folds.null_negative{row} = result.null_negative;
 
     elapsed_min = toc(t_start) / 60;
-    fprintf(['  fold %d of %d: %d control and %d experimental mice, cluster %d voxels, ' ...
-             'mass %.1f, p %.4f (positive), %.4f (either sign); %.1f min\n'], f, ...
-            n_mice, folds.n_ctrl(row), folds.n_exp(row), folds.cluster_n(row), ...
-            folds.cluster_mass(row), folds.p_positive(row), folds.p_either(row), ...
-            elapsed_min);
+    fprintf(['  fold %d of %d: %d control and %d experimental mice, slope %.3f, ' ...
+             'cluster %d voxels, mass %.1f, p %.4f (positive), %.4f (either sign); ' ...
+             '%.1f min\n'], f, n_mice, folds.n_ctrl(row), folds.n_exp(row), ...
+            alignment.slope, folds.cluster_n(row), folds.cluster_mass(row), ...
+            folds.p_positive(row), folds.p_either(row), elapsed_min);
+end
+end
+
+function sweep = slope_sweep(ctrl_mice, exp_mice, masks, perm_settings, alignment, ...
+    slopes)
+% The comparison of all the mice with the alignment's slope at each of slopes,
+% its intercept and common factor those of alignment (neither changes a t):
+% one_comparison under every split, both signs.
+
+boxes = [ctrl_mice.box(:); exp_mice.box(:)];
+n_ctrl = numel(ctrl_mice.names);
+is_exp = (1:numel(boxes))' > n_ctrl;
+n_slopes = numel(slopes);
+
+sweep = struct();
+sweep.slope = slopes(:);
+sweep.n_splits = zeros(n_slopes, 1);
+sweep.cluster_n = zeros(n_slopes, 1);
+sweep.cluster_mass = zeros(n_slopes, 1);
+sweep.negative_n = zeros(n_slopes, 1);
+sweep.negative_mass = zeros(n_slopes, 1);
+sweep.p_positive = nan(n_slopes, 1);
+sweep.p_negative = nan(n_slopes, 1);
+sweep.p_either = nan(n_slopes, 1);
+sweep.either_sign = zeros(n_slopes, 1);
+sweep.cluster_voxels = cell(n_slopes, 1);
+t_start = tic;
+for s = 1:n_slopes
+    at_slope = alignment;
+    at_slope.slope = slopes(s);
+    result = one_comparison(boxes, is_exp, at_slope, masks, perm_settings);
+    sweep.n_splits(s) = result.n_splits;
+    sweep.cluster_n(s) = result.cluster_n;
+    sweep.cluster_mass(s) = result.cluster_mass;
+    sweep.negative_n(s) = result.negative_n;
+    sweep.negative_mass(s) = result.negative_mass;
+    sweep.p_positive(s) = result.p_positive;
+    sweep.p_negative(s) = result.p_negative;
+    sweep.p_either(s) = result.p_either;
+    sweep.either_sign(s) = result.either_sign;
+    sweep.cluster_voxels{s} = result.cluster_voxels;
+
+    elapsed_min = toc(t_start) / 60;
+    fprintf(['  slope %.2f: cluster %d voxels, mass %.1f, p %.4f; other sign mass ' ...
+             '%.1f, p %.4f; either sign p %.4f (%+d); %.1f min\n'], slopes(s), ...
+            result.cluster_n, result.cluster_mass, result.p_positive, ...
+            result.negative_mass, result.p_negative, result.p_either, ...
+            result.either_sign, elapsed_min);
+end
+end
+
+function result = one_comparison(boxes, is_exp, alignment, masks, perm_settings)
+% Step 3's comparison of the given mice on the given alignment:
+% region_permutation_test on the band under every split of the mice into
+% groups of their sizes; the heaviest cluster of each sign (voxels, mass, peak),
+% the p of each sign's mass and step 3's p of either sign, and every split's
+% masses.
+
+stack = band_stack(boxes, is_exp, alignment.slope, alignment.intercept, ...
+    alignment.common_factor, masks);
+[geom, is_cand] = band_geometry(stack, masks, perm_settings);
+stack = stack(is_cand, :);
+perm = region_permutation_test({stack}, nnz(~is_exp), geom, perm_settings);
+clear stack
+
+% the cluster's measure under every split, positive and negative
+map = perm.maps{1};
+is_cluster = strcmp(perm.measure_names, 'cluster');
+observed = perm.splits.observed;
+result = struct();
+result.null_positive = map.null_pos(:, 1, is_cluster);
+result.null_negative = map.null_neg(:, 1, is_cluster);
+result.n_splits = numel(result.null_positive);
+result.cluster_n = map.detail.cluster_n(1, 1);
+result.cluster_mass = result.null_positive(observed);
+result.cluster_peak = map.detail.cluster_peak(1, 1);
+result.cluster_voxels = map.detail.cluster_voxels{1, 1};
+result.negative_n = map.detail.cluster_n(1, 2);
+result.negative_mass = result.null_negative(observed);
+
+% each sign's p, the share of the splits whose cluster of that sign is as
+% heavy; and step 3's, each split's larger sign against the observed larger
+result.p_positive = mean(result.null_positive >= result.cluster_mass);
+result.p_negative = mean(result.null_negative >= result.negative_mass);
+result.p_either = map.p_perm(1, is_cluster);
+result.either_sign = map.sign(1, is_cluster);
+end
+
+function check_held_fold_zero(folds, folds_held)
+% Fold 0 keeps every mouse, so holding its alignment changes nothing: the same
+% cluster, mass and p; a warning where it differs.
+
+is_same = isequal(sort(folds.cluster_voxels{1}(:)), ...
+    sort(folds_held.cluster_voxels{1}(:))) && ...
+    folds.cluster_mass(1) == folds_held.cluster_mass(1) && ...
+    folds.p_either(1) == folds_held.p_either(1);
+if is_same
+    fprintf('  fold 0 with the alignment held is fold 0 refitted.\n');
+else
+    warning(['run_mouse_influence: fold 0 with the alignment held (%d voxels, mass ' ...
+             '%.2f) differs from fold 0 refitted (%d voxels, mass %.2f).'], ...
+             folds_held.cluster_n(1), folds_held.cluster_mass(1), folds.cluster_n(1), ...
+             folds.cluster_mass(1));
 end
 end
 
@@ -595,7 +795,9 @@ function [views, values, cluster_values, profiles] = mouse_readings(ctrl_mice, .
 % Every mouse's three readings (raw, auto, test), control mice first: its coronal
 % view and its view from above in the window, its value at each voxel of the
 % region, its mean over the cluster, and its profile along AP through the
-% cluster's coronal footprint.
+% cluster's coronal footprint; its coverage along AP, the share of the
+% footprint's voxels with a raw value; and, for the counts, its value at each
+% voxel of the region on the test's maps at slope 1 (unscaled).
 
 n_ctrl = numel(ctrl_mice.names);
 n_mice = n_ctrl + numel(exp_mice.names);
@@ -615,6 +817,8 @@ for r = 1:numel(readings)
     cluster_values.(readings{r}) = nan(n_mice, 1);
     profiles.(readings{r}) = nan(numel(win.ap), n_mice);
 end
+values.unscaled = nan(numel(region_lin), n_mice, 'single');
+profiles.coverage = nan(numel(win.ap), n_mice);
 fprintf('Reading every mouse in the window and the region...\n');
 for k = 1:n_mice
     is_exp = k > n_ctrl;
@@ -624,6 +828,8 @@ for k = 1:n_mice
     [views.raw.coronal(:, :, k), views.raw.above(:, :, k), values.raw(:, k), ...
         cluster_values.raw(k), profiles.raw(:, k)] = read_mouse(abs(lr_diff), lr_sum, ...
         region_lin, cluster_lin, win);
+    profiles.coverage(:, k) = footprint_mean(~isnan(lr_diff(win.ap, win.dv, win.ml)), ...
+        win.cluster_coronal);
     [lr_diff, lr_sum] = compute_lr_stats(boxes_auto{k});
     [views.auto.coronal(:, :, k), views.auto.above(:, :, k), values.auto(:, k), ...
         cluster_values.auto(k), profiles.auto(:, k)] = read_mouse(abs(lr_diff), ...
@@ -635,6 +841,11 @@ for k = 1:n_mice
     [views.test.coronal(:, :, k), views.test.above(:, :, k), values.test(:, k), ...
         cluster_values.test(k), profiles.test(:, k)] = read_mouse(abs(lr_diff), [], ...
         region_lin, cluster_lin, win);
+
+    % the test's maps at slope 1, each group on its own scale of step 2
+    lr_diff = aligned_box_lr(boxes{k}, is_exp, 1, alignment.intercept, ...
+        alignment.common_factor);
+    values.unscaled(:, k) = abs(lr_diff(region_lin));
     clear lr_diff lr_sum
 end
 end
@@ -762,9 +973,10 @@ function counts = count_splits(values, n_ctrl, region_lin, box_size, connectivit
     cluster_lin)
 % One reading's counts: at each complete voxel of the region (every mouse with a
 % value), the number of the split's experimental mice above every one of its
-% control mice, and the size of the largest connected patch at each level
-% (count >= level), under every split of the mice, the groups as they are
-% first; for the observed split, the counts and each level's patch.
+% control mice; the voxels at each level (count >= level) and the size of the
+% largest connected patch of them, under every split of the mice, the groups
+% as they are first; for the observed split, the counts and each level's patch;
+% and the voxels expected at each level on exchangeable mice.
 
 n_mice = size(values, 2);
 n_exp = n_mice - n_ctrl;
@@ -792,6 +1004,7 @@ counts.complete_lin = complete_lin;
 counts.cluster_complete = nnz(ismember(cluster_lin, complete_lin));
 counts.in_ctrl = in_ctrl;
 counts.largest = zeros(n_splits, n_exp);
+counts.n_at_level = zeros(n_splits, n_exp);
 counts.patch_lin = cell(1, n_exp);
 t_start = tic;
 for s = 1:n_splits
@@ -806,8 +1019,9 @@ for s = 1:n_splits
         counts.observed = count;
     end
 
-    % the largest patch at each level
+    % the voxels at each level, and their largest patch
     for k = 1:n_exp
+        counts.n_at_level(s, k) = nnz(count >= k);
         [counts.largest(s, k), patch_lin] = largest_patch(count >= k, complete_lin, ...
             box_size, connectivity);
         if s == 1
@@ -821,6 +1035,22 @@ for s = 1:n_splits
     end
 end
 counts.p = mean(counts.largest >= counts.largest(1, :), 1);
+counts.p_at_level = mean(counts.n_at_level >= counts.n_at_level(1, :), 1);
+
+% the voxels expected at each level on exchangeable mice: the top k of a
+% voxel's mice are all experimental with probability C(n_exp, k) / C(n_mice, k),
+% which is also the mean over every split, the check below
+counts.expected_at_level = zeros(1, n_exp);
+for k = 1:n_exp
+    counts.expected_at_level(k) = numel(complete_lin) * nchoosek(n_exp, k) / ...
+        nchoosek(n_mice, k);
+end
+largest_gap = max(abs(mean(counts.n_at_level, 1) - counts.expected_at_level));
+if largest_gap > 1e-6 * numel(complete_lin)
+    warning(['run_mouse_influence: the voxels at a level, averaged over every split, ' ...
+             'differ from their expectation on exchangeable mice by up to %.1f.'], ...
+             largest_gap);
+end
 
 % the observed split in the cluster: its voxels at each level, and those of
 % each level's largest patch
@@ -889,13 +1119,13 @@ cluster = struct();
 cluster.n_voxels = numel(cluster_lin);
 cluster.volume_mm3 = numel(cluster_lin) * 1e-6;
 
-% planes in the volumes' crop and in the CCF, and the extents along the axes,
-% from the first voxel's edge to the last's
+% planes in the volumes' crop and as Allen's CCF index (from 0), and the extents
+% along the axes, from the first voxel's edge to the last's
 crop_ap = ap + masks.box_ap(1) - 1;
 cluster.plane_first = min(crop_ap);
 cluster.plane_last = max(crop_ap);
-cluster.ccf_plane_first = cluster.plane_first + anatomy.ccf_first_plane - 1;
-cluster.ccf_plane_last = cluster.plane_last + anatomy.ccf_first_plane - 1;
+cluster.ccf_index_first = cluster.plane_first + anatomy.ccf_first_index - 1;
+cluster.ccf_index_last = cluster.plane_last + anatomy.ccf_first_index - 1;
 cluster.ap_extent_um = (max(ap) - min(ap) + 1) * 10;
 cluster.dv_extent_um = (max(dv) - min(dv) + 1) * 10;
 cluster.ml_extent_um = (max(ml) - min(ml) + 1) * 10;
@@ -972,16 +1202,17 @@ layers(has_layer) = anatomy.layer_name(row(has_layer));
 end
 
 function T_mice = mouse_table(names, n_ctrl, ctrl_type, exp_type, values, ...
-    cluster_values, counts, anatomy, cluster_lin, win)
-% One row per mouse, control mice first: its values over the cluster, the share
+    cluster_values, counts, readings, tissue, anatomy, cluster_lin, win)
+% One row per mouse, control mice first: its tissue profile's mean and spread
+% along AP over the alignment's planes; its values over the cluster; the share
 % of the region's and of the cluster's complete voxels where it is above every
-% mouse of the other group, and its peak raw asymmetry and, for the
+% mouse of the other group, per reading (in the cluster, chosen on these mice,
+% no chance level applies); and its peak raw asymmetry and, for the
 % experimental mice, the peak of its excess over the highest control mouse:
 % where each sits, in um from the cluster's centre, below the pia, in which
 % layer, and how far from the cluster.
 
 n_mice = numel(names);
-readings = {'raw', 'test', 'auto'};
 
 % where each mouse is above every mouse of the other group, per reading, over
 % the complete voxels of the region and of the cluster
@@ -1008,6 +1239,8 @@ for k = 1:n_mice
     else
         row.group = exp_type;
     end
+    row.tissue_mean = tissue.mean(k);
+    row.tissue_sd_ap = tissue.sd(k);
     row.cluster_ai_raw = cluster_values.raw(k);
     row.cluster_ai_auto = cluster_values.auto(k);
     row.cluster_abs_diff_test = cluster_values.test(k);
@@ -1063,11 +1296,12 @@ end
 
 % ===== Local functions: tables and summary =====
 
-function T_folds = fold_table(folds, names, n_ctrl, ctrl_type, exp_type, win)
+function T_folds = fold_table(folds, folds_held, names, n_ctrl, ctrl_type, exp_type, win)
 % One row per fold: the mouse left out and its group, the fold's mice and
 % alignment, its cluster (voxels, volume, mass, peak, planes, centre in um from
 % the cluster of all the mice's, its voxels shared with that cluster), the
-% cluster of the other sign, and the two p.
+% cluster of the other sign, and their p; then the same with the alignment held
+% at that of all the mice (held_).
 
 n_folds = numel(folds.left_out);
 full_cluster = folds.cluster_voxels{1};
@@ -1105,16 +1339,64 @@ for f = 1:n_folds
     [row.plane_first, row.plane_last, row.centre_ap_um, row.centre_dv_um, ...
         row.centre_ml_um] = cluster_centre(cluster_lin, win);
 
-    % the other sign, and the two p
+    % the other sign, and the p
     row.negative_n = folds.negative_n(f);
     row.negative_mass = folds.negative_mass(f);
     row.p_positive = folds.p_positive(f);
     row.n_splits_reaching_positive = round(folds.p_positive(f) * folds.n_splits(f));
+    row.p_negative = mean(folds.null_negative{f} >= folds.negative_mass(f));
     row.p_either_sign = folds.p_either(f);
     row.either_sign = folds.either_sign(f);
+
+    % the same with the alignment held
+    held_lin = folds_held.cluster_voxels{f};
+    row.held_slope = folds_held.slope(f);
+    row.held_cluster_n = folds_held.cluster_n(f);
+    row.held_cluster_mass = folds_held.cluster_mass(f);
+    row.held_shared_with_all_mice_n = numel(intersect(held_lin, full_cluster));
+    row.held_share_of_all_mice_cluster = row.held_shared_with_all_mice_n / ...
+        numel(full_cluster);
+    row.held_negative_n = folds_held.negative_n(f);
+    row.held_negative_mass = folds_held.negative_mass(f);
+    row.held_p_positive = folds_held.p_positive(f);
+    row.held_p_negative = mean(folds_held.null_negative{f} >= folds_held.negative_mass(f));
+    row.held_p_either_sign = folds_held.p_either(f);
+    row.held_either_sign = folds_held.either_sign(f);
     rows{f} = row;
 end
 T_folds = struct2table([rows{:}]', 'AsArray', true);
+end
+
+function T_slopes = slope_table(sweep, folds, win)
+% One row per slope of the alignment, the comparison of all the mice at it:
+% the slopes of sweep and the fitted one (fold 0), in order; each sign's
+% heaviest cluster, its voxels shared with the cluster at the fitted slope and
+% its p, and step 3's p of either sign.
+
+slope = [sweep.slope; folds.slope(1)];
+is_fitted = [false(numel(sweep.slope), 1); true];
+cluster_n = [sweep.cluster_n; folds.cluster_n(1)];
+cluster_mass = [sweep.cluster_mass; folds.cluster_mass(1)];
+cluster_voxels = [sweep.cluster_voxels; folds.cluster_voxels(1)];
+negative_n = [sweep.negative_n; folds.negative_n(1)];
+negative_mass = [sweep.negative_mass; folds.negative_mass(1)];
+p_positive = [sweep.p_positive; folds.p_positive(1)];
+p_negative = [sweep.p_negative; mean(folds.null_negative{1} >= folds.negative_mass(1))];
+p_either_sign = [sweep.p_either; folds.p_either(1)];
+either_sign = [sweep.either_sign; folds.either_sign(1)];
+n_splits = [sweep.n_splits; folds.n_splits(1)];
+
+full_cluster = folds.cluster_voxels{1};
+shared_with_fitted_n = cellfun(@(c) numel(intersect(c, full_cluster)), cluster_voxels);
+plane_first = nan(numel(slope), 1);
+plane_last = nan(numel(slope), 1);
+for s = 1:numel(slope)
+    [plane_first(s), plane_last(s)] = cluster_centre(cluster_voxels{s}, win);
+end
+T_slopes = table(slope, is_fitted, n_splits, cluster_n, cluster_mass, ...
+    shared_with_fitted_n, plane_first, plane_last, negative_n, negative_mass, ...
+    p_positive, p_negative, p_either_sign, either_sign);
+T_slopes = sortrows(T_slopes, 'slope');
 end
 
 function [plane_first, plane_last, centre_ap, centre_dv, centre_ml] = ...
@@ -1140,9 +1422,10 @@ centre_ml = (mean(ml) - win.centre(3)) * 10;
 end
 
 function T_counts = count_table(counts, readings)
-% One row per reading and level: the complete voxels, the observed voxels at the
-% level and its largest patch, what the patch shares with the cluster, the
-% null's median and 95th percentile, and the p.
+% One row per reading and level: the complete voxels; the observed voxels at
+% the level, those expected on exchangeable mice and their ratio, the null's
+% median and the p; the level's largest patch, what it shares with the
+% cluster, the null's median and 95th percentile, and the p.
 
 rows = cell(0, 1);
 for r = 1:numel(readings)
@@ -1156,10 +1439,14 @@ for r = 1:numel(readings)
         row.n_region = C.n_region;
         row.n_complete = numel(C.complete_lin);
         row.cluster_complete = C.cluster_complete;
-        row.voxels_at_level = nnz(C.observed >= k);
+        row.voxels_at_level = C.n_at_level(1, k);
+        row.voxels_expected = C.expected_at_level(k);
+        row.voxels_over_expected = C.n_at_level(1, k) / C.expected_at_level(k);
+        row.voxels_null_median = median(C.n_at_level(:, k));
+        row.voxels_p = C.p_at_level(k);
+        row.cluster_at_level = C.cluster_at_level(k);
         row.largest_patch = C.largest(1, k);
         row.patch_in_cluster = C.patch_cluster(k);
-        row.cluster_at_level = C.cluster_at_level(k);
         row.null_median = median(null);
         row.null_q95 = prctile(null, 95);
         row.n_splits = numel(null);
@@ -1172,45 +1459,55 @@ T_counts = struct2table([rows{:}]', 'AsArray', true);
 end
 
 function T_profiles = profile_table(profiles, plane_changes, win, names, ...
-    ccf_first_plane)
-% One row per plane of the window: the plane in the volumes' crop and in the
-% CCF, its distance from the cluster's centre, and for each mouse its raw,
-% autofluorescence and test profile through the cluster's footprint and the
-% change of its collected stack to the next plane (NaN for the last).
+    ccf_first_index)
+% One row per plane of the window: the plane in the volumes' crop and as
+% Allen's CCF index (from 0), its distance from the cluster's centre, and for
+% each mouse its raw, autofluorescence and test profile through the cluster's
+% footprint, the share of the footprint with a raw value, and the change of its
+% collected stack to the next plane (NaN for the last).
 
 plane = (win.ap + win.box_first_plane - 1)';
-T_profiles = table(plane, plane + ccf_first_plane - 1, win.y_ap_um(:), ...
-    'VariableNames', {'plane', 'ccf_plane', 'ap_um'});
+T_profiles = table(plane, plane + ccf_first_index - 1, win.y_ap_um(:), ...
+    'VariableNames', {'plane', 'ccf_index', 'ap_um'});
 short = short_names(names);
 for k = 1:numel(names)
     T_profiles.([short{k} '_raw']) = profiles.raw(:, k);
     T_profiles.([short{k} '_auto']) = profiles.auto(:, k);
     T_profiles.([short{k} '_test']) = profiles.test(:, k);
+    T_profiles.([short{k} '_coverage']) = profiles.coverage(:, k);
     T_profiles.([short{k} '_section_change']) = [plane_changes(:, k); NaN];
 end
 end
 
-function print_summary(T_folds, T_counts, T_mice, cluster)
-% The folds, the counts, the mice and the cluster's size.
+function print_summary(T_folds, T_slopes, T_counts, T_mice, cluster)
+% The folds, the slopes, the counts, the mice and the cluster's size.
 
-fprintf('\nEach mouse left out:\n');
-disp(T_folds(:, {'fold', 'left_out', 'n_ctrl', 'n_exp', 'cluster_n', 'cluster_mass', ...
-    'shared_with_all_mice_n', 'share_of_all_mice_cluster', 'centre_ml_um', ...
-    'negative_mass', 'p_positive', 'p_either_sign', 'either_sign'}));
-fprintf('Experimental mice above every control mouse, largest patch per level:\n');
+fprintf('\nEach mouse left out, the alignment refitted:\n');
+disp(T_folds(:, {'fold', 'left_out', 'slope', 'cluster_n', 'cluster_mass', ...
+    'share_of_all_mice_cluster', 'centre_ml_um', 'negative_mass', 'p_positive', ...
+    'p_either_sign', 'either_sign'}));
+fprintf('Each mouse left out, the alignment held at that of all the mice:\n');
+disp(T_folds(:, {'fold', 'left_out', 'held_cluster_n', 'held_cluster_mass', ...
+    'held_share_of_all_mice_cluster', 'held_negative_mass', 'held_p_positive', ...
+    'held_p_either_sign', 'held_either_sign'}));
+fprintf('All the mice at each slope of the alignment:\n');
+disp(T_slopes);
+fprintf('Experimental mice above every control mouse, voxels and largest patch per level:\n');
 disp(T_counts(:, {'reading', 'level', 'n_complete', 'voxels_at_level', ...
-    'largest_patch', 'patch_in_cluster', 'cluster_at_level', 'null_median', ...
-    'null_q95', 'p'}));
+    'voxels_over_expected', 'voxels_p', 'largest_patch', 'patch_in_cluster', ...
+    'null_median', 'null_q95', 'p'}));
 fprintf('The mice:\n');
-disp(T_mice(:, {'mouse', 'group', 'cluster_ai_raw', 'cluster_ai_auto', ...
-    'above_other_region_raw', 'above_other_cluster_raw', 'above_other_cluster_test', ...
-    'above_other_cluster_auto', 'peak_ai_raw', 'peak_depth_um', 'peak_from_cluster_um', ...
-    'excess_peak_raw', 'excess_depth_um', 'excess_from_cluster_um'}));
-fprintf(['The cluster: %d voxels, %.4f mm^3; %d x %d x %d um along AP, DV and ML; ' ...
-         '%.0f to %.0f um below the pia (median %.0f); along the surface %.0f um ' ...
-         '(AP) by %.0f um, %.0f um thick; %s; %.2f of the layer 2/3 of a barrel ' ...
-         'column, its widest %.2f of the column''s diameter.\n'], cluster.n_voxels, ...
-        cluster.volume_mm3, cluster.ap_extent_um, cluster.dv_extent_um, ...
+disp(T_mice(:, {'mouse', 'group', 'tissue_mean', 'tissue_sd_ap', 'cluster_ai_raw', ...
+    'cluster_ai_auto', 'above_other_region_raw', 'above_other_cluster_raw', ...
+    'above_other_region_auto', 'peak_ai_raw', 'peak_depth_um', 'peak_layer', ...
+    'peak_from_cluster_um', 'excess_peak_raw', 'excess_from_cluster_um'}));
+fprintf(['The cluster: %d voxels, %.4f mm^3; planes %d to %d (CCF index %d to %d); ' ...
+         '%d x %d x %d um along AP, DV and ML; %.0f to %.0f um below the pia ' ...
+         '(median %.0f); along the surface %.0f um (AP) by %.0f um, %.0f um thick; ' ...
+         '%s; %.2f of the layer 2/3 of a barrel column, its widest %.2f of the ' ...
+         'column''s diameter.\n'], cluster.n_voxels, cluster.volume_mm3, ...
+        cluster.plane_first, cluster.plane_last, cluster.ccf_index_first, ...
+        cluster.ccf_index_last, cluster.ap_extent_um, cluster.dv_extent_um, ...
         cluster.ml_extent_um, cluster.depth_min_um, cluster.depth_max_um, ...
         cluster.depth_median_um, cluster.width_along_ap_um, cluster.width_across_um, ...
         cluster.thickness_um, cluster.layers, cluster.share_of_column_l23, ...
@@ -1219,10 +1516,12 @@ end
 
 % ===== Local functions: figures =====
 
-function plot_folds(T_folds, comparison, file_tag, comp_out_dir)
+function plot_folds(T_folds, T_slopes, comparison, file_tag, comp_out_dir)
 % The folds, one bar each, named by the mouse left out and coloured by its
 % group: the cluster's voxels with those it shares with the cluster of all the
-% mice, its mass, its two p; and the notes.
+% mice, its mass, its p, each with the alignment refitted (bars, dots) and held
+% (diamonds); all the mice at each slope of the alignment, both signs' mass and
+% p; and the notes.
 
 labels = [{'none'}; short_names(T_folds.left_out(2:end))];
 [bar_colours, inner_colours] = fold_colours(T_folds, comparison);
@@ -1230,33 +1529,41 @@ fig = figure('Visible', 'off', 'Color', 'w', 'Units', 'Normalized', ...
     'Position', [0 0 1 1]);
 
 % the cluster's voxels, those shared with the cluster of all the mice inside
-subplot(2, 2, 1);
-draw_fold_bars(T_folds.cluster_n, T_folds.shared_with_all_mice_n, bar_colours, ...
-    inner_colours, labels);
+subplot(2, 3, 1);
+draw_fold_bars(T_folds.cluster_n, T_folds.shared_with_all_mice_n, ...
+    T_folds.held_cluster_n, bar_colours, inner_colours, labels);
 ylabel('voxels of 10 um (1,000 voxels = 0.001 mm^3)', 'FontSize', 9);
-title('Cluster of the mice kept: its voxels (inner bars: shared with all the mice''s)', ...
-    'FontSize', 10);
+title({'Cluster of the mice kept: its voxels', ['\rm\fontsize{9}inner bars: shared ' ...
+       'with all the mice''s; diamonds: the alignment held']}, 'FontSize', 10);
 
 % its mass
-subplot(2, 2, 2);
-draw_fold_bars(T_folds.cluster_mass, [], bar_colours, [], labels);
+subplot(2, 3, 2);
+draw_fold_bars(T_folds.cluster_mass, [], T_folds.held_cluster_mass, bar_colours, [], ...
+    labels);
 ylabel('cluster mass (summed surprise)', 'FontSize', 9);
-title('Its mass, step 3''s score', 'FontSize', 10);
+title({'Its mass, step 3''s score', '\rm\fontsize{9}diamonds: the alignment held'}, ...
+    'FontSize', 10);
 
-% its two p
-subplot(2, 2, 3);
+% its p
+subplot(2, 3, 3);
 draw_fold_p(T_folds, bar_colours, labels);
 
+% all the mice at each slope: the mass of each sign's heaviest cluster, and its p
+subplot(2, 3, 4);
+draw_slope_masses(T_slopes, T_folds, comparison);
+subplot(2, 3, 5);
+draw_slope_p(T_slopes, comparison);
+
 % the notes
-subplot(2, 2, 4);
+subplot(2, 3, 6);
 axis off;
-text(0, 1, fold_notes(T_folds, comparison), 'Units', 'normalized', ...
-    'VerticalAlignment', 'top', 'FontSize', 8, 'Interpreter', 'none', ...
+text(-0.05, 1.02, fold_notes(T_folds, comparison), 'Units', 'normalized', ...
+    'VerticalAlignment', 'top', 'FontSize', 7, 'Interpreter', 'none', ...
     'FontName', 'FixedWidth');
 
-title_line = sprintf(['Each mouse left out: the %s cluster where |L - R| is higher in ' ...
-                      '%s - %s'], comparison.cluster_region, comparison.exp_type, ...
-                      strrep(file_tag, '_', ' '));
+title_line = sprintf(['Each mouse left out, and the alignment''s slope: the %s cluster ' ...
+                      'where |L - R| is higher in %s - %s'], comparison.cluster_region, ...
+                      comparison.exp_type, strrep(file_tag, '_', ' '));
 sgtitle(title_line, 'FontSize', 14, 'FontWeight', 'bold');
 saveas(fig, fullfile(comp_out_dir, ['Influence_Folds_' file_tag '.fig']));
 exportgraphics(fig, fullfile(comp_out_dir, ['Influence_Folds_' file_tag '.png']), ...
@@ -1278,9 +1585,10 @@ inner_colours(is_ctrl, :) = repmat(sep_palette('control_mean'), nnz(is_ctrl), 1)
 inner_colours(is_exp, :) = repmat(sep_palette('experimental_mean'), nnz(is_exp), 1);
 end
 
-function draw_fold_bars(heights, inner, bar_colours, inner_colours, labels)
-% One bar per fold, with an inner, narrower bar when given, and a dotted line
-% at the first fold's height, all the mice's.
+function draw_fold_bars(heights, inner, held, bar_colours, inner_colours, labels)
+% One bar per fold, with an inner, narrower bar when given and a diamond at the
+% held alignment's value, and a dotted line at the first fold's height, all the
+% mice's.
 
 hold on;
 box on;
@@ -1292,6 +1600,8 @@ for f = 1:n_folds
         bar(f, inner(f), 0.3, 'FaceColor', inner_colours(f, :), 'EdgeColor', 'none');
     end
 end
+scatter(1:n_folds, held, 40, 'd', 'MarkerFaceColor', 'w', 'MarkerEdgeColor', 'k', ...
+    'LineWidth', 1);
 yline(heights(1), ':', 'Color', [0.4 0.4 0.4], 'LineWidth', 0.8);
 xlim([0.4, n_folds + 0.6]);
 xticks(1:n_folds);
@@ -1302,9 +1612,10 @@ set(gca, 'FontSize', 9);
 end
 
 function draw_fold_p(T_folds, bar_colours, labels)
-% Each fold's two p on a log axis, the positive cluster's filled, either sign's
-% open (a square where its larger sign is the control group's), a dashed line
-% at 0.05 and a dotted one at each fold's smallest possible p.
+% Each fold's p on a log axis: the positive cluster's filled, either sign's
+% open (a square where its larger sign is the control group's), the positive
+% cluster's with the alignment held a diamond; a dashed line at 0.05 and,
+% under each of the first two, a dotted one at its smallest possible p.
 
 hold on;
 box on;
@@ -1312,19 +1623,22 @@ grid on;
 n_folds = height(T_folds);
 for f = 1:n_folds
 
-    % the smallest p: one split in all, two with groups of equal size, whose
-    % mirror split is as heavy
-    n_smallest = 1 + (T_folds.n_ctrl(f) == T_folds.n_exp(f));
-    plot(f + [-0.35 0.35], [1 1] * n_smallest / T_folds.n_splits(f), ':', ...
+    % the smallest p: one split for the positive cluster; for either sign, two
+    % with groups of equal size, a split and its mirror being as heavy
+    n_smallest_either = 1 + (T_folds.n_ctrl(f) == T_folds.n_exp(f));
+    plot(f - 0.2 + [-0.12 0.12], [1 1] / T_folds.n_splits(f), ':', ...
         'Color', [0.5 0.5 0.5]);
-    scatter(f - 0.12, T_folds.p_positive(f), 45, bar_colours(f, :), 'filled');
+    plot(f + [-0.12 0.12], [1 1] * n_smallest_either / T_folds.n_splits(f), ':', ...
+        'Color', [0.5 0.5 0.5]);
+    scatter(f - 0.2, T_folds.p_positive(f), 45, bar_colours(f, :), 'filled');
     if T_folds.either_sign(f) < 0
         marker = 's';
     else
         marker = 'o';
     end
-    scatter(f + 0.12, T_folds.p_either_sign(f), 45, bar_colours(f, :), marker, ...
-        'LineWidth', 1.2);
+    scatter(f, T_folds.p_either_sign(f), 45, bar_colours(f, :), marker, 'LineWidth', 1.2);
+    scatter(f + 0.2, T_folds.held_p_positive(f), 40, 'd', 'MarkerFaceColor', 'w', ...
+        'MarkerEdgeColor', 'k', 'LineWidth', 1);
 end
 yline(0.05, '--', 'Color', [0.4 0.4 0.4]);
 set(gca, 'YScale', 'log', 'FontSize', 9);
@@ -1336,8 +1650,70 @@ xticklabels(labels);
 xtickangle(45);
 xlabel('mouse left out', 'FontSize', 9);
 ylabel('p over every split of the mice kept', 'FontSize', 9);
-title(['p of the cluster''s mass: filled, the positive cluster; open, either sign ' ...
-       '(step 3''s)'], 'FontSize', 10);
+title({'p of the cluster''s mass', ['\rm\fontsize{9}filled: the positive cluster; ' ...
+       'open: either sign (step 3''s); diamonds: positive, the alignment held']}, ...
+       'FontSize', 10);
+end
+
+function draw_slope_masses(T_slopes, T_folds, comparison)
+% All the mice at each slope of the alignment: the mass of the heaviest cluster
+% where |L - R| is higher in each group; the fitted slope dashed, and the
+% slopes refitted without each mouse as triangles along the bottom, in the
+% colour of its group.
+
+hold on;
+box on;
+grid on;
+plot(T_slopes.slope, T_slopes.cluster_mass, '-o', 'Color', ...
+    sep_palette('experimental_mean'), 'MarkerFaceColor', ...
+    sep_palette('experimental_mean'), 'LineWidth', 1.4, 'MarkerSize', 5);
+plot(T_slopes.slope, T_slopes.negative_mass, '-o', 'Color', sep_palette('control_mean'), ...
+    'MarkerFaceColor', sep_palette('control_mean'), 'LineWidth', 1.4, 'MarkerSize', 5);
+y_top = 1.1 * max([T_slopes.cluster_mass; T_slopes.negative_mass]);
+fitted = T_slopes.slope(T_slopes.is_fitted);
+plot([fitted fitted], [0 y_top], '--', 'Color', [0.4 0.4 0.4]);
+[bar_colours, ~] = fold_colours(T_folds, comparison);
+for f = 2:height(T_folds)
+    scatter(T_folds.slope(f), 0.03 * y_top, 40, bar_colours(f, :), '^', 'filled');
+end
+ylim([0 y_top]);
+xlim([min(T_slopes.slope) - 0.05, max(T_slopes.slope) + 0.05]);
+set(gca, 'FontSize', 9);
+xlabel(sprintf('slope of the alignment (%s |L - R| times it; 1: each group on its own scale)', ...
+    comparison.exp_type), 'FontSize', 9);
+ylabel('cluster mass (summed surprise)', 'FontSize', 9);
+legend({sprintf('%s higher', comparison.exp_type), sprintf('%s higher', ...
+    comparison.ctrl_type)}, 'Location', 'northwest', 'FontSize', 8);
+title({'All the mice at each slope of the alignment', ['\rm\fontsize{9}dashed: the ' ...
+       'fitted slope; triangles: refitted without each mouse']}, 'FontSize', 10);
+end
+
+function draw_slope_p(T_slopes, comparison)
+% All the mice at each slope: the p of each sign's heaviest cluster over every
+% split, on a log axis, a dashed line at 0.05 and a dotted one at one split.
+
+hold on;
+box on;
+grid on;
+plot(T_slopes.slope, T_slopes.p_positive, '-o', 'Color', ...
+    sep_palette('experimental_mean'), 'MarkerFaceColor', ...
+    sep_palette('experimental_mean'), 'LineWidth', 1.4, 'MarkerSize', 5);
+plot(T_slopes.slope, T_slopes.p_negative, '-o', 'Color', sep_palette('control_mean'), ...
+    'MarkerFaceColor', sep_palette('control_mean'), 'LineWidth', 1.4, 'MarkerSize', 5);
+fitted = T_slopes.slope(T_slopes.is_fitted);
+plot([fitted fitted], [2e-3 1.2], '--', 'Color', [0.4 0.4 0.4]);
+yline(0.05, '--', 'Color', [0.4 0.4 0.4]);
+yline(1 / T_slopes.n_splits(1), ':', 'Color', [0.5 0.5 0.5]);
+set(gca, 'YScale', 'log', 'FontSize', 9);
+ylim([2e-3 1.2]);
+yticks([0.005 0.01 0.02 0.05 0.1 0.2 0.5 1]);
+xlim([min(T_slopes.slope) - 0.05, max(T_slopes.slope) + 0.05]);
+xlabel('slope of the alignment', 'FontSize', 9);
+ylabel(sprintf('p over every split (%d)', T_slopes.n_splits(1)), 'FontSize', 9);
+legend({sprintf('%s higher', comparison.exp_type), sprintf('%s higher', ...
+    comparison.ctrl_type)}, 'Location', 'northeast', 'FontSize', 8);
+title({'Each sign''s p at each slope', ['\rm\fontsize{9}the splits keep the slope: ' ...
+       'step 3''s p does not carry its uncertainty']}, 'FontSize', 10);
 end
 
 function lines = fold_notes(T_folds, comparison)
@@ -1347,22 +1723,33 @@ settings = comparison.perm_settings;
 split_counts = strjoin(arrayfun(@num2str, unique(T_folds.n_splits)', ...
     'UniformOutput', false), ', ');
 lines = {
-    'Each fold: step 3''s comparison of the mice kept, the alignment refitted on them;'
-    sprintf(['  a t where each group has %d mice with a value; its surprise''s median ' ...
-             'over +/- %d planes;'], settings.min_mice_per_group, settings.slab_range)
-    sprintf('  voxels at p < %g, %d-connected within %s.', settings.cluster_p, ...
-        settings.cluster_connectivity, comparison.cluster_region)
-    sprintf('  The cluster: the heaviest where |L - R| is higher in %s.', ...
-        comparison.exp_type)
+    sprintf(['Each fold: step 3''s comparison of the mice kept, the alignment (the line ' ...
+             'from the %s'], comparison.exp_type)
+    sprintf(['  profile onto the %s one) refitted on them; a t where each group has %d ' ...
+             'mice'], comparison.ctrl_type, settings.min_mice_per_group)
+    sprintf(['  with a value; its surprise''s median over +/- %d planes; voxels at ' ...
+             'p < %g,'], settings.slab_range, settings.cluster_p)
+    sprintf(['  %d-connected within %s. The cluster: the heaviest where |L - R| is ' ...
+             'higher'], settings.cluster_connectivity, comparison.cluster_region)
+    sprintf('  in %s.', comparison.exp_type)
+    sprintf(['Held: the same with the alignment of all the mice. On the test''s maps ' ...
+             'the slope'])
+    sprintf(['  multiplies every %s mouse''s |L - R| (the intercept cancels in L - R, ' ...
+             'the'], comparison.exp_type)
+    '  common factor in the t), so a refitted slope moves all of them at once.'
     sprintf(['p positive: the share of every split of the mice kept into groups of ' ...
-             'their sizes (%s splits)'], split_counts)
-    '  whose positive cluster is as heavy, the observed split included.'
+             'their sizes'])
+    sprintf(['  (%s splits) whose positive cluster is as heavy, the observed split ' ...
+             'included.'], split_counts)
     'p either sign: step 3''s, each split''s larger sign against the observed larger;'
     sprintf('  an open square where the observed larger is the %s-higher cluster.', ...
         comparison.ctrl_type)
-    'Dotted: the smallest p possible (one split; two for groups of equal size).'
+    'Dotted: the smallest p possible, one split for the positive p; for either sign,'
+    '  two with groups of equal size, a split and its mirror being as heavy.'
     'Run_normalise_groups is not redone without the mouse (README).'
     ''
+    sprintf('%-15s %5s %6s %5s %6s %6s  | %13s %5s %6s', '', 'slope', 'voxels', ...
+        'kept', 'p', 'either', 'held: voxels', 'kept', 'p')
     };
 
 % the folds, in numbers
@@ -1372,21 +1759,24 @@ for f = 1:height(T_folds)
     else
         name = ['without ' strtok(T_folds.left_out{f}, '_')];
     end
-    lines{end + 1} = sprintf(['%-15s %5d voxels, mass %7.1f, %3.0f%% of all the ' ...
-        'mice''s; p %.3f, either sign %.3f%s'], name, T_folds.cluster_n(f), ...
-        T_folds.cluster_mass(f), 100 * T_folds.share_of_all_mice_cluster(f), ...
-        T_folds.p_positive(f), T_folds.p_either_sign(f), ...
-        sign_note(T_folds.either_sign(f), comparison)); %#ok<AGROW>
+    lines{end + 1} = sprintf('%-15s %5.2f %6d %4.0f%% %6.3f %6.3f%s | %13d %4.0f%% %6.3f', ...
+        name, T_folds.slope(f), T_folds.cluster_n(f), ...
+        100 * T_folds.share_of_all_mice_cluster(f), T_folds.p_positive(f), ...
+        T_folds.p_either_sign(f), sign_note(T_folds.either_sign(f)), ...
+        T_folds.held_cluster_n(f), 100 * T_folds.held_share_of_all_mice_cluster(f), ...
+        T_folds.held_p_positive(f)); %#ok<AGROW>
 end
+lines{end + 1} = sprintf(['kept: the share of the cluster of all the mice; * either sign''s ' ...
+                          'larger is %s higher'], comparison.ctrl_type);
 end
 
-function note = sign_note(either_sign, comparison)
-% A note after a fold's either-sign p when its larger sign is the control
+function note = sign_note(either_sign)
+% A mark after a fold's either-sign p when its larger sign is the control
 % group's.
 
-note = '';
+note = ' ';
 if either_sign < 0
-    note = sprintf(' (%s higher)', comparison.ctrl_type);
+    note = '*';
 end
 end
 
@@ -1472,11 +1862,11 @@ cb.FontSize = 9;
 
 % the title: the reading, the views, the outlines and the scale
 planes_crop = win.planes([1 end]) + win.box_first_plane - 1;
-planes_ccf = planes_crop + comparison.ccf_first_plane - 1;
+planes_ccf = planes_crop + comparison.ccf_first_index - 1;
 title_line = sprintf('Each mouse''s %s around the %s cluster - %s', style.description, ...
     comparison.cluster_region, strrep(file_name, '_', ' '));
 view_line = sprintf(['Rows: %s coronal, from above, %s coronal, from above. Coronal: ' ...
-                     'the mean over the cluster''s planes %d to %d (CCF %d to %d); ' ...
+                     'the mean over the cluster''s planes %d to %d (CCF index %d to %d); ' ...
                      'from above: over %.0f to %.0f um below the pia, the cluster''s ' ...
                      'depth.'], comparison.ctrl_type, comparison.exp_type, planes_crop, ...
                      planes_ccf, win.depth_range);
@@ -1519,14 +1909,15 @@ function plot_consistency(counts, readings, T_mice, win, masks, comparison, file
     comp_out_dir)
 % The counts, a row per reading: the number of experimental mice above every
 % control mouse, averaged over the cluster's planes and over its depth; the
-% largest patch at each level against every split; each mouse's share of the
-% cluster where it is above every mouse of the other group.
+% largest patch at each level against every split, with the voxels at the level
+% over their expectation; each mouse's share of the region, and of the cluster,
+% where it is above every mouse of the other group.
 
 n_exp = comparison.n_mice - comparison.n_ctrl;
 names = short_names(comparison.names);
 count_colours = sep_palette('counts');
-descriptions = struct('raw', 'raw AI', 'test', 'test''s |L - R|', 'auto', ...
-    'autofluorescence AI');
+descriptions = struct('raw', 'raw AI', 'test', 'test''s |L - R|', 'unscaled', ...
+    'test''s |L - R| at slope 1', 'auto', 'autofluorescence AI');
 fig = figure('Visible', 'off', 'Color', 'w', 'Units', 'Normalized', ...
     'Position', [0 0 1 1]);
 
@@ -1561,12 +1952,16 @@ for r = 1:n_rows_grid
     % the largest patch at each level against every split
     subplot(n_rows_grid, 4, (r - 1) * 4 + 3);
     draw_count_null(C, comparison);
+    title(sprintf('%s: largest patch at each level', descriptions.(readings{r})), ...
+        'FontSize', 9);
 
-    % each mouse's share of the cluster above every mouse of the other group
+    % each mouse's share above every mouse of the other group, over the region
+    % and in the cluster
     subplot(n_rows_grid, 4, (r - 1) * 4 + 4);
-    draw_mouse_shares(T_mice.(['above_other_cluster_' readings{r}]), names, comparison);
-    title(sprintf('%s: share of the cluster above the other group', ...
-        descriptions.(readings{r})), 'FontSize', 9);
+    draw_mouse_shares(T_mice.(['above_other_region_' readings{r}]), ...
+        T_mice.(['above_other_cluster_' readings{r}]), names, comparison);
+    title(sprintf('%s: share above the other group', descriptions.(readings{r})), ...
+        'FontSize', 9);
 end
 cb = colorbar(ax, 'Position', [0.045 0.35 0.008 0.3]);
 cb.Label.String = sprintf('%s mice above every %s mouse (mean)', comparison.exp_type, ...
@@ -1580,16 +1975,21 @@ title_line = sprintf(['How many %s mice are above every %s mouse, voxel by voxel
                       comparison.cluster_region, strrep(file_tag, '_', ' '));
 count_line = sprintf(['Counted at the voxels where all %d mice have a value (raw: %d of ' ...
                       '%d, %d of the cluster''s %d); views: the mean count, blue the ' ...
-                      'cluster of all the mice, dotted grey %s.'], comparison.n_mice, ...
+                      'cluster of all the mice, dotted grey %s. Slope 1: each group on ' ...
+                      'its own scale of step 2.'], comparison.n_mice, ...
                       numel(raw.complete_lin), raw.n_region, raw.cluster_complete, ...
                       win.n_cluster, comparison.cluster_region);
 null_line = sprintf(['Third column: the largest connected patch (%d-connected) where at ' ...
                      'least k mice are above, under each of the %d splits (grey) and ' ...
-                     'observed (red), p above. Bars: chance %.2f per mouse on ' ...
-                     'exchangeable mice.'], comparison.perm_settings.cluster_connectivity, ...
-                     size(raw.largest, 1), 1 / (n_exp + 1));
-sgtitle({title_line, ['\rm\fontsize{10}' count_line], ['\rm\fontsize{10}' null_line]}, ...
-    'FontSize', 13, 'FontWeight', 'bold');
+                     'observed (red), its p; x: the voxels at the level over those ' ...
+                     'expected on exchangeable mice, its p.'], ...
+                     comparison.perm_settings.cluster_connectivity, size(raw.largest, 1));
+share_line = sprintf(['Fourth column: bars, the share of the region''s voxels where a ' ...
+                      'mouse is above every mouse of the other group, chance %.2f on ' ...
+                      'exchangeable mice (dashed); dots, the same in the cluster, chosen ' ...
+                      'on these mice, so no chance level applies.'], 1 / (n_exp + 1));
+sgtitle({title_line, ['\rm\fontsize{10}' count_line], ['\rm\fontsize{10}' null_line], ...
+    ['\rm\fontsize{10}' share_line]}, 'FontSize', 13, 'FontWeight', 'bold');
 saveas(fig, fullfile(comp_out_dir, ['Influence_Consistency_' file_tag '.fig']));
 exportgraphics(fig, fullfile(comp_out_dir, ['Influence_Consistency_' file_tag '.png']), ...
     'Resolution', 300);
@@ -1597,7 +1997,8 @@ end
 
 function draw_count_null(C, comparison)
 % At each level, every split's largest patch as grey dots, the observed one as
-% a red dot, and its p above it; log axis of the voxels plus one, so a split
+% a red dot, and above it its p and the voxels at the level over their
+% expectation with that ratio's p; log axis of the voxels plus one, so a split
 % without a patch shows.
 
 hold on;
@@ -1609,28 +2010,31 @@ for k = 1:n_levels
     scatter(k + jitter, C.largest(:, k) + 1, 8, sep_palette('paired_lines'), 'filled', ...
         'MarkerFaceAlpha', 0.5);
     scatter(k, C.largest(1, k) + 1, 50, sep_palette('experimental_mean'), 'filled');
-    text(k, 3 * (max(C.largest(:, k)) + 1), sprintf('p %.3f', C.p(k)), ...
-        'HorizontalAlignment', 'center', 'FontSize', 7);
+    over_expected = C.n_at_level(1, k) / C.expected_at_level(k);
+    text(k, 3 * (max(C.largest(:, k)) + 1), {sprintf('p %.3f', C.p(k)), ...
+        sprintf('x%.2f, p %.3f', over_expected, C.p_at_level(k))}, ...
+        'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', 'FontSize', 6);
 end
 set(gca, 'YScale', 'log', 'FontSize', 8);
 xlim([0.4, n_levels + 0.6]);
 xticks(1:n_levels);
-ylim([0.7, 30 * (max(C.largest(:)) + 1)]);
+ylim([0.7, 300 * (max(C.largest(:)) + 1)]);
 xlabel(sprintf('level: at least k %s mice above every %s mouse', comparison.exp_type, ...
     comparison.ctrl_type), 'FontSize', 8);
 ylabel('largest patch (voxels + 1)', 'FontSize', 8);
-title('Largest patch at each level, observed and under every split', 'FontSize', 9);
 end
 
-function draw_mouse_shares(shares, names, comparison)
-% Each mouse's share of the cluster's complete voxels where it is above every
-% mouse of the other group, coloured by its group, a dashed line at the chance
-% of one mouse among the other group's.
+function draw_mouse_shares(region_shares, cluster_shares, names, comparison)
+% Each mouse's share of the region's complete voxels where it is above every
+% mouse of the other group, a bar coloured by its group with a dashed line at
+% the chance of one mouse among the other group's; and the same in the
+% cluster, an open dot, without a chance level since the cluster was chosen on
+% these mice.
 
 hold on;
 box on;
 grid on;
-n_mice = numel(shares);
+n_mice = numel(region_shares);
 n_ctrl = comparison.n_ctrl;
 for k = 1:n_mice
     if k <= n_ctrl
@@ -1640,16 +2044,18 @@ for k = 1:n_mice
         colour = sep_palette('experimental');
         n_other = n_ctrl;
     end
-    bar(k, shares(k), 0.7, 'FaceColor', colour, 'EdgeColor', 'none');
+    bar(k, region_shares(k), 0.7, 'FaceColor', colour, 'EdgeColor', 'none');
     plot(k + [-0.4 0.4], [1 1] / (n_other + 1), '--', 'Color', [0.4 0.4 0.4]);
 end
+scatter(1:n_mice, cluster_shares, 30, 'o', 'MarkerFaceColor', 'w', 'MarkerEdgeColor', ...
+    'k', 'LineWidth', 1);
 ylim([0 1]);
 xlim([0.4, n_mice + 0.6]);
 xticks(1:n_mice);
 xticklabels(names);
 xtickangle(45);
 set(gca, 'FontSize', 8);
-ylabel('share of the cluster''s voxels', 'FontSize', 8);
+ylabel('share of the voxels', 'FontSize', 8);
 end
 
 function plot_profiles(profiles, plane_changes, win, comparison, file_tag, ...
@@ -1657,9 +2063,10 @@ function plot_profiles(profiles, plane_changes, win, comparison, file_tag, ...
 % Each mouse's asymmetry along AP through the cluster's coronal footprint, a
 % panel per mouse, control mice in the first row: its raw AI, its
 % autofluorescence AI dashed, the highest and lowest control mouse's raw AI in
-% grey, the cluster's planes shaded, and at the bottom the change
-% of its collected stack from plane to plane, whose peaks are the edges between
-% its sections.
+% grey, the cluster's planes shaded, the planes where part of the footprint has
+% no tissue in the no-data grey (the darker, the less tissue), and at the
+% bottom the change of its collected stack from plane to plane, whose peaks
+% are the edges between its sections.
 
 % a column per mouse of a group, not the three of docs/STYLE.md, so a row is
 % one group
@@ -1694,6 +2101,13 @@ for k = 1:n_mice
     fill(cluster_edges_um([1 2 2 1]), [0 0 y_top y_top], [0.9 0.9 0.9], 'EdgeColor', ...
         'none');
 
+    % the planes where part of the footprint has no tissue, opaque where none
+    % has: beside a gap the asymmetry can come from the tissue's edge
+    for i = find(profiles.coverage(:, k) < 1)'
+        fill(ap_um(i) + [-5 5 5 -5], [0 0 y_top y_top], sep_palette('no_data'), ...
+            'EdgeColor', 'none', 'FaceAlpha', 1 - profiles.coverage(i, k));
+    end
+
     % the sections' edges at the bottom, a third of the height at the largest
     change = plane_changes(:, k) / max(plane_changes(:, k)) * y_top / 3;
     plot(edge_um, change, '-', 'Color', [0.35 0.35 0.35], 'LineWidth', 0.8);
@@ -1720,7 +2134,9 @@ title_line = sprintf(['Each mouse''s asymmetry along AP through the %s cluster''
                       strrep(file_tag, '_', ' '));
 lines_line = sprintf(['Thick: the raw AI (|L - R| / (L + R) per plane); dashed: the ' ...
                       'autofluorescence AI; grey: the lowest and highest %s mouse''s ' ...
-                      'raw AI; shaded: the cluster''s planes.'], comparison.ctrl_type);
+                      'raw AI; shaded: the cluster''s planes; darker grey: planes where ' ...
+                      'part of the footprint has no tissue, opaque where none has.'], ...
+                      comparison.ctrl_type);
 section_line = ['Bottom: the collected stack''s change from plane to plane in the ' ...
                 'footprint, unsmoothed; it peaks between two sections, which the ' ...
                 'registered volume holds each over the planes nearest it.'];

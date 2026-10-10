@@ -10,7 +10,7 @@
 %
 % Which mice the barrel-field cluster of step 3's test rests on, and why a few
 % mice are enough for its test while their means over the cluster do not
-% separate the groups. Four parts, from the caches of run_per_mouse_values:
+% separate the groups. Five parts, from the caches of run_per_mouse_values:
 %   1. each mouse left out in turn, the comparison redone without it as step 3
 %      does it (the alignment refitted, the t with min_mice_per_group mice per
 %      group, the surprise, its rolling median, p < cluster_p, connected within
@@ -18,23 +18,29 @@
 %      experimental group, its voxels, mass and overlap with the cluster of all
 %      the mice, and its p over every split of the remaining mice (126 for five
 %      against four), for that sign and for either sign as step 3 takes it;
-%   2. each mouse's asymmetry, |L - R| / (L + R) on its raw stack less its
+%      then the same with the alignment held at that of all the mice, which
+%      tells a mouse's own values from its part in the alignment's slope;
+%   2. the comparison of all the mice redone at other slopes of the alignment
+%      (sweep_slopes): the slope multiplies every experimental mouse's |L - R|
+%      on the test's maps, and the splits keep it fixed;
+%   3. each mouse's asymmetry, |L - R| / (L + R) on its raw stack less its
 %      off-tissue level (the reading to look at), on its autofluorescence and,
 %      as |L - R|, on the test's maps, in a window around the cluster: a coronal
 %      view over the cluster's planes and a view from above over the cluster's
 %      depth below the pia, the cluster outlined; and along AP through the
 %      cluster, with the edges between the mouse's sections;
-%   3. at every voxel of the region, how many mice of the experimental group are
-%      more asymmetric than every mouse of the control group (0 to 5), and the
-%      largest connected patch at each count, against the same under every split
-%      of the mice: whether the experimental mice agree on where they are
-%      asymmetric more than relabelled groups do;
-%   4. the cluster's size in micrometres against one barrel column, its depth
+%   4. at every voxel of the region, how many mice of the experimental group are
+%      more asymmetric than every mouse of the control group (0 to 5): how many
+%      voxels reach each count, and the largest connected patch at each count,
+%      against the same under every split of the mice; on the raw stack, the
+%      test's maps, the test's maps at slope 1 and the autofluorescence;
+%   5. the cluster's size in micrometres against one barrel column, its depth
 %      below the pia, and where each mouse's own peak asymmetry sits.
 % Saves, in data\comparisons\<ctrl>_vs_<exp>_<channel>\, Influence_Folds_<tag>
-% (.csv and the figure), Influence_Maps_<tag>_<reading> (one figure per
-% reading), Influence_Profiles_<tag> and Influence_Consistency_<tag> (.csv and
-% the figure), Influence_Mice_<tag>.csv, Influence_Cluster_<tag>.csv and the cache
+% (.csv and the figure of the folds and the slopes), Influence_Slopes_<tag>.csv,
+% Influence_Maps_<tag>_<reading> (one figure per reading),
+% Influence_Profiles_<tag> and Influence_Consistency_<tag> (.csv and the
+% figure), Influence_Mice_<tag>.csv, Influence_Cluster_<tag>.csv and the cache
 % of the splits, Influence_<tag>.mat, <tag> being the comparison and the
 % smoothing.
 %
@@ -42,8 +48,9 @@
 % field, the cluster settings of step 3; run_per_mouse_values must have run with
 % the same settings (its maps and autofluorescence caches are read). Run
 % sep_setup_paths first, once per MATLAB session; the code is in
-% pipeline\mouse_influence.m (for ten mice, about 25 minutes for the folds under
-% every split and 3 for the counts; a few minutes from the cache).
+% pipeline\mouse_influence.m (for ten mice and no pool, about 25 minutes for the
+% folds under every split, as much again with the alignment held, 20 for the
+% slopes and 4 for the counts; a few minutes from the cache).
 
 clear; clc; close all;
 
@@ -79,6 +86,12 @@ min_mice_per_group = 3;
 slab_range = 10;
 cluster_p = 0.01;
 cluster_connectivity = 18;
+
+% the slopes of the alignment the comparison of all the mice is redone at,
+% besides the fitted one: from 1, each group on its own scale of step 2, to 1.7,
+% past the slopes refitted without one mouse (1.11 to 1.67 for naive against
+% rws); the alignment's intercept and common factor change no t
+sweep_slopes = 1.0:0.1:1.7;
 
 % the window of the maps: the cluster's bounding box and this much on each side,
 % in micrometres (600 um: about two barrel columns of 300 um, Lefort et al.
@@ -120,6 +133,7 @@ run_settings.min_mice_per_group = min_mice_per_group;
 run_settings.slab_range = slab_range;
 run_settings.cluster_p = cluster_p;
 run_settings.cluster_connectivity = cluster_connectivity;
+run_settings.sweep_slopes = sweep_slopes;
 run_settings.window_um = window_um;
 run_settings.n_workers = n_workers;
 run_settings.force_recompute = force_recompute;
